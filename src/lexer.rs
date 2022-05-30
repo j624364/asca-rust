@@ -27,7 +27,7 @@ pub enum TokenKind {
     Cardinal,     // IPA character
     Star,         // *
     EmptySet,     // 
-    String,       // 
+    StringLit,       // 
     Ellipsis,     // ...
     Eol,          // End of Line 
 
@@ -352,7 +352,7 @@ impl Lexer {
             self.advance();
         }
 
-        Some(Token::new(TokenKind::String, buffer, start, self.pos))
+        Some(Token::new(TokenKind::StringLit, buffer, start, self.pos))
 
     }
 
