@@ -1,6 +1,5 @@
 #[derive(Debug)]
 pub enum TokenKind {
-    Alpha,        // α stress, β PLACE, γ voi etc.
     LeftSquare,   // [
     RightSquare,  // ]
     LeftCurly,    // {
@@ -11,11 +10,11 @@ pub enum TokenKind {
     RightBracket, // )
     LessThan,     // <
     GreaterThan,  // >
+    Equals,       // =
     Underline,    // _
     Arrow,        // -> or =>
     Comma,        // ,
     Colon,        // :
-    Feature,      // distinctive feature i.e. stress
     WordBoundary, // #
     SyllBoundary, // $
     Syllable,     // %
@@ -26,9 +25,9 @@ pub enum TokenKind {
     Pipe,         // | 
     Cardinal,     // IPA character
     Star,         // *
-    EmptySet,     // 
-    StringLit,       // 
-    Ellipsis,     // ...
+    EmptySet,     // ∅
+    StringLit,    // 
+    Ellipsis,     // ... or .. or … or ⋯
     Eol,          // End of Line 
 
     RootNode,       // ROOT node 
@@ -70,6 +69,14 @@ pub enum TokenKind {
     PharyngealNode, // PHAR subnode
     AdvancedTongueRoot,
     RetractedTongueRoot, 
+    
+    // Suprasegmental Features
+    Long,
+    Overlong,
+    Stress,
+    // Can only be used with : notation
+    Length, // Len : 2 == +long
+    Tone,   
 }
 
 #[derive(Debug)]
@@ -227,6 +234,7 @@ impl Lexer {
 
         let tkn_kind: TokenKind;
         
+        // apologies for the mess! this needs to be `un-hardcoded` at some stage
         match buffer.to_lowercase().as_str() {
             "root" | "rt"                                       => {tkn_kind = TokenKind::RootNode},
             "consonantal" | "consonant" | "cons" | "cns"        => {tkn_kind = TokenKind::Consonantal},
@@ -239,7 +247,7 @@ impl Lexer {
             "lateral" | "later" | "lat" | "ltrl"                => {tkn_kind = TokenKind::Lateral},
             "nasal" | "nsl" | "nas"                             => {tkn_kind = TokenKind::Nasal},
             "delayedrelease" | "delrel" | "dr"                  => {tkn_kind = TokenKind::DelayedRelease},
-            "strident" | "strid" | "stri" | "str"               => {tkn_kind = TokenKind::Strident},
+            "strident" | "strid" | "stri"                       => {tkn_kind = TokenKind::Strident},
             "rhotic" | "rhot" | "rho" | "rh"                    => {tkn_kind = TokenKind::Rhotic},
             
             "laryngeal" | "laryng" | "laryn" | "lar"            => {tkn_kind = TokenKind::LaryngealNode},
@@ -267,12 +275,17 @@ impl Lexer {
             "pharyngeal" | "pharyng" | "pharyn" | "phar"        => {tkn_kind = TokenKind::PharyngealNode},
             "advancedtongueroot" | "atr"                        => {tkn_kind = TokenKind::AdvancedTongueRoot},
             "retractedtongueroot" | "rtr"                       => {tkn_kind = TokenKind::RetractedTongueRoot},
-
+            "long" | "lng"                                      => {tkn_kind = TokenKind::Long},
+            "overlong" | "overlng"                              => {tkn_kind = TokenKind::Overlong},
+            "stress" | "str" | "strss"                          => {tkn_kind = TokenKind::Stress},
+            "length" | "len"                                    => {tkn_kind = TokenKind::Length},
+            "tone" | "tn"                                       => {tkn_kind = TokenKind::Tone},
+            
             _ => panic!("Unknown feature at pos: {}", start)
         }
 
         match tkn_kind {
-            TokenKind::RootNode 
+              TokenKind::RootNode 
             | TokenKind::PlaceNode 
             | TokenKind::DorsalNode 
             | TokenKind::LabialNode
@@ -280,7 +293,10 @@ impl Lexer {
             | TokenKind::CoronalNode
             | TokenKind::LaryngealNode
             | TokenKind::PharyngealNode => if !matches!(val, 'α'..='ω') {
-                panic!("Nodes cannot be +/-; they can only be used in Alpha Notation expressions")
+                panic!("Nodes cannot be +/-; they can only be used in Alpha Notation expressions.");
+            }, 
+            TokenKind::Length | TokenKind::Tone => if !matches!(val, 'α'..='ω') {
+                panic!("Tone and Length cannot be +/-; they can only be used with numeric values.");
             }
             _ => {}
         }
@@ -308,7 +324,16 @@ impl Lexer {
             '>' => { tokenkind = TokenKind::GreaterThan;  value = self.curr_char.to_string(); },
             '/' => { tokenkind = TokenKind::Slash;        value = self.curr_char.to_string(); },
             '|' => { tokenkind = TokenKind::Pipe;         value = self.curr_char.to_string(); },
-            '-'| '=' => match self.peak_next_char() {
+            '=' => match self.peak_next_char() { 
+                '>' => {
+                    let c = self.curr_char;
+                    self.advance();
+                    tokenkind = TokenKind::Arrow;
+                    value = format!("{c}>").to_string();
+                },
+                _ => { tokenkind = TokenKind::Equals;    value = self.curr_char.to_string(); },
+             },
+            '-' => match self.peak_next_char() {
                 '>' => {
                     let c = self.curr_char;
                     self.advance();
@@ -391,9 +416,6 @@ impl Lexer {
         return token_list;
 
     }
-
-    
-
 
 
 }
