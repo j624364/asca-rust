@@ -1,3 +1,5 @@
+use crate::trie::Trie;
+
 #[derive(Debug)]
 pub enum TokenKind {
     LeftSquare,   // [
@@ -112,6 +114,7 @@ impl Token {
 
 pub struct Lexer {
     source: Vec<char>,
+    cardinals_trie: Trie,
     pos: usize,
     curr_char: char,
     inside_square: bool
@@ -119,9 +122,10 @@ pub struct Lexer {
 
 impl Lexer {
 
-    pub fn new(input: String) -> Self {
+    pub fn new(input: String, c: &Trie) -> Self {
         let mut s = Self { 
             source: input.chars().collect(), 
+            cardinals_trie: c.clone(),
             pos: 0,
             curr_char: '\0',
             inside_square: false,
@@ -359,8 +363,47 @@ impl Lexer {
         Some(Token::new(tokenkind, value, start, self.pos))
     }
 
-    fn ipa(&self) -> Option<Token> {
-        todo!()
+    fn ipa(&mut self) -> Option<Token> {
+        if self.inside_square { return None }
+        let start = self.pos;
+
+        // let results = self.cardinals_trie.find(self.curr_char.to_string().as_str());
+
+        // if results.is_empty() {
+        //     return None
+        // }
+
+        // if results.len() == 1 {
+        //     if self.cardinals_trie.contains(self.curr_char.to_string().as_str()) {
+        //         self.advance();
+        //         return Some(Token::new(TokenKind::Cardinal, results[0].clone(), start, self.pos))
+        //     }
+        // }
+
+        let mut  buffer = String::new();
+        let mut last_buffer: String;
+
+        while self.has_more_chars() {
+
+            last_buffer = buffer.clone();
+            buffer.push(self.curr_char);
+
+            if !buffer.is_empty() && self.cardinals_trie.find(&buffer.as_str()).is_empty() {
+                if !last_buffer.is_empty() && self.cardinals_trie.contains(&last_buffer.as_str()) {
+                    return Some(Token::new(TokenKind::Cardinal, last_buffer, start, self.pos))
+                }
+                return None
+            }
+            
+            self.advance();
+        }
+        // println!("buffer: {:?}", buffer);
+
+        if buffer.is_empty() || !self.cardinals_trie.contains(&buffer.as_str()) {
+            return None
+        }
+        self.advance();
+        return Some(Token::new(TokenKind::Cardinal, buffer, start, self.pos))
     }
 
     fn string(&mut self) -> Option<Token> {
@@ -382,11 +425,12 @@ impl Lexer {
     }
 
     pub fn get_next_token(&mut self) -> Token{
+        
+        while self.curr_char.is_whitespace() { self.advance(); }
+        
         if !self.has_more_chars() {
             return Token::new(TokenKind::Eol, "eol".to_string(), self.pos, self.pos+1)
         } 
-
-        while self.curr_char.is_whitespace() { self.advance(); }
 
         if let Some(bkt_token) = self.is_bracket()   { return bkt_token }
         if let Some(pmt_token) = self.primative()    { return pmt_token }
@@ -396,7 +440,7 @@ impl Lexer {
         if let Some(ipa_token) = self.ipa()          { return ipa_token }
         if let Some(str_token) = self.string()       { return str_token } 
         
-        panic!("Unknown character at {} at pos: {}", self.curr_char, self.pos)
+        panic!("Unknown character at character {}", self.pos)
     }
 
     pub fn get_all_tokens(&mut self) -> Vec<Token> {

@@ -1,5 +1,6 @@
 use std::{fmt::Display, collections::VecDeque};
 
+#[derive(Clone)]
 pub struct Node {
     pub key: Option<char>,
     pub val: Option<String>,
@@ -23,7 +24,7 @@ impl Node {
     }
 }
 
-
+#[derive(Clone)]
 pub struct Trie {
     root: Node,
     elements: usize
