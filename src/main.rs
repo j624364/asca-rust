@@ -23,7 +23,8 @@ fn main() {
     // let test= String::from("[]...[] > &");
     // let test= String::from("[+voi, -sg, +PLACE]")
     // let test= String::from("[+voi, -sg, αPLACE]...C > &");
-    let test= String::from("mp > [str:2]");
+    // let test= String::from("V > [+long] / _C#");
+    let test= String::from("V > [len : 2]");
 
     let mut lex = Lexer::new(test, &cardinals_trie);
 

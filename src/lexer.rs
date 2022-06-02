@@ -28,7 +28,6 @@ pub enum TokenKind {
     Cardinal,     // IPA character
     Star,         // *
     EmptySet,     // ∅
-    StringLit,    // 
     Ellipsis,     // ... or .. or … or ⋯
     Eol,          // End of Line 
 
@@ -230,64 +229,14 @@ impl Lexer {
             buffer.push(self.curr_char);
             self.advance();
             
-            if self.curr_char.is_whitespace() { self.advance(); }
+            while self.curr_char.is_whitespace() { self.advance(); }
 
         }
 
         if buffer.len() <= 1 { panic!("Expected feature after {}, found \"{}\". Pos: {}", val, buffer, start); }
 
-        let tkn_kind: TokenKind;
-        
-        // apologies for the mess! this needs to be `un-hardcoded` at some stage
-        match buffer.to_lowercase().as_str() {
-            "root" | "rt"                                       => {tkn_kind = TokenKind::RootNode},
-            "consonantal" | "consonant" | "cons" | "cns"        => {tkn_kind = TokenKind::Consonantal},
-            "sonorant" | "sonor"| "son"                         => {tkn_kind = TokenKind::Sonorant},
-            "syllabic" | "syllab"| "syll"                       => {tkn_kind = TokenKind::Syllabic},
-
-            "manner" | "mann"| "man" | "mnnr" | "mnr" | "mn"    => {tkn_kind = TokenKind::MannerNode},
-            "continuant" | "contin" | "cont" | "cnt"            => {tkn_kind = TokenKind::Continuant},
-            "approximant" | "approx" | "appr" | "app"           => {tkn_kind = TokenKind::Approximant},
-            "lateral" | "later" | "lat" | "ltrl"                => {tkn_kind = TokenKind::Lateral},
-            "nasal" | "nsl" | "nas"                             => {tkn_kind = TokenKind::Nasal},
-            "delayedrelease" | "delrel" | "dr"                  => {tkn_kind = TokenKind::DelayedRelease},
-            "strident" | "strid" | "stri"                       => {tkn_kind = TokenKind::Strident},
-            "rhotic" | "rhot" | "rho" | "rh"                    => {tkn_kind = TokenKind::Rhotic},
+        let tkn_kind = self.feature_match(buffer, start);
             
-            "laryngeal" | "laryng" | "laryn" | "lar"            => {tkn_kind = TokenKind::LaryngealNode},
-            "voice" | "voi" | "vce" | "vc"                      => {tkn_kind = TokenKind::Voice},
-            "spreadglottis" | "sprdglot" | "spread" | "sg"      => {tkn_kind = TokenKind::SpreadGlottis},
-            "constrictedglottis" | "cnstglot" | "constr" | "cg" => {tkn_kind = TokenKind::ConstrGlottis},
-            
-            "place" | "plc" | "pla"                             => {tkn_kind = TokenKind::PlaceNode},
-            
-            "labial" | "lab"                                    => {tkn_kind = TokenKind::LabialNode},
-            "round" | "rnd"                                     => {tkn_kind = TokenKind::Round},
-            
-            "coronal" | "coron" | "cor"                         => {tkn_kind = TokenKind::CoronalNode},
-            "anterior" | "anter" | "ant"                        => {tkn_kind = TokenKind::Anterior},
-            "distributed" | "distrib" | "dist" | "dst"          => {tkn_kind = TokenKind::Distributed},
-            
-            "dorsal" | "dors" | "dor"                           => {tkn_kind = TokenKind::DorsalNode},
-            "front" | "frnt" | "fnt" | "fro" | "fr"             => {tkn_kind = TokenKind::Front},
-            "back" | "bck" | "bk"                               => {tkn_kind = TokenKind::Back},
-            "high" | "hgh" | "hi"                               => {tkn_kind = TokenKind::High},
-            "low" | "lo"                                        => {tkn_kind = TokenKind::Low},
-            "tense" | "tens" | "tns" | "ten"                    => {tkn_kind = TokenKind::Tense},
-            "reduced" | "reduc" | "redu" | "red"                => {tkn_kind = TokenKind::Reduced},
-            
-            "pharyngeal" | "pharyng" | "pharyn" | "phar"        => {tkn_kind = TokenKind::PharyngealNode},
-            "advancedtongueroot" | "atr"                        => {tkn_kind = TokenKind::AdvancedTongueRoot},
-            "retractedtongueroot" | "rtr"                       => {tkn_kind = TokenKind::RetractedTongueRoot},
-            "long" | "lng"                                      => {tkn_kind = TokenKind::Long},
-            "overlong" | "overlng"                              => {tkn_kind = TokenKind::Overlong},
-            "stress" | "str" | "strss"                          => {tkn_kind = TokenKind::Stress},
-            "length" | "len"                                    => {tkn_kind = TokenKind::Length},
-            "tone" | "tn"                                       => {tkn_kind = TokenKind::Tone},
-            
-            _ => panic!("Unknown feature at pos: {}", start)
-        }
-
         match tkn_kind {
               TokenKind::RootNode 
             | TokenKind::PlaceNode 
@@ -406,10 +355,11 @@ impl Lexer {
         return Some(Token::new(TokenKind::Cardinal, buffer, start, self.pos))
     }
 
-    fn string(&mut self) -> Option<Token> {
+    fn string(&mut self) -> Option<Token> { 
+
         if !self.curr_char.is_ascii_alphabetic() { return None }
 
-        if !self.inside_square { panic!("Strings must be inside square brackets") }
+        if !self.inside_square { panic!("Features must be inside square brackets") }
 
         let start = self.pos;
 
@@ -420,8 +370,85 @@ impl Lexer {
             self.advance();
         }
 
-        Some(Token::new(TokenKind::StringLit, buffer, start, self.pos))
+        let tkn_kind = self.feature_match(buffer, start);
 
+        match tkn_kind {
+          TokenKind::Length | TokenKind::Tone | TokenKind::Stress => {},
+          _ => panic!("This feature must have a binary value (+/-).")
+        }
+
+        while self.curr_char.is_whitespace() { self.advance(); } 
+
+        match self.curr_char {
+            ':' => self.advance(),
+            _ => panic!("This feature must be followed by a colon and then a number (e.g. `len : 2`).")
+        } 
+        
+        while self.curr_char.is_whitespace() { self.advance(); } 
+
+        let maybe_number = self.numeric();
+
+        match maybe_number {
+            Some(num) => {
+                return Some(Token::new(tkn_kind, num.value, start, self.pos))
+            },
+            _ => panic!("This feature must be followed by a number (e.g. `len : 2`).")
+        }
+
+    }
+
+    fn feature_match(&mut self, buffer: String, start: usize) -> TokenKind {
+        // apologies for the mess! this needs to be `un-hardcoded` at some stage
+        match buffer.to_lowercase().as_str() {
+            // Root Features
+            "root" | "rt"                                       => { return TokenKind::RootNode },
+            "consonantal" | "consonant" | "cons" | "cns"        => { return TokenKind::Consonantal },
+            "sonorant" | "sonor"| "son"                         => { return TokenKind::Sonorant },
+            "syllabic" | "syllab"| "syll"                       => { return TokenKind::Syllabic },
+            // Manner Features
+            "manner" | "mann"| "man" | "mnnr" | "mnr" | "mn"    => { return TokenKind::MannerNode },
+            "continuant" | "contin" | "cont" | "cnt"            => { return TokenKind::Continuant },
+            "approximant" | "approx" | "appr" | "app"           => { return TokenKind::Approximant },
+            "lateral" | "later" | "lat" | "ltrl"                => { return TokenKind::Lateral },
+            "nasal" | "nsl" | "nas"                             => { return TokenKind::Nasal },
+            "delayedrelease" | "delrel" | "dr"                  => { return TokenKind::DelayedRelease },
+            "strident" | "strid" | "stri"                       => { return TokenKind::Strident },
+            "rhotic" | "rhot" | "rho" | "rh"                    => { return TokenKind::Rhotic },
+            // Laryngeal Features
+            "laryngeal" | "laryng" | "laryn" | "lar"            => { return TokenKind::LaryngealNode },
+            "voice" | "voi" | "vce" | "vc"                      => { return TokenKind::Voice },
+            "spreadglottis" | "sprdglot" | "spread" | "sg"      => { return TokenKind::SpreadGlottis },
+            "constrictedglottis" | "cnstglot" | "constr" | "cg" => { return TokenKind::ConstrGlottis },
+        
+            "place" | "plc" | "pla"                             => { return TokenKind::PlaceNode },
+            // Labial Place Features
+            "labial" | "lab"                                    => { return TokenKind::LabialNode },
+            "round" | "rnd"                                     => { return TokenKind::Round },
+            // Coronal Place Features
+            "coronal" | "coron" | "cor"                         => { return TokenKind::CoronalNode },
+            "anterior" | "anter" | "ant"                        => { return TokenKind::Anterior },
+            "distributed" | "distrib" | "dist" | "dst"          => { return TokenKind::Distributed },
+            // Dorsal Place Features
+            "dorsal" | "dors" | "dor"                           => { return TokenKind::DorsalNode },
+            "front" | "frnt" | "fnt" | "fro" | "fr"             => { return TokenKind::Front },
+            "back" | "bck" | "bk"                               => { return TokenKind::Back },
+            "high" | "hgh" | "hi"                               => { return TokenKind::High },
+            "low" | "lo"                                        => { return TokenKind::Low },
+            "tense" | "tens" | "tns" | "ten"                    => { return TokenKind::Tense },
+            "reduced" | "reduc" | "redu" | "red"                => { return TokenKind::Reduced },
+            // Pharyngeal Place Features
+            "pharyngeal" | "pharyng" | "pharyn" | "phar"        => { return TokenKind::PharyngealNode },
+            "advancedtongueroot" | "atr"                        => { return TokenKind::AdvancedTongueRoot },
+            "retractedtongueroot" | "rtr"                       => { return TokenKind::RetractedTongueRoot },
+            // Suprasegmental Features
+            "long" | "lng"                                      => { return TokenKind::Long },
+            "overlong" | "overlng"                              => { return TokenKind::Overlong },
+            "stress" | "str" | "strss"                          => { return TokenKind::Stress },
+            "length" | "len"                                    => { return TokenKind::Length },
+            "tone" | "tn"                                       => { return TokenKind::Tone },
+        
+            _ => panic!("Unknown feature at pos: {}", start)
+        }
     }
 
     pub fn get_next_token(&mut self) -> Token{
@@ -460,6 +487,5 @@ impl Lexer {
         return token_list;
 
     }
-
 
 }
