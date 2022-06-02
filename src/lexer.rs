@@ -1,6 +1,6 @@
 use crate::trie::Trie;
 
-#[derive(Debug)]
+#[derive(Debug, Copy, Clone)]
 pub enum TokenKind {
     LeftSquare,   // [
     RightSquare,  // ]
@@ -80,7 +80,7 @@ pub enum TokenKind {
     Tone,   
 }
 
-#[derive(Debug)]
+#[derive(Debug, Copy, Clone)]
 pub struct Position {
     pub start: usize,
     pub end: usize,
@@ -92,7 +92,7 @@ impl Position {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct Token {
     pub kind: TokenKind,
     pub value: String, 
@@ -100,8 +100,7 @@ pub struct Token {
 }
 
 impl Token {
-    pub fn new(kind: TokenKind, value: String, start: usize, end: usize) -> Self{
-        
+    pub fn new(kind: TokenKind, value: String, start: usize, end: usize) -> Self {
         Self { 
             kind, 
             value, 
@@ -109,7 +108,6 @@ impl Token {
         }
     }
 }
-
 
 pub struct Lexer {
     source: Vec<char>,
@@ -129,7 +127,6 @@ impl Lexer {
             curr_char: '\0',
             inside_square: false,
         };
-
         s.curr_char = s.source[s.pos];
 
         s
@@ -155,7 +152,6 @@ impl Lexer {
             '\0'
         }
     }
-
 
     fn is_bracket(&mut self) -> Option<Token> {
         let start = self.pos;
@@ -316,19 +312,6 @@ impl Lexer {
         if self.inside_square { return None }
         let start = self.pos;
 
-        // let results = self.cardinals_trie.find(self.curr_char.to_string().as_str());
-
-        // if results.is_empty() {
-        //     return None
-        // }
-
-        // if results.len() == 1 {
-        //     if self.cardinals_trie.contains(self.curr_char.to_string().as_str()) {
-        //         self.advance();
-        //         return Some(Token::new(TokenKind::Cardinal, results[0].clone(), start, self.pos))
-        //     }
-        // }
-
         let mut  buffer = String::new();
         let mut last_buffer: String;
 
@@ -346,7 +329,6 @@ impl Lexer {
             
             self.advance();
         }
-        // println!("buffer: {:?}", buffer);
 
         if buffer.is_empty() || !self.cardinals_trie.contains(&buffer.as_str()) {
             return None
@@ -370,7 +352,7 @@ impl Lexer {
             self.advance();
         }
 
-        let tkn_kind = self.feature_match(buffer, start);
+        let tkn_kind: TokenKind = self.feature_match(buffer, start);
 
         match tkn_kind {
           TokenKind::Length | TokenKind::Tone | TokenKind::Stress => {},
@@ -386,26 +368,23 @@ impl Lexer {
         
         while self.curr_char.is_whitespace() { self.advance(); } 
 
-        let maybe_number = self.numeric();
-
-        match maybe_number {
+        match self.numeric() {
             Some(num) => {
                 return Some(Token::new(tkn_kind, num.value, start, self.pos))
             },
             _ => panic!("This feature must be followed by a number (e.g. `len : 2`).")
         }
-
     }
 
     fn feature_match(&mut self, buffer: String, start: usize) -> TokenKind {
         // apologies for the mess! this needs to be `un-hardcoded` at some stage
         match buffer.to_lowercase().as_str() {
-            // Root Features
+            // Root Node Features
             "root" | "rt"                                       => { return TokenKind::RootNode },
             "consonantal" | "consonant" | "cons" | "cns"        => { return TokenKind::Consonantal },
             "sonorant" | "sonor"| "son"                         => { return TokenKind::Sonorant },
             "syllabic" | "syllab"| "syll"                       => { return TokenKind::Syllabic },
-            // Manner Features
+            // Manner Node Features
             "manner" | "mann"| "man" | "mnnr" | "mnr" | "mn"    => { return TokenKind::MannerNode },
             "continuant" | "contin" | "cont" | "cnt"            => { return TokenKind::Continuant },
             "approximant" | "approx" | "appr" | "app"           => { return TokenKind::Approximant },
@@ -414,21 +393,21 @@ impl Lexer {
             "delayedrelease" | "delrel" | "dr"                  => { return TokenKind::DelayedRelease },
             "strident" | "strid" | "stri"                       => { return TokenKind::Strident },
             "rhotic" | "rhot" | "rho" | "rh"                    => { return TokenKind::Rhotic },
-            // Laryngeal Features
+            // Laryngeal Node Features
             "laryngeal" | "laryng" | "laryn" | "lar"            => { return TokenKind::LaryngealNode },
             "voice" | "voi" | "vce" | "vc"                      => { return TokenKind::Voice },
             "spreadglottis" | "sprdglot" | "spread" | "sg"      => { return TokenKind::SpreadGlottis },
             "constrictedglottis" | "cnstglot" | "constr" | "cg" => { return TokenKind::ConstrGlottis },
-        
+            // Place Node Feature
             "place" | "plc" | "pla"                             => { return TokenKind::PlaceNode },
-            // Labial Place Features
+            // Labial Place Node Features
             "labial" | "lab"                                    => { return TokenKind::LabialNode },
             "round" | "rnd"                                     => { return TokenKind::Round },
-            // Coronal Place Features
+            // Coronal Place Node Features
             "coronal" | "coron" | "cor"                         => { return TokenKind::CoronalNode },
             "anterior" | "anter" | "ant"                        => { return TokenKind::Anterior },
             "distributed" | "distrib" | "dist" | "dst"          => { return TokenKind::Distributed },
-            // Dorsal Place Features
+            // Dorsal Place Node Features
             "dorsal" | "dors" | "dor"                           => { return TokenKind::DorsalNode },
             "front" | "frnt" | "fnt" | "fro" | "fr"             => { return TokenKind::Front },
             "back" | "bck" | "bk"                               => { return TokenKind::Back },
@@ -436,7 +415,7 @@ impl Lexer {
             "low" | "lo"                                        => { return TokenKind::Low },
             "tense" | "tens" | "tns" | "ten"                    => { return TokenKind::Tense },
             "reduced" | "reduc" | "redu" | "red"                => { return TokenKind::Reduced },
-            // Pharyngeal Place Features
+            // Pharyngeal Place Node Features
             "pharyngeal" | "pharyng" | "pharyn" | "phar"        => { return TokenKind::PharyngealNode },
             "advancedtongueroot" | "atr"                        => { return TokenKind::AdvancedTongueRoot },
             "retractedtongueroot" | "rtr"                       => { return TokenKind::RetractedTongueRoot },
@@ -455,9 +434,7 @@ impl Lexer {
         
         while self.curr_char.is_whitespace() { self.advance(); }
         
-        if !self.has_more_chars() {
-            return Token::new(TokenKind::Eol, "eol".to_string(), self.pos, self.pos+1)
-        } 
+        if !self.has_more_chars() { return Token::new(TokenKind::Eol, "eol".to_string(), self.pos, self.pos+1) }
 
         if let Some(bkt_token) = self.is_bracket()   { return bkt_token }
         if let Some(pmt_token) = self.primative()    { return pmt_token }
@@ -474,7 +451,6 @@ impl Lexer {
         let mut token_list: Vec<Token> =  Vec::new();
         loop {
             let next_token = self.get_next_token();
-
             match next_token.kind {
                 TokenKind::Eol => {
                     token_list.push(next_token);
@@ -483,9 +459,6 @@ impl Lexer {
                 _ => {token_list.push(next_token);}
             }
         }
-
-        return token_list;
-
+        token_list
     }
-
 }

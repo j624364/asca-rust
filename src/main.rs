@@ -1,14 +1,16 @@
 mod lexer;
 mod trie;
+mod parser;
 
 use serde_json;
 use std::fs;
 use std::collections::HashMap;
 
 use lexer::{Lexer, Token};
+use parser::Parser;
 use trie::Trie;
 
-use crate::lexer::TokenKind;
+// use crate::lexer::TokenKind;
 
 fn main() {
     
@@ -24,29 +26,33 @@ fn main() {
     // let test= String::from("[+voi, -sg, +PLACE]")
     // let test= String::from("[+voi, -sg, αPLACE]...C > &");
     // let test= String::from("V > [+long] / _C#");
-    let test= String::from("V > [len : 2]");
+    let test= String::from("%:[tone:214] > [tone:35] / _%:[tone:214] ");
 
     let mut lex = Lexer::new(test, &cardinals_trie);
 
-    let mut token_list: Vec<Token> =  Vec::new();
-    loop {
-        let next_token = lex.get_next_token();
+    // let mut token_list: Vec<Token> =  Vec::new();
+    // loop {
+    //     let next_token = lex.get_next_token();
 
-        println!("{:?}", next_token);
+    //     println!("{:?}", next_token);
 
-        match next_token.kind {
-            TokenKind::Eol => {
-                token_list.push(next_token);
-                break
-            },
-            _ => {token_list.push(next_token);}
-        }
-    }
+    //     match next_token.kind {
+    //         TokenKind::Eol => {
+    //             token_list.push(next_token);
+    //             break
+    //         },
+    //         _ => {token_list.push(next_token);}
+    //     }
+    // }
     
-    //let tokens = lex.get_all_tokens();
-    // tokens.into_iter().for_each(|t| {
-    //     println!("{:?}", t);
-    // });
+    let tokens = lex.get_all_tokens();
+    tokens.clone().into_iter().for_each(|t| {
+        println!("{:?}", t);
+    });
+
+    let mut parser = Parser:: new(tokens, &json);
+
+    let rule = parser.parse();
 
     // println!("\n--------------------------------\n");
     // println!("{:#?}", json.get("k"));
