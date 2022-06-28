@@ -13,25 +13,32 @@ pub enum SyntaxError {
     UnknownChar(Token),
     ExpectedEndL(Token),
     ExpectedArrow(Token),
+    ExpectedComma(Token),
+    ExpectedColon(Token),
     ExpectedMatrix(Token),
     ExpectedSegment(Token),
     ExpectedFeature(Token),
+    ExpectedRightBracket(Token),
     InsertErr,
     DeleteErr,
     EmptyInput,
     EmptyOutput,
-
+    OptMathError(Token, usize, usize),
 }
 
 impl fmt::Display for SyntaxError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            Self::UnknownChar(token)     => write!(f, "No known primative'{}'. Known primatives are (C)onsonant, (O)bstruent, (S)onorant, (L)iquid, (N)asal, (G)lide, and (V)owel", token.value),
-            Self::ExpectedEndL(token)    => write!(f, "Expected end of line, received '{}'. Did you forget a '/' between the output and environment?", token.value),
-            Self::ExpectedArrow(token)   => write!(f, "Expected '>', '->' or '=>', but received '{}'", token.value),
-            Self::ExpectedMatrix(token)  => write!(f, "Expected '[', but received '{}'", token.value),
-            Self::ExpectedSegment(token) => write!(f, "Expected an IPA character, Primative or Matrix, but received '{}'", token.value),
-            Self::ExpectedFeature(token) => write!(f, "{} cannot be placed inside a matrix. An element inside `[]` must a distinctive feature", token.value),
+            Self::OptMathError(_, l, h)  => write!(f, "Second argument '{}' must be >= first argument '{}'", h, l),
+            Self::UnknownChar(token)          => write!(f, "No known primative'{}'. Known primatives are (C)onsonant, (O)bstruent, (S)onorant, (L)iquid, (N)asal, (G)lide, and (V)owel", token.value),
+            Self::ExpectedEndL(token)         => write!(f, "Expected end of line, received '{}'. Did you forget a '/' between the output and environment?", token.value),
+            Self::ExpectedArrow(token)        => write!(f, "Expected '>', '->' or '=>', but received '{}'", token.value),
+            Self::ExpectedComma(token)        => write!(f, "Expected ',', but received '{}'", token.value),
+            Self::ExpectedColon(token)        => write!(f, "Expected ':', but received '{}'", token.value),
+            Self::ExpectedMatrix(token)       => write!(f, "Expected '[', but received '{}'", token.value),
+            Self::ExpectedSegment(token)      => write!(f, "Expected an IPA character, Primative or Matrix, but received '{}'", token.value),
+            Self::ExpectedFeature(token)      => write!(f, "{} cannot be placed inside a matrix. An element inside `[]` must a distinctive feature", token.value),
+            Self::ExpectedRightBracket(token) => write!(f, "Expected ')', but received '{}'", token.value),
             Self::InsertErr   => write!(f, "The input of an insertion rule must only contain `*` or `∅`"),
             Self::DeleteErr   => write!(f, "The output of a deletion rule must only contain `*` or `∅`"),
             Self::EmptyInput  => write!(f, "Input cannot be empty. Use `*` or '∅' to indicate insertion"),
@@ -42,7 +49,6 @@ impl fmt::Display for SyntaxError {
 
 #[derive(Debug, Clone)]
 pub enum ParseKind {
-    BlockSyll,
     EmptySet   (Token),
     Boundary   (Token),
     Ellipsis   (Token),
@@ -51,7 +57,7 @@ pub enum ParseKind {
     Matrix     (Vec<Token>),
     Syllable   (Vec<Token>),
     Set        (Vec<Item>),
-    Optional   (Vec<Item>),
+    Optional   (Vec<Item>, usize, usize),
 }
 
 #[derive(Debug, Clone)]
@@ -192,7 +198,7 @@ impl<'a> Parser<'a> {
         }
     }
     
-    fn join_char_params(&mut self, char: Token, params: Item) -> Result<Item, SyntaxError> {
+    fn join_char_params(&mut self, char: Item, params: Item) -> Result<Item, SyntaxError> {
         // returns matrix or Err
         todo!()
     }
@@ -275,12 +281,11 @@ impl<'a> Parser<'a> {
 
     fn get_char(&mut self) -> Result<Item, SyntaxError> {
         // returns matrix or None
-        let char = self.forw_tkn.clone();
+        let chr = self.char_to_matrix(self.forw_tkn.clone())?;
         self.lookahead();
 
         if !self.expect(TokenKind::Colon) {
-            return Ok(self.char_to_matrix(char)?)
-            //return ParseItem::new(ParseKind::Matrix, vec![char.clone()], char.position)
+            return Ok(chr)
         }
 
         if !self.expect(TokenKind::LeftSquare) {
@@ -289,11 +294,9 @@ impl<'a> Parser<'a> {
         
         let params = self.get_matrix()?;
 
-        let joined = self.join_char_params(char, params)?;
+        let joined = self.join_char_params(chr, params)?;
 
         Ok(joined)
-
-        //Item::new( ParseKind::Matrix, params.value, params.position )
     }
     
     fn get_segment(&mut self) -> Result<Option<Item>, SyntaxError> {
@@ -320,8 +323,71 @@ impl<'a> Parser<'a> {
     }
 
     fn get_optionals(&mut self) -> Result<Option<Item>, SyntaxError> {
-        println!("{}", self.forw_tkn);
-        todo!()
+        // returns optionals or None
+
+        let start = self.forw_tkn.position.start;
+
+        if !self.expect(TokenKind::LeftBracket) {
+            return Ok(None);
+        }
+
+        let mut segs = Vec::new();
+        let mut lo_bound: usize = 0;
+        let mut hi_bound: usize = 0;
+        while self.has_more_tokens() {
+            if self.peek_kind(TokenKind::RightBracket) {
+                break;
+            }
+
+            if let Some(x) = self.get_segment()? {
+                segs.push(x);
+                continue;
+            }
+
+            if self.peek_kind(TokenKind::Comma){
+                break;
+            }
+
+            return Err(SyntaxError::ExpectedSegment(self.forw_tkn.clone()))
+        }
+
+        // Todo: This needs cleaning up!
+
+        if self.expect(TokenKind::RightBracket) {
+            let end = self.token_list[self.forw_pos-1].position.end;
+            return Ok(Some(Item::new(ParseKind::Optional(segs, 0, 1), Position { start, end })))
+        }
+
+        if !self.expect(TokenKind::Comma) {
+            return Err(SyntaxError::ExpectedComma(self.forw_tkn.clone()))
+        }
+
+        if let Some(x) = self.eat_expect(TokenKind::Number) {
+            lo_bound = x.value.parse().expect("Could not parse string to number. This is probably an error with the parser itself");
+        }
+
+        if self.expect(TokenKind::RightBracket) {
+            let end = self.token_list[self.forw_pos-1].position.end;
+            return Ok(Some(Item::new(ParseKind::Optional(segs, 0, lo_bound), Position { start, end })))
+        }
+
+        if !self.expect(TokenKind::Colon) {
+            return Err(SyntaxError::ExpectedColon(self.forw_tkn.clone()))
+        }
+
+        if let Some(x) = self.eat_expect(TokenKind::Number) {
+            hi_bound = x.value.parse().expect("Could not parse string to number. This is probably an error with the parser itself");
+            if hi_bound < lo_bound {
+                return Err(SyntaxError::OptMathError(x, lo_bound, hi_bound))
+            }
+        }
+
+        if self.expect(TokenKind::RightBracket) {
+            let end = self.token_list[self.forw_pos-1].position.end;
+            return Ok(Some(Item::new(ParseKind::Optional(segs, lo_bound, hi_bound), Position { start, end })))
+        }
+
+        Err(SyntaxError::ExpectedRightBracket(self.forw_tkn.clone()))
     }
 
     fn get_set(&mut self) -> Result<Option<Item>, SyntaxError> {
@@ -429,7 +495,19 @@ impl<'a> Parser<'a> {
 
     fn get_oterm(&mut self) -> Result<Option<Item>, SyntaxError> {
         // returns syllable / set / segment
-        todo!()
+        if let Some(x) = self.get_syll()? {
+            return Ok(Some(x))
+        }
+
+        if let Some(x) = self.get_set()? {
+            return Ok(Some(x))
+        }
+
+        if let Some(x) = self.get_segment()? {
+            return Ok(Some(x))
+        }
+
+        Ok(None)
     }
 
     fn get_output_term(&mut self) -> Result<Vec<Item>, SyntaxError>{ 
@@ -555,9 +633,21 @@ impl<'a> Parser<'a> {
 
         let output = self.get_output_or_empty()?;
 
-
         if self.expect(TokenKind::Eol) {
             return Ok(Rule::new(input, output, Vec::new(), Vec::new()))
+        }
+
+        if !self.peek_kind(TokenKind::Slash) && !self.peek_kind(TokenKind::Pipe) {
+            match input[0][0].kind {
+                ParseKind::EmptySet(_) | ParseKind::Metathesis(_) => { 
+                    if self.peek_kind(TokenKind::Comma) {
+                        return Err(SyntaxError::DeleteErr)
+                    } else {
+                        return Err(SyntaxError::ExpectedEndL(self.forw_tkn.clone()))
+                    }
+                },
+                _ => return Err(SyntaxError::ExpectedEndL(self.forw_tkn.clone()))
+            }
         }
 
         let context = self.get_context()?;

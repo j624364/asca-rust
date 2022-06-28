@@ -7,28 +7,32 @@ MET_RUL ←   INP '>' '&' ('/' ENV)? ('|' ENV)? EOL
 DEL_RUL ←   INP '>' EMP ('/' ENV)? ('|' ENV)? EOL
 INS_RUL ←   EMP '>' OUT ('/' ENV)? ('|' ENV)? EOL
 
-INP     ←   EMP / INP_TRM  ( ',' INP_TRM )* 
-INP_TRM ←   ( '...' / TERM )+
+INP     ←d   EMP / INP_TRM  ( ',' INP_TRM )* 
+INP_TRM ←d   ( '...' / TERM )+
 
-OUT     ←   EMP / OUT_TRM  ( ',' OUT_TRM )* 
-OUT_TRM ←   '&' / '+' / (SYLL / SET / SEG)+
+OUT     ←d   EMP / OUT_TRM  ( ',' OUT_TRM )* 
+OUT_TRM ←d   '&' / '+' / O_TRM+
+O_TRM   ←d    SYLL / SET / SEG
 
-ENV     ←   ENVEXPR  (',' ENVEXPR)*    // _#, ==> #_ , _#
+ENV     ←   ENVEXPR  (',' ENVEXPR)*    // _,# or _#, ==> #_ , _#
 ENVEXPR ←   ENV_EL*  '_' ENV_EL*
 ENV_EL  ←   ( BOUND / '...' / TERM )+
 
-TERM    ←   SYLL / SET / SEG / OPT
-SYLL    ←   '%' (':' PARAM)?
-SET     ←   '{' SEG (',' SEG)* '}'
-OPT     ←   '(' SEG+ ('=' [0-9]+ (':' [0-9]+)?)? ')'
-SEG     ←   IPA / MATRIX
+TERM    ←d   SYLL / SET / SEG / OPT
+SYLL    ←d   '%' (':' PARAM)?
+SET     ←d   '{' SEG (',' SEG)* '}'
+OPT     ←d   '(' SEG+ (',' [0-9]+ (':' [0-9]+)?)? ')'    // (S,M:N) => (C, 0:1) etc.
+SEG     ←d   IPA / MATRIX
 
-MATRIX  ←   CHAR (':' PARAM)? / PARAM 
-CHAR	←   'C' / 'V'
-PARAM   ←   '[' ARG (',' ARG)* ']'
-ARG	    ←   ( '+' / '-' / [α-ω] ) [a-zA-Z]+ / [a-zA-Z]+ ':' [0-9]+ 
+MATRIX  ←d   CHAR (':' PARAM)? / PARAM 
+CHAR	←d   'C' / 'V'
+PARAM   ←d   '[' ARG (',' ARG)* ']'
+ARG	    ←D   ( '+' / '-' / [α-ω] ) [a-zA-Z]+ / [a-zA-Z]+ ':' [0-9]+ 
 
-EMP     ←   '*' / '∅'
+EMP     ←d   '*' / '∅'
 BOUND	←   '$' / '#'
-IPA     ←   Any phone represented by IPA characters
+IPA     ←d   Any phone represented by IPA characters
 ```
+
+
+d = implemented

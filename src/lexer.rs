@@ -212,7 +212,7 @@ impl Display for Token {
         if self.position.end <= 9 {spaces = spaces + " "}
         if self.position.start <= 9 {spaces = spaces + " "}
         match self.kind {
-            TokenKind::Feature(x) => write!(f, "{}{}`{}{}`",  self.position, spaces, self.value, self.kind),
+            TokenKind::Feature(x) => write!(f, "{}{}`{}{}`",  self.position, spaces, self.value, x),
             _ => write!(f, "{}{}{} `{}`",  self.position, spaces, self.kind, self.value)
         }
     }

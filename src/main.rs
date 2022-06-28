@@ -38,31 +38,30 @@ fn main() {
     //let test= String::from("t͡ɕ...b͡β > &");
     
     
-    let mut tokens = Vec::new();
-    const ITERS: u32 = 100;
+    let mut tokens;
+    const ITERS: u32 = 1;
     
     let start  = Instant::now();
-    let test= String::from("r...l > &");
+    let test= String::from("r...%:[tone:2] > &");
+    let mut rule: Result<Rule, SyntaxError> = Err(SyntaxError::EmptyInput);
 
-    for _ in 1..ITERS {
+    for _ in 0..ITERS {
         
         let mut lex = Lexer::new(test.clone(), &cardinals_trie);        
         tokens = lex.get_all_tokens();
+    
+        // tokens.clone().into_iter().for_each(|t| {
+            //     println!("{}", t);
+            // });
+        let mut parser = Parser:: new(tokens, &json);
+
+        rule = parser.parse();
     }
+
     let dur = start.elapsed();
+        println!("Total Time: {:?}", dur);
+        println!("Average Time per Iteration: {:?}", dur/ITERS);
 
-
-    tokens.clone().into_iter().for_each(|t| {
-        println!("{}", t);
-    });
-
-    println!("Total Time: {:?}", dur);
-    println!("Time per Iteration: {:?}", dur/ITERS);
-
-
-    let mut parser = Parser:: new(tokens, &json);
-
-    let rule = parser.parse();
 
     match rule {
             Ok(r) => {
@@ -71,7 +70,16 @@ fn main() {
             Err(e) => {
                 use SyntaxError::*;
                 match e.clone() {
-                    ExpectedEndL(t) | ExpectedArrow(t) | ExpectedFeature(t) | ExpectedMatrix(t) => {
+                    OptMathError(t, _, _) | 
+                    UnknownChar(t) | 
+                    ExpectedEndL(t) | 
+                    ExpectedArrow(t) | 
+                    ExpectedComma(t) | 
+                    ExpectedColon(t) | 
+                    ExpectedMatrix(t) | 
+                    ExpectedSegment(t) | 
+                    ExpectedFeature(t) | 
+                    ExpectedRightBracket(t)  => {
                         let start = t.position.start;
                         let end = t.position.end;
 
@@ -79,7 +87,7 @@ fn main() {
                         let arrs = " ".repeat(start) + &"^".repeat(end-start) + "\n";
 
                         println!("{}", format!("{}{}{}{}{}{}", 
-                            format!("Error").bright_red().bold(),
+                            format!("Syntax Error").bright_red().bold(),
                             format!(": {}", e).bold(), 
                             format!("{}", marg).bright_cyan().bold(), 
                             test, 
