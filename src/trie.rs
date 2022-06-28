@@ -75,7 +75,7 @@ impl Trie {
         cur.is_terminal
     }
 
-    pub fn find(&mut self, s: &str) -> Vec<String> { 
+    pub fn find(&self, s: &str) -> Vec<String> { 
         let mut cur = &self.root;
 
         for c in s.chars() {
