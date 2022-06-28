@@ -243,7 +243,6 @@ impl<'a> Parser<'a> {
         // returns matrix or None
         let mut args = Vec::new();
         while self.has_more_tokens() {
-            
             if self.expect(TokenKind::RightSquare) {
                 self.advance();
                 break;
@@ -302,6 +301,7 @@ impl<'a> Parser<'a> {
 
         if self.peek_kind(TokenKind::Cardinal) {
             let token = self.forw_tkn.clone();
+            self.lookahead();
             self.advance();
             return Ok(Some(Item::new(ParseKind::IPA(token.clone()), token.position)))
         }
@@ -320,6 +320,7 @@ impl<'a> Parser<'a> {
     }
 
     fn get_optionals(&mut self) -> Result<Option<Item>, SyntaxError> {
+        println!("{}", self.forw_tkn);
         todo!()
     }
 
@@ -356,7 +357,7 @@ impl<'a> Parser<'a> {
 
     fn get_syll(&mut self) -> Result<Option<Item>, SyntaxError> {
         // returns Syll or None
-        let start = self.token_list[self.forw_pos-1].position.start;
+        let start = self.forw_tkn.position.start;
 
         if !self.expect(TokenKind::Syllable) {
             return Ok(None)
@@ -409,6 +410,10 @@ impl<'a> Parser<'a> {
                 terms.push(Item::new(ParseKind::Ellipsis(el.clone()), el.position));
                 continue;
             }
+
+            if self.peek_kind(TokenKind::GreaterThan) { // So we can try simple rules that don't call functions we are yet to implement
+                break                                       //  We can probably remove this after parser logic is done
+            }                                               // Though it wouldn't hurt performance to leave it in
 
             if let Some(trm) = self.get_term()? {
                 terms.push(trm)
@@ -479,16 +484,15 @@ impl<'a> Parser<'a> {
     fn get_input_or_empty(&mut self) -> Result<Vec<Vec<Item>>, SyntaxError> {
         // returns inp / empty
         let mut inputs = Vec::new();
+        let maybe_empty = self.get_empty();
+
+        if !maybe_empty.is_empty() {
+            inputs.push(maybe_empty);
+            return Ok(inputs)
+        }
 
         loop {
-            let maybe_empty = self.get_empty();
-            if !maybe_empty.is_empty() {
-                inputs.push(maybe_empty);
-                return Ok(inputs)
-            }
-
             let x = self.get_input_term()?;
-
             inputs.push(x);
 
             if !self.expect(TokenKind::Comma) {

@@ -501,9 +501,9 @@ impl<'a> Lexer<'a> {
             "manner" | "mann"| "man" | "mnnr" | "mnr" | "mn"    => { return Feature(MannerNode) },
             "continuant" | "contin" | "cont" | "cnt"            => { return Feature(Continuant) },
             "approximant" | "approx" | "appr" | "app"           => { return Feature(Approximant) },
-            "lateral" | "later" | "lat" | "ltrl"                => { return Feature(Lateral) },
+            "lateral" | "later" | "lat" | "latrl" |"ltrl"       => { return Feature(Lateral) },
             "nasal" | "nsl" | "nas"                             => { return Feature(Nasal) },
-            "delayedrelease" | "delrel" | "dr"                  => { return Feature(DelayedRelease) },
+            "delayedrelease" | "delrel" | "dlrl" | "dr"         => { return Feature(DelayedRelease) },
             "strident" | "strid" | "stri"                       => { return Feature(Strident) },
             "rhotic" | "rhot" | "rho" | "rh"                    => { return Feature(Rhotic) },
             // Laryngeal Node Features
@@ -512,7 +512,7 @@ impl<'a> Lexer<'a> {
             "spreadglottis" | "sprdglot" | "spread" | "sg"      => { return Feature(SpreadGlottis) },
             "constrictedglottis" | "cnstglot" | "constr" | "cg" => { return Feature(ConstrGlottis) },
             // Place Node Feature
-            "place" | "plc" | "pla"                             => { return Feature(PlaceNode) },
+            "place" | "plce" | "plc" | "pla"                    => { return Feature(PlaceNode) },
             // Labial Place Node Features
             "labial" | "lab"                                    => { return Feature(LabialNode) },
             "round" | "rnd"                                     => { return Feature(Round) },
@@ -534,7 +534,7 @@ impl<'a> Lexer<'a> {
             "retractedtongueroot" | "rtr"                       => { return Feature(RetractedTongueRoot) },
             // Suprasegmental Features
             "long" | "lng"                                      => { return Feature(Long) },
-            "overlong" | "overlng"                              => { return Feature(Overlong) },
+            "overlong" | "overlng" | "ovrlng" | "olng"          => { return Feature(Overlong) },
             "stress" | "str" | "strss"                          => { return Feature(Stress) },
             "length" | "len"                                    => { return Feature(Length) },
             "tone" | "tn"                                       => { return Feature(Tone) },

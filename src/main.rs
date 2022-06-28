@@ -42,7 +42,7 @@ fn main() {
     const ITERS: u32 = 100;
     
     let start  = Instant::now();
-    let test= String::from("* / &");
+    let test= String::from("r...l > &");
 
     for _ in 1..ITERS {
         
@@ -66,7 +66,7 @@ fn main() {
 
     match rule {
             Ok(r) => {
-                print!("{:?}", r); 
+                print!("{:#?}", r); 
             },
             Err(e) => {
                 use SyntaxError::*;
