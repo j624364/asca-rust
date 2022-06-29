@@ -14,8 +14,8 @@ OUT     ←p   EMP / '&' / '+' / OUT_TRM  ( ',' OUT_TRM )*
 OUT_TRM ←d   OUT_EL+
 OUT_EL  ←d   SYLL / SET / SEG
 
-ENV     ←p   ENV_TRM  (',' ENV_TRM)*   // '_' ',' ENV_EL => _,# or _#, ==> #_ , _#
-ENV_TRM ←d   ENV_EL*  '_' ENV_EL*
+ENV     ←d   '_' ',' ENV_EL / ENV_TRM  (',' ENV_TRM)*   // _,# ==> #_ , _#
+ENV_TRM ←d   ENV_EL?  '_' ENV_EL?
 ENV_EL  ←d   ( BOUND / '...' / TERM )+
 
 TERM    ←d   SYLL / SET / SEG / OPT

@@ -42,7 +42,7 @@ fn main() {
     const ITERS: u32 = 1;
     
     let start  = Instant::now();
-    let test= String::from("r...l > & / _V#");
+    let test= String::from("r...l > & / _,C ");
     let mut rule: Result<Rule, SyntaxError> = Err(SyntaxError::EmptyInput);
 
     for _ in 0..ITERS {

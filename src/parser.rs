@@ -228,8 +228,38 @@ impl<'a> Parser<'a> {
         Ok(Item::new(ParseKind::Environment(before, after), Position { start, end }))
     }
 
+    fn get_spec_env(&mut self) -> Result<Option<Vec<Item>>, SyntaxError> {
+
+        let start = self.forw_tkn.position.start;
+
+        if !self.expect(TokenKind::Underline) {
+            return Ok(None)
+        }
+
+        if !self.expect(TokenKind::Comma) {
+            return Ok(None)
+        }
+
+        let x = self.get_env_elements()?;
+
+        let end = self.token_list[self.forw_pos-1].position.end;
+
+        let mut v = Vec::new();
+
+        v.push(Item::new(ParseKind::Environment(x.clone(), Vec::new()), Position { start, end }));
+        v.push(Item::new(ParseKind::Environment(Vec::new(), x), Position { start, end }));
+
+        return Ok(Some(v))
+
+    }
+
     fn get_env(&mut self) -> Result<Vec<Item>, SyntaxError> { 
         // returns environment
+
+        if let Some(s) = self.get_spec_env()? {
+            return Ok(s)
+        }
+
         let mut envs = Vec::new();
  
         loop {
