@@ -42,7 +42,7 @@ fn main() {
     const ITERS: u32 = 1;
     
     let start  = Instant::now();
-    let test= String::from("r...%:[tone:2] > &");
+    let test= String::from("r...l > & / _V#");
     let mut rule: Result<Rule, SyntaxError> = Err(SyntaxError::EmptyInput);
 
     for _ in 0..ITERS {
@@ -79,6 +79,7 @@ fn main() {
                     ExpectedMatrix(t) | 
                     ExpectedSegment(t) | 
                     ExpectedFeature(t) | 
+                    ExpectedUnderline(t) | 
                     ExpectedRightBracket(t)  => {
                         let start = t.position.start;
                         let end = t.position.end;

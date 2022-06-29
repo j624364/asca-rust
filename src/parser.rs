@@ -10,6 +10,7 @@ pub enum RuntimeError {
 
 #[derive(Debug, Clone)]
 pub enum SyntaxError {
+    OptMathError(Token, usize, usize),
     UnknownChar(Token),
     ExpectedEndL(Token),
     ExpectedArrow(Token),
@@ -18,12 +19,13 @@ pub enum SyntaxError {
     ExpectedMatrix(Token),
     ExpectedSegment(Token),
     ExpectedFeature(Token),
+    ExpectedUnderline(Token),
     ExpectedRightBracket(Token),
     InsertErr,
     DeleteErr,
     EmptyInput,
     EmptyOutput,
-    OptMathError(Token, usize, usize),
+    EmptyEnv,
 }
 
 impl fmt::Display for SyntaxError {
@@ -38,11 +40,13 @@ impl fmt::Display for SyntaxError {
             Self::ExpectedMatrix(token)       => write!(f, "Expected '[', but received '{}'", token.value),
             Self::ExpectedSegment(token)      => write!(f, "Expected an IPA character, Primative or Matrix, but received '{}'", token.value),
             Self::ExpectedFeature(token)      => write!(f, "{} cannot be placed inside a matrix. An element inside `[]` must a distinctive feature", token.value),
+            Self::ExpectedUnderline(token)      => write!(f, "Expected '_', but received '{}'", token.value),
             Self::ExpectedRightBracket(token) => write!(f, "Expected ')', but received '{}'", token.value),
             Self::InsertErr   => write!(f, "The input of an insertion rule must only contain `*` or `∅`"),
             Self::DeleteErr   => write!(f, "The output of a deletion rule must only contain `*` or `∅`"),
             Self::EmptyInput  => write!(f, "Input cannot be empty. Use `*` or '∅' to indicate insertion"),
             Self::EmptyOutput => write!(f, "Output cannot be empty. Use `*` or '∅' to indicate deletion"),
+            Self::EmptyEnv => write!(f, "Environment cannot be empty following a seperator."),
         }
     }
 }
@@ -58,6 +62,7 @@ pub enum ParseKind {
     Syllable   (Vec<Token>),
     Set        (Vec<Item>),
     Optional   (Vec<Item>, usize, usize),
+    Environment(Vec<Item>, Vec<Item>),
 }
 
 #[derive(Debug, Clone)]
@@ -67,7 +72,6 @@ pub struct Item {
 }
 
 impl Item {
-
     pub fn new(k: ParseKind, p: Position) -> Self {
         Self { kind: k, position: p }
     }
@@ -78,12 +82,12 @@ impl Item {
 pub struct Rule {
     pub input:   Vec<Vec<Item>>,    // to support multi-rules
     pub output:  Vec<Vec<Item>>,    // these need to be
-    pub context: Vec<Vec<Item>>,    // Vec<Vec<Item>>
-    pub except:  Vec<Vec<Item>>,    
+    pub context: Vec<Item>,         // Vec<Vec<Item>>
+    pub except:  Vec<Item>,    
 }                                   
 
 impl Rule {
-    pub fn new(i: Vec<Vec<Item>>, o: Vec<Vec<Item>>, c :Vec<Vec<Item>>, e :Vec<Vec<Item>>) -> Self {
+    pub fn new(i: Vec<Vec<Item>>, o: Vec<Vec<Item>>, c :Vec<Item>, e :Vec<Item>) -> Self {
         Self { input: i, output: o, context: c, except: e }
     }
 
@@ -150,15 +154,6 @@ impl<'a> Parser<'a> {
     }
 
     fn expect(&mut self, knd: TokenKind) -> bool {
-        
-        // match self.forw_tkn.kind {
-        //     knd. => {
-        //         self.lookahead();
-        //         return true
-        //     }
-        //     _ => return false
-        // }
-
         if self.forw_tkn.kind == knd {
             self.lookahead();
             return true
@@ -182,25 +177,94 @@ impl<'a> Parser<'a> {
         }
     }
 
-    fn get_except_block(&mut self) -> Result<Vec<Vec<Item>>, SyntaxError> {
-        if self.expect(TokenKind::Pipe) {
-            todo!("Exceptions not yet implemented")
-        } else {
-            Ok(Vec::new())
+    fn get_bound(&mut self) -> Option<Item> { 
+        if !self.peek_kind(TokenKind::SyllBoundary) && !self.peek_kind(TokenKind::WordBoundary) {
+            return None
         }
+        let token = self.eat();
+        Some(Item::new(ParseKind::Boundary(token.clone()), token.position))
     }
 
-    fn get_context(&mut self) -> Result<Vec<Vec<Item>>, SyntaxError> {
-        if self.expect(TokenKind::Slash) {
-            todo!("Context not yet implemented")
-        } else {
-            Ok(Vec::new())
+    fn get_env_elements(&mut self) -> Result<Vec<Item>, SyntaxError> {
+        // returns list of boundaries, ellipses and terms
+        let mut els = Vec::new();
+
+        loop {
+            if let Some(x) = self.get_bound() {
+                els.push(x);
+                continue;
+            }
+
+            if let Some(el) = self.eat_expect(TokenKind::Ellipsis) {
+                els.push(Item::new(ParseKind::Ellipsis(el.clone()), el.position));
+                continue;
+            }
+
+            if let Some(x) = self.get_term()? {
+                els.push(x);
+                continue;
+            }
+
+            break;
         }
+
+        Ok(els)
+    }
+
+    fn get_env_term(&mut self) -> Result<Item, SyntaxError> {
+        // returns env elements
+        let start = self.forw_tkn.position.start;
+        
+        let before  = self.get_env_elements()?;
+
+        if !self.expect(TokenKind::Underline) {
+            return Err(SyntaxError::ExpectedUnderline(self.forw_tkn.clone()))
+        }
+
+        let after = self.get_env_elements()?;
+
+        let end = self.token_list[self.forw_pos-1].position.end;
+
+        Ok(Item::new(ParseKind::Environment(before, after), Position { start, end }))
+    }
+
+    fn get_env(&mut self) -> Result<Vec<Item>, SyntaxError> { 
+        // returns environment
+        let mut envs = Vec::new();
+ 
+        loop {
+            let x = self.get_env_term()?;
+            envs.push(x);
+
+            if !self.expect(TokenKind::Comma) {
+                break
+            }
+        }
+
+        if envs.is_empty() {
+            return Err(SyntaxError::EmptyEnv)
+        }
+
+        Ok(envs)
+    }
+
+    fn get_except_block(&mut self) -> Result<Vec<Item>, SyntaxError> {
+        if! self.expect(TokenKind::Pipe) {
+            return Ok(Vec::new())
+        }
+        self.get_env()
+    }
+
+    fn get_context(&mut self) -> Result<Vec<Item>, SyntaxError> {
+        if !self.expect(TokenKind::Slash) {
+            return Ok(Vec::new())
+        }
+        self.get_env()
     }
     
     fn join_char_params(&mut self, char: Item, params: Item) -> Result<Item, SyntaxError> {
         // returns matrix or Err
-        todo!()
+        todo!("Need to join char with params")
     }
 
     fn char_to_matrix(&mut self, chr: Token) -> Result<Item, SyntaxError> {
@@ -229,7 +293,7 @@ impl<'a> Parser<'a> {
             "L" => vec![cons_p, sonr_p, syll_m, appr_p], // +cons, +son, -syll, +appr // Liquid
             "N" => vec![cons_p, sonr_p, syll_m, appr_m], // +cons, +son, -syll, -appr // Nasal
             "G" => vec![cons_m, sonr_p, syll_m],         // -cons, +son, -syll        // Glide
-            "v" => vec![cons_m, sonr_p, syll_p],         // -cons, +son, +syll        // Vowel
+            "V" => vec![cons_m, sonr_p, syll_p],         // -cons, +son, +syll        // Vowel
             _ => return Err(SyntaxError::UnknownChar(chr)),
         };
 
@@ -467,7 +531,7 @@ impl<'a> Parser<'a> {
         Ok(None)
     }
 
-    fn get_input_term(&mut self) -> Result<Vec<Item>, SyntaxError>{
+    fn get_input_term(&mut self) -> Result<Vec<Item>, SyntaxError> {
         // returns list of terms and ellipses
         let mut terms = Vec::<Item>::new();
 
@@ -599,7 +663,6 @@ impl<'a> Parser<'a> {
 
         let input = self.get_input()?;
 
-        //println!("Input: {:?}", input);
         if !self.expect(TokenKind::Arrow) && !self.expect(TokenKind::GreaterThan) {
             match input[0][0].kind {
                 ParseKind::EmptySet(_) => { 

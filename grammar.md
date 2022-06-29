@@ -14,9 +14,9 @@ OUT     ←p   EMP / '&' / '+' / OUT_TRM  ( ',' OUT_TRM )*
 OUT_TRM ←d   OUT_EL+
 OUT_EL  ←d   SYLL / SET / SEG
 
-ENV     ←   ENVEXPR  (',' ENVEXPR)*    // _,# or _#, ==> #_ , _#
-ENVEXPR ←   ENV_EL*  '_' ENV_EL*
-ENV_EL  ←   ( BOUND / '...' / TERM )+
+ENV     ←p   ENV_TRM  (',' ENV_TRM)*   // '_' ',' ENV_EL => _,# or _#, ==> #_ , _#
+ENV_TRM ←d   ENV_EL*  '_' ENV_EL*
+ENV_EL  ←d   ( BOUND / '...' / TERM )+
 
 TERM    ←d   SYLL / SET / SEG / OPT
 SYLL    ←d   '%' (':' PARAM)?
@@ -27,10 +27,10 @@ SEG     ←d   IPA / MATRIX
 MATRIX  ←p   CHAR (':' PARAM)? / PARAM 
 CHAR	←d   'C' / 'V'
 PARAM   ←d   '[' ARG (',' ARG)* ']'
-ARG	    ←D   ( '+' / '-' / [α-ω] ) [a-zA-Z]+ / [a-zA-Z]+ ':' [0-9]+ 
+ARG	    ←d   ( '+' / '-' / [α-ω] ) [a-zA-Z]+ / [a-zA-Z]+ ':' [0-9]+ 
 
 EMP     ←d   '*' / '∅'
-BOUND	←   '$' / '#'
+BOUND	←d   '$' / '#'
 IPA     ←d   Any phone represented by IPA characters
 ```
 
