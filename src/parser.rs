@@ -493,7 +493,7 @@ impl<'a> Parser<'a> {
 
     }
 
-    fn get_oterm(&mut self) -> Result<Option<Item>, SyntaxError> {
+    fn get_output_element(&mut self) -> Result<Option<Item>, SyntaxError> {
         // returns syllable / set / segment
         if let Some(x) = self.get_syll()? {
             return Ok(Some(x))
@@ -511,19 +511,12 @@ impl<'a> Parser<'a> {
     }
 
     fn get_output_term(&mut self) -> Result<Vec<Item>, SyntaxError>{ 
-        // returns &, +, or list of sylls, sets, and/or segments
+        // returns list of sylls, sets, and/or segments
 
         let mut terms = Vec::<Item>::new();
 
-        if let Some(el) = self.eat_expect(TokenKind::Ampersand) {
-            terms.push(Item::new(ParseKind::Metathesis(el.clone()), el.position));
-            return Ok(terms)
-        }
-
-        // todo: add one for `+`
-
         loop {
-            if let Some(trm) = self.get_oterm()? {
+            if let Some(trm) = self.get_output_element()? {
                 terms.push(trm)
             } else {
                 break
@@ -532,35 +525,17 @@ impl<'a> Parser<'a> {
 
         Ok(terms)
     }
-    
-    // fn get_output(&mut self) -> Result<Vec<Item>, SyntaxError> {
-    //     // returns list of output terms 
-    //     todo!("Output not yet implemented")
-        
-    //     // if output.is_empty() {
-    //     //     return Err(SyntaxError::EmptyOutput)
-    //     // }
-    // }
-
-    // fn get_input(&mut self) -> Result<Vec<Item>, SyntaxError> {
-    //     // returns list of input terms
-    //     todo!()
-    //     // if inputs.is_empty() {
-    //     //     return Err(SyntaxError::EmptyInput)
-    //     // }
-    // }
 
     fn get_empty(&mut self) -> Vec<Item> {
         if !self.peek_kind(TokenKind::Star) && !self.peek_kind(TokenKind::EmptySet) {
             return Vec::new()
         }
         let token = self.eat();
-        return vec![Item::new(ParseKind::EmptySet(token.clone()), token.position)];
-
+        vec![Item::new(ParseKind::EmptySet(token.clone()), token.position)]
     }
 
-    fn get_input_or_empty(&mut self) -> Result<Vec<Vec<Item>>, SyntaxError> {
-        // returns inp / empty
+    fn get_input(&mut self) -> Result<Vec<Vec<Item>>, SyntaxError> {
+        // returns empty / list of input terms
         let mut inputs = Vec::new();
         let maybe_empty = self.get_empty();
 
@@ -586,15 +561,22 @@ impl<'a> Parser<'a> {
 
     }
 
-    fn get_output_or_empty(&mut self) -> Result<Vec<Vec<Item>>, SyntaxError> {
-        // returns out / empty
+    fn get_output(&mut self) -> Result<Vec<Vec<Item>>, SyntaxError> {
+        // returns empty / metathesis / list of output erms 
         let mut outputs = Vec::new();
-        let maybe_empty = self.get_empty();
 
+        // check for deletion rule
+        let maybe_empty = self.get_empty();
         if !maybe_empty.is_empty() {
             outputs.push(maybe_empty);
             return Ok(outputs)
         }
+        // check for metathesis
+        if let Some(el) = self.eat_expect(TokenKind::Ampersand) {
+            outputs.push(vec![Item::new(ParseKind::Metathesis(el.clone()), el.position)]);
+            return Ok(outputs)
+        }
+        // todo: add check for `+`
 
         loop {
             let x = self.get_output_term()?;
@@ -615,7 +597,7 @@ impl<'a> Parser<'a> {
     
     fn rule(&mut self) -> Result<Rule, SyntaxError> {
 
-        let input = self.get_input_or_empty()?;
+        let input = self.get_input()?;
 
         //println!("Input: {:?}", input);
         if !self.expect(TokenKind::Arrow) && !self.expect(TokenKind::GreaterThan) {
@@ -631,7 +613,7 @@ impl<'a> Parser<'a> {
             }
         }
 
-        let output = self.get_output_or_empty()?;
+        let output = self.get_output()?;
 
         if self.expect(TokenKind::Eol) {
             return Ok(Rule::new(input, output, Vec::new(), Vec::new()))

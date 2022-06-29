@@ -10,9 +10,9 @@ INS_RUL ←   EMP '>' OUT ('/' ENV)? ('|' ENV)? EOL
 INP     ←d   EMP / INP_TRM  ( ',' INP_TRM )* 
 INP_TRM ←d   ( '...' / TERM )+
 
-OUT     ←d   EMP / OUT_TRM  ( ',' OUT_TRM )* 
-OUT_TRM ←d   '&' / '+' / O_TRM+
-O_TRM   ←d    SYLL / SET / SEG
+OUT     ←p   EMP / '&' / '+' / OUT_TRM  ( ',' OUT_TRM )* 
+OUT_TRM ←d   OUT_EL+
+OUT_EL  ←d   SYLL / SET / SEG
 
 ENV     ←   ENVEXPR  (',' ENVEXPR)*    // _,# or _#, ==> #_ , _#
 ENVEXPR ←   ENV_EL*  '_' ENV_EL*
@@ -24,7 +24,7 @@ SET     ←d   '{' SEG (',' SEG)* '}'
 OPT     ←d   '(' SEG+ (',' [0-9]+ (':' [0-9]+)?)? ')'    // (S,M:N) => (C, 0:1) etc.
 SEG     ←d   IPA / MATRIX
 
-MATRIX  ←d   CHAR (':' PARAM)? / PARAM 
+MATRIX  ←p   CHAR (':' PARAM)? / PARAM 
 CHAR	←d   'C' / 'V'
 PARAM   ←d   '[' ARG (',' ARG)* ']'
 ARG	    ←D   ( '+' / '-' / [α-ω] ) [a-zA-Z]+ / [a-zA-Z]+ ':' [0-9]+ 
@@ -35,4 +35,6 @@ IPA     ←d   Any phone represented by IPA characters
 ```
 
 
-d = implemented
+←d = implemented
+←p = partially implemented
+←  = todo
