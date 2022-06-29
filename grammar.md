@@ -12,7 +12,7 @@ INP_TRM ←d   ( '...' / TERM )+
 
 OUT     ←p   EMP / '&' / '+' / OUT_TRM  ( ',' OUT_TRM )* 
 OUT_TRM ←d   OUT_EL+
-OUT_EL  ←d   SYLL / SET / SEG
+OUT_EL  ←d   SYLL / SEG
 
 ENV     ←d   '_' ',' ENV_EL / ENV_TRM  (',' ENV_TRM)*   // _,# ==> #_ , _#
 ENV_TRM ←d   ENV_EL?  '_' ENV_EL?

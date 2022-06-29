@@ -593,9 +593,9 @@ impl<'a> Parser<'a> {
             return Ok(Some(x))
         }
 
-        if let Some(x) = self.get_set()? {
-            return Ok(Some(x))
-        }
+        // if let Some(x) = self.get_set()? {
+        //     return Ok(Some(x))
+        // }
 
         if let Some(x) = self.get_segment()? {
             return Ok(Some(x))
