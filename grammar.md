@@ -22,9 +22,9 @@ TERM    ←d   SYLL / SET / SEG / OPT
 SYLL    ←d   '%' (':' PARAM)?
 SET     ←d   '{' SEG (',' SEG)* '}'
 OPT     ←d   '(' SEG+ (',' [0-9]+ (':' [0-9]+)?)? ')'    // (S,M:N) => (C, 0:1) etc.
-SEG     ←d   IPA / MATRIX
+SEG     ←d   MATRIX / IPA
 
-MATRIX  ←p   CHAR (':' PARAM)? / PARAM 
+MATRIX  ←p   (IPA / CHAR) (':' PARAM)? / PARAM 
 CHAR	←d   'C' / 'V'
 PARAM   ←d   '[' ARG (',' ARG)* ']'
 ARG	    ←d   ( '+' / '-' / [α-ω] ) [a-zA-Z]+ / [a-zA-Z]+ ':' [0-9]+ 

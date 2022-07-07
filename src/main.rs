@@ -1,6 +1,8 @@
 mod lexer;
 mod trie;
 mod parser;
+mod word;
+
 
 use serde_json;
 use std::fs;
@@ -8,9 +10,10 @@ use std::collections::HashMap;
 use std::time::Instant;
 use colored::Colorize;
 
-use lexer::Lexer;
+use lexer::*;
 use parser::*;
-use trie::Trie;
+use trie::*;
+use word::*;
 
 
 // use crate::lexer::TokenKind;
@@ -21,8 +24,8 @@ fn run() {
 
 fn main() {
     
-    let file = fs::read_to_string("src\\cardinals.json").expect("file should open read only");
-    let json: HashMap<String, HashMap<String, Option<usize>>>  = serde_json::from_str(&file).expect("JSON was not well-formatted");
+    let file = fs::read_to_string("src\\cardinals.json").expect("Err: Could not open Cardinals JSON file");
+    let json: HashMap<String, HashMap<String, Option<usize>>>  = serde_json::from_str(&file).expect("Err: Could not parse Cardinals JSON file");
     let mut cardinals_trie = Trie::new();
 
     for (k,_) in &json {
@@ -36,13 +39,17 @@ fn main() {
 
     //let test= String::from("%:[tone:214] > [tone:35] / _%:[tone:214] ");
     //let test= String::from("t͡ɕ...b͡β > &");
+
+    let mut w = Word::new("ˈnaˌki.sa".to_owned());
+
+    w.setup_text();
     
     
     let mut tokens;
     const ITERS: u32 = 1;
     
     let start  = Instant::now();
-    let test= String::from("r...l > & / _,C");
+    let test= String::from("V:[+syll]...l > & / _,C");
     let mut rule: Result<Rule, SyntaxError> = Err(SyntaxError::EmptyInput);
 
     for _ in 0..ITERS {
@@ -65,7 +72,7 @@ fn main() {
 
     match rule {
             Ok(r) => {
-                print!("{:#?}", r); 
+                print!("{}", r); 
             },
             Err(e) => {
                 use SyntaxError::*;

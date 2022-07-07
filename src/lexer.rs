@@ -1,7 +1,7 @@
 use core::fmt;
 use std::fmt::Display;
 
-use crate::trie::Trie;
+use super::trie::*;
 
 #[derive(Debug, Copy, Clone, PartialEq, Eq)]
 pub enum FeatType {
@@ -131,6 +131,15 @@ pub enum TokenKind {
     Ellipsis,     // ... or .. or … or ⋯
     Feature(FeatType),
     Eol,          // End of Line 
+}
+
+impl TokenKind {
+    pub fn feature(self) -> Option<FeatType> {
+        match self {
+            TokenKind::Feature(f) => Some(f),
+            _ => None
+        }
+    }
 }
 
 impl Display for TokenKind {
