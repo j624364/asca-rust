@@ -18,15 +18,16 @@ ENV     ←d   '_' ',' ENV_EL / ENV_TRM  (',' ENV_TRM)*   // _,# ==> #_ , _#
 ENV_TRM ←d   ENV_EL?  '_' ENV_EL?
 ENV_EL  ←d   ( BOUND / '...' / TERM )+
 
-TERM    ←d   SYLL / SET / SEG / OPT
+TERM    ←d   SYLL / SET / SEG / OPT / VAR
 SYLL    ←d   '%' (':' PARAM)?
 SET     ←d   '{' SEG (',' SEG)* '}'
 OPT     ←d   '(' SEG+ (',' [0-9]+ (':' [0-9]+)?)? ')'    // (S,M:N) => (C, 0:1) etc.
 SEG     ←d   MATRIX / IPA
+VAR     ←    [0-9]+ (':' PARAM)?
 
 MATRIX  ←p   (IPA / CHAR) (':' PARAM)? / PARAM 
-CHAR	←d   'C' / 'V'
-PARAM   ←d   '[' ARG (',' ARG)* ']'
+CHAR	←p   [A-Z] ('=' [0-9]+)?
+PARAM   ←p   '[' ARG (',' ARG)* ']' ('=' [0-9]+)?
 ARG	    ←d   ( '+' / '-' / [α-ω] ) [a-zA-Z]+ / [a-zA-Z]+ ':' [0-9]+ 
 
 EMP     ←d   '*' / '∅'

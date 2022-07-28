@@ -2,6 +2,8 @@ mod lexer;
 mod trie;
 mod parser;
 mod word;
+mod rule;
+mod error;
 
 
 use serde_json;
@@ -14,6 +16,8 @@ use lexer::*;
 use parser::*;
 use trie::*;
 use word::*;
+use rule::*;
+use error::*;
 
 
 // use crate::lexer::TokenKind;
@@ -23,7 +27,7 @@ fn run() {
 }
 
 fn main() {
-    
+    // replace with const and lazy_static
     let file = fs::read_to_string("src\\cardinals.json").expect("Err: Could not open Cardinals JSON file");
     let json: HashMap<String, HashMap<String, Option<usize>>>  = serde_json::from_str(&file).expect("Err: Could not parse Cardinals JSON file");
     let mut cardinals_trie = Trie::new();
@@ -42,7 +46,7 @@ fn main() {
 
     let mut w = Word::new("ˈnaˌki.sa".to_owned());
 
-    w.setup_text();
+    //w.setup_text();
     
     
     let mut tokens;

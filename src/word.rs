@@ -1,7 +1,58 @@
 use std::collections::HashMap;
 
+use crate::lexer::FeatType;
+
 // use regex::Regex;
 // use lazy_static::lazy_static;
+
+// match feature {
+//     RootNode     | MannerNode  | LaryngealNode | PlaceNode 
+//     | LabialNode | CoronalNode | DorsalNode    | PharyngealNode 
+//     | Long | Overlong | Stress | Length | Tone => { do x },
+//     _ => segment_to_byte(feature)
+// }
+
+pub fn segment_to_byte(feat: FeatType) -> (&'static str, u8) {
+    use FeatType::*;
+    match feat {
+        Consonantal    => ("ROOT", 0b100),
+        Sonorant       => ("ROOT", 0b010),
+        Syllabic       => ("ROOT", 0b001),
+        
+        Continuant     => ("MAN", 0b10000000),
+        Approximant    => ("MAN", 0b01000000),
+        Lateral        => ("MAN", 0b00100000),
+        Nasal          => ("MAN", 0b00010000),
+        DelayedRelease => ("MAN", 0b00001000),
+        Strident       => ("MAN", 0b00000100),
+        Rhotic         => ("MAN", 0b00000010),
+        Click          => ("MAN", 0b00000001),
+        
+        Voice          => ("LAR", 0b100),
+        SpreadGlottis  => ("LAR", 0b010),
+        ConstrGlottis  => ("LAR", 0b001),
+        
+        // LabialPlace => ("LAB", 0b10),
+        Round          => ("LAB", 0b01),
+
+        Anterior       => ("COR", 0b10),
+        Distributed    => ("COR", 0b01),
+
+        Front          => ("DOR", 0b100000),
+        Back           => ("DOR", 0b010000),
+        High           => ("DOR", 0b001000),
+        Low            => ("DOR", 0b000100),
+        Tense          => ("DOR", 0b000010),
+        Reduced        => ("DOR", 0b000001),
+
+        AdvancedTongueRoot  => ("PHAR", 0b10),
+        RetractedTongueRoot => ("PHAR", 0b01),
+
+        // if Node or SupraSeg
+        _ => unreachable!()
+    }
+}
+
 
 
 #[derive(Debug, Clone)]
@@ -20,7 +71,11 @@ pub struct Word {
 
 impl Word {
     pub fn new(txt: String) -> Self {
-        Self { text: txt, split_text: Vec::new(),segment_list: Vec::new() }
+        let mut w = Self { text: txt, split_text: Vec::new(),segment_list: Vec::new() };
+
+        w.setup_text();
+
+        w
 
     }
 
@@ -29,12 +84,7 @@ impl Word {
                              .replace("g", "ɡ")
                              .replace(":", "ː")
                              .replace("ǝ", "ə");
-        // lazy_static! {
-        //     static ref SEP: Regex = Regex::new(r"(?=[ˈˌ.])").unwrap();
-        // }
         
-        // self.pro_text = SEP.split(&self.text).map(|f| f.to_string()).collect();
-
         let mut split_str : Vec<String> = self.text.split_inclusive(&['ˈ', 'ˌ', '.']).map(|f| f.to_string()).collect();
 
         println!("{:?}", split_str);

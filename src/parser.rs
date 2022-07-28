@@ -1,57 +1,8 @@
 use std::{collections::HashMap, fmt};
-use super::lexer::*;
+use crate::lexer::*;
+use crate::rule::*;
+use crate::error::*;
 
-#[derive(Debug, Clone)]
-pub enum RuntimeError { 
-
-}
-
-
-
-#[derive(Debug, Clone)]
-pub enum SyntaxError {
-    OptMathError(Token, usize, usize),
-    UnknownIPA(Token),
-    UnknownChar(Token),
-    ExpectedEndL(Token),
-    ExpectedArrow(Token),
-    ExpectedComma(Token),
-    ExpectedColon(Token),
-    ExpectedMatrix(Token),
-    ExpectedSegment(Token),
-    ExpectedFeature(Token),
-    ExpectedUnderline(Token),
-    ExpectedRightBracket(Token),
-    InsertErr,
-    DeleteErr,
-    EmptyInput,
-    EmptyOutput,
-    EmptyEnv,
-}
-
-impl fmt::Display for SyntaxError {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match self {
-            Self::OptMathError(_, l, h)  => write!(f, "Second argument '{}' must be >= first argument '{}'", h, l),
-            Self::UnknownIPA(token)           => write!(f, "Could not get value of IPA '{}'.", token.value),
-            Self::UnknownChar(token)          => write!(f, "No known primative'{}'. Known primatives are (C)onsonant, (O)bstruent, (S)onorant, (L)iquid, (N)asal, (G)lide, and (V)owel", token.value),
-            Self::ExpectedEndL(token)         => write!(f, "Expected end of line, received '{}'. Did you forget a '/' between the output and environment?", token.value),
-            Self::ExpectedArrow(token)        => write!(f, "Expected '>', '->' or '=>', but received '{}'", token.value),
-            Self::ExpectedComma(token)        => write!(f, "Expected ',', but received '{}'", token.value),
-            Self::ExpectedColon(token)        => write!(f, "Expected ':', but received '{}'", token.value),
-            Self::ExpectedMatrix(token)       => write!(f, "Expected '[', but received '{}'", token.value),
-            Self::ExpectedSegment(token)      => write!(f, "Expected an IPA character, Primative or Matrix, but received '{}'", token.value),
-            Self::ExpectedFeature(token)      => write!(f, "{} cannot be placed inside a matrix. An element inside `[]` must a distinctive feature", token.value),
-            Self::ExpectedUnderline(token)    => write!(f, "Expected '_', but received '{}'", token.value),
-            Self::ExpectedRightBracket(token) => write!(f, "Expected ')', but received '{}'", token.value),
-            Self::InsertErr   => write!(f, "The input of an insertion rule must only contain `*` or `∅`"),
-            Self::DeleteErr   => write!(f, "The output of a deletion rule must only contain `*` or `∅`"),
-            Self::EmptyInput  => write!(f, "Input cannot be empty. Use `*` or '∅' to indicate insertion"),
-            Self::EmptyOutput => write!(f, "Output cannot be empty. Use `*` or '∅' to indicate deletion"),
-            Self::EmptyEnv    => write!(f, "Environment cannot be empty following a seperator."),
-        }
-    }
-}
 
 #[derive(Debug, Clone)]
 pub enum ParseKind {
@@ -134,62 +85,10 @@ impl fmt::Display for Item {
     }
 }
 
-
-#[derive(Debug)]
-pub struct Rule {
-    pub input:   Vec<Vec<Item>>,    // to support multi-rules
-    pub output:  Vec<Vec<Item>>,    // these need to be
-    pub context: Vec<Item>,         // Vec<Vec<Item>>
-    pub except:  Vec<Item>,    
-}                                   
-
-impl Rule {
-    pub fn new(i: Vec<Vec<Item>>, o: Vec<Vec<Item>>, c :Vec<Item>, e :Vec<Item>) -> Self {
-        Self { input: i, output: o, context: c, except: e }
-    }
-
-    pub fn apply(&self, word: String /* Need a `Word` struct == Vec<Vec<IPA>,Supra>*/, trace: bool) -> Result<String, RuntimeError> {
-        todo!()
-    }
-}
-
-impl fmt::Display for Rule {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        writeln!(f, "Rule ->")?;
-
-        writeln!(f, "    Input = [")?;
-        self.input.iter().for_each(|i| {
-            println!("        {:?}", i);
-        });
-        writeln!(f, "    ]")?;
-
-        writeln!(f, "    Output = [")?;
-        self.output.iter().for_each(|o| {
-            println!("        {:?}", o);
-        });
-        writeln!(f, "    ]")?;
-
-        writeln!(f, "    Context = [")?;
-        self.context.iter().for_each(|c| {
-            println!("        {}", c);
-        });
-        writeln!(f, "    ]")?;
-
-        writeln!(f, "    Exception = [")?;
-        self.except.iter().for_each(|e| {
-            println!("        {}", e);
-        });
-        writeln!(f, "    ]")?;
-
-
-        Ok(())
-    }
-}
-
 pub struct Parser<'a> {
     token_list: Vec<Token>,
     cardinals: &'a HashMap<String, HashMap<String, Option<usize>>>, 
-    curr_pos: usize,
+    pos: usize,
     curr_tkn: Token,
 }
 
@@ -199,26 +98,26 @@ impl<'a> Parser<'a> {
         let mut s = Self { 
             token_list: lst, 
             cardinals: c,
-            curr_pos: 0, 
+            pos: 0, 
             curr_tkn: Token { kind: TokenKind::Eol, value: "eol".to_string(), position: Position { start: 0, end: 1 } }, 
         };
        
-        s.curr_tkn = s.token_list[s.curr_pos].clone();
+        s.curr_tkn = s.token_list[s.pos].clone();
 
         s
     }
 
     fn lookahead(&mut self) {
-        self.curr_pos += 1;
+        self.pos += 1;
 
         self.curr_tkn = if self.has_more_tokens() {
-            self.token_list[self.curr_pos].clone()
+            self.token_list[self.pos].clone()
         } else {
-            Token { kind: TokenKind::Eol, value: "eol".to_string(), position: Position { start: self.curr_pos, end: self.curr_pos+1 } }
+            Token { kind: TokenKind::Eol, value: "eol".to_string(), position: Position { start: self.pos, end: self.pos+1 } }
         }
     }
 
-    fn has_more_tokens(&self) -> bool { self.curr_pos < self.token_list.len() }
+    fn has_more_tokens(&self) -> bool { self.pos < self.token_list.len() }
 
     // fn advance(&mut self) {
     //     self.pos = self.forw_pos;
@@ -307,7 +206,7 @@ impl<'a> Parser<'a> {
 
         let after = self.get_env_elements()?;
 
-        let end = self.token_list[self.curr_pos-1].position.end;
+        let end = self.token_list[self.pos-1].position.end;
 
         Ok(Item::new(ParseKind::Environment(before, after), Position { start, end }))
     }
@@ -326,7 +225,7 @@ impl<'a> Parser<'a> {
 
         let x = self.get_env_elements()?;
 
-        let end = self.token_list[self.curr_pos-1].position.end;
+        let end = self.token_list[self.pos-1].position.end;
 
         let mut v = Vec::new();
 
@@ -553,9 +452,9 @@ impl<'a> Parser<'a> {
     }
 
     fn get_matrix(&mut self) -> Result<Item, SyntaxError> { 
-        let start = self.token_list[self.curr_pos-1].position.start;
+        let start = self.token_list[self.pos-1].position.start;
         let args = self.get_matrix_args()?;
-        let end = self.token_list[self.curr_pos-1].position.end;
+        let end = self.token_list[self.pos-1].position.end;
         
         Ok(Item::new(ParseKind::Matrix(args), Position { start, end }))
     }
@@ -655,7 +554,7 @@ impl<'a> Parser<'a> {
         // Todo: This needs cleaning up!
 
         if self.expect(TokenKind::RightBracket) {
-            let end = self.token_list[self.curr_pos-1].position.end;
+            let end = self.token_list[self.pos-1].position.end;
             return Ok(Some(Item::new(ParseKind::Optional(segs, 0, 1), Position { start, end })))
         }
 
@@ -668,7 +567,7 @@ impl<'a> Parser<'a> {
         }
 
         if self.expect(TokenKind::RightBracket) {
-            let end = self.token_list[self.curr_pos-1].position.end;
+            let end = self.token_list[self.pos-1].position.end;
             return Ok(Some(Item::new(ParseKind::Optional(segs, 0, lo_bound), Position { start, end })))
         }
 
@@ -684,7 +583,7 @@ impl<'a> Parser<'a> {
         }
 
         if self.expect(TokenKind::RightBracket) {
-            let end = self.token_list[self.curr_pos-1].position.end;
+            let end = self.token_list[self.pos-1].position.end;
             return Ok(Some(Item::new(ParseKind::Optional(segs, lo_bound, hi_bound), Position { start, end })))
         }
 
@@ -717,7 +616,7 @@ impl<'a> Parser<'a> {
 
             return Err(SyntaxError::ExpectedSegment(self.curr_tkn.clone()))
         }
-        let end = self.token_list[self.curr_pos-1].position.end;
+        let end = self.token_list[self.pos-1].position.end;
         Ok(Some(Item::new(ParseKind::Set(segs.clone()), Position { start, end })))
 
     }
@@ -741,7 +640,7 @@ impl<'a> Parser<'a> {
 
         let m = self.get_matrix_args()?;
 
-        let end = self.token_list[self.curr_pos-1].position.end;
+        let end = self.token_list[self.pos-1].position.end;
 
         Ok(Some(Item::new(ParseKind::Syllable(m), Position { start, end })))
     }
@@ -897,12 +796,20 @@ impl<'a> Parser<'a> {
 
     
     fn rule(&mut self) -> Result<Rule, SyntaxError> {
+        let mut flg_delete: u8 = 0; 
+        let mut flg_metath: u8 = 0; 
+        let /*mut*/ flg_redupl: u8 = 0; 
 
         let input = self.get_input()?;
 
+        let flg_insert: u8 = match input[0][0].kind {
+            ParseKind::EmptySet(_) => 8,
+            _ => 0
+        };
+
         if !self.expect(TokenKind::Arrow) && !self.expect(TokenKind::GreaterThan) {
-            match input[0][0].kind {
-                ParseKind::EmptySet(_) => { 
+            match flg_insert {
+                8 => { 
                     if self.peek_kind(TokenKind::Comma) {
                         return Err(SyntaxError::InsertErr)
                     } else {
@@ -915,8 +822,26 @@ impl<'a> Parser<'a> {
 
         let output = self.get_output()?;
 
+        match output[0][0].kind {
+            ParseKind::Metathesis(_) => flg_metath = 1,
+            ParseKind::EmptySet(_)   => flg_delete = 2,
+            // ParseKind::Duplicate(_)  => flg_redupl = 4,
+            _ => {}
+        }
+
+        let rule_type = flg_delete | flg_insert | flg_metath | flg_redupl;
+        
+        // if flg_insert != 0 && ((flg_metath != 0) | (flg_redupl != 0) | (flg_delete != 0)) {
+        if rule_type != 1 && rule_type % 2 != 0 {
+
+            println!("\n\n{}", rule_type);
+
+            panic!("\nAHHHHHHHHHHHH\n");
+            //todo: Add Syntax error
+        }
+
         if self.expect(TokenKind::Eol) {
-            return Ok(Rule::new(input, output, Vec::new(), Vec::new()))
+            return Ok(Rule::new(input, output, Vec::new(), Vec::new(), rule_type))
         }
 
         if !self.peek_kind(TokenKind::Slash) && !self.peek_kind(TokenKind::Pipe) {
@@ -937,7 +862,7 @@ impl<'a> Parser<'a> {
         let except = self.get_except_block()?;
 
         if self.expect(TokenKind::Eol) {
-            return Ok(Rule::new(input, output, context, except))
+            return Ok(Rule::new(input, output, context, except, rule_type))
         }
         
         Err(SyntaxError::ExpectedEndL(self.curr_tkn.clone()))

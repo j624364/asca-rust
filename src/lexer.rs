@@ -19,6 +19,7 @@ pub enum FeatType {
     DelayedRelease,  
     Strident,        
     Rhotic,          
+    Click,          
     // LAR node
     LaryngealNode,   
     Voice,           
@@ -70,6 +71,7 @@ impl Display for FeatType {
             DelayedRelease      => write!(f, "delrel"),
             Strident            => write!(f, "strid"),
             Rhotic              => write!(f, "rho"),
+            Click               => write!(f, "clk"),
             LaryngealNode       => write!(f, "LAR"),
             Voice               => write!(f, "voi"),
             SpreadGlottis       => write!(f, "sg"),
@@ -407,7 +409,7 @@ impl<'a> Lexer<'a> {
                     tokenkind = TokenKind::Arrow;
                     value = format!("{c}>").to_string();
                 },
-                _ => panic!("Expected {0}> got {0}{1}", self.curr_char, self.peak_next_char())
+                _ => panic!("Expected -> got -{}", self.peak_next_char())
             },
             '…' | '⋯' => { tokenkind = TokenKind::Ellipsis;     value = self.curr_char.to_string(); },
             '.' => match self.peak_next_char() {
@@ -417,7 +419,7 @@ impl<'a> Lexer<'a> {
                     else { value = "..".to_string(); }
                     tokenkind = TokenKind::Ellipsis;
                 },
-                _ => panic!("Expected {0}> got {0}{1}", self.curr_char, self.peak_next_char())
+                _ => panic!("Expected .. got .{}", self.peak_next_char())
             },
             _ => return None
         }
@@ -497,7 +499,7 @@ impl<'a> Lexer<'a> {
     }
 
     fn feature_match(&mut self, buffer: String, start: usize) -> TokenKind {
-        // apologies for the mess! this needs to be `un-hardcoded` at some stage
+        // apologies for the mess! this may need to be `un-hardcoded` at some stage
         use TokenKind::*;
         use FeatType::*;
         match buffer.to_lowercase().as_str() {
@@ -515,6 +517,7 @@ impl<'a> Lexer<'a> {
             "delayedrelease" | "delrel" | "dlrl" | "dr"         => { return Feature(DelayedRelease) },
             "strident" | "strid" | "stri"                       => { return Feature(Strident) },
             "rhotic" | "rhot" | "rho" | "rh"                    => { return Feature(Rhotic) },
+            "click" | "clck" | "clk"                            => { return Feature(Click) },
             // Laryngeal Node Features
             "laryngeal" | "laryng" | "laryn" | "lar"            => { return Feature(LaryngealNode) },
             "voice" | "voi" | "vce" | "vc"                      => { return Feature(Voice) },
