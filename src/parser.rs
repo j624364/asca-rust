@@ -6,6 +6,7 @@ use crate::error::*;
 
 #[derive(Debug, Clone)]
 pub enum ParseKind {
+    Variable(Token, Vec<Token>),
     EmptySet   (Token),
     Boundary   (Token),
     Ellipsis   (Token),
@@ -30,11 +31,19 @@ impl ParseKind {
 impl fmt::Display for ParseKind {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
+            ParseKind::Variable(t, p) => {
+                let tt = p.iter()
+                .fold(String::new(), |acc, i| acc + &i.to_string() + ", ");
+
+                write!(f, "{} = [{}]", t, tt)
+            },
             ParseKind::EmptySet(t) |
             ParseKind::Boundary(t) |
             ParseKind::Ellipsis(t) |
             ParseKind::Metathesis(t) => write!(f, "{}", t),
+
             ParseKind::IPA(_, _) => todo!(),
+
             ParseKind::Matrix(tokens) | 
             ParseKind::Syllable(tokens) => {
                 let tt = tokens.iter()
@@ -42,15 +51,17 @@ impl fmt::Display for ParseKind {
                 
                 write!(f, "[{}]", tt)
             },
+
             ParseKind::Set(_) => todo!(),
+
             ParseKind::Optional(_, _, _) => todo!(),
+
             ParseKind::Environment(bef, aft) => {
                 let xb = bef.iter()
                 .fold(String::new(), |acc, i| acc + &i.to_string() + ", ");
 
                 let xa = aft.iter()
                 .fold(String::new(), |acc, i| acc + &i.to_string() + ", ");
-                
                 
                 if xb.is_empty() && xa.is_empty() {
                     write!(f, "[{}] __ [{}]", xb, xa)
@@ -62,7 +73,7 @@ impl fmt::Display for ParseKind {
                     write!(f, "{} __ {}", xb, xa)
                 }
 
-            },
+            }
         }
     }
 }
@@ -90,24 +101,24 @@ pub struct Parser<'a> {
     cardinals: &'a HashMap<String, HashMap<String, Option<usize>>>, 
     pos: usize,
     curr_tkn: Token,
+    var_map: HashMap<usize,Item>
 }
 
 impl<'a> Parser<'a> {
-    
     pub fn new(lst: Vec<Token>, c: &'a HashMap<String, HashMap<String, Option<usize>>>) -> Self {
         let mut s = Self { 
             token_list: lst, 
             cardinals: c,
             pos: 0, 
-            curr_tkn: Token { kind: TokenKind::Eol, value: "eol".to_string(), position: Position { start: 0, end: 1 } }, 
+            curr_tkn: Token { kind: TokenKind::Eol, value: "eol".to_string(), position: Position { start: 0, end: 1 } },
+            var_map: HashMap::new(), 
         };
-       
         s.curr_tkn = s.token_list[s.pos].clone();
 
         s
     }
 
-    fn lookahead(&mut self) {
+    fn advance(&mut self) {
         self.pos += 1;
 
         self.curr_tkn = if self.has_more_tokens() {
@@ -119,17 +130,7 @@ impl<'a> Parser<'a> {
 
     fn has_more_tokens(&self) -> bool { self.pos < self.token_list.len() }
 
-    // fn advance(&mut self) {
-    //     self.pos = self.forw_pos;
-    //     self.curr_tkn = self.forw_tkn.clone();
-    // }
-
-    // fn retreat(&mut self) {
-    //     self.forw_pos = self.pos;
-    //     self.forw_tkn = self.curr_tkn.clone();
-    // }
-
-    fn peek_kind(&self, knd: TokenKind) -> bool {
+    fn peek_expect(&self, knd: TokenKind) -> bool {
         if self.curr_tkn.kind == knd {
             return true
         } else {
@@ -139,7 +140,7 @@ impl<'a> Parser<'a> {
 
     fn expect(&mut self, knd: TokenKind) -> bool {
         if self.curr_tkn.kind == knd {
-            self.lookahead();
+            self.advance();
             return true
         } else {
             return false
@@ -148,11 +149,12 @@ impl<'a> Parser<'a> {
 
     fn eat(&mut self) -> Token {
         let token = self.curr_tkn.clone();
-        self.lookahead();
+        self.advance();
         token
     }
 
     fn eat_expect(&mut self, knd: TokenKind) -> Option<Token> {
+        println!("{} : {}", self.curr_tkn.kind, knd);
         if self.curr_tkn.kind == knd {
             return Some(self.eat())
         } else {
@@ -161,7 +163,7 @@ impl<'a> Parser<'a> {
     }
 
     fn get_bound(&mut self) -> Option<Item> { 
-        if !self.peek_kind(TokenKind::SyllBoundary) && !self.peek_kind(TokenKind::WordBoundary) {
+        if !self.peek_expect(TokenKind::SyllBoundary) && !self.peek_expect(TokenKind::WordBoundary) {
             return None
         }
         let token = self.eat();
@@ -196,6 +198,8 @@ impl<'a> Parser<'a> {
 
     fn get_env_term(&mut self) -> Result<Item, SyntaxError> {
         // returns env elements
+
+        println!("--- {}",self.curr_tkn);
         let start = self.curr_tkn.position.start;
         
         let before  = self.get_env_elements()?;
@@ -220,6 +224,8 @@ impl<'a> Parser<'a> {
         }
 
         if !self.expect(TokenKind::Comma) {
+            self.pos -=2;
+            self.advance();
             return Ok(None)
         }
 
@@ -335,42 +341,6 @@ impl<'a> Parser<'a> {
         }
     }
 
-    // fn feature_to_val(&self, feat: TokenKind) -> Option<(String, usize)> {
-    //     use FeatType::*;
-    //     match feat {
-    //         TokenKind::Feature(x) => {
-    //             match x {
-    //                 Consonantal     => return Some(("root".to_string(), 4)),
-    //                 Sonorant        => return Some(("root".to_string(), 2)),
-    //                 Syllabic        => return Some(("root".to_string(), 1)),
-    //                 Continuant      => return Some(("manner".to_string(), 64)),
-    //                 Approximant     => return Some(("manner".to_string(), 32)),
-    //                 Lateral         => return Some(("manner".to_string(), 16)),
-    //                 Nasal           => return Some(("manner".to_string(), 8)),
-    //                 DelayedRelease  => return Some(("manner".to_string(), 4)),
-    //                 Strident        => return Some(("manner".to_string(), 2)),
-    //                 Rhotic          => return Some(("manner".to_string(), 1)),
-    //                 Voice           => return Some(("lar".to_string(), 4)),
-    //                 SpreadGlottis   => return Some(("lar".to_string(), 2)),
-    //                 ConstrGlottis   => return Some(("lar".to_string(), 1)),
-    //                 Round           => return Some(("lab".to_string(), 1)),
-    //                 Anterior        => return Some(("cor".to_string(), 2)),
-    //                 Distributed     => return Some(("cor".to_string(), 1)),
-    //                 Front           => return Some(("dor".to_string(), 32)),
-    //                 Back            => return Some(("dor".to_string(), 16)),
-    //                 High            => return Some(("dor".to_string(), 8)),
-    //                 Low             => return Some(("dor".to_string(), 4)),
-    //                 Tense           => return Some(("lab".to_string(), 2)),
-    //                 Reduced         => return Some(("lab".to_string(), 1)),
-    //                 AdvancedTongueRoot  => return Some(("phr".to_string(), 2)),
-    //                 RetractedTongueRoot => return Some(("phr".to_string(), 1)),
-    //                 _ => return None
-    //             }
-    //         },
-    //         _ => unreachable!()
-    //     }
-    // }
-
     fn matrix_to_val(&self, matrix:Item) -> Result<HashMap<String, Option<usize>>, SyntaxError> {
         println!("{:?}", matrix);
 
@@ -379,9 +349,7 @@ impl<'a> Parser<'a> {
             println!("{:?}", v);
         }
 
-
-
-        unreachable!();
+        todo!();
     }
 
     fn char_to_matrix(&self, chr: Token) -> Result<Item, SyntaxError> {
@@ -440,7 +408,7 @@ impl<'a> Parser<'a> {
             
             if self.is_feature(){
                 args.push(self.curr_tkn.clone());
-                self.lookahead();
+                self.advance();
                 continue;
             }
             
@@ -462,7 +430,7 @@ impl<'a> Parser<'a> {
     fn get_char(&mut self) -> Result<Item, SyntaxError> {
         // returns matrix or None
         let chr = self.char_to_matrix(self.curr_tkn.clone())?;
-        self.lookahead();
+        self.advance();
 
         if !self.expect(TokenKind::Colon) {
             return Ok(chr)
@@ -484,7 +452,7 @@ impl<'a> Parser<'a> {
 
         let ipa = self.ipa_to_vals(self.curr_tkn.clone())?;
         let pos = self.curr_tkn.position;
-        self.lookahead();
+        self.advance();
 
         if !self.expect(TokenKind::Colon) {
             return Ok(Item::new(ParseKind::IPA(ipa.clone(), Vec::new()), pos))
@@ -502,24 +470,81 @@ impl<'a> Parser<'a> {
     }
     
     fn get_segment(&mut self) -> Result<Option<Item>, SyntaxError> {
-        // returns IPA / Matrix or None
+        // returns IPA / Matrix, with varable number, or None
 
-        if self.peek_kind(TokenKind::Cardinal) {
-            let maybe_ipa = self.get_ipa()?;
-            return Ok(Some(maybe_ipa))
+        if self.peek_expect(TokenKind::Cardinal) {
+            let ipa = self.get_ipa()?;
+            return Ok(Some(ipa))
         }
 
-        if self.peek_kind(TokenKind::Primative) {
-            let maybe_char = self.get_char()?;
-            return Ok(Some(maybe_char))
+        if self.peek_expect(TokenKind::Primative) {
+            let chr = self.get_char()?;
+
+            if self.expect(TokenKind::Equals) {
+                match self.eat_expect(TokenKind::Number) {
+                    Some(n) => {
+                        let num = n.value.parse::<usize>().unwrap();
+
+                        match self.var_map.get(&num) {
+                            Some(val) => return Err(SyntaxError::AlreadyInitialisedVariable(val.clone(), chr, num)),
+                            None => self.var_map.insert(num, chr.clone())
+                        };
+
+                        return Ok(Some(chr))
+                    },
+                    None => return Err(SyntaxError::ExpectedVariable(self.curr_tkn.clone()))
+                }
+            }
+            return Ok(Some(chr))
         }
 
         if self.expect(TokenKind::LeftSquare) {
-            let maybe_matrix = self.get_matrix()?;
-            return Ok(Some(maybe_matrix))
+            let matrix = self.get_matrix()?;
+            return Ok(Some(matrix))
         }
 
         return Ok(None)
+    }
+
+    fn join_var_with_params(&self, t: Token, params: Item) -> Result<Item, SyntaxError> {
+
+        if let ParseKind::Matrix(p) = params.kind {
+            let kind = ParseKind::Variable(t.clone(), p);
+
+            let pos = Position { start: t.position.start, end: params.position.end };
+
+            Ok(Item::new(kind, pos))
+
+        }
+        else {
+            unreachable!();
+        }
+    }
+
+    fn get_var(&mut self) -> Result<Option<Item>, SyntaxError> {
+        
+        match self.eat_expect(TokenKind::Number) {
+
+            Some(t) => {
+                if !self.expect(TokenKind::Colon) {
+                    let v = Item::new(ParseKind::Variable(t.clone(), Vec::new()), t.position);
+                    return Ok(Some(v))
+                }
+
+                if !self.expect(TokenKind::LeftSquare) {
+                    return Err(SyntaxError::ExpectedMatrix(self.curr_tkn.clone()))
+                }
+
+                let params = self.get_matrix()?;
+
+                let joined = self.join_var_with_params(t, params)?;
+
+                Ok(Some(joined))
+
+            },
+            None => return Ok(None)
+        }
+            
     }
 
     fn get_optionals(&mut self) -> Result<Option<Item>, SyntaxError> {
@@ -528,14 +553,14 @@ impl<'a> Parser<'a> {
         let start = self.curr_tkn.position.start;
 
         if !self.expect(TokenKind::LeftBracket) {
-            return Ok(None);
+            return Ok(None)
         }
 
         let mut segs = Vec::new();
         let mut lo_bound: usize = 0;
         let mut hi_bound: usize = 0;
         while self.has_more_tokens() {
-            if self.peek_kind(TokenKind::RightBracket) {
+            if self.peek_expect(TokenKind::RightBracket) {
                 break;
             }
 
@@ -544,7 +569,7 @@ impl<'a> Parser<'a> {
                 continue;
             }
 
-            if self.peek_kind(TokenKind::Comma){
+            if self.peek_expect(TokenKind::Comma){
                 break;
             }
 
@@ -664,6 +689,10 @@ impl<'a> Parser<'a> {
             return Ok(Some(x))
         }
 
+        if let Some(x) = self.get_var()? {
+            return Ok(Some(x))
+        }
+
         Ok(None)
     }
 
@@ -677,7 +706,7 @@ impl<'a> Parser<'a> {
                 continue;
             }
 
-            if self.peek_kind(TokenKind::GreaterThan) { // So we can try simple rules that don't call functions we are yet to implement
+            if self.peek_expect(TokenKind::GreaterThan) { // So we can try simple rules that don't call functions we are yet to implement
                 break                                       //  We can probably remove this after parser logic is done
             }                                               // Though it wouldn't hurt performance to leave it in
 
@@ -694,7 +723,7 @@ impl<'a> Parser<'a> {
     }
 
     fn get_output_element(&mut self) -> Result<Option<Item>, SyntaxError> {
-        // returns syllable / set / segment
+        // returns syllable / segment / variable
         if let Some(x) = self.get_syll()? {
             return Ok(Some(x))
         }
@@ -704,6 +733,10 @@ impl<'a> Parser<'a> {
         // }
 
         if let Some(x) = self.get_segment()? {
+            return Ok(Some(x))
+        }
+
+        if let Some(x) = self.get_var()? {
             return Ok(Some(x))
         }
 
@@ -727,7 +760,7 @@ impl<'a> Parser<'a> {
     }
 
     fn get_empty(&mut self) -> Vec<Item> {
-        if !self.peek_kind(TokenKind::Star) && !self.peek_kind(TokenKind::EmptySet) {
+        if !self.peek_expect(TokenKind::Star) && !self.peek_expect(TokenKind::EmptySet) {
             return Vec::new()
         }
         let token = self.eat();
@@ -810,7 +843,7 @@ impl<'a> Parser<'a> {
         if !self.expect(TokenKind::Arrow) && !self.expect(TokenKind::GreaterThan) {
             match flg_insert {
                 8 => { 
-                    if self.peek_kind(TokenKind::Comma) {
+                    if self.peek_expect(TokenKind::Comma) {
                         return Err(SyntaxError::InsertErr)
                     } else {
                         return Err(SyntaxError::ExpectedArrow(self.curr_tkn.clone()))
@@ -820,7 +853,11 @@ impl<'a> Parser<'a> {
             }
         }
 
+        println!("{:?}", input);
+        
         let output = self.get_output()?;
+        
+        println!("{:?}", output);
 
         match output[0][0].kind {
             ParseKind::Metathesis(_) => flg_metath = 1,
@@ -841,13 +878,14 @@ impl<'a> Parser<'a> {
         }
 
         if self.expect(TokenKind::Eol) {
-            return Ok(Rule::new(input, output, Vec::new(), Vec::new(), rule_type))
+            return Ok(Rule::new(input, output, Vec::new(), Vec::new(), rule_type, self.var_map.clone()))
         }
 
-        if !self.peek_kind(TokenKind::Slash) && !self.peek_kind(TokenKind::Pipe) {
+        if !self.peek_expect(TokenKind::Slash) && !self.peek_expect(TokenKind::Pipe) {
             match input[0][0].kind {
-                ParseKind::EmptySet(_) | ParseKind::Metathesis(_) => { 
-                    if self.peek_kind(TokenKind::Comma) {
+                ParseKind::EmptySet(_) | ParseKind::Metathesis(_
+                ) => { 
+                    if self.peek_expect(TokenKind::Comma) {
                         return Err(SyntaxError::DeleteErr)
                     } else {
                         return Err(SyntaxError::ExpectedEndL(self.curr_tkn.clone()))
@@ -862,7 +900,7 @@ impl<'a> Parser<'a> {
         let except = self.get_except_block()?;
 
         if self.expect(TokenKind::Eol) {
-            return Ok(Rule::new(input, output, context, except, rule_type))
+            return Ok(Rule::new(input, output, context, except, rule_type, self.var_map.clone()))
         }
         
         Err(SyntaxError::ExpectedEndL(self.curr_tkn.clone()))

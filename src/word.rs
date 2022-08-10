@@ -12,7 +12,7 @@ use crate::lexer::FeatType;
 //     _ => segment_to_byte(feature)
 // }
 
-pub fn segment_to_byte(feat: FeatType) -> (&'static str, u8) {
+pub fn feature_to_byte(feat: FeatType) -> (&'static str, u8) {
     use FeatType::*;
     match feat {
         Consonantal    => ("ROOT", 0b100),

@@ -53,7 +53,8 @@ fn main() {
     const ITERS: u32 = 1;
     
     let start  = Instant::now();
-    let test= String::from("V:[+syll]...l > & / _,C");
+    // let test = String::from("V:[+syll]...l > & / _,C");
+    let test = String::from("C=1 V=2 > 2 1  / _C");
     let mut rule: Result<Rule, SyntaxError> = Err(SyntaxError::EmptyInput);
 
     for _ in 0..ITERS {
@@ -61,13 +62,14 @@ fn main() {
         let mut lex = Lexer::new(test.clone(), &cardinals_trie);        
         tokens = lex.get_all_tokens();
     
-        // tokens.clone().into_iter().for_each(|t| {
-            //     println!("{}", t);
-            // });
+        tokens.clone().into_iter().for_each(|t| {
+                println!("{}", t);
+            });
         let mut parser = Parser:: new(tokens, &json);
 
         rule = parser.parse();
     }
+
 
     let dur = start.elapsed();
         println!("Total Time: {:?}", dur);

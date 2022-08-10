@@ -12,7 +12,7 @@ INP_TRM ←d   ( '...' / TERM )+
 
 OUT     ←p   EMP / '&' / '+' / OUT_TRM  ( ',' OUT_TRM )* 
 OUT_TRM ←d   OUT_EL+
-OUT_EL  ←d   SYLL / SEG
+OUT_EL  ←d   SYLL / SEG / VAR
 
 ENV     ←d   '_' ',' ENV_EL / ENV_TRM  (',' ENV_TRM)*   // _,# ==> #_ , _#
 ENV_TRM ←d   ENV_EL?  '_' ENV_EL?
@@ -22,13 +22,13 @@ TERM    ←d   SYLL / SET / SEG / OPT / VAR
 SYLL    ←d   '%' (':' PARAM)?
 SET     ←d   '{' SEG (',' SEG)* '}'
 OPT     ←d   '(' SEG+ (',' [0-9]+ (':' [0-9]+)?)? ')'    // (S,M:N) => (C, 0:1) etc.
-SEG     ←d   MATRIX / IPA
-VAR     ←    [0-9]+ (':' PARAM)?
+SEG     ←d   MATRIX
+VAR     ←p   [0-9]+ (':' PARAM)?
 
 MATRIX  ←p   (IPA / CHAR) (':' PARAM)? / PARAM 
 CHAR	←p   [A-Z] ('=' [0-9]+)?
 PARAM   ←p   '[' ARG (',' ARG)* ']' ('=' [0-9]+)?
-ARG	    ←d   ( '+' / '-' / [α-ω] ) [a-zA-Z]+ / [a-zA-Z]+ ':' [0-9]+ 
+ARG     ←d   ( '+' / '-' / [α-ω] ) [a-zA-Z]+ / [a-zA-Z]+ ':' [0-9]+ 
 
 EMP     ←d   '*' / '∅'
 BOUND	←d   '$' / '#'

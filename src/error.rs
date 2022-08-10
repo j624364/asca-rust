@@ -1,7 +1,6 @@
 use std::fmt;
 
-use crate::lexer::Token;
-
+use crate::{lexer::Token, parser::Item};
 
 
 #[derive(Debug, Clone)]
@@ -22,8 +21,10 @@ pub enum SyntaxError {
     ExpectedMatrix(Token),
     ExpectedSegment(Token),
     ExpectedFeature(Token),
+    ExpectedVariable(Token),
     ExpectedUnderline(Token),
     ExpectedRightBracket(Token),
+    AlreadyInitialisedVariable(Item, Item, usize),
     InsertErr,
     DeleteErr,
     EmptyInput,
@@ -45,8 +46,10 @@ impl fmt::Display for SyntaxError {
             Self::ExpectedMatrix(token)       => write!(f, "Expected '[', but received '{}'", token.value),
             Self::ExpectedSegment(token)      => write!(f, "Expected an IPA character, Primative or Matrix, but received '{}'", token.value),
             Self::ExpectedFeature(token)      => write!(f, "{} cannot be placed inside a matrix. An element inside `[]` must a distinctive feature", token.value),
+            Self::ExpectedVariable(token)      => write!(f, "Expected number, but received {} ", token.value),
             Self::ExpectedUnderline(token)    => write!(f, "Expected '_', but received '{}'", token.value),
             Self::ExpectedRightBracket(token) => write!(f, "Expected ')', but received '{}'", token.value),
+            Self::AlreadyInitialisedVariable(set_tkn, new_tkn, num) => write!(f, "Variable '{}' is already set", num),
             Self::InsertErr   => write!(f, "The input of an insertion rule must only contain `*` or `∅`"),
             Self::DeleteErr   => write!(f, "The output of a deletion rule must only contain `*` or `∅`"),
             Self::EmptyInput  => write!(f, "Input cannot be empty. Use `*` or '∅' to indicate insertion"),

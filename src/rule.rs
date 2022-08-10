@@ -11,12 +11,12 @@ pub struct Rule {
     pub context:   Vec<Item>,         
     pub except:    Vec<Item>,    
     pub rule_type: u8, // bitmap 8 = insert_rule, 4 = redup_rule, 2 = del_rule, 1 = metath_rule, 0 = substi_rule
-    pub variables: HashMap<u32,Item>,    
+    pub variables: HashMap<usize,Item>,    
 }                                   
 
 impl Rule {
-    pub fn new(i: Vec<Vec<Item>>, o: Vec<Vec<Item>>, c :Vec<Item>, e :Vec<Item>, r: u8) -> Self {
-        Self { input: i, output: o, context: c, except: e , rule_type: r, variables: HashMap::new()}
+    pub fn new(i: Vec<Vec<Item>>, o: Vec<Vec<Item>>, c :Vec<Item>, e :Vec<Item>, r: u8, v: HashMap<usize, Item>) -> Self {
+        Self { input: i, output: o, context: c, except: e , rule_type: r, variables: v}
     }
 
     pub fn apply(&self, word: String /* Need a `Word` struct == Vec<Vec<IPA>,Supra>*/, trace: bool) -> Result<String, RuntimeError> {
