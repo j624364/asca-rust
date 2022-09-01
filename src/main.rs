@@ -11,6 +11,7 @@ use std::fs;
 use std::collections::HashMap;
 use std::time::Instant;
 use colored::Colorize;
+use lazy_static::lazy_static;
 
 use lexer::*;
 use parser::*;
@@ -22,31 +23,35 @@ use error::*;
 
 // use crate::lexer::TokenKind;
 
-fn run() {
-    todo!();
+// fn run() {
+//     todo!();
+// }
+
+const FILE: &str = include_str!("cardinals.json");
+lazy_static! {
+    static ref JSON: HashMap<String, HashMap<String, Option<usize>>> = serde_json::from_str(&FILE).unwrap();
 }
 
 fn main() {
-    // replace with const and lazy_static
-    let file = fs::read_to_string("src\\cardinals.json").expect("Err: Could not open Cardinals JSON file");
-    let json: HashMap<String, HashMap<String, Option<usize>>>  = serde_json::from_str(&file).expect("Err: Could not parse Cardinals JSON file");
+    //let file = fs::read_to_string("src\\cardinals.json").expect("Err: Could not open Cardinals JSON file");
+    //let json: HashMap<String, HashMap<String, Option<usize>>>  = serde_json::from_str(&file).expect("Err: Could not parse Cardinals JSON file");
     let mut cardinals_trie = Trie::new();
 
-    for (k,_) in &json {
+    for (k,_) in JSON.iter() {
         cardinals_trie.insert(k.as_str());
     }
     assert!(cardinals_trie.contains("b"));
     // let test= String::from("[]...[] > &");
-    // let test= String::from("[+voi, -sg, +PLACE]")
+    // let test= String::from("[+voi, -sg, αPLACE]")
     // let test= String::from("[+voi, -sg, αPLACE]...C > &");
     // let test= String::from("V > [+long] / _C#");
 
     //let test= String::from("%:[tone:214] > [tone:35] / _%:[tone:214] ");
     //let test= String::from("t͡ɕ...b͡β > &");
 
-    let mut w = Word::new("ˈnaˌki.sa".to_owned());
+    let mut w = Word::new("ˌna.kiˈsa".to_owned());
 
-    //w.setup_text();
+    w.setup_text();
     
     
     let mut tokens;
@@ -65,7 +70,7 @@ fn main() {
         tokens.clone().into_iter().for_each(|t| {
                 println!("{}", t);
             });
-        let mut parser = Parser:: new(tokens, &json);
+        let mut parser = Parser:: new(tokens, &JSON);
 
         rule = parser.parse();
     }

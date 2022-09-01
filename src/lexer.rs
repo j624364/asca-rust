@@ -2,6 +2,7 @@ use core::fmt;
 use std::fmt::Display;
 
 use super::trie::*;
+use crate::JSON;
 
 #[derive(Debug, Copy, Clone, PartialEq, Eq)]
 pub enum FeatType {
@@ -455,7 +456,6 @@ impl<'a> Lexer<'a> {
         if buffer.is_empty() || !cardinals.contains(&buffer.as_str()) {
             return None
         }
-        self.advance();
         return Some(Token::new(TokenKind::Cardinal, buffer, start, self.pos))
     }
 
@@ -590,15 +590,14 @@ impl<'a> Lexer<'a> {
 
 #[cfg(test)]
 mod tests {
-    use std::{collections::HashMap, fs};
+
+    use crate::JSON;
 
     use super::*;
 
     fn setup() -> Trie {
-        let file = fs::read_to_string("src\\cardinals.json").expect("Err: Could not open Cardinals JSON file");
-        let json: HashMap<String, HashMap<String, Option<usize>>>  = serde_json::from_str(&file).expect("Err: Could not parse Cardinals JSON file");
         let mut cardinals_trie = Trie::new();
-        for (k,_) in &json {
+        for (k,_) in JSON.iter() {
             cardinals_trie.insert(k.as_str());
         }
 
@@ -608,10 +607,8 @@ mod tests {
     #[test]
     fn test_syll() {
 
-        //
         let test_input= String::from("%");
         let expected_result = TokenKind::Syllable;
-        //
 
         let result = Lexer::new(test_input.clone(), &setup()).get_next_token();
 
@@ -620,37 +617,121 @@ mod tests {
     }
 
     #[test]
-    fn test_ipa() {
+    fn test_ipa_sep() {
         
-        let test_input= String::from("t͡ɕ");
-        let expected_result = TokenKind::Cardinal;
-        //
+        let test_input= String::from("t͡ɕ b͡β b a");
+        let expected_result = vec![
+            Token::new(TokenKind::Cardinal, "t͡ɕ".to_owned(), 0, 3),
+            Token::new(TokenKind::Cardinal, "b͡β".to_owned(), 4, 7),
+            Token::new(TokenKind::Cardinal, "b".to_owned(), 8, 9),
+            Token::new(TokenKind::Cardinal, "a".to_owned(), 10, 11),
+            Token::new(TokenKind::Eol, "eol".to_owned(), 11, 12),
+        ];
 
-        let result = Lexer::new(test_input.clone(), &setup()).get_next_token();        
+        let result = Lexer::new(test_input.clone(), &setup()).get_all_tokens();        
 
-        assert_eq!(result.kind, expected_result);
-        assert_eq!(result.value, test_input);
+        assert_eq!(result.len(), expected_result.len());
+
+        for i in 0..result.len() {
+            assert_eq!(result[i], expected_result[i]);
+        }
+    }
+
+    #[test]
+    fn test_ipa_joined() {
+        
+        let test_input= String::from("t͡ɕb͡βba");
+        let expected_result = vec![
+            Token::new(TokenKind::Cardinal, "t͡ɕ".to_owned(), 0, 3),
+            Token::new(TokenKind::Cardinal, "b͡β".to_owned(), 3, 6),
+            Token::new(TokenKind::Cardinal, "b".to_owned(), 6, 7),
+            Token::new(TokenKind::Cardinal, "a".to_owned(), 7, 8),
+            Token::new(TokenKind::Eol, "eol".to_owned(), 8, 9),
+        ];
+
+        let result = Lexer::new(test_input.clone(), &setup()).get_all_tokens();        
+
+        assert_eq!(result.len(), expected_result.len());
+
+        for i in 0..result.len() {
+            assert_eq!(result[i], expected_result[i]);
+        }
     }
 
     #[test]
     fn test_metathesis() {
         
-        let test_input= String::from("t͡ɕ...b͡β > &");;
+        let test_input= String::from("t͡ɕ...b͡β > &");
         let expected_result = vec![
             Token::new(TokenKind::Cardinal, "t͡ɕ".to_owned(), 0, 3),
             Token::new(TokenKind::Ellipsis, "...".to_owned(), 3, 6),
             Token::new(TokenKind::Cardinal, "b͡β".to_owned(), 6, 9),
             Token::new(TokenKind::GreaterThan, ">".to_owned(), 10, 11),
             Token::new(TokenKind::Ampersand, "&".to_owned(), 12, 13),
-
+            Token::new(TokenKind::Eol, "eol".to_owned(), 13, 14),
         ];
 
         let result = Lexer::new(test_input.clone(), &setup()).get_all_tokens();        
 
-        assert_eq!(result[0], expected_result[0]);
-        assert_eq!(result[1], expected_result[1]);
-        assert_eq!(result[2], expected_result[2]);
-        assert_eq!(result[3], expected_result[3]);
-        assert_eq!(result[4], expected_result[4]);
+        assert_eq!(result.len(), expected_result.len());
+
+        for i in 0..result.len() {
+            assert_eq!(result[i], expected_result[i]);
+        }
     }
+
+    #[test]
+    fn test_feature_matrix() {
+        
+        let test_input= String::from("[+voi, -sg, αPLACE]");
+        let expected_result = vec![
+            Token::new(TokenKind::LeftSquare, "[".to_owned(), 0, 1),
+            Token::new(TokenKind::Feature(FeatType::Voice), "+".to_owned(), 1, 5),
+            Token::new(TokenKind::Comma, ",".to_owned(), 5, 6),
+            Token::new(TokenKind::Feature(FeatType::SpreadGlottis), "-".to_owned(), 7, 10),
+            Token::new(TokenKind::Comma, ",".to_owned(), 10, 11),
+            Token::new(TokenKind::Feature(FeatType::PlaceNode), "α".to_owned(), 12, 18),
+            Token::new(TokenKind::RightSquare, "]".to_owned(), 18, 19),
+            Token::new(TokenKind::Eol, "eol".to_owned(), 19, 20),
+        ];
+
+        let result = Lexer::new(test_input.clone(), &setup()).get_all_tokens();        
+
+        assert_eq!(result.len(), expected_result.len());
+
+        for i in 0..result.len() {
+            assert_eq!(result[i], expected_result[i]);
+
+        }
+    }
+
+    #[test]
+    fn test_variables() {
+        
+        let test_input= String::from("C=1 V=2 > 2 1 / _C");
+        let expected_result = vec![
+            Token::new(TokenKind::Primative, "C".to_owned(), 0, 1),
+            Token::new(TokenKind::Equals, "=".to_owned(), 1, 2),
+            Token::new(TokenKind::Number, "1".to_owned(), 2, 3),
+            Token::new(TokenKind::Primative, "V".to_owned(), 4, 5),
+            Token::new(TokenKind::Equals, "=".to_owned(), 5, 6),
+            Token::new(TokenKind::Number, "2".to_owned(), 6, 7),
+            Token::new(TokenKind::GreaterThan, ">".to_owned(), 8, 9),
+            Token::new(TokenKind::Number, "2".to_owned(), 10, 11),
+            Token::new(TokenKind::Number, "1".to_owned(), 12, 13),
+            Token::new(TokenKind::Slash, "/".to_owned(), 14, 15),
+            Token::new(TokenKind::Underline, "_".to_owned(), 16, 17),
+            Token::new(TokenKind::Primative, "C".to_owned(), 17, 18),
+            Token::new(TokenKind::Eol, "eol".to_owned(), 18, 19),
+        ];
+
+        let result = Lexer::new(test_input.clone(), &setup()).get_all_tokens();        
+
+        assert_eq!(result.len(), expected_result.len());
+
+        for i in 0..result.len() {
+            assert_eq!(result[i], expected_result[i]);
+        }
+    }
+
 }
