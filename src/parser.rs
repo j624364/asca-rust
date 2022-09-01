@@ -154,7 +154,6 @@ impl<'a> Parser<'a> {
     }
 
     fn eat_expect(&mut self, knd: TokenKind) -> Option<Token> {
-        println!("{} : {}", self.curr_tkn.kind, knd);
         if self.curr_tkn.kind == knd {
             return Some(self.eat())
         } else {
@@ -199,7 +198,6 @@ impl<'a> Parser<'a> {
     fn get_env_term(&mut self) -> Result<Item, SyntaxError> {
         // returns env elements
 
-        println!("--- {}",self.curr_tkn);
         let start = self.curr_tkn.position.start;
         
         let before  = self.get_env_elements()?;
@@ -853,12 +851,8 @@ impl<'a> Parser<'a> {
             }
         }
 
-        println!("{:?}", input);
-        
         let output = self.get_output()?;
         
-        println!("{:?}", output);
-
         match output[0][0].kind {
             ParseKind::Metathesis(_) => flg_metath = 1,
             ParseKind::EmptySet(_)   => flg_delete = 2,

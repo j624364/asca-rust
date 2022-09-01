@@ -19,7 +19,7 @@ impl Rule {
         Self { input: i, output: o, context: c, except: e , rule_type: r, variables: v}
     }
 
-    pub fn apply(&self, word: String /* Need a `Word` struct == Vec<Vec<IPA>,Supra>*/, trace: bool) -> Result<String, RuntimeError> {
+    pub fn apply(&self, word: String /* Need a `Word` struct == Vec<Vec<IPA>,SupraSeg>*/, trace: bool) -> Result<String, RuntimeError> {
         todo!()
     }
 }

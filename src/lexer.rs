@@ -181,7 +181,7 @@ impl Display for TokenKind {
     }
 }
 
-#[derive(Debug, Copy, Clone)]
+#[derive(Debug, Copy, Clone, PartialEq, Eq)]
 pub struct Position {
     pub start: usize,
     pub end: usize,
@@ -199,7 +199,7 @@ impl Display for Position {
     }
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Token {
     pub kind: TokenKind,
     pub value: String, 
@@ -585,5 +585,72 @@ impl<'a> Lexer<'a> {
             }
         }
         token_list
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use std::{collections::HashMap, fs};
+
+    use super::*;
+
+    fn setup() -> Trie {
+        let file = fs::read_to_string("src\\cardinals.json").expect("Err: Could not open Cardinals JSON file");
+        let json: HashMap<String, HashMap<String, Option<usize>>>  = serde_json::from_str(&file).expect("Err: Could not parse Cardinals JSON file");
+        let mut cardinals_trie = Trie::new();
+        for (k,_) in &json {
+            cardinals_trie.insert(k.as_str());
+        }
+
+        cardinals_trie
+    }
+
+    #[test]
+    fn test_syll() {
+
+        //
+        let test_input= String::from("%");
+        let expected_result = TokenKind::Syllable;
+        //
+
+        let result = Lexer::new(test_input.clone(), &setup()).get_next_token();
+
+        assert_eq!(result.kind, expected_result);
+        assert_eq!(result.value, test_input);
+    }
+
+    #[test]
+    fn test_ipa() {
+        
+        let test_input= String::from("t͡ɕ");
+        let expected_result = TokenKind::Cardinal;
+        //
+
+        let result = Lexer::new(test_input.clone(), &setup()).get_next_token();        
+
+        assert_eq!(result.kind, expected_result);
+        assert_eq!(result.value, test_input);
+    }
+
+    #[test]
+    fn test_metathesis() {
+        
+        let test_input= String::from("t͡ɕ...b͡β > &");;
+        let expected_result = vec![
+            Token::new(TokenKind::Cardinal, "t͡ɕ".to_owned(), 0, 3),
+            Token::new(TokenKind::Ellipsis, "...".to_owned(), 3, 6),
+            Token::new(TokenKind::Cardinal, "b͡β".to_owned(), 6, 9),
+            Token::new(TokenKind::GreaterThan, ">".to_owned(), 10, 11),
+            Token::new(TokenKind::Ampersand, "&".to_owned(), 12, 13),
+
+        ];
+
+        let result = Lexer::new(test_input.clone(), &setup()).get_all_tokens();        
+
+        assert_eq!(result[0], expected_result[0]);
+        assert_eq!(result[1], expected_result[1]);
+        assert_eq!(result[2], expected_result[2]);
+        assert_eq!(result[3], expected_result[3]);
+        assert_eq!(result[4], expected_result[4]);
     }
 }
