@@ -4,7 +4,7 @@ use crate::rule::*;
 use crate::error::*;
 
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub enum ParseKind {
     Variable(Token, Vec<Token>),
     EmptySet   (Token),
@@ -78,7 +78,7 @@ impl fmt::Display for ParseKind {
     }
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Item {
     kind: ParseKind,
     position: Position,
@@ -906,4 +906,52 @@ impl<'a> Parser<'a> {
         self.rule()
     }
 
+}
+
+
+#[cfg(test)]
+mod parser_tests {
+
+    use super::*;
+    use crate::JSON;
+    use crate::Trie;
+
+    fn setup(test_str: &str) -> Vec<Token> {
+
+        let mut cardinals_trie = Trie::new();
+        for (k,_) in JSON.iter() {
+            cardinals_trie.insert(k.as_str());
+        }
+
+        Lexer::new(String::from(test_str), &cardinals_trie).get_all_tokens()
+
+    }
+
+    #[test]
+    fn test_metathesis() {
+        let tokens = setup("t͡ɕ...b͡β > &");
+
+        let maybe_result = Parser:: new(tokens, &JSON).parse();
+
+        assert!(maybe_result.is_ok());
+
+        let result = maybe_result.unwrap();
+
+        assert_eq!(result.input.len(), 1);
+        assert_eq!(result.output.len(), 1);
+        assert!(result.context.is_empty());
+        assert!(result.except.is_empty());
+        assert_eq!(result.rule_type, 1);
+        assert!(result.variables.is_empty());
+
+        let exp_input_res = vec![
+            Item::new(ParseKind::IPA(JSON.get("t͡ɕ").unwrap().clone(), Vec::new()), Position { start: 0, end: 3 }),
+            Item::new(ParseKind::Ellipsis(Token::new(TokenKind::Ellipsis, "...".to_owned(), 3, 6)), Position { start: 3, end: 6 }),
+            Item::new(ParseKind::IPA(JSON.get("b͡β").unwrap().clone(), Vec::new()), Position { start: 6, end: 9 }),
+        ];
+
+        assert_eq!(result.input[0][0], exp_input_res[0]);
+        assert_eq!(result.input[0][1], exp_input_res[1]);
+        assert_eq!(result.input[0][2], exp_input_res[2]);
+    }
 }
