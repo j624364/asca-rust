@@ -954,4 +954,37 @@ mod parser_tests {
         assert_eq!(result.input[0][1], exp_input_res[1]);
         assert_eq!(result.input[0][2], exp_input_res[2]);
     }
+
+    #[test]
+    fn test_variables_plain() {
+        let tokens = setup("C=1 V=2 > 2 1 / _C");
+        let c = Item::new(ParseKind::Matrix(vec![ 
+            Token { kind: TokenKind::Feature(FeatType::Syllabic),    value: "-".to_owned(), position: Position { start: 0, end: 1 } }
+        ]), Position { start: 0, end: 1 });
+
+        let v = Item::new(ParseKind::Matrix(vec![ 
+            Token { kind: TokenKind::Feature(FeatType::Consonantal), value: "-".to_owned(), position: Position { start: 4, end: 5 } },
+            Token { kind: TokenKind::Feature(FeatType::Sonorant),    value: "+".to_owned(), position: Position { start: 4, end: 5 } },
+            Token { kind: TokenKind::Feature(FeatType::Syllabic),    value: "+".to_owned(), position: Position { start: 4, end: 5 } },
+        ]), Position { start: 4, end: 5 });
+
+        let maybe_result = Parser:: new(tokens, &JSON).parse();
+
+        assert!(maybe_result.is_ok());
+
+        let result = maybe_result.unwrap();
+
+        assert_eq!(result.input.len(), 1);
+        assert_eq!(result.output.len(), 1);
+        assert_eq!(result.context.len(), 1);
+        assert!(result.except.is_empty());
+        assert_eq!(result.rule_type, 0);
+
+        assert_eq!(result.variables.len(), 2);
+        assert!(result.variables.contains_key(&1));
+        assert!(result.variables.contains_key(&2));
+        assert_eq!(result.variables.get(&1), Some(&c));
+        assert_eq!(result.variables.get(&2), Some(&v));
+        assert_eq!(result.variables.get(&3), None);
+    }
 }
