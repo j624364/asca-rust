@@ -30,6 +30,7 @@ pub enum FeatType {
     PlaceNode,      
     // LABIAL subnode
     LabialNode,      
+    LabialPlace,      
     Round,          
     // CORONAL subnode
     CoronalNode,     
@@ -79,6 +80,7 @@ impl Display for FeatType {
             ConstrGlottis       => write!(f, "cg"),
             PlaceNode           => write!(f, "PLACE"),
             LabialNode          => write!(f, "LAB"),
+            LabialPlace         => write!(f, "lpl"),
             Round               => write!(f, "rnd"),
             CoronalNode         => write!(f, "COR"),
             Anterior            => write!(f, "ant"),

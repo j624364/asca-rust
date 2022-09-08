@@ -94,8 +94,8 @@ impl fmt::Display for ParseKind {
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Item {
-    kind: ParseKind,
-    position: Position,
+    pub kind: ParseKind,
+    pub position: Position,
 }
 
 impl Item {
@@ -444,6 +444,20 @@ impl<'a> Parser<'a> {
         let chr = self.char_to_matrix(self.curr_tkn.clone())?;
         self.advance();
 
+        if self.expect(TokenKind::Equals) {
+            match self.eat_expect(TokenKind::Number) {
+                Some(n) => {
+                    let num = n.value.parse::<usize>().unwrap();
+                    
+                    match self.var_map.get(&num) {
+                        Some(val) => return Err(SyntaxError::AlreadyInitialisedVariable(val.clone(), chr, num)),
+                        None => self.var_map.insert(num, chr.clone())
+                    };
+                },
+                None => return Err(SyntaxError::ExpectedVariable(self.curr_tkn.clone()))
+            }
+        }
+
         if !self.expect(TokenKind::Colon) {
             return Ok(chr)
         }
@@ -528,13 +542,12 @@ impl<'a> Parser<'a> {
 
         // Ok(Item::new(kind, pos))
 
-        if mt.kind.is_matrix() {
-            Ok(self.join_char_with_params(mt, params)?)
+        if !mt.kind.is_matrix() {
+            // variable can only be assigned to a primative or a matrix
+            return Err(SyntaxError::BadVariableAssignment(mt))
         }
-        else {
-            todo!() // throw error -> variable can only be assigned to a primative or a matrix
-        }
-   
+        
+        Ok(self.join_char_with_params(mt, params)?)
     }
 
     fn get_var(&mut self) -> Result<Option<Item>, SyntaxError> {

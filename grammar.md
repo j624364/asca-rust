@@ -25,14 +25,15 @@ OPT     ←d   '(' SEG+ (',' [0-9]+ (':' [0-9]+)?)? ')'    // (S,M:N) => (C, 0:1
 SEG     ←d   MATRIX
 VAR     ←d   [0-9]+ (':' PARAM)?
 
-MATRIX  ←p   (IPA / CHAR) (':' PARAM)? / PARAM 
-CHAR	←d   [A-Z] ('=' [0-9]+)?
-PARAM   ←p   '[' ARG (',' ARG)* ']' ('=' [0-9]+)?
+MATRIX  ←d   (IPA / CHAR) (':' PARAM)? / PARAM 
+CHAR	←d   [A-Z] VAR_ASS?
+PARAM   ←p   '[' ARG (',' ARG)* ']' VAR_ASS?
 ARG     ←d   ( '+' / '-' / [α-ω] ) [a-zA-Z]+ / [a-zA-Z]+ ':' [0-9]+ 
+VAR_ASS ←d   '=' [0-9]+
 
 EMP     ←d   '*' / '∅'
 BOUND	←d   '$' / '#'
-IPA     ←d   Any phone represented by IPA characters
+IPA     ←d   [Unicode-IPA-character]+
 ```
 
 

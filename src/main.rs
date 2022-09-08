@@ -68,9 +68,9 @@ fn main() {
         let mut lex = Lexer::new(test.clone(), &cardinals_trie);        
         tokens = lex.get_all_tokens();
     
-        tokens.clone().into_iter().for_each(|t| {
-                println!("{}", t);
-            });
+        // tokens.clone().into_iter().for_each(|t| {
+        //         println!("{}", t);
+        //     });
         let mut parser = Parser:: new(tokens, &JSON);
 
         rule = parser.parse();
@@ -78,8 +78,8 @@ fn main() {
 
 
     let dur = start.elapsed();
-    println!("Total Time: {:?}", dur);
-    println!("Average Time per Iteration: {:?}", dur/ITERS);
+    println!("\nTotal Time: {:?}", dur);
+    println!("Average Time per Iteration: {:?}\n", dur/ITERS);
 
 
     match rule {

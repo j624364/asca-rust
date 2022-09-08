@@ -32,7 +32,7 @@ pub fn feature_to_byte(feat: FeatType) -> (&'static str, u8) {
         SpreadGlottis  => ("LAR", 0b010),
         ConstrGlottis  => ("LAR", 0b001),
         
-        // LabialPlace => ("LAB", 0b10),
+        LabialPlace    => ("LAB", 0b10),
         Round          => ("LAB", 0b01),
 
         Anterior       => ("COR", 0b10),
