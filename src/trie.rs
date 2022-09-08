@@ -59,12 +59,12 @@ impl Trie {
     }
 
     pub fn contains(&self, s: &str) -> bool { 
-        let mut cur = &self.root;
+        let mut curr_node = &self.root;
 
         for c in s.chars() {
-            match cur.children.binary_search_by(|f| f.key.cmp(&Some(c))) {
+            match curr_node.children.binary_search_by(|f| f.key.cmp(&Some(c))) {
                 Ok(i) => {
-                    cur = &cur.children[i];
+                    curr_node = &curr_node.children[i];
                 }
                 Err(_) => {
                     return false;
@@ -72,7 +72,24 @@ impl Trie {
             }
         }
 
-        cur.is_terminal
+        curr_node.is_terminal
+    }
+
+    pub fn contains_partial(&self, s: &str) -> bool { 
+        let mut curr_node = &self.root;
+
+        for c in s.chars() {
+            match curr_node.children.binary_search_by(|f| f.key.cmp(&Some(c))) {
+                Ok(i) => {
+                    curr_node = &curr_node.children[i];
+                }
+                Err(_) => {
+                    return false;
+                }
+            }
+        }
+
+        true
     }
 
     pub fn find(&self, s: &str) -> Vec<String> { 

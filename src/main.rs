@@ -59,7 +59,8 @@ fn main() {
     
     let start  = Instant::now();
     // let test = String::from("V:[+syll]...l > & / _,C");
-    let test = String::from("C=1 V=2 > 2 1  / _C");
+    // let test = String::from("C=1 V=2 > 2 1  / _C");
+    let test= String::from("t͡ɕ...b͡β > &");
     let mut rule: Result<Rule, SyntaxError> = Err(SyntaxError::EmptyInput);
 
     for _ in 0..ITERS {
@@ -77,8 +78,8 @@ fn main() {
 
 
     let dur = start.elapsed();
-        println!("Total Time: {:?}", dur);
-        println!("Average Time per Iteration: {:?}", dur/ITERS);
+    println!("Total Time: {:?}", dur);
+    println!("Average Time per Iteration: {:?}", dur/ITERS);
 
 
     match rule {

@@ -1,5 +1,5 @@
 use core::fmt;
-use std::fmt::Display;
+use std::{fmt::Display, time::Instant};
 
 use super::trie::*;
 use crate::JSON;
@@ -429,34 +429,58 @@ impl<'a> Lexer<'a> {
         Some(Token::new(tokenkind, value, start, self.pos))
     }
 
+    // fn ipa_old(&mut self) -> Option<Token> {
+    //     if self.inside_square { return None }
+    //     let start = self.pos;
+
+    //     let mut  buffer = String::new();
+    //     let mut last_buffer: String;
+
+    //     let cardinals = self.cardinals_trie;
+
+    //     while self.has_more_chars() {
+
+    //         last_buffer = buffer.clone();
+    //         buffer.push(self.curr_char);
+
+    //         if !buffer.is_empty() && cardinals.find(&buffer.as_str()).is_empty() {
+    //             if !last_buffer.is_empty() && cardinals.contains(&last_buffer.as_str()) {
+    //                 return Some(Token::new(TokenKind::Cardinal, last_buffer, start, self.pos))
+    //             }
+    //             return None
+    //         }
+            
+    //         self.advance();
+    //     }
+
+    //     if buffer.is_empty() || !cardinals.contains(&buffer.as_str()) {
+    //         return None
+    //     }
+    //     return Some(Token::new(TokenKind::Cardinal, buffer, start, self.pos))
+    // }
+
     fn ipa(&mut self) -> Option<Token> {
         if self.inside_square { return None }
         let start = self.pos;
 
-        let mut  buffer = String::new();
-        let mut last_buffer: String;
-
+        let mut  buffer = self.curr_char.to_string();
         let cardinals = self.cardinals_trie;
 
-        while self.has_more_chars() {
-
-            last_buffer = buffer.clone();
-            buffer.push(self.curr_char);
-
-            if !buffer.is_empty() && cardinals.find(&buffer.as_str()).is_empty() {
-                if !last_buffer.is_empty() && cardinals.contains(&last_buffer.as_str()) {
-                    return Some(Token::new(TokenKind::Cardinal, last_buffer, start, self.pos))
-                }
-                return None
-            }
-            
+        if cardinals.contains_partial(&buffer.as_str()) {
             self.advance();
-        }
+            loop {
+                let tmp: String = buffer.clone() + self.curr_char.to_string().as_str();
+                // let mut tmp = buffer.clone(); tmp.push(self.curr_char);
+                if cardinals.contains_partial(&tmp.as_str()) {
+                    buffer.push(self.curr_char);
+                    self.advance();
+                    continue;
+                }
 
-        if buffer.is_empty() || !cardinals.contains(&buffer.as_str()) {
-            return None
+                return Some(Token::new(TokenKind::Cardinal, buffer, start, self.pos))
+            }
         }
-        return Some(Token::new(TokenKind::Cardinal, buffer, start, self.pos))
+        return None
     }
 
     fn string(&mut self) -> Option<Token> { 
@@ -649,7 +673,7 @@ mod lexer_tests {
             Token::new(TokenKind::Eol,     "eol".to_owned(), 8, 9),
         ];
 
-        let result = Lexer::new(test_input.clone(), &setup()).get_all_tokens();        
+        let result = Lexer::new(test_input.clone(), &setup()).get_all_tokens();  
 
         assert_eq!(result.len(), expected_result.len());
 

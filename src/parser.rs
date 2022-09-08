@@ -26,6 +26,20 @@ impl ParseKind {
             _ => None
         }
     }
+
+    pub fn is_matrix(&self) -> bool {
+        match self {
+            ParseKind::Matrix(_) => true,
+            _ => false
+        }
+    }
+
+    pub fn is_ipa(&self) -> bool {
+        match self {
+            ParseKind::IPA(_,_) => true,
+            _ => false
+        }
+    }
 }
 
 impl fmt::Display for ParseKind {
@@ -504,19 +518,23 @@ impl<'a> Parser<'a> {
         return Ok(None)
     }
 
-    fn join_var_with_params(&self, t: Token, params: Item) -> Result<Item, SyntaxError> {
+    fn join_var_with_params(&mut self, mt: Item, params: Item) -> Result<Item, SyntaxError> {
 
-        if let ParseKind::Matrix(p) = params.kind {
-            let kind = ParseKind::Variable(t.clone(), p);
+        assert!(params.kind.is_matrix());
 
-            let pos = Position { start: t.position.start, end: params.position.end };
+        // let kind = ParseKind::Variable(mt.clone(), p);
 
-            Ok(Item::new(kind, pos))
+        // let pos = Position { start: mt.position.start, end: params.position.end };
 
+        // Ok(Item::new(kind, pos))
+
+        if mt.kind.is_matrix() {
+            Ok(self.join_char_with_params(mt, params)?)
         }
         else {
-            unreachable!();
+            todo!() // throw error -> variable can only be assigned to a primative or a matrix
         }
+   
     }
 
     fn get_var(&mut self) -> Result<Option<Item>, SyntaxError> {
@@ -524,9 +542,25 @@ impl<'a> Parser<'a> {
         match self.eat_expect(TokenKind::Number) {
 
             Some(t) => {
+
+                // does 't' exist in var_map?
+                // if so, replace with value in var_map
+                // if not, throw UnknownVariableError
+
+                let num_val = t.value.parse::<usize>().unwrap();
+
+                let mut matched_segs: Item;
+
+                match self.var_map.get(&num_val) {
+                    Some(m) => {
+                        matched_segs = m.clone();
+                        matched_segs.position = t.position;
+                    },
+                    None => return Err(SyntaxError::UnknownVariable(t))
+                }
+
                 if !self.expect(TokenKind::Colon) {
-                    let v = Item::new(ParseKind::Variable(t.clone(), Vec::new()), t.position);
-                    return Ok(Some(v))
+                    return Ok(Some(matched_segs))
                 }
 
                 if !self.expect(TokenKind::LeftSquare) {
@@ -535,7 +569,7 @@ impl<'a> Parser<'a> {
 
                 let params = self.get_matrix()?;
 
-                let joined = self.join_var_with_params(t, params)?;
+                let joined = self.join_var_with_params(matched_segs, params)?;
 
                 Ok(Some(joined))
 
@@ -929,9 +963,7 @@ mod parser_tests {
 
     #[test]
     fn test_metathesis() {
-        let tokens = setup("t͡ɕ...b͡β > &");
-
-        let maybe_result = Parser:: new(tokens, &JSON).parse();
+        let maybe_result = Parser:: new(setup("t͡ɕ...b͡β > &"), &JSON).parse();
 
         assert!(maybe_result.is_ok());
 
@@ -957,7 +989,6 @@ mod parser_tests {
 
     #[test]
     fn test_variables_plain() {
-        let tokens = setup("C=1 V=2 > 2 1 / _C");
         let c = Item::new(ParseKind::Matrix(vec![ 
             Token { kind: TokenKind::Feature(FeatType::Syllabic),    value: "-".to_owned(), position: Position { start: 0, end: 1 } }
         ]), Position { start: 0, end: 1 });
@@ -968,7 +999,7 @@ mod parser_tests {
             Token { kind: TokenKind::Feature(FeatType::Syllabic),    value: "+".to_owned(), position: Position { start: 4, end: 5 } },
         ]), Position { start: 4, end: 5 });
 
-        let maybe_result = Parser:: new(tokens, &JSON).parse();
+        let maybe_result = Parser:: new(setup("C=1 V=2 > 2 1 / _C"), &JSON).parse();
 
         assert!(maybe_result.is_ok());
 
