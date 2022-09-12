@@ -30,7 +30,7 @@ pub enum FeatType {
     PlaceNode,      
     // LABIAL subnode
     LabialNode,      
-    LabialPlace,      
+    Bilabial,      
     Round,          
     // CORONAL subnode
     CoronalNode,     
@@ -80,7 +80,7 @@ impl Display for FeatType {
             ConstrGlottis       => write!(f, "cg"),
             PlaceNode           => write!(f, "PLACE"),
             LabialNode          => write!(f, "LAB"),
-            LabialPlace         => write!(f, "lpl"),
+            Bilabial            => write!(f, "bilab"),
             Round               => write!(f, "rnd"),
             CoronalNode         => write!(f, "COR"),
             Anterior            => write!(f, "ant"),
@@ -554,7 +554,7 @@ impl<'a> Lexer<'a> {
             // Labial Place Node Features
             "labial" | "lab"                                    => { return Feature(LabialNode) },
             // todo: come up with a better name for this feature
-            "labialplace" | "lpl"                               => { return Feature(LabialPlace) },
+            "bilabial" | "bilab" | "blb"                        => { return Feature(Bilabial) },
             "round" | "rnd"                                     => { return Feature(Round) },
             // Coronal Place Node Features
             "coronal" | "coron" | "cor"                         => { return Feature(CoronalNode) },
