@@ -55,12 +55,13 @@ fn main() {
     
     
     let mut tokens;
-    const ITERS: u32 = 1;
+    const ITERS: u32 = 1000000;
     
     let start  = Instant::now();
     // let test = String::from("V:[+syll]...l > & / _,C");
     // let test = String::from("C=1 V=2 > 2 1  / _C");
     let test= String::from("t͡ɕ...b͡β > &");
+    // let test = String::from("%:[+stress], % > [-stress], [+stress] / _ , #_ ");
     let mut rule: Result<Rule, SyntaxError> = Err(SyntaxError::EmptyInput);
 
     for _ in 0..ITERS {

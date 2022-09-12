@@ -34,11 +34,13 @@ impl Trie {
     pub fn new() -> Self {
         Self { root: Node::new(), elements: 0 }
     }
-    
+
+    #[allow(dead_code)]
+    /// Returns the number of words in the tree
     pub fn length(&self) -> usize { self.elements + 1 }
     
+    /// Inserts a word into the tree without duplication
     pub fn insert(&mut self, s: &str) {
-        
         let mut cur = &mut self.root;
         for c in s.chars() {
             match cur.children.binary_search_by(|f| f.key.cmp(&Some(c))) {
@@ -58,6 +60,14 @@ impl Trie {
         cur.val.replace(s.to_string());
     }
 
+    /// returns true if input matches a leaf in the tree
+    /// # Example
+    /// ``` 
+    /// let mut trie = Trie::new();
+    /// trie.insert("banter");
+    /// assert_eq!(trie.contains_partial("ban"), false);
+    /// assert_eq!(trie.contains_partial("banter"), true);
+    /// ```
     pub fn contains(&self, s: &str) -> bool { 
         let mut curr_node = &self.root;
 
@@ -75,6 +85,15 @@ impl Trie {
         curr_node.is_terminal
     }
 
+    /// returns true if input is a 'prefix' of a leaf in the tree
+    /// # Example
+    /// ``` 
+    /// let mut trie = Trie::new();
+    /// trie.insert("banned");
+    /// trie.insert("banter");
+    /// assert_eq!(trie.contains_partial("ban"), true);
+    /// assert_eq!(trie.contains_partial("ned"), false);
+    /// ```
     pub fn contains_partial(&self, s: &str) -> bool { 
         let mut curr_node = &self.root;
 
@@ -92,6 +111,16 @@ impl Trie {
         true
     }
 
+    /// Traverses the tree using a given string input and then returns vector of all leaf nodes past the end of input
+    /// # Example
+    /// ```
+    /// let mut trie = Trie::new();
+    /// trie.insert("banned");
+    /// trie.insert("banner");
+    /// trie.insert("banter");
+    /// assert_eq!(trie.find("bann"), vec!["banned, banner"]);
+    /// ```
+    #[allow(dead_code)]
     pub fn find(&self, s: &str) -> Vec<String> { 
         let mut cur = &self.root;
 

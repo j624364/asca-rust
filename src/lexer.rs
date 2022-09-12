@@ -471,8 +471,8 @@ impl<'a> Lexer<'a> {
         if cardinals.contains_partial(&buffer.as_str()) {
             self.advance();
             loop {
-                let tmp: String = buffer.clone() + self.curr_char.to_string().as_str();
-                // let mut tmp = buffer.clone(); tmp.push(self.curr_char);
+                //let tmp: String = buffer.clone() + self.curr_char.to_string().as_str();
+                let mut tmp = buffer.clone(); tmp.push(self.curr_char);
                 if cardinals.contains_partial(&tmp.as_str()) {
                     buffer.push(self.curr_char);
                     self.advance();
@@ -553,6 +553,8 @@ impl<'a> Lexer<'a> {
             "place" | "plce" | "plc" | "pla"                    => { return Feature(PlaceNode) },
             // Labial Place Node Features
             "labial" | "lab"                                    => { return Feature(LabialNode) },
+            // todo: come up with a better name for this feature
+            "labialplace" | "lpl"                               => { return Feature(LabialPlace) },
             "round" | "rnd"                                     => { return Feature(Round) },
             // Coronal Place Node Features
             "coronal" | "coron" | "cor"                         => { return Feature(CoronalNode) },

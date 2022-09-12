@@ -230,10 +230,13 @@ impl<'a> Parser<'a> {
     fn get_spec_env(&mut self) -> Result<Option<Vec<Item>>, SyntaxError> {
 
         let start = self.curr_tkn.position.start;
+        let pstn = self.pos;
 
         if !self.expect(TokenKind::Underline) {
             return Ok(None)
         }
+
+        assert_eq!(pstn, self.pos - 1);
 
         if !self.expect(TokenKind::Comma) {
             self.pos -=2;
@@ -242,6 +245,12 @@ impl<'a> Parser<'a> {
         }
 
         let x = self.get_env_elements()?;
+
+        if self.expect(TokenKind::Underline) {
+            self.pos = pstn-1;
+            self.advance();
+            return Ok(None)
+        }
 
         let end = self.token_list[self.pos-1].position.end;
 
@@ -448,7 +457,7 @@ impl<'a> Parser<'a> {
             match self.eat_expect(TokenKind::Number) {
                 Some(n) => {
                     let num = n.value.parse::<usize>().unwrap();
-                    
+
                     match self.var_map.get(&num) {
                         Some(val) => return Err(SyntaxError::AlreadyInitialisedVariable(val.clone(), chr, num)),
                         None => self.var_map.insert(num, chr.clone())
@@ -956,6 +965,8 @@ impl<'a> Parser<'a> {
 }
 
 
+// let test = String::from("%:[+stress], % > [-stress], [+stress] / _ , #_ ");
+
 #[cfg(test)]
 mod parser_tests {
 
@@ -972,6 +983,46 @@ mod parser_tests {
 
         Lexer::new(String::from(test_str), &cardinals_trie).get_all_tokens()
 
+    }
+
+    #[test]
+    fn test_multi_rule() {
+        let maybe_result = Parser:: new(setup("%:[+stress], % > [-stress], [+stress] / _ , #_"), &JSON).parse();
+
+        assert!(maybe_result.is_ok());
+
+        let result = maybe_result.unwrap();
+
+        assert_eq!(result.input.len(), 2);
+        assert_eq!(result.output.len(), 2);
+        assert_eq!(result.context.len(), 2);
+        assert!(result.except.is_empty());
+        assert_eq!(result.rule_type, 0);
+        assert!(result.variables.is_empty());
+
+        let exp_input = vec![
+            Item::new(ParseKind::Syllable(vec![Token::new(TokenKind::Feature(FeatType::Stress), "+".to_owned(), 3, 10)]), Position { start: 0, end: 11 }),
+            Item::new(ParseKind::Syllable(vec![]), Position { start: 13, end: 14 }),
+        ];
+
+        let exp_output = vec![
+            Item::new(ParseKind::Matrix(vec![Token::new(TokenKind::Feature(FeatType::Stress), "-".to_owned(), 18, 25)]), Position { start: 17, end: 26 }),
+            Item::new(ParseKind::Matrix(vec![Token::new(TokenKind::Feature(FeatType::Stress), "+".to_owned(), 29, 36)]), Position { start: 28, end: 37 }),
+            ];
+            
+        let exp_context: Vec<Item> = vec![
+            Item::new(ParseKind::Environment(vec![], vec![]), Position { start: 40, end: 41 }),
+            Item::new(ParseKind::Environment(vec![Item::new(ParseKind::Boundary(Token::new(TokenKind::WordBoundary, "#".to_owned(), 44, 45)), Position { start: 44, end: 45 })], vec![]), Position { start: 44, end: 46 }),
+        ];
+
+        assert_eq!(result.input[0][0], exp_input[0]);
+        assert_eq!(result.input[1][0], exp_input[1]);
+
+        assert_eq!(result.output[0][0], exp_output[0]);
+        assert_eq!(result.output[1][0], exp_output[1]);
+
+        assert_eq!(result.context[0], exp_context[0]);
+        assert_eq!(result.context[1], exp_context[1]);
     }
 
     #[test]
