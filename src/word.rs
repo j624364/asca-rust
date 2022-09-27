@@ -72,11 +72,9 @@ pub struct Word {
 impl Word {
     pub fn new(txt: String) -> Self {
         let mut w = Self { text: txt, split_text: Vec::new(),segment_list: Vec::new() };
-
         w.setup_text();
 
         w
-
     }
 
     pub fn setup_text(&mut self ) {
@@ -85,49 +83,65 @@ impl Word {
                              .replace(":", "ː")
                              .replace("ǝ", "ə");
         
+        
+        // what we want is to split the string with the delimiters at the start each slice
+        // however split_inclusive splits with the delimiters at the end — and there is seamingly no alternative (for some reason) 
+        // so this mess is needed for now unless something better comes to me
+
         let mut split_str : Vec<String> = self.text.split_inclusive(&['ˈ', 'ˌ', '.']).map(|f| f.to_string()).collect();
-
-        println!("{:?}", split_str);
-
-        // let mut x: Vec<String> = Vec::new();
-        // for mut i in s {
-        //     if i.chars().count() > 1 && ( i.ends_with("ˈ") || i.ends_with("ˌ")) {
-        //         let q = i.pop().unwrap().to_string();
-        //         x.push(i);
-        //         x.push(q);
-        //         continue;
-        //     }
-        //     if i.ends_with(".") { i.pop(); }
-        //     x.push(i);
-        // }
-
+        
         let mut i = 0;
+        // if the first character is a delimiter, it will be on it's own as the first element
+        // we want to append it to the front of the second element
+        if split_str[0] == "ˈ" || split_str[0] == "ˌ" {
+            split_str[1] = split_str[0].clone() + split_str[1].clone().as_str();
+            i = 1;
+        } else if split_str[0] == "." { i = 1 } // this would is malformed, but i think we shouldn't error, and just move on in this case
 
-        if split_str[i] == "ˈ" || split_str[i] == "ˌ" {
-            self.split_text.push(split_str[i].clone() + split_str[i+1].as_str());
-
-            if self.split_text[0].ends_with("ˈ") || self.split_text[0].ends_with("ˌ")  {
-                let chr = self.split_text[0].pop().unwrap().to_string();
-                split_str[2] = chr + split_str[2].clone().as_str();
-            } else if self.split_text[0].ends_with(".") {self.split_text[0].pop();}
-
-            i += 2;
-        }
-
+        // we then go through each element, removing and re-appending the delimiters
         while i < split_str.len() {
             if split_str[i].ends_with("ˈ") || split_str[i].ends_with("ˌ") {
-                let c = split_str[i].pop().unwrap().to_string();
+                let chr = split_str[i].pop().unwrap().to_string();
                 self.split_text.push(split_str[i].clone());
-                self.split_text.push(c + split_str[i+1].as_str());
-                i += 2;
-                continue;
+                i += 1;
+                split_str[i] = chr + split_str[i].as_str();
             }
+            
             if split_str[i].ends_with(".") { split_str[i].pop(); }
-
             self.split_text.push(split_str[i].clone());
             i += 1;
+        }
+
+        // would be malformed, same as above. But as with that, i think we should just ignore it
+        let lst = self.split_text.last().unwrap();
+        if lst.ends_with("ˈ") || lst.ends_with("ˌ") {
+            let l = self.split_text.len()-1;
+            self.split_text[l].pop();
         }
         
         println!("{:?}", self.split_text);
     }
+}
+
+
+
+#[cfg(test)]
+mod word_tests {
+
+    use super::*;
+
+
+    #[test]
+    fn test_text_split() {
+        let w1 = Word::new("ˌna.kiˈsa".to_owned());
+        let w2 = Word::new(".na.kiˈsa".to_owned());
+        let w3 = Word::new("na.kiˈsa.".to_owned());
+        let w4 = Word::new("na.kiˈsaˌ".to_owned());
+
+        assert_eq!(w1.split_text, vec!["ˌna", "ki", "ˈsa"]);
+        assert_eq!(w2.split_text, vec!["na", "ki", "ˈsa"]);
+        assert_eq!(w3.split_text, vec!["na", "ki", "ˈsa"]);
+        assert_eq!(w4.split_text, vec!["na", "ki", "ˈsa"]);
+    }
+
 }

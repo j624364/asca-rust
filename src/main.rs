@@ -50,12 +50,9 @@ fn main() {
     //let test= String::from("t͡ɕ...b͡β > &");
 
     let mut w = Word::new("ˌna.kiˈsa".to_owned());
-
-    w.setup_text();
-    
-    
+        
     let mut tokens;
-    const ITERS: u32 = 1000000;
+    const ITERS: u32 = 1;
     
     let start  = Instant::now();
     // let test = String::from("V:[+syll]...l > & / _,C");
