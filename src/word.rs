@@ -1,13 +1,13 @@
-use std::collections::HashMap;
-use std::{fmt, fmt::Display};
+use std::{
+    collections::HashMap, 
+    fmt::{self, Display}
+};
 
-use crate::error::WordSyntaxError;
-use crate::lexer::FeatType;
-use crate::JSON;
-use crate::CARDINALS;
-
-// use regex::Regex;
-// use lazy_static::lazy_static;
+use crate::{
+    error::WordSyntaxError, 
+    lexer::FeatType, 
+    JSON, CARDINALS
+};
 
 // match feature {
 //     RootNode     | MannerNode  | LaryngealNode | PlaceNode 
@@ -174,11 +174,7 @@ impl Word {
         let mut sy = Syllable::new();
 
         while i < txt.len() {
-            // println!("{:?}", self.segments);
-            // println!("{:?}", self.syllables);
-            // println!("");
-            let c = txt[i];
-            if c == 'ˌ' || c == 'ˈ'  {
+            if txt[i] == 'ˌ' || txt[i] == 'ˈ'  {
                 if !self.segments.is_empty() {
                     sy.end = self.segments.len()-1;
                     self.syllables.push(sy.clone());
@@ -186,7 +182,7 @@ impl Word {
 
                 sy.start = self.segments.len();
                 
-                match c {
+                match txt[i] {
                     'ˌ' => sy.stress = 1,
                     'ˈ' => sy.stress = 2,
                     _ => unreachable!()
@@ -196,7 +192,7 @@ impl Word {
                 continue;
             }
 
-            if c == '.' || c.is_ascii_digit() {
+            if txt[i] == '.' || txt[i].is_ascii_digit() {
 
                 if self.segments.is_empty() || txt[i-1] == '.' || txt[i-1].is_ascii_digit() {
                     i+=1;
@@ -205,11 +201,11 @@ impl Word {
 
                 sy.end = self.segments.len()-1;
 
-                if c.is_ascii_digit() {
+                if txt[i].is_ascii_digit() {
 
                     let mut tone_buffer = "".to_string();
 
-                    while i < txt.len() && c.is_ascii_digit() {
+                    while i < txt.len() && txt[i].is_ascii_digit() {
                         tone_buffer.push(txt[i]);
                         i+=1;
                     }
@@ -228,19 +224,19 @@ impl Word {
 
             }
 
-            if c == 'ː' {
+            if txt[i] == 'ː' {
                 if self.segments.is_empty() {
                     return Err(WordSyntaxError::NoSegmentBeforeColon(i))
                 } 
                 self.segments.push(self.segments.last().unwrap().clone());
-                i+=1;
+                i += 1;
                 continue;
             }
 
-            let mut buffer = c.to_string();
+            let mut buffer = txt[i].to_string();
 
             if CARDINALS.contains_partial(&buffer.as_str()) {
-                i +=1;
+                i += 1;
                 while i < txt.len() {
                     let mut tmp = buffer.clone(); tmp.push(txt[i]);
                     if CARDINALS.contains_partial(&tmp.as_str()) {
@@ -265,7 +261,7 @@ impl Word {
         }
 
         if self.segments.is_empty() {
-            panic!();
+            return Err(WordSyntaxError::CouldNotParse);
         }
 
         sy.end = self.segments.len()-1;

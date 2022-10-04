@@ -1,4 +1,7 @@
-use std::{fmt::Display, collections::VecDeque};
+use std::{
+    fmt::Display, 
+    collections::VecDeque
+};
 
 #[derive(Clone)]
 pub struct Node {
@@ -68,6 +71,7 @@ impl Trie {
     /// assert_eq!(trie.contains_partial("ban"), false);
     /// assert_eq!(trie.contains_partial("banter"), true);
     /// ```
+    #[allow(dead_code)]
     pub fn contains(&self, s: &str) -> bool { 
         let mut curr_node = &self.root;
 
@@ -187,3 +191,24 @@ impl Display for Trie {
         Ok(())
     }
 }
+
+
+
+// let mut trie = trie::Trie::new();
+// trie.insert("a");
+// trie.insert("to");
+// trie.insert("tea");
+// trie.insert("apples");
+// trie.insert("an");
+// trie.insert("test");
+// trie.insert("tea");
+// assert!(trie.contains("test"));
+// assert!(trie.contains("to"));
+// assert!(trie.contains("tea"));
+// assert!(!trie.contains("airplane"));
+// println!("{}", trie);
+// assert_eq!(trie.find("te"), vec!["test", "tea"]);
+// assert_eq!(trie.find("a"), vec!["a", "apples", "an"]);
+// trie.insert("test");
+// trie.insert("test");
+// assert_eq!(trie.length(), 7);

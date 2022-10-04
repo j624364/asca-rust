@@ -1,7 +1,12 @@
-use std::{collections::HashMap, fmt};
+use std::{
+    collections::HashMap, 
+    fmt
+};
 
-use crate::parser::Item;
-use crate::error::RuntimeError;
+use crate::{
+    parser::Item, 
+    error::RuntimeError, word::Word
+};
 
 
 #[derive(Debug)]
@@ -19,7 +24,7 @@ impl Rule {
         Self { input: i, output: o, context: c, except: e , rule_type: r, variables: v}
     }
 
-    pub fn apply(&self, word: String /* Need a `Word` struct == Vec<Vec<IPA>,SupraSeg>*/, trace: bool) -> Result<String, RuntimeError> {
+    pub fn apply(&self, word: Word /* Need a `Word` struct == Vec<Vec<IPA>,SupraSeg>*/, trace: bool) -> Result<String, RuntimeError> {
         todo!()
     }
 }

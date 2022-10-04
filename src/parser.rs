@@ -1,13 +1,19 @@
-use std::{collections::HashMap, fmt};
-use crate::JSON;
-use crate::lexer::*;
-use crate::rule::*;
-use crate::error::*;
+use std::{
+    collections::HashMap, 
+    fmt
+};
+
+use crate::{
+    JSON, 
+    lexer::*, 
+    rule ::*, 
+    error::*
+};
 
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum ParseKind {
-    Variable(Token, Vec<Token>),
+    Variable   (Token, Vec<Token>),
     EmptySet   (Token),
     Boundary   (Token),
     Ellipsis   (Token),

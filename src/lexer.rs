@@ -1,8 +1,5 @@
-use std::{fmt, fmt::Display};
-
+use std::fmt::{self, Display};
 use crate::CARDINALS;
-
-use super::trie::*;
 
 #[derive(Debug, Copy, Clone, PartialEq, Eq)]
 pub enum FeatType {

@@ -1,12 +1,16 @@
 use std::fmt;
 
-use crate::{lexer::Token, parser::Item};
+use crate::{
+    lexer::Token, 
+    parser::Item
+};
 
 #[derive(Debug, Clone)]
 pub enum WordSyntaxError {
     UnknownChar(String, usize),
     // CharAfterTone(String, usize),
     NoSegmentBeforeColon(usize),
+    CouldNotParse
 }
 
 #[derive(Debug, Clone)]
@@ -20,7 +24,6 @@ pub enum SyntaxError {
     UnknownIPA(Token),
     UnknownChar(Token),
     UnknownVariable(Token),
-    BadVariableAssignment(Item),
     ExpectedEndL(Token),
     ExpectedArrow(Token),
     ExpectedComma(Token),
@@ -31,6 +34,7 @@ pub enum SyntaxError {
     ExpectedVariable(Token),
     ExpectedUnderline(Token),
     ExpectedRightBracket(Token),
+    BadVariableAssignment(Item),
     AlreadyInitialisedVariable(Item, Item, usize),
     InsertErr,
     DeleteErr,
