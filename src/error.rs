@@ -2,6 +2,11 @@ use std::fmt;
 
 use crate::{lexer::Token, parser::Item};
 
+#[derive(Debug, Clone)]
+pub enum WordSyntaxError {
+    UnknownChar(String),
+    CharAfterTone(char),
+}
 
 #[derive(Debug, Clone)]
 pub enum RuntimeError { 

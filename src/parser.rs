@@ -1,4 +1,5 @@
 use std::{collections::HashMap, fmt};
+use crate::JSON;
 use crate::lexer::*;
 use crate::rule::*;
 use crate::error::*;
@@ -110,19 +111,17 @@ impl fmt::Display for Item {
     }
 }
 
-pub struct Parser<'a> {
+pub struct Parser {
     token_list: Vec<Token>,
-    cardinals: &'a HashMap<String, HashMap<String, Option<usize>>>, 
     pos: usize,
     curr_tkn: Token,
     var_map: HashMap<usize,Item>
 }
 
-impl<'a> Parser<'a> {
-    pub fn new(lst: Vec<Token>, c: &'a HashMap<String, HashMap<String, Option<usize>>>) -> Self {
+impl Parser {
+    pub fn new(lst: Vec<Token>) -> Self {
         let mut s = Self { 
             token_list: lst, 
-            cardinals: c,
             pos: 0, 
             curr_tkn: Token { kind: TokenKind::Eol, value: "eol".to_string(), position: Position { start: 0, end: 1 } },
             var_map: HashMap::new(), 
@@ -353,8 +352,7 @@ impl<'a> Parser<'a> {
 
     fn ipa_to_vals(&self, ipa: Token) -> Result<HashMap<String, Option<usize>>, SyntaxError> {
         
-        let x = self.cardinals;
-        let y = x.get(&ipa.value);
+        let y = JSON.get(&ipa.value);
 
         match y {
             Some(z) => Ok(z.clone()),
@@ -981,13 +979,13 @@ mod parser_tests {
             cardinals_trie.insert(k.as_str());
         }
 
-        Lexer::new(String::from(test_str), &cardinals_trie).get_all_tokens()
+        Lexer::new(String::from(test_str)).get_all_tokens()
 
     }
 
     #[test]
     fn test_multi_rule() {
-        let maybe_result = Parser:: new(setup("%:[+stress], % > [-stress], [+stress] / _ , #_"), &JSON).parse();
+        let maybe_result = Parser:: new(setup("%:[+stress], % > [-stress], [+stress] / _ , #_")).parse();
 
         assert!(maybe_result.is_ok());
 
@@ -1027,7 +1025,7 @@ mod parser_tests {
 
     #[test]
     fn test_metathesis() {
-        let maybe_result = Parser:: new(setup("t͡ɕ...b͡β > &"), &JSON).parse();
+        let maybe_result = Parser:: new(setup("t͡ɕ...b͡β > &")).parse();
 
         assert!(maybe_result.is_ok());
 
@@ -1063,7 +1061,7 @@ mod parser_tests {
             Token { kind: TokenKind::Feature(FeatType::Syllabic),    value: "+".to_owned(), position: Position { start: 4, end: 5 } },
         ]), Position { start: 4, end: 5 });
 
-        let maybe_result = Parser:: new(setup("C=1 V=2 > 2 1 / _C"), &JSON).parse();
+        let maybe_result = Parser:: new(setup("C=1 V=2 > 2 1 / _C")).parse();
 
         assert!(maybe_result.is_ok());
 

@@ -30,16 +30,26 @@ use error::*;
 const FILE: &str = include_str!("cardinals.json");
 lazy_static! {
     static ref JSON: HashMap<String, HashMap<String, Option<usize>>> = serde_json::from_str(&FILE).unwrap();
+    static ref CARDINALS: Trie = {
+        let mut m = Trie::new();
+        JSON.iter().for_each(|(k,_)| {
+            m.insert(k.as_str());
+        });
+
+        m
+    };    
 }
+
+
 
 fn main() {
     //let file = fs::read_to_string("src\\cardinals.json").expect("Err: Could not open Cardinals JSON file");
     //let json: HashMap<String, HashMap<String, Option<usize>>>  = serde_json::from_str(&file).expect("Err: Could not parse Cardinals JSON file");
     let mut cardinals_trie = Trie::new();
 
-    for (k,_) in JSON.iter() {
+    JSON.iter().for_each(|(k,_)| {
         cardinals_trie.insert(k.as_str());
-    }
+    });
     assert!(cardinals_trie.contains("b"));
     // let test= String::from("[]...[] > &");
     // let test= String::from("[+voi, -sg, αPLACE]")
@@ -49,7 +59,9 @@ fn main() {
     //let test= String::from("%:[tone:214] > [tone:35] / _%:[tone:214] ");
     //let test= String::from("t͡ɕ...b͡β > &");
 
-    let mut w = Word::new("ˌna.kiˈsa".to_owned());
+    let mut w = Word::new("ˌna.kiˈsa".to_owned()).unwrap();
+    // let mut w = Word::new("ˌna.kiˈ:a".to_owned()).unwrap();
+    println!("{}", w);
         
     let mut tokens;
     const ITERS: u32 = 1;
@@ -63,13 +75,13 @@ fn main() {
 
     for _ in 0..ITERS {
         
-        let mut lex = Lexer::new(test.clone(), &cardinals_trie);        
+        let mut lex = Lexer::new(test.clone());        
         tokens = lex.get_all_tokens();
     
         // tokens.clone().into_iter().for_each(|t| {
         //         println!("{}", t);
         //     });
-        let mut parser = Parser:: new(tokens, &JSON);
+        let mut parser = Parser:: new(tokens);
 
         rule = parser.parse();
     }

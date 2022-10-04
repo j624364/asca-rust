@@ -1,8 +1,8 @@
-use core::fmt;
-use std::{fmt::Display, time::Instant};
+use std::{fmt, fmt::Display};
+
+use crate::CARDINALS;
 
 use super::trie::*;
-use crate::JSON;
 
 #[derive(Debug, Copy, Clone, PartialEq, Eq)]
 pub enum FeatType {
@@ -232,20 +232,18 @@ impl Display for Token {
     }
 }
 
-pub struct Lexer<'a> {
+pub struct Lexer {
     source: Vec<char>,
-    cardinals_trie: &'a Trie,
     pos: usize,
     curr_char: char,
     inside_square: bool
 }
 
-impl<'a> Lexer<'a> {
+impl Lexer {
 
-    pub fn new(input: String, c: &'a Trie) -> Self {
+    pub fn new(input: String) -> Self {
         let mut s = Self { 
             source: input.chars().collect(), 
-            cardinals_trie: c,
             pos: 0,
             curr_char: '\0',
             inside_square: false,
@@ -466,14 +464,13 @@ impl<'a> Lexer<'a> {
         let start = self.pos;
 
         let mut  buffer = self.curr_char.to_string();
-        let cardinals = self.cardinals_trie;
 
-        if cardinals.contains_partial(&buffer.as_str()) {
+        if CARDINALS.contains_partial(&buffer.as_str()) {
             self.advance();
             loop {
                 //let tmp: String = buffer.clone() + self.curr_char.to_string().as_str();
                 let mut tmp = buffer.clone(); tmp.push(self.curr_char);
-                if cardinals.contains_partial(&tmp.as_str()) {
+                if CARDINALS.contains_partial(&tmp.as_str()) {
                     buffer.push(self.curr_char);
                     self.advance();
                     continue;
@@ -619,18 +616,7 @@ impl<'a> Lexer<'a> {
 #[cfg(test)]
 mod lexer_tests {
 
-    use crate::JSON;
-
     use super::*;
-
-    fn setup() -> Trie {
-        let mut cardinals_trie = Trie::new();
-        for (k,_) in JSON.iter() {
-            cardinals_trie.insert(k.as_str());
-        }
-
-        cardinals_trie
-    }
 
     #[test]
     fn test_syll() {
@@ -638,7 +624,7 @@ mod lexer_tests {
         let test_input= String::from("%");
         let expected_result = TokenKind::Syllable;
 
-        let result = Lexer::new(test_input.clone(), &setup()).get_next_token();
+        let result = Lexer::new(test_input.clone()).get_next_token();
 
         assert_eq!(result.kind, expected_result);
         assert_eq!(result.value, test_input);
@@ -656,7 +642,7 @@ mod lexer_tests {
             Token::new(TokenKind::Eol,     "eol".to_owned(), 11, 12),
         ];
 
-        let result = Lexer::new(test_input.clone(), &setup()).get_all_tokens();        
+        let result = Lexer::new(test_input.clone()).get_all_tokens();        
 
         assert_eq!(result.len(), expected_result.len());
 
@@ -677,7 +663,7 @@ mod lexer_tests {
             Token::new(TokenKind::Eol,     "eol".to_owned(), 8, 9),
         ];
 
-        let result = Lexer::new(test_input.clone(), &setup()).get_all_tokens();  
+        let result = Lexer::new(test_input.clone()).get_all_tokens();  
 
         assert_eq!(result.len(), expected_result.len());
 
@@ -699,7 +685,7 @@ mod lexer_tests {
             Token::new(TokenKind::Eol,       "eol".to_owned(), 13, 14),
         ];
 
-        let result = Lexer::new(test_input.clone(), &setup()).get_all_tokens();        
+        let result = Lexer::new(test_input.clone()).get_all_tokens();        
 
         assert_eq!(result.len(), expected_result.len());
 
@@ -723,7 +709,7 @@ mod lexer_tests {
             Token::new(TokenKind::Eol,                            "eol".to_owned(), 19, 20),
         ];
 
-        let result = Lexer::new(test_input.clone(), &setup()).get_all_tokens();        
+        let result = Lexer::new(test_input.clone()).get_all_tokens();        
 
         assert_eq!(result.len(), expected_result.len());
 
@@ -753,7 +739,7 @@ mod lexer_tests {
             Token::new(TokenKind::Eol,       "eol".to_owned(), 18, 19),
         ];
 
-        let result = Lexer::new(test_input.clone(), &setup()).get_all_tokens();        
+        let result = Lexer::new(test_input.clone()).get_all_tokens();        
 
         assert_eq!(result.len(), expected_result.len());
 
