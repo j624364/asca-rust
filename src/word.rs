@@ -166,13 +166,11 @@ impl Word {
         Ok(w)
     }
 
-    fn setup(&mut self, input_txt: String) -> Result<(),WordSyntaxError> {
+    fn setup(&mut self, input_txt: String) -> Result<(), WordSyntaxError> {
         println!("{}", input_txt);
         let mut i = 0;
         let txt: Vec<char> = input_txt.chars().collect();
 
-        let mut start: usize = 0;
-        let mut end: usize = 0;
         let mut sy = Syllable::new();
 
         while i < txt.len() {
@@ -194,13 +192,15 @@ impl Word {
                     _ => unreachable!()
                 }
                 
-                i +=1;
+                i += 1;
                 continue;
             }
 
             if c == '.' || c.is_ascii_digit() {
-                if self.segments.is_empty() {
-                    panic!();
+
+                if self.segments.is_empty() || txt[i-1] == '.' || txt[i-1].is_ascii_digit() {
+                    i+=1;
+                    continue;
                 }
 
                 sy.end = self.segments.len()-1;
@@ -229,10 +229,10 @@ impl Word {
             }
 
             if c == 'ː' {
-                if self.segments.len() > 1 {
-                    let lst = self.segments.last().unwrap();
-                    self.segments.push(lst.clone())
-                }
+                if self.segments.is_empty() {
+                    return Err(WordSyntaxError::NoSegmentBeforeColon(i))
+                } 
+                self.segments.push(self.segments.last().unwrap().clone());
                 i+=1;
                 continue;
             }
@@ -254,12 +254,12 @@ impl Word {
 
                 let seg_stuff = match maybe_seg {
                     Some(s) => Ok(s),
-                    None => Err(WordSyntaxError::UnknownChar(buffer.clone()))
+                    None => Err(WordSyntaxError::UnknownChar(buffer.clone(), i))
                 }?.clone();
 
                 self.segments.push(Segment { grapheme: buffer, matrix: seg_stuff });
             } else {
-                return Err(WordSyntaxError::UnknownChar(buffer.clone()));
+                return Err(WordSyntaxError::UnknownChar(buffer.clone(), i));
             }
 
         }

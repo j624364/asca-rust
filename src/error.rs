@@ -4,8 +4,9 @@ use crate::{lexer::Token, parser::Item};
 
 #[derive(Debug, Clone)]
 pub enum WordSyntaxError {
-    UnknownChar(String),
-    CharAfterTone(char),
+    UnknownChar(String, usize),
+    // CharAfterTone(String, usize),
+    NoSegmentBeforeColon(usize),
 }
 
 #[derive(Debug, Clone)]
