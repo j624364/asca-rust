@@ -3,9 +3,10 @@ use std::{
     fmt
 };
 
-use crate::{
-    parser::Item, 
-    error::RuntimeError, word::Word
+use crate ::{
+    parser::{Item, ParseKind}, 
+    error ::RuntimeError, 
+    word  ::Word
 };
 
 
@@ -24,8 +25,72 @@ impl Rule {
         Self { input: i, output: o, context: c, except: e , rule_type: r, variables: v}
     }
 
-    pub fn apply(&self, word: Word /* Need a `Word` struct == Vec<Vec<IPA>,SupraSeg>*/, trace: bool) -> Result<String, RuntimeError> {
-        todo!()
+    pub fn apply(&self, word: Word /*, trace: bool*/) -> Result<String, RuntimeError> /* return Word */{
+        // todo!();
+        let out_word = word.clone(); 
+
+        match self.rule_type {
+            0 => {},
+            1 => {},
+            2 => {},
+            4 => {},
+            8 => {},
+            _ => unreachable!("Malformed Rule Type: {}", self.rule_type)
+        }
+
+        match self.find_input_initial(out_word) {
+            Some((m, n)) => {
+                if m == n { println!("Match at {}", m); } 
+                else { println!("Match between {}:{}", m, n); }
+            },
+            None => println!("No Match")
+        }
+
+        Ok("test".to_string())
+
+        // find input 
+        // match except left/right
+        // match context left/right
+        // apply
+
+
+    }
+
+    fn find_input_initial(&self, word: Word) -> Option<(usize, usize)> {
+
+        
+        for x in &self.input[0] {
+            println!("{}", x);
+
+            // syllable will have to be dealt with separately up here
+
+            
+            let mut i = 0;
+            for seg in &word.segments {
+
+                if let ParseKind::IPA(s, params) = &x.kind {
+                    // todo: deal with modifiers
+                    if seg.matrix == *s {
+                        return Some((i, i));
+                    }
+                } else if let ParseKind::Matrix(params) = &x.kind {
+                    // come up with way to match matrix with ipa
+                    // self.match_matrix_ipa(params, seg)
+                } else if let ParseKind::Set(set) = &x.kind {
+
+                } else if let ParseKind::Optional(opts, l, h) = &x.kind {
+
+                } else if let ParseKind::Variable(ident, params) = &x.kind {
+
+                }
+
+                i+=1;
+
+            }
+        }
+    
+
+        None
     }
 }
 

@@ -10,12 +10,12 @@ use std::{collections::HashMap, time::Instant};
 use colored::Colorize;
 use lazy_static::lazy_static;
 
-use lexer::*;
+use lexer ::*;
 use parser::*;
-use trie::*;
-use word::*;
-use rule::*;
-use error::*;
+use trie  ::*;
+use word  ::*;
+use rule  ::*;
+use error ::*;
 
 // fn run() {
 //     todo!();
@@ -23,7 +23,7 @@ use error::*;
 
 const FILE: &str = include_str!("cardinals.json");
 lazy_static! {
-    static ref JSON: HashMap<String, HashMap<String, Option<usize>>> = serde_json::from_str(&FILE).unwrap();
+    static ref JSON: HashMap<String, SegNode> = serde_json::from_str(&FILE).unwrap();
     static ref CARDINALS: Trie = {
         let mut m = Trie::new();
         JSON.iter().for_each(|(k,_)| {
@@ -38,13 +38,17 @@ lazy_static! {
 
 fn main() {
     // let test = String::from("[]...[] > &");
-    // let test = String::from("[+voi, -sg, αPLACE]")
     // let test = String::from("[+voi, -sg, αPLACE]...C > &");
     // let test = String::from("V > [+long] / _C#");
     // let test = String::from("%:[tone:214] > [tone:35] / _%:[tone:214] ");
     // let test = String::from("t͡ɕ...b͡β > &");
+    // let test = String::from("r...V > &");
+    // let test = String::from("V:[+syll]...l > & / _,C");
+    // let test = String::from("C=1 V=2 > 2 1  / _C");
+    // let test = String::from("%:[+stress], % > [-stress], [+stress] / _ , #_ ");
 
-    let w = Word::new("ˌna.kiˈsa".to_owned()).unwrap();
+    // let w = Word::new("ˌna.kiˈsa".to_owned()).unwrap();
+    let w = Word::new("a.ki.ra".to_owned()).unwrap();
     // let mut w = Word::new("ˌna.kiˈ:a".to_owned()).unwrap();
     println!("{}", w);
         
@@ -52,15 +56,13 @@ fn main() {
     const ITERS: u32 = 1;
     
     let start  = Instant::now();
-    // let test = String::from("V:[+syll]...l > & / _,C");
-    // let test = String::from("C=1 V=2 > 2 1  / _C");
-    let test= String::from("t͡ɕ...b͡β > &");
-    // let test = String::from("%:[+stress], % > [-stress], [+stress] / _ , #_ ");
+    // let test= String::from("t͡ɕ...b͡β > &");
+    let test= String::from("r > l");
     let mut rule: Result<Rule, SyntaxError> = Err(SyntaxError::EmptyInput);
 
     for _ in 0..ITERS {
         
-        let mut lex = Lexer::new(test.clone());        
+        let mut lex = Lexer::new(test.clone());
         tokens = lex.get_all_tokens();
     
         // tokens.clone().into_iter().for_each(|t| {
@@ -71,15 +73,17 @@ fn main() {
         rule = parser.parse();
     }
 
-
     let dur = start.elapsed();
     println!("\nTotal Time: {:?}", dur);
     println!("Average Time per Iteration: {:?}\n", dur/ITERS);
 
-
     match rule {
             Ok(r) => {
                 print!("{}", r); 
+                match r.apply(w) {
+                    Ok(_) => {},
+                    Err(_) => {}
+                }
             },
             Err(e) => {
                 use SyntaxError::*;
@@ -120,5 +124,4 @@ fn main() {
                 }
             }
         }
-    
 }

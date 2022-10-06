@@ -7,20 +7,20 @@ use crate::{
     JSON, 
     lexer::*, 
     rule ::*, 
-    error::*
+    error::*, word::SegNode
 };
 
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum ParseKind {
-    Variable   (Token, Vec<Token>),
     EmptySet   (Token),
     Boundary   (Token),
     Ellipsis   (Token),
     Metathesis (Token),
-    IPA        (HashMap<String, Option<usize>>, Vec<Token>),
-    Matrix     (Vec<Token>), //(HashMap<String, Option<usize>>),
-    Syllable   (Vec<Token>),
+    Variable   (Token, Vec<Token>),
+    IPA        (SegNode, Vec<Token>),
+    Matrix     (Vec<Token>),
+    Syllable   (Vec<Token>), // just stress, tone
     Set        (Vec<Item>),
     Optional   (Vec<Item>, usize, usize),
     Environment(Vec<Item>, Vec<Item>),
@@ -63,7 +63,7 @@ impl fmt::Display for ParseKind {
             ParseKind::Ellipsis(t) |
             ParseKind::Metathesis(t) => write!(f, "{}", t),
 
-            ParseKind::IPA(_, _) => todo!(),
+            ParseKind::IPA(s, m) => write!(f, "{:?}", s),
 
             ParseKind::Matrix(tokens) | 
             ParseKind::Syllable(tokens) => {
@@ -307,7 +307,7 @@ impl Parser {
         self.get_env()
     }
 
-    fn join_ipa_with_params(&self, ipa: HashMap<String, Option<usize>>, params: Item) -> Result<ParseKind, SyntaxError> {
+    fn join_ipa_with_params(&self, ipa: SegNode, params: Item) -> Result<ParseKind, SyntaxError> {
         // use TokenKind::*;
         // use FeatType::*;
 
@@ -356,7 +356,7 @@ impl Parser {
         Ok(Item::new(ParseKind::Matrix(asdf), Position { start: character.position.start, end: parameters.position.end }))
     }
 
-    fn ipa_to_vals(&self, ipa: Token) -> Result<HashMap<String, Option<usize>>, SyntaxError> {
+    fn ipa_to_vals(&self, ipa: Token) -> Result<SegNode, SyntaxError> {
         
         let y = JSON.get(&ipa.value);
 

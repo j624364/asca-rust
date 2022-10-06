@@ -1,7 +1,5 @@
-use std::{
-    collections::HashMap, 
-    fmt::{self, Display}
-};
+use   std::fmt;
+use serde::{Serialize, Deserialize};
 
 use crate::{
     error::WordSyntaxError, 
@@ -57,43 +55,44 @@ pub fn feature_to_byte(feat: FeatType) -> (&'static str, u8) {
     }
 }
 
-
+#[derive(Default, Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct SegNode {
+    pub root      : u8,
+    pub manner    : u8,
+    pub laryngeal : u8,
+    pub labial    : Option<u8>,
+    pub coronal   : Option<u8>,
+    pub dorsal    : Option<u8>,
+    pub pharyngeal: Option<u8>,
+}
 
 #[derive(Debug, Clone)]
 pub struct Segment {
-    grapheme: String,
-    matrix: HashMap<String, Option<usize>>
+    pub grapheme: String,
+    pub matrix: SegNode
 }
 
-impl Display for Segment {
+impl fmt::Display for Segment {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(f, "{}: ", self.grapheme)?;
 
-        match self.matrix.get("root").unwrap() {
-            Some(v) => write!(f, "RUT: {} ", v)?,
-            None => write!(f, "RUT: - ")?
-        }
-        match self.matrix.get("manner").unwrap() {
-            Some(v) => write!(f, "MAN: {} ", v)?,
-            None => write!(f, "MAN: - ")?
-        }
-        match self.matrix.get("laryngeal").unwrap() {
-            Some(v) => write!(f, "LAR: {} ", v)?,
-            None => write!(f, "LAR: - ")?
-        }
-        match self.matrix.get("labial").unwrap() {
+        write!(f, "RUT: {} ", self.matrix.root)?;
+        write!(f, "MAN: {} ", self.matrix.manner)?;
+        write!(f, "LAR: {} ", self.matrix.laryngeal)?;
+
+        match self.matrix.labial {
             Some(v) => write!(f, "LAB: {} ", v)?,
             None => write!(f, "LAB: - ")?
         }
-        match self.matrix.get("coronal").unwrap() {
+        match self.matrix.coronal {
             Some(v) => write!(f, "COR: {} ", v)?,
             None => write!(f, "COR: - ")?
         }
-        match self.matrix.get("dorsal").unwrap() {
+        match self.matrix.dorsal {
             Some(v) => write!(f, "DOR: {} ", v)?,
             None => write!(f, "DOR: - ")?
         }
-        match self.matrix.get("pharyngeal").unwrap() {
+        match self.matrix.pharyngeal {
             Some(v) => write!(f, "PHR: {} ", v)?,
             None => write!(f, "PHR: - ")?
         }
@@ -104,10 +103,10 @@ impl Display for Segment {
 
 #[derive(Debug, Clone)]
 pub struct Syllable {
-    start: usize,
-    end: usize,
-    stress: u8,
-    tone: String
+    pub start: usize,
+    pub end: usize,
+    pub stress: u8,
+    pub tone: String
 }
 
 impl Syllable {
@@ -116,7 +115,7 @@ impl Syllable {
     }
 }
 
-impl Display for Syllable {
+impl fmt::Display for Syllable {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         let binding = format!("E:{}", self.stress).clone();
         let stress = match self.stress {
@@ -132,12 +131,12 @@ impl Display for Syllable {
 
 #[derive(Debug, Clone)]
 pub struct Word {
-    segments: Vec<Segment>,
-    syllables: Vec<Syllable>
+    pub segments: Vec<Segment>,
+    pub syllables: Vec<Syllable>
 
 }
 
-impl Display for Word {
+impl fmt::Display for Word {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         for seg in &self.segments {
             writeln!(f, "{}", seg)?;
@@ -167,7 +166,6 @@ impl Word {
     }
 
     fn setup(&mut self, input_txt: String) -> Result<(), WordSyntaxError> {
-        println!("{}", input_txt);
         let mut i = 0;
         let txt: Vec<char> = input_txt.chars().collect();
 

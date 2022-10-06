@@ -1,7 +1,7 @@
 use std::fmt;
 
-use crate::{
-    lexer::Token, 
+use crate ::{
+    lexer ::Token, 
     parser::Item
 };
 
@@ -15,7 +15,7 @@ pub enum WordSyntaxError {
 
 #[derive(Debug, Clone)]
 pub enum RuntimeError { 
-
+    
 }
 
 #[derive(Debug, Clone)]
@@ -57,7 +57,7 @@ impl fmt::Display for SyntaxError {
             Self::ExpectedMatrix(token)       => write!(f, "Expected '[', but received '{}'", token.value),
             Self::ExpectedSegment(token)      => write!(f, "Expected an IPA character, Primative or Matrix, but received '{}'", token.value),
             Self::ExpectedFeature(token)      => write!(f, "{} cannot be placed inside a matrix. An element inside `[]` must a distinctive feature", token.value),
-            Self::ExpectedVariable(token)      => write!(f, "Expected number, but received {} ", token.value),
+            Self::ExpectedVariable(token)     => write!(f, "Expected number, but received {} ", token.value),
             Self::ExpectedUnderline(token)    => write!(f, "Expected '_', but received '{}'", token.value),
             Self::ExpectedRightBracket(token) => write!(f, "Expected ')', but received '{}'", token.value),
             Self::AlreadyInitialisedVariable(set_item, _, num) => write!(f, "Variable '{}' is already initialised as {}", num, set_item.kind),
