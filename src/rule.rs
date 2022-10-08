@@ -1,6 +1,6 @@
 use std::{
     collections::HashMap, 
-    fmt
+    fmt, cmp::max
 };
 
 use crate ::{
@@ -8,6 +8,15 @@ use crate ::{
     error ::RuntimeError, 
     word  ::Word
 };
+
+pub struct SubRule {
+    input:   Vec<Item>,
+    output:  Vec<Item>,
+    context: Item,         
+    except:  Item,
+    rule_type: u8,
+    variables: HashMap<usize, Item>,
+}
 
 
 #[derive(Debug)]
@@ -25,18 +34,54 @@ impl Rule {
         Self { input: i, output: o, context: c, except: e , rule_type: r, variables: v}
     }
 
+    pub fn split_into_subrules(&self) -> Result<Vec<SubRule>, RuntimeError> {
+        // check that input, output, context, except are the same length
+        // and if any are not, that they are len == 1
+
+        let max = max(self.input.len(), max(self.output.len(), max(self.context.len(), self.except.len())));
+
+        if self.input.len()   != max || self.input.len()   != 1 { return Err(RuntimeError::UnbalancedRule) }
+        if self.output.len()  != max || self.output.len()  != 1 { return Err(RuntimeError::UnbalancedRule) }
+        if self.context.len() != max || self.context.len() != 1 { return Err(RuntimeError::UnbalancedRule) }
+        if self.except.len()  != max || self.except.len()  != 1 { return Err(RuntimeError::UnbalancedRule) }
+
+        let mut sr_vec = Vec::new();
+
+        for i in 0..max {
+            let input   = if self.input.len()  == 1 { self.input[0].clone() }  else { self.input[i].clone() };
+            let output  = if self.output.len() == 1 { self.output[0].clone() } else { self.output[i].clone() };
+            let context = if self.context.len() == 1 { self.context[0].clone() } else { self.context[i].clone() };
+            let except  = if self.except.len()  == 1 { self.except[0].clone() }  else { self.except[i].clone() };
+            let rule_type = self.rule_type.clone();
+            let variables = self.variables.clone();
+
+            sr_vec.push(SubRule {input, output, context, except, rule_type, variables});
+        }
+
+        Ok(sr_vec)
+    }
+
     pub fn apply(&self, word: Word /*, trace: bool*/) -> Result<String, RuntimeError> /* return Word */{
         // todo!();
         let out_word = word.clone(); 
 
-        match self.rule_type {
-            0 => {},
-            1 => {},
-            2 => {},
-            4 => {},
-            8 => {},
-            _ => unreachable!("Malformed Rule Type: {}", self.rule_type)
+        let sub_rules = self.split_into_subrules()?;
+
+        for i in sub_rules {
+            // find input 
+            // match except left/right
+            // match context left/right
+            // apply
         }
+
+        // match self.rule_type {
+        //     0 => {},
+        //     1 => {},
+        //     2 => {},
+        //     4 => {},
+        //     8 => {},
+        //     _ => unreachable!("Malformed Rule Type: {}", self.rule_type)
+        // }
 
         match self.find_input_initial(out_word) {
             Some((m, n)) => {
@@ -47,12 +92,6 @@ impl Rule {
         }
 
         Ok("test".to_string())
-
-        // find input 
-        // match except left/right
-        // match context left/right
-        // apply
-
 
     }
 

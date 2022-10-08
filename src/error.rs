@@ -15,7 +15,7 @@ pub enum WordSyntaxError {
 
 #[derive(Debug, Clone)]
 pub enum RuntimeError { 
-    
+    UnbalancedRule,
 }
 
 #[derive(Debug, Clone)]
