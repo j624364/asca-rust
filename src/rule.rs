@@ -12,8 +12,8 @@ use crate ::{
 pub struct SubRule {
     input:   Vec<Item>,
     output:  Vec<Item>,
-    context: Item,         
-    except:  Item,
+    context: Option<Item>,         
+    except:  Option<Item>,
     rule_type: u8,
     variables: HashMap<usize, Item>,
 }
@@ -36,22 +36,28 @@ impl Rule {
 
     pub fn split_into_subrules(&self) -> Result<Vec<SubRule>, RuntimeError> {
         // check that input, output, context, except are the same length
-        // and if any are not, that they are len == 1
+        // and if any are not, that they are length == 1
+        // context and except can be length == 0
 
         let max = max(self.input.len(), max(self.output.len(), max(self.context.len(), self.except.len())));
+        // println!("inp: {}", self.input.len());
+        // println!("out: {}", self.output.len());
+        // println!("con: {}", self.context.len());
+        // println!("exc: {}", self.except.len());
+        // println!("max: {}", max);
 
-        if self.input.len()   != max || self.input.len()   != 1 { return Err(RuntimeError::UnbalancedRule) }
-        if self.output.len()  != max || self.output.len()  != 1 { return Err(RuntimeError::UnbalancedRule) }
-        if self.context.len() != max || self.context.len() != 1 { return Err(RuntimeError::UnbalancedRule) }
-        if self.except.len()  != max || self.except.len()  != 1 { return Err(RuntimeError::UnbalancedRule) }
+        if self.input.len()   != max && self.input.len()   != 1 { return Err(RuntimeError::UnbalancedRule) }
+        if self.output.len()  != max && self.output.len()  != 1 { return Err(RuntimeError::UnbalancedRule) }
+        if self.context.len() != max && self.context.len() != 1 && self.context.len() != 0 { return Err(RuntimeError::UnbalancedRule) }
+        if self.except.len()  != max && self.except.len()  != 1 && self.except.len()  != 0 { return Err(RuntimeError::UnbalancedRule) }
 
         let mut sr_vec = Vec::new();
 
         for i in 0..max {
             let input   = if self.input.len()  == 1 { self.input[0].clone() }  else { self.input[i].clone() };
             let output  = if self.output.len() == 1 { self.output[0].clone() } else { self.output[i].clone() };
-            let context = if self.context.len() == 1 { self.context[0].clone() } else { self.context[i].clone() };
-            let except  = if self.except.len()  == 1 { self.except[0].clone() }  else { self.except[i].clone() };
+            let context = if self.context.len() == 0 { None } else if self.context.len() == 1 { Some(self.context[0].clone()) } else { Some(self.context[i].clone()) };
+            let except  = if self.except.len()  == 0 { None } else if self.except.len()  == 1 { Some(self.except[0].clone()) }  else { Some(self.except[i].clone()) };
             let rule_type = self.rule_type.clone();
             let variables = self.variables.clone();
 
@@ -97,9 +103,8 @@ impl Rule {
 
     fn find_input_initial(&self, word: Word) -> Option<(usize, usize)> {
 
-        
         for x in &self.input[0] {
-            println!("{}", x);
+            // println!("ffdfvsdf {}", x);
 
             // syllable will have to be dealt with separately up here
 
@@ -109,7 +114,7 @@ impl Rule {
 
                 if let ParseKind::IPA(s, params) = &x.kind {
                     // todo: deal with modifiers
-                    if seg.matrix == *s {
+                    if *seg == *s {
                         return Some((i, i));
                     }
                 } else if let ParseKind::Matrix(params) = &x.kind {

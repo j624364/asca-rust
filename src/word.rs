@@ -56,7 +56,7 @@ pub fn feature_to_byte(feat: FeatType) -> (&'static str, u8) {
 }
 
 #[derive(Default, Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
-pub struct SegNode {
+pub struct Segment {
     pub root      : u8,
     pub manner    : u8,
     pub laryngeal : u8,
@@ -66,33 +66,32 @@ pub struct SegNode {
     pub pharyngeal: Option<u8>,
 }
 
-#[derive(Debug, Clone)]
-pub struct Segment {
-    pub grapheme: String,
-    pub matrix: SegNode
-}
+// impl SegNode {
+//     pub fn new(root: u8, manner: u8, laryngeal: u8, labial: Option<u8>, coronal : Option<u8>, dorsal: Option<u8>, pharyngeal: Option<u8>) -> Self {
+//         Self { root, manner, laryngeal, labial, coronal, dorsal, pharyngeal }
+//     }
+// }
 
 impl fmt::Display for Segment {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "{}: ", self.grapheme)?;
+        write!(f, "RUT: {} ", self.root)?;
+        write!(f, "MAN: {} ", self.manner)?;
+        write!(f, "LAR: {} ", self.laryngeal)?;
 
-        write!(f, "RUT: {} ", self.matrix.root)?;
-        write!(f, "MAN: {} ", self.matrix.manner)?;
-        write!(f, "LAR: {} ", self.matrix.laryngeal)?;
 
-        match self.matrix.labial {
+        match self.labial {
             Some(v) => write!(f, "LAB: {} ", v)?,
             None => write!(f, "LAB: - ")?
         }
-        match self.matrix.coronal {
+        match self.coronal {
             Some(v) => write!(f, "COR: {} ", v)?,
             None => write!(f, "COR: - ")?
         }
-        match self.matrix.dorsal {
+        match self.dorsal {
             Some(v) => write!(f, "DOR: {} ", v)?,
             None => write!(f, "DOR: - ")?
         }
-        match self.matrix.pharyngeal {
+        match self.pharyngeal {
             Some(v) => write!(f, "PHR: {} ", v)?,
             None => write!(f, "PHR: - ")?
         }
@@ -100,6 +99,20 @@ impl fmt::Display for Segment {
         Ok(())
     }
 }
+
+// #[derive(Debug, Clone)]
+// pub struct Segment {
+//     pub grapheme: String,
+//     pub matrix: SegNode
+// }
+
+// impl fmt::Display for Segment {
+//     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+//         write!(f, "{}: {}", self.grapheme, self.matrix)?;
+        
+//         Ok(())
+//     }
+// }
 
 #[derive(Debug, Clone)]
 pub struct Syllable {
@@ -164,6 +177,19 @@ impl Word {
 
         Ok(w)
     }
+
+    pub fn get_segs_from_syll(&self, syll_index: usize) -> Vec<Segment> {
+
+        assert!(syll_index < self.syllables.len());
+
+        let start = self.syllables[syll_index].start;
+        let end = self.syllables[syll_index].end;
+
+        assert!(end >= start);
+
+        self.segments[start..=end].to_owned()
+
+    } 
 
     fn setup(&mut self, input_txt: String) -> Result<(), WordSyntaxError> {
         let mut i = 0;
@@ -251,7 +277,7 @@ impl Word {
                     None => Err(WordSyntaxError::UnknownChar(buffer.clone(), i))
                 }?.clone();
 
-                self.segments.push(Segment { grapheme: buffer, matrix: seg_stuff });
+                self.segments.push(seg_stuff)
             } else {
                 return Err(WordSyntaxError::UnknownChar(buffer.clone(), i));
             }

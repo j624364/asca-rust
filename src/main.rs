@@ -23,7 +23,7 @@ use error ::*;
 
 const FILE: &str = include_str!("cardinals.json");
 lazy_static! {
-    static ref JSON: HashMap<String, SegNode> = serde_json::from_str(&FILE).unwrap();
+    static ref JSON: HashMap<String, Segment> = serde_json::from_str(&FILE).unwrap();
     static ref CARDINALS: Trie = {
         let mut m = Trie::new();
         JSON.iter().for_each(|(k,_)| {

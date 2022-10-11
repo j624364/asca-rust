@@ -7,7 +7,7 @@ use crate::{
     JSON, 
     lexer::*, 
     rule ::*, 
-    error::*, word::SegNode
+    error::*, word::Segment
 };
 
 
@@ -18,7 +18,7 @@ pub enum ParseKind {
     Ellipsis   (Token),
     Metathesis (Token),
     Variable   (Token, Vec<Token>),
-    IPA        (SegNode, Vec<Token>),
+    IPA        (Segment, Vec<Token>),
     Matrix     (Vec<Token>),
     Syllable   (Vec<Token>), // just stress, tone
     Set        (Vec<Item>),
@@ -63,7 +63,7 @@ impl fmt::Display for ParseKind {
             ParseKind::Ellipsis(t) |
             ParseKind::Metathesis(t) => write!(f, "{}", t),
 
-            ParseKind::IPA(s, m) => write!(f, "{:?}", s),
+            ParseKind::IPA(s, m) => write!(f, "{}", s),
 
             ParseKind::Matrix(tokens) | 
             ParseKind::Syllable(tokens) => {
@@ -307,7 +307,7 @@ impl Parser {
         self.get_env()
     }
 
-    fn join_ipa_with_params(&self, ipa: SegNode, params: Item) -> Result<ParseKind, SyntaxError> {
+    fn join_ipa_with_params(&self, ipa: Segment, params: Item) -> Result<ParseKind, SyntaxError> {
         // use TokenKind::*;
         // use FeatType::*;
 
@@ -356,7 +356,7 @@ impl Parser {
         Ok(Item::new(ParseKind::Matrix(asdf), Position { start: character.position.start, end: parameters.position.end }))
     }
 
-    fn ipa_to_vals(&self, ipa: Token) -> Result<SegNode, SyntaxError> {
+    fn ipa_to_vals(&self, ipa: Token) -> Result<Segment, SyntaxError> {
         
         let y = JSON.get(&ipa.value);
 
