@@ -1,7 +1,7 @@
 use std::fmt::{self, Display};
 use crate::CARDINALS;
 
-#[derive(Debug, Copy, Clone, PartialEq, Eq)]
+#[derive(Debug, Copy, Clone, PartialEq, Eq, Hash)]
 pub enum FeatType {
     // ROOT node 
     RootNode,      
@@ -133,15 +133,6 @@ pub enum TokenKind {
     Ellipsis,     // ... or .. or … or ⋯
     Feature(FeatType),
     Eol,          // End of Line 
-}
-
-impl TokenKind {
-    pub fn feature(self) -> Option<FeatType> {
-        match self {
-            TokenKind::Feature(f) => Some(f),
-            _ => None
-        }
-    }
 }
 
 impl Display for TokenKind {
@@ -524,54 +515,56 @@ impl Lexer {
         use FeatType::*;
         match buffer.to_lowercase().as_str() {
             // Root Node Features
-            "root" | "rt"                                       => { return Feature(RootNode) },
+            "root"        | "rut"       | "rt"                  => { return Feature(RootNode) },
             "consonantal" | "consonant" | "cons" | "cns"        => { return Feature(Consonantal) },
-            "sonorant" | "sonor"| "son"                         => { return Feature(Sonorant) },
-            "syllabic" | "syllab"| "syll"                       => { return Feature(Syllabic) },
+            "sonorant"    | "sonor"     | "son"  | "sn"         => { return Feature(Sonorant) },
+            "syllabic"    | "syllab"    | "syll" | "sll"        => { return Feature(Syllabic) },
             // Manner Node Features
-            "manner" | "mann"| "man" | "mnnr" | "mnr" | "mn"    => { return Feature(MannerNode) },
-            "continuant" | "contin" | "cont" | "cnt"            => { return Feature(Continuant) },
-            "approximant" | "approx" | "appr" | "app"           => { return Feature(Approximant) },
-            "lateral" | "later" | "lat" | "latrl" |"ltrl"       => { return Feature(Lateral) },
-            "nasal" | "nsl" | "nas"                             => { return Feature(Nasal) },
+            "manner"         | "mann"   | "man"  | "mnr" | "mn" => { return Feature(MannerNode) },
+            "continuant"     | "contin" | "cont" | "cnt"        => { return Feature(Continuant) },
+            "approximant"    | "approx" | "appr" | "app"        => { return Feature(Approximant) },
+            "lateral"        | "latrl"  | "ltrl" | "lat"        => { return Feature(Lateral) },
+            "nasal"          | "nsl"    | "nas"                 => { return Feature(Nasal) },
             "delayedrelease" | "delrel" | "dlrl" | "dr"         => { return Feature(DelayedRelease) },
-            "strident" | "strid" | "stri"                       => { return Feature(Strident) },
-            "rhotic" | "rhot" | "rho" | "rh"                    => { return Feature(Rhotic) },
-            "click" | "clck" | "clk"                            => { return Feature(Click) },
+            "strident"       | "strid"  | "stri"                => { return Feature(Strident) },
+            "rhotic"         | "rhot"   | "rho"  | "rh"         => { return Feature(Rhotic) },
+            "click"          | "clck"   | "clk"                 => { return Feature(Click) },
             // Laryngeal Node Features
-            "laryngeal" | "laryng" | "laryn" | "lar"            => { return Feature(LaryngealNode) },
-            "voice" | "voi" | "vce" | "vc"                      => { return Feature(Voice) },
-            "spreadglottis" | "sprdglot" | "spread" | "sg"      => { return Feature(SpreadGlottis) },
-            "constrictedglottis" | "cnstglot" | "constr" | "cg" => { return Feature(ConstrGlottis) },
+            "laryngeal"      | "laryng"     | "laryn"  | "lar"  => { return Feature(LaryngealNode) },
+            "voice"          | "voi"        | "vce"    | "vc"   => { return Feature(Voice) },
+            "spreadglottis"  | "spreadglot" | "spread" | "sg"   => { return Feature(SpreadGlottis) },
+            "constrictedglottis"            | "constricted"     |
+            "constglot"      | "constr"     | "cg"              => { return Feature(ConstrGlottis) },
             // Place Node Feature
-            "place" | "plce" | "plc" | "pla"                    => { return Feature(PlaceNode) },
+            "place"       | "plce"    | "plc"                   => { return Feature(PlaceNode) },
             // Labial Place Node Features
-            "labial" | "lab"                                    => { return Feature(LabialNode) },
+            "labial"      | "lab"                               => { return Feature(LabialNode) },
             // todo: come up with a better name for this feature
-            "bilabial" | "bilab" | "blb"                        => { return Feature(Bilabial) },
-            "round" | "rnd"                                     => { return Feature(Round) },
+            "bilabial"    | "bilab"   | "blb"                   => { return Feature(Bilabial) },
+            "round"       | "rnd"                               => { return Feature(Round) },
             // Coronal Place Node Features
-            "coronal" | "coron" | "cor"                         => { return Feature(CoronalNode) },
-            "anterior" | "anter" | "ant"                        => { return Feature(Anterior) },
+            "coronal"     | "coron"   | "cor"                   => { return Feature(CoronalNode) },
+            "anterior"    | "anter"   | "ant"                   => { return Feature(Anterior) },
             "distributed" | "distrib" | "dist" | "dst"          => { return Feature(Distributed) },
             // Dorsal Place Node Features
-            "dorsal" | "dors" | "dor"                           => { return Feature(DorsalNode) },
-            "front" | "frnt" | "fnt" | "fro" | "fr"             => { return Feature(Front) },
-            "back" | "bck" | "bk"                               => { return Feature(Back) },
-            "high" | "hgh" | "hi"                               => { return Feature(High) },
-            "low" | "lo"                                        => { return Feature(Low) },
-            "tense" | "tens" | "tns" | "ten"                    => { return Feature(Tense) },
+            "dorsal"  | "dors"  | "dor"                         => { return Feature(DorsalNode) },
+            "front"   | "frnt"  | "fnt"  | "fro" | "fr"         => { return Feature(Front) },
+            "back"    | "bck"   | "bk"                          => { return Feature(Back) },
+            "high"    | "hgh"   | "hi"                          => { return Feature(High) },
+            "low"     | "lo"                                    => { return Feature(Low) },
+            "tense"   | "tens"  | "tns"  | "ten"                => { return Feature(Tense) },
             "reduced" | "reduc" | "redu" | "red"                => { return Feature(Reduced) },
             // Pharyngeal Place Node Features
-            "pharyngeal" | "pharyng" | "pharyn" | "phar"        => { return Feature(PharyngealNode) },
-            "advancedtongueroot" | "atr"                        => { return Feature(AdvancedTongueRoot) },
-            "retractedtongueroot" | "rtr"                       => { return Feature(RetractedTongueRoot) },
+            "pharyngeal" | "pharyng" | "pharyn"  |
+            "phar"       | "phr"                                => { return Feature(PharyngealNode) },
+            "advancedtongueroot"     | "atr"                    => { return Feature(AdvancedTongueRoot) },
+            "retractedtongueroot"    | "rtr"                    => { return Feature(RetractedTongueRoot) },
             // Suprasegmental Features
-            "long" | "lng"                                      => { return Feature(Long) },
+            "long"     | "lng"                                  => { return Feature(Long) },
             "overlong" | "overlng" | "ovrlng" | "olng"          => { return Feature(Overlong) },
-            "stress" | "str" | "strss"                          => { return Feature(Stress) },
-            "length" | "len"                                    => { return Feature(Length) },
-            "tone" | "tn"                                       => { return Feature(Tone) },
+            "stress"   | "str"     | "strss"                    => { return Feature(Stress) },
+            "length"   | "len"                                  => { return Feature(Length) },
+            "tone"     | "tn"                                   => { return Feature(Tone) },
         
             _ => panic!("Unknown feature at pos: {}", start)
         }

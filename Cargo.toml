@@ -1,6 +1,6 @@
 [package]
 name = "asca-rust"
-author = "James Sherwood Girven"
+author = "James S. Girven"
 version = "0.1.0"
 edition = "2021"
 license = "GPL-3.0-only"

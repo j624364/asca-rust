@@ -1,5 +1,5 @@
 use std::{
-    collections::HashMap, 
+    collections::{HashMap, VecDeque}, 
     fmt, cmp::max
 };
 
@@ -9,6 +9,7 @@ use crate ::{
     word  ::Word
 };
 
+#[derive(Debug)]
 pub struct SubRule {
     input:   Vec<Item>,
     output:  Vec<Item>,
@@ -40,11 +41,6 @@ impl Rule {
         // context and except can be length == 0
 
         let max = max(self.input.len(), max(self.output.len(), max(self.context.len(), self.except.len())));
-        // println!("inp: {}", self.input.len());
-        // println!("out: {}", self.output.len());
-        // println!("con: {}", self.context.len());
-        // println!("exc: {}", self.except.len());
-        // println!("max: {}", max);
 
         if self.input.len()   != max && self.input.len()   != 1 { return Err(RuntimeError::UnbalancedRule) }
         if self.output.len()  != max && self.output.len()  != 1 { return Err(RuntimeError::UnbalancedRule) }
@@ -67,7 +63,7 @@ impl Rule {
         Ok(sr_vec)
     }
 
-    pub fn apply(&self, word: Word /*, trace: bool*/) -> Result<String, RuntimeError> /* return Word */{
+    pub fn apply(&self, word: Word /*, trace: bool*/) -> Result<Word, RuntimeError> /* return Word */{
         // todo!();
         let out_word = word.clone(); 
 
@@ -78,6 +74,8 @@ impl Rule {
             // match except left/right
             // match context left/right
             // apply
+
+            println!("{:#?}", i);
         }
 
         // match self.rule_type {
@@ -89,7 +87,7 @@ impl Rule {
         //     _ => unreachable!("Malformed Rule Type: {}", self.rule_type)
         // }
 
-        match self.find_input_initial(out_word) {
+        match self.find_input_initial(out_word.clone()) {
             Some((m, n)) => {
                 if m == n { println!("Match at {}", m); } 
                 else { println!("Match between {}:{}", m, n); }
@@ -97,8 +95,22 @@ impl Rule {
             None => println!("No Match")
         }
 
-        Ok("test".to_string())
+        Ok(out_word) // TODO: return new word
 
+    }
+
+
+    fn find(&self, states: Vec<Item>, word: Word) -> (bool, usize, usize) {
+
+        let mut queue = VecDeque::from(states);
+        let mut i = 0;
+        let mut backtrack_stack: Vec<Item> = Vec::new();
+        let mut curr_state = queue.pop_front();
+
+
+
+        (false, 0, 0)
+        
     }
 
     fn find_input_initial(&self, word: Word) -> Option<(usize, usize)> {
@@ -175,5 +187,32 @@ impl fmt::Display for Rule {
 
 
         Ok(())
+    }
+}
+
+
+#[cfg(test)]
+mod rule_tests {
+    use super::*;
+    
+    fn setup(test_str: &str) -> Rule {
+        
+        use crate::{Lexer, Parser};
+
+        Parser:: new(Lexer::new(String::from(test_str)).get_all_tokens()).parse().unwrap()
+
+    }
+
+    #[test]
+    fn test_match() {
+        let test_rule = setup("r > l");
+
+        let test_word = Word::new("la.ri.sa".to_owned()).unwrap();
+
+        
+
+        test_rule.apply(test_word).unwrap();
+
+
     }
 }

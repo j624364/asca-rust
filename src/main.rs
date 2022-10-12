@@ -101,7 +101,8 @@ fn main() {
                     ExpectedFeature(t) | 
                     ExpectedVariable(t) | 
                     ExpectedUnderline(t) | 
-                    ExpectedRightBracket(t)  => {
+                    ExpectedRightBracket(t) |
+                    BadSyllableMatrix(t)  => {
                         let start = t.position.start;
                         let end = t.position.end;
 

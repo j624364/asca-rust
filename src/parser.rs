@@ -4,12 +4,16 @@ use std::{
 };
 
 use crate::{
-    JSON, 
+    JSON    , 
     lexer::*, 
     rule ::*, 
-    error::*, word::Segment
+    error::*, 
+    word ::Segment
 };
 
+
+type Modifiers = HashMap<FeatType, bool>;
+type Items = Vec<Item>;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum ParseKind {
@@ -17,60 +21,68 @@ pub enum ParseKind {
     Boundary   (Token),
     Ellipsis   (Token),
     Metathesis (Token),
-    Variable   (Token, Vec<Token>),
-    IPA        (Segment, Vec<Token>),
-    Matrix     (Vec<Token>),
-    Syllable   (Vec<Token>), // just stress, tone
-    Set        (Vec<Item>),
-    Optional   (Vec<Item>, usize, usize),
-    Environment(Vec<Item>, Vec<Item>),
+    Variable   (Token  , Modifiers),
+    IPA        (Segment, Modifiers),
+    Matrix     (Modifiers),
+    Syllable   (Modifiers), // just stress, tone
+    Set        (Items),
+    Optional   (Items, usize, usize),
+    Environment(Items, Items),
 }
 
 impl ParseKind {
-    fn matrix(self) -> Option<Vec<Token>> {
-        match self {
-            ParseKind::Matrix(f) => Some(f),
-            _ => None
+    fn as_matrix(&self) -> Option<&Modifiers> {
+        if let Self::Matrix(v) = self {
+            Some(v)
+        } else {
+            None
         }
     }
 
     pub fn is_matrix(&self) -> bool {
-        match self {
-            ParseKind::Matrix(_) => true,
-            _ => false
-        }
+        matches!(self, Self::Matrix(..))
     }
 
-    pub fn is_ipa(&self) -> bool {
-        match self {
-            ParseKind::IPA(_,_) => true,
-            _ => false
-        }
-    }
+    // pub fn is_ipa(&self) -> bool {
+    //     matches!(self, Self::IPA(..))
+    // }
+
+    // /// Returns `true` if the parse kind is [`Set`].
+    // ///
+    // /// [`Set`]: ParseKind::Set
+    // pub fn is_set(&self) -> bool {
+    //     matches!(self, Self::Set(..))
+    // }
+
+    // pub fn as_matrix(&self) -> Option<&Modifiers> {
+    //     if let Self::Matrix(v) = self {
+    //         Some(v)
+    //     } else {
+    //         None
+    //     }
+    // }
 }
 
 impl fmt::Display for ParseKind {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             ParseKind::Variable(t, p) => {
-                let tt = p.iter()
-                .fold(String::new(), |acc, i| acc + &i.to_string() + ", ");
+                // let tt = p.iter()
+                // .fold(String::new(), |acc, i| acc + &i.to_string() + ", ");
 
-                write!(f, "{} = [{}]", t, tt)
+                // write!(f, "{} = [{}]", t, tt)
+                write!(f, "{} = {:?}", t, p)
             },
             ParseKind::EmptySet(t) |
             ParseKind::Boundary(t) |
             ParseKind::Ellipsis(t) |
             ParseKind::Metathesis(t) => write!(f, "{}", t),
 
-            ParseKind::IPA(s, m) => write!(f, "{}", s),
+            ParseKind::IPA(s, m) => write!(f, "{} = {:?}", s, m),
 
             ParseKind::Matrix(tokens) | 
             ParseKind::Syllable(tokens) => {
-                let tt = tokens.iter()
-                .fold(String::new(), |acc, i| acc + &i.to_string() + ", ");
-                
-                write!(f, "[{}]", tt)
+                write!(f, "{:#?}", tokens)
             },
 
             ParseKind::Set(_) => todo!(),
@@ -188,7 +200,7 @@ impl Parser {
         Some(Item::new(ParseKind::Boundary(token.clone()), token.position))
     }
 
-    fn get_env_elements(&mut self) -> Result<Vec<Item>, SyntaxError> {
+    fn get_env_elements(&mut self) -> Result<Items, SyntaxError> {
         // returns list of boundaries, ellipses and terms
         let mut els = Vec::new();
 
@@ -232,7 +244,7 @@ impl Parser {
         Ok(Item::new(ParseKind::Environment(before, after), Position { start, end }))
     }
 
-    fn get_spec_env(&mut self) -> Result<Option<Vec<Item>>, SyntaxError> {
+    fn get_spec_env(&mut self) -> Result<Option<Items>, SyntaxError> {
 
         let start = self.curr_tkn.position.start;
         let pstn = self.pos;
@@ -268,7 +280,7 @@ impl Parser {
 
     }
 
-    fn get_env(&mut self) -> Result<Vec<Item>, SyntaxError> { 
+    fn get_env(&mut self) -> Result<Items, SyntaxError> { 
         // returns environment
 
         if let Some(s) = self.get_spec_env()? {
@@ -293,14 +305,14 @@ impl Parser {
         Ok(envs)
     }
 
-    fn get_except_block(&mut self) -> Result<Vec<Item>, SyntaxError> {
+    fn get_except_block(&mut self) -> Result<Items, SyntaxError> {
         if! self.expect(TokenKind::Pipe) {
             return Ok(Vec::new())
         }
         self.get_env()
     }
 
-    fn get_context(&mut self) -> Result<Vec<Item>, SyntaxError> {
+    fn get_context(&mut self) -> Result<Items, SyntaxError> {
         if !self.expect(TokenKind::Slash) {
             return Ok(Vec::new())
         }
@@ -332,28 +344,17 @@ impl Parser {
 
     }
     
-    fn join_char_with_params(&mut self, character: Item, parameters: Item) -> Result<Item, SyntaxError> {
+    fn join_char_with_params(&mut self, character: Item, parameters: Item) -> Item {
         // returns matrix or Err
-
-        // use TokenKind::*;
-        // use FeatType::*;
         
         // panics should be unreachable()
-        let chars = character.kind.matrix().expect("Critical Error: Char is not a matrix!");
-        let params = parameters.kind.matrix().expect("Critical Error: Param is not a matrix!"); 
+        let mut chr = character.kind.as_matrix().expect("Critical Error: Char is not a matrix!").clone();
+        let params = parameters.kind.as_matrix().expect("Critical Error: Params is not a matrix!"); 
 
-        let mut asdf = params.clone();
+        chr.extend(params);   // this should overwrite matching features in chr with params 
+                              // TODO:  write test to confirm this
 
-        let remaining: Vec<Token> = chars.into_iter().filter(|c| params.iter().find(|p| {
-            return p.kind.feature().unwrap() != c.kind.feature().unwrap()
-        }).is_some()).collect();
-
-        asdf.extend(remaining);
-
-        asdf.iter().for_each(|t| print!("{}, ", t));
-
-        // probably gonna have to convert matrix to values at some point
-        Ok(Item::new(ParseKind::Matrix(asdf), Position { start: character.position.start, end: parameters.position.end }))
+        Item::new(ParseKind::Matrix(chr), Position { start: character.position.start, end: parameters.position.end })
     }
 
     fn ipa_to_vals(&self, ipa: Token) -> Result<Segment, SyntaxError> {
@@ -366,49 +367,43 @@ impl Parser {
         }
     }
 
-    fn matrix_to_val(&self, matrix:Item) -> Result<HashMap<String, Option<usize>>, SyntaxError> {
-        println!("{:?}", matrix);
-
-        if let Some(v) = matrix.kind.matrix() {
-
-            println!("{:?}", v);
-        }
-
-        todo!();
-    }
-
     fn char_to_matrix(&self, chr: Token) -> Result<Item, SyntaxError> {
         // returns matrix or None
-        use TokenKind::*;
         use FeatType::*;
 
-        let syll_m = Token::new(Feature(Syllabic), "-".to_string(), chr.position.start, chr.position.end);
-        let syll_p = Token::new(Feature(Syllabic), "+".to_string(), chr.position.start, chr.position.end);
-        
-        let cons_m = Token::new(Feature(Consonantal), "-".to_string(), chr.position.start, chr.position.end);
-        let cons_p = Token::new(Feature(Consonantal), "+".to_string(), chr.position.start, chr.position.end);
-        
-        let sonr_m = Token::new(Feature(Sonorant), "-".to_string(), chr.position.start, chr.position.end);
-        let sonr_p = Token::new(Feature(Sonorant), "+".to_string(), chr.position.start, chr.position.end);
+        const SYLL_M: (FeatType, bool) = (Syllabic, false);
+        const SYLL_P: (FeatType, bool) = (Syllabic, true);
 
-        let appr_m = Token::new(Feature(Approximant), "-".to_string(), chr.position.start, chr.position.end);
-        let appr_p = Token::new(Feature(Approximant), "+".to_string(), chr.position.start, chr.position.end);
+        const CONS_M: (FeatType, bool) = (Consonantal, false);
+        const CONS_P: (FeatType, bool) = (Consonantal, true);
+        
+        const SONR_M: (FeatType, bool) = (Sonorant, false);
+        const SONR_P: (FeatType, bool) = (Sonorant, true);
+
+        const APPR_M: (FeatType, bool) = (Approximant, false);
+        const APPR_P: (FeatType, bool) = (Approximant, true);
 
 
 
         let x = match chr.value.as_str() {
-            "C" => vec![syll_m],                         // -syll                     // Consonant
-            "O" => vec![cons_p, sonr_m, syll_m],         // +cons, -son, -syll        // Obstruent
-            "S" => vec![cons_p, sonr_p, syll_m],         // +cons, +son, -syll        // Sonorant
-            "L" => vec![cons_p, sonr_p, syll_m, appr_p], // +cons, +son, -syll, +appr // Liquid
-            "N" => vec![cons_p, sonr_p, syll_m, appr_m], // +cons, +son, -syll, -appr // Nasal
-            "G" => vec![cons_m, sonr_p, syll_m],         // -cons, +son, -syll        // Glide
-            "V" => vec![cons_m, sonr_p, syll_p],         // -cons, +son, +syll        // Vowel
+            "C" => vec![SYLL_M],                         // -syll                     // Consonant
+            "O" => vec![CONS_P, SONR_M, SYLL_M],         // +cons, -son, -syll        // Obstruent
+            "S" => vec![CONS_P, SONR_P, SYLL_M],         // +cons, +son, -syll        // Sonorant
+            "L" => vec![CONS_P, SONR_P, SYLL_M, APPR_P], // +cons, +son, -syll, +appr // Liquid
+            "N" => vec![CONS_P, SONR_P, SYLL_M, APPR_M], // +cons, +son, -syll, -appr // Nasal
+            "G" => vec![CONS_M, SONR_P, SYLL_M],         // -cons, +son, -syll        // Glide
+            "V" => vec![CONS_M, SONR_P, SYLL_P],         // -cons, +son, +syll        // Vowel
             _ => return Err(SyntaxError::UnknownChar(chr)),
         };
 
+        let mut args = HashMap::new();
 
-        Ok(Item::new(ParseKind::Matrix(x), Position { start: chr.position.start, end: chr.position.end }))
+        for (feature, value) in x {
+            args.insert(feature, value);
+        }
+
+
+        Ok(Item::new(ParseKind::Matrix(args), Position { start: chr.position.start, end: chr.position.end }))
     }
 
     fn is_feature(&self) -> bool{
@@ -419,9 +414,25 @@ impl Parser {
         }
     }
 
-    fn get_matrix_args(&mut self) -> Result<Vec<Token>, SyntaxError> {
+    fn feature_to_modifier(&self, feature: FeatType, value: String) -> (FeatType, bool) {
+        match value.as_str() {
+            "+" => return (feature, true),
+            "-" => return (feature, false),
+            _ => unreachable!()
+        }
+    }
+
+    fn curr_token_to_modifier(&self) -> (FeatType, bool) {
+        if let TokenKind::Feature(x) = self.curr_tkn.kind {
+            self.feature_to_modifier(x, self.curr_tkn.value.clone())             
+        } else {
+            unreachable!()
+        }
+    }
+
+    fn get_matrix_args(&mut self, is_syll: bool) -> Result<Modifiers, SyntaxError> {
         // returns matrix or None
-        let mut args = Vec::new();
+        let mut args = HashMap::new();
         while self.has_more_tokens() {
             if self.expect(TokenKind::RightSquare) {
                 break;
@@ -431,14 +442,22 @@ impl Parser {
                 continue;
             }
             
-            if self.is_feature(){
-                args.push(self.curr_tkn.clone());
+            if self.is_feature() {
+                let (f, b) = self.curr_token_to_modifier();
+
+                if (f != FeatType::Tone && f != FeatType::Stress) && is_syll {
+                    return Err(SyntaxError::BadSyllableMatrix(self.curr_tkn.clone()))
+                }
+
+                args.insert(f, b);
                 self.advance();
                 continue;
             }
             
             return Err(SyntaxError::ExpectedFeature(self.curr_tkn.clone()))
         }
+
+
         
         Ok(args)
 
@@ -446,7 +465,7 @@ impl Parser {
 
     fn get_matrix(&mut self) -> Result<Item, SyntaxError> { 
         let start = self.token_list[self.pos-1].position.start;
-        let args = self.get_matrix_args()?;
+        let args = self.get_matrix_args(false)?;
         let end = self.token_list[self.pos-1].position.end;
         
         Ok(Item::new(ParseKind::Matrix(args), Position { start, end }))
@@ -481,7 +500,7 @@ impl Parser {
         
         let params = self.get_matrix()?;
 
-        let joined = self.join_char_with_params(chr, params)?;
+        let joined = self.join_char_with_params(chr, params);
 
         Ok(joined)
     }
@@ -494,7 +513,7 @@ impl Parser {
         self.advance();
 
         if !self.expect(TokenKind::Colon) {
-            return Ok(Item::new(ParseKind::IPA(ipa.clone(), Vec::new()), pos))
+            return Ok(Item::new(ParseKind::IPA(ipa.clone(), HashMap::new()), pos))
         }
 
         if !self.expect(TokenKind::LeftSquare) {
@@ -560,7 +579,7 @@ impl Parser {
             return Err(SyntaxError::BadVariableAssignment(mt))
         }
         
-        Ok(self.join_char_with_params(mt, params)?)
+        Ok(self.join_char_with_params(mt, params))
     }
 
     fn get_var(&mut self) -> Result<Option<Item>, SyntaxError> {
@@ -634,7 +653,7 @@ impl Parser {
             return Err(SyntaxError::ExpectedSegment(self.curr_tkn.clone()))
         }
 
-        // Todo: This needs cleaning up!
+        // TODO: This needs cleaning up!
 
         if self.expect(TokenKind::RightBracket) {
             let end = self.token_list[self.pos-1].position.end;
@@ -683,6 +702,9 @@ impl Parser {
 
         let mut segs = Vec::new();
 
+        // TODO: this while condition may mean  "/ _{A, B, C <eol>" is valid input
+        // may have to return SyntaxError::ExpectedRightBracketAtEol
+        // bug or feature? ¯\_(ツ)_/¯
         while self.has_more_tokens() {
             if self.expect(TokenKind::RightCurly) {
                 break;
@@ -714,14 +736,14 @@ impl Parser {
 
         if !self.expect(TokenKind::Colon) {
             let end = self.curr_tkn.position.start - 1;
-            return Ok(Some(Item::new(ParseKind::Syllable(Vec::new()), Position { start, end })))
+            return Ok(Some(Item::new(ParseKind::Syllable(HashMap::new()), Position { start, end })))
         }
 
         if !self.expect(TokenKind::LeftSquare) {
             return Err(SyntaxError::ExpectedMatrix(self.curr_tkn.clone()))
         }
 
-        let m = self.get_matrix_args()?;
+        let m = self.get_matrix_args(true)?;
 
         let end = self.token_list[self.pos-1].position.end;
 
@@ -754,7 +776,7 @@ impl Parser {
         Ok(None)
     }
 
-    fn get_input_term(&mut self) -> Result<Vec<Item>, SyntaxError> {
+    fn get_input_term(&mut self) -> Result<Items, SyntaxError> {
         // returns list of terms and ellipses
         let mut terms = Vec::<Item>::new();
 
@@ -801,7 +823,7 @@ impl Parser {
         Ok(None)
     }
 
-    fn get_output_term(&mut self) -> Result<Vec<Item>, SyntaxError>{ 
+    fn get_output_term(&mut self) -> Result<Items, SyntaxError>{ 
         // returns list of sylls, sets, and/or segments
 
         let mut terms = Vec::<Item>::new();
@@ -817,7 +839,7 @@ impl Parser {
         Ok(terms)
     }
 
-    fn get_empty(&mut self) -> Vec<Item> {
+    fn get_empty(&mut self) -> Items {
         if !self.peek_expect(TokenKind::Star) && !self.peek_expect(TokenKind::EmptySet) {
             return Vec::new()
         }
@@ -825,7 +847,7 @@ impl Parser {
         vec![Item::new(ParseKind::EmptySet(token.clone()), token.position)]
     }
 
-    fn get_input(&mut self) -> Result<Vec<Vec<Item>>, SyntaxError> {
+    fn get_input(&mut self) -> Result<Vec<Items>, SyntaxError> {
         // returns empty / list of input terms
         let mut inputs = Vec::new();
         let maybe_empty = self.get_empty();
@@ -852,7 +874,7 @@ impl Parser {
 
     }
 
-    fn get_output(&mut self) -> Result<Vec<Vec<Item>>, SyntaxError> {
+    fn get_output(&mut self) -> Result<Vec<Items>, SyntaxError> {
         // returns empty / metathesis / list of output erms 
         let mut outputs = Vec::new();
 
@@ -974,16 +996,16 @@ impl Parser {
 #[cfg(test)]
 mod parser_tests {
 
+    macro_rules! map {
+        ($($k:expr => $v:expr),* $(,)?) => {{
+            core::convert::From::from([$(($k, $v),)*])
+        }};
+    }
+
     use super::*;
     use crate::JSON;
-    use crate::Trie;
 
     fn setup(test_str: &str) -> Vec<Token> {
-
-        let mut cardinals_trie = Trie::new();
-        for (k,_) in JSON.iter() {
-            cardinals_trie.insert(k.as_str());
-        }
 
         Lexer::new(String::from(test_str)).get_all_tokens()
 
@@ -1004,17 +1026,19 @@ mod parser_tests {
         assert_eq!(result.rule_type, 0);
         assert!(result.variables.is_empty());
 
-        let exp_input = vec![
-            Item::new(ParseKind::Syllable(vec![Token::new(TokenKind::Feature(FeatType::Stress), "+".to_owned(), 3, 10)]), Position { start: 0, end: 11 }),
-            Item::new(ParseKind::Syllable(vec![]), Position { start: 13, end: 14 }),
+
+        let exp_input = vec![ 
+            Item::new(ParseKind::Syllable(map!{FeatType::Stress => true}), Position { start: 0, end: 11 }),
+            Item::new(ParseKind::Syllable(map![]), Position { start: 13, end: 14 }),
         ];
 
+
         let exp_output = vec![
-            Item::new(ParseKind::Matrix(vec![Token::new(TokenKind::Feature(FeatType::Stress), "-".to_owned(), 18, 25)]), Position { start: 17, end: 26 }),
-            Item::new(ParseKind::Matrix(vec![Token::new(TokenKind::Feature(FeatType::Stress), "+".to_owned(), 29, 36)]), Position { start: 28, end: 37 }),
+            Item::new(ParseKind::Matrix(map![FeatType::Stress => false]), Position { start: 17, end: 26 }),
+            Item::new(ParseKind::Matrix(map![FeatType::Stress => true]), Position { start: 28, end: 37 }),
             ];
             
-        let exp_context: Vec<Item> = vec![
+        let exp_context: Items = vec![
             Item::new(ParseKind::Environment(vec![], vec![]), Position { start: 40, end: 41 }),
             Item::new(ParseKind::Environment(vec![Item::new(ParseKind::Boundary(Token::new(TokenKind::WordBoundary, "#".to_owned(), 44, 45)), Position { start: 44, end: 45 })], vec![]), Position { start: 44, end: 46 }),
         ];
@@ -1045,9 +1069,9 @@ mod parser_tests {
         assert!(result.variables.is_empty());
 
         let exp_input_res = vec![
-            Item::new(ParseKind::IPA(JSON.get("t͡ɕ").unwrap().clone(), Vec::new()), Position { start: 0, end: 3 }),
+            Item::new(ParseKind::IPA(JSON.get("t͡ɕ").unwrap().clone(), HashMap::new()), Position { start: 0, end: 3 }),
             Item::new(ParseKind::Ellipsis(Token::new(TokenKind::Ellipsis, "...".to_owned(), 3, 6)), Position { start: 3, end: 6 }),
-            Item::new(ParseKind::IPA(JSON.get("b͡β").unwrap().clone(), Vec::new()), Position { start: 6, end: 9 }),
+            Item::new(ParseKind::IPA(JSON.get("b͡β").unwrap().clone(), HashMap::new()), Position { start: 6, end: 9 }),
         ];
 
         assert_eq!(result.input[0][0], exp_input_res[0]);
@@ -1057,14 +1081,12 @@ mod parser_tests {
 
     #[test]
     fn test_variables_plain() {
-        let c = Item::new(ParseKind::Matrix(vec![ 
-            Token { kind: TokenKind::Feature(FeatType::Syllabic),    value: "-".to_owned(), position: Position { start: 0, end: 1 } }
-        ]), Position { start: 0, end: 1 });
+        let c = Item::new(ParseKind::Matrix(map![FeatType::Syllabic => false]), Position { start: 0, end: 1 });
 
-        let v = Item::new(ParseKind::Matrix(vec![ 
-            Token { kind: TokenKind::Feature(FeatType::Consonantal), value: "-".to_owned(), position: Position { start: 4, end: 5 } },
-            Token { kind: TokenKind::Feature(FeatType::Sonorant),    value: "+".to_owned(), position: Position { start: 4, end: 5 } },
-            Token { kind: TokenKind::Feature(FeatType::Syllabic),    value: "+".to_owned(), position: Position { start: 4, end: 5 } },
+        let v = Item::new(ParseKind::Matrix(map![ 
+            FeatType::Consonantal => false,
+            FeatType::Sonorant => true,
+            FeatType::Syllabic => true,
         ]), Position { start: 4, end: 5 });
 
         let maybe_result = Parser:: new(setup("C=1 V=2 > 2 1 / _C")).parse();

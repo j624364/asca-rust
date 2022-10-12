@@ -14,41 +14,42 @@ use crate::{
 //     _ => segment_to_byte(feature)
 // }
 
-pub fn feature_to_byte(feat: FeatType) -> (&'static str, u8) {
+#[allow(unused)]
+pub fn feature_to_node_byte(feat: FeatType) -> (FeatType, u8) {
     use FeatType::*;
     match feat {
-        Consonantal    => ("RUT", 0b100),
-        Sonorant       => ("RUT", 0b010),
-        Syllabic       => ("RUT", 0b001),
+        Consonantal         => (RootNode, 0b100),
+        Sonorant            => (RootNode, 0b010),
+        Syllabic            => (RootNode, 0b001),
         
-        Continuant     => ("MAN", 0b10000000),
-        Approximant    => ("MAN", 0b01000000),
-        Lateral        => ("MAN", 0b00100000),
-        Nasal          => ("MAN", 0b00010000),
-        DelayedRelease => ("MAN", 0b00001000),
-        Strident       => ("MAN", 0b00000100),
-        Rhotic         => ("MAN", 0b00000010),
-        Click          => ("MAN", 0b00000001),
+        Continuant          => (MannerNode, 0b10000000),
+        Approximant         => (MannerNode, 0b01000000),
+        Lateral             => (MannerNode, 0b00100000),
+        Nasal               => (MannerNode, 0b00010000),
+        DelayedRelease      => (MannerNode, 0b00001000),
+        Strident            => (MannerNode, 0b00000100),
+        Rhotic              => (MannerNode, 0b00000010),
+        Click               => (MannerNode, 0b00000001),
         
-        Voice          => ("LAR", 0b100),
-        SpreadGlottis  => ("LAR", 0b010),
-        ConstrGlottis  => ("LAR", 0b001),
+        Voice               => (LaryngealNode, 0b100),
+        SpreadGlottis       => (LaryngealNode, 0b010),
+        ConstrGlottis       => (LaryngealNode, 0b001),
         
-        Bilabial       => ("LAB", 0b10),
-        Round          => ("LAB", 0b01),
+        Bilabial            => (LabialNode, 0b10),
+        Round               => (LabialNode, 0b01),
 
-        Anterior       => ("COR", 0b10),
-        Distributed    => ("COR", 0b01),
+        Anterior            => (CoronalNode, 0b10),
+        Distributed         => (CoronalNode, 0b01),
 
-        Front          => ("DOR", 0b100000),
-        Back           => ("DOR", 0b010000),
-        High           => ("DOR", 0b001000),
-        Low            => ("DOR", 0b000100),
-        Tense          => ("DOR", 0b000010),
-        Reduced        => ("DOR", 0b000001),
+        Front               => (DorsalNode, 0b100000),
+        Back                => (DorsalNode, 0b010000),
+        High                => (DorsalNode, 0b001000),
+        Low                 => (DorsalNode, 0b000100),
+        Tense               => (DorsalNode, 0b000010),
+        Reduced             => (DorsalNode, 0b000001),
 
-        AdvancedTongueRoot  => ("PHR", 0b10),
-        RetractedTongueRoot => ("PHR", 0b01),
+        AdvancedTongueRoot  => (PharyngealNode, 0b10),
+        RetractedTongueRoot => (PharyngealNode, 0b01),
 
         // if Node or SupraSeg
         _ => unreachable!()
@@ -178,7 +179,7 @@ impl Word {
         Ok(w)
     }
 
-    pub fn get_segs_from_syll(&self, syll_index: usize) -> Vec<Segment> {
+    pub fn get_segs_in_syll(&self, syll_index: usize) -> Vec<Segment> {
 
         assert!(syll_index < self.syllables.len());
 
