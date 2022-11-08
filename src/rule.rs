@@ -4,10 +4,17 @@ use std::{
 };
 
 use crate ::{
-    parser::{Item, ParseKind}, 
+    parser::{Item, ParseKind, Modifiers}, 
     error ::RuntimeError, 
-    word  ::Word
+    word  ::{Word, Segment}, lexer::TokenKind
 };
+
+
+struct BacktrackState {
+    can_backtrack: bool,
+    state: Item,
+    consumptions: Option<usize>
+}
 
 #[derive(Debug)]
 pub struct SubRule {
@@ -99,14 +106,88 @@ impl Rule {
 
     }
 
+    fn state_matches_ipa_at_index(&self, seg: &Segment, mods: &Modifiers, word: Word, i: usize) -> (bool, usize) {
+        todo!()
+    }
 
-    fn find(&self, states: Vec<Item>, word: Word) -> (bool, usize, usize) {
+
+    fn find_input(&self, states: Vec<Item>, word: Word) -> (bool, usize, usize) {
 
         let mut queue = VecDeque::from(states);
         let mut i = 0;
-        let mut backtrack_stack: Vec<Item> = Vec::new();
+        let mut backtrack_stack: Vec<BacktrackState> = Vec::new();
         let mut curr_state = queue.pop_front();
 
+
+        fn backtrack() -> bool {
+            todo!()
+        }
+
+        while curr_state.is_some() {
+            match curr_state.clone().unwrap().kind {
+                ParseKind::Ellipsis(_) => { // NOTE: this will probably not work
+                    let (is_match, consumed) = if i >= word.segments.len() {
+                        (false, 0)
+                    } else {
+                        (true, 1)
+                    };
+
+                    if !is_match {
+                        backtrack_stack.push(BacktrackState {
+                            can_backtrack: true,
+                            state: curr_state.clone().unwrap(),
+                            consumptions: Some(consumed),
+                        });
+                        curr_state = queue.pop_front();
+                        continue;
+                    }
+
+                    backtrack_stack.push(BacktrackState {
+                        can_backtrack: true,
+                        state: curr_state.clone().unwrap(),
+                        consumptions: Some(consumed),
+                    });
+
+                    i += consumed;
+
+                },
+                ParseKind::Variable(_, _) => todo!(),
+                ParseKind::IPA(ref s, ref m) => {
+                    let (is_match, consumed) = self.state_matches_ipa_at_index(&s, &m, word.clone(), i);
+
+                    if !is_match {
+                        let index_before_backtrack = i.clone();
+                        if !backtrack() {
+                            return (false, index_before_backtrack, index_before_backtrack)
+                        }
+                        continue;
+                    }
+
+                    backtrack_stack.push(BacktrackState {
+                        can_backtrack: false,
+                        state: curr_state.clone().unwrap(),
+                        consumptions: Some(consumed),
+                    });
+
+                    continue;
+                },
+                ParseKind::Matrix(_) => todo!(),
+                ParseKind::Syllable(_) => todo!(),
+                ParseKind::Set(_) => todo!(),
+                ParseKind::Optional(_, _, _) => todo!(),
+
+                ParseKind::EmptySet(_) => unreachable!("Insert rule check should not be done here"), // probably has to be done in apply() to skip straight to env check
+                ParseKind::Metathesis(_) => unreachable!("'&' not allowed in input"),
+                ParseKind::Boundary(_) => { unreachable!("Boundaries not allowed in input")
+                    // if b.kind == TokenKind::WordBoundary {
+                    //     if i != 0 && i != word.segments.len()-1 {
+                    //         panic!()
+                    //     }
+                    // }
+                },
+                ParseKind::Environment(_, _) => unreachable!("Env. not allowed in input"),
+            }
+        }
 
 
         (false, 0, 0)

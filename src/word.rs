@@ -1,10 +1,11 @@
+use core::panic;
 use   std::fmt;
 use serde::{Serialize, Deserialize};
 
 use crate::{
     error::WordSyntaxError, 
     lexer::FeatType, 
-    JSON, CARDINALS
+    JSON, CARDINALS, trie::Node
 };
 
 // match feature {
@@ -14,42 +15,52 @@ use crate::{
 //     _ => segment_to_byte(feature)
 // }
 
+pub enum NodeKind {
+    Root,
+    Manner,
+    Laryngeal,
+    Labial,
+    Coronal,
+    Dorsal,
+    Pharyngeal
+}
+
 #[allow(unused)]
-pub fn feature_to_node_byte(feat: FeatType) -> (FeatType, u8) {
+pub fn feature_to_node_byte(feat: FeatType) -> (NodeKind, u8) {
     use FeatType::*;
     match feat {
-        Consonantal         => (RootNode, 0b100),
-        Sonorant            => (RootNode, 0b010),
-        Syllabic            => (RootNode, 0b001),
+        Consonantal         => (NodeKind::Root, 0b100),
+        Sonorant            => (NodeKind::Root, 0b010),
+        Syllabic            => (NodeKind::Root, 0b001),
         
-        Continuant          => (MannerNode, 0b10000000),
-        Approximant         => (MannerNode, 0b01000000),
-        Lateral             => (MannerNode, 0b00100000),
-        Nasal               => (MannerNode, 0b00010000),
-        DelayedRelease      => (MannerNode, 0b00001000),
-        Strident            => (MannerNode, 0b00000100),
-        Rhotic              => (MannerNode, 0b00000010),
-        Click               => (MannerNode, 0b00000001),
+        Continuant          => (NodeKind::Manner, 0b10000000),
+        Approximant         => (NodeKind::Manner, 0b01000000),
+        Lateral             => (NodeKind::Manner, 0b00100000),
+        Nasal               => (NodeKind::Manner, 0b00010000),
+        DelayedRelease      => (NodeKind::Manner, 0b00001000),
+        Strident            => (NodeKind::Manner, 0b00000100),
+        Rhotic              => (NodeKind::Manner, 0b00000010),
+        Click               => (NodeKind::Manner, 0b00000001),
         
-        Voice               => (LaryngealNode, 0b100),
-        SpreadGlottis       => (LaryngealNode, 0b010),
-        ConstrGlottis       => (LaryngealNode, 0b001),
+        Voice               => (NodeKind::Laryngeal, 0b100),
+        SpreadGlottis       => (NodeKind::Laryngeal, 0b010),
+        ConstrGlottis       => (NodeKind::Laryngeal, 0b001),
         
-        Bilabial            => (LabialNode, 0b10),
-        Round               => (LabialNode, 0b01),
+        Bilabial            => (NodeKind::Labial, 0b10),
+        Round               => (NodeKind::Labial, 0b01),
 
-        Anterior            => (CoronalNode, 0b10),
-        Distributed         => (CoronalNode, 0b01),
+        Anterior            => (NodeKind::Coronal, 0b10),
+        Distributed         => (NodeKind::Coronal, 0b01),
 
-        Front               => (DorsalNode, 0b100000),
-        Back                => (DorsalNode, 0b010000),
-        High                => (DorsalNode, 0b001000),
-        Low                 => (DorsalNode, 0b000100),
-        Tense               => (DorsalNode, 0b000010),
-        Reduced             => (DorsalNode, 0b000001),
+        Front               => (NodeKind::Dorsal, 0b100000),
+        Back                => (NodeKind::Dorsal, 0b010000),
+        High                => (NodeKind::Dorsal, 0b001000),
+        Low                 => (NodeKind::Dorsal, 0b000100),
+        Tense               => (NodeKind::Dorsal, 0b000010),
+        Reduced             => (NodeKind::Dorsal, 0b000001),
 
-        AdvancedTongueRoot  => (PharyngealNode, 0b10),
-        RetractedTongueRoot => (PharyngealNode, 0b01),
+        AdvancedTongueRoot  => (NodeKind::Pharyngeal, 0b10),
+        RetractedTongueRoot => (NodeKind::Pharyngeal, 0b01),
 
         // if Node or SupraSeg
         _ => unreachable!()
@@ -65,6 +76,68 @@ pub struct Segment {
     pub coronal   : Option<u8>,
     pub dorsal    : Option<u8>,
     pub pharyngeal: Option<u8>,
+}
+
+impl Segment {
+    fn get_node(&self, node: &NodeKind) -> Option<u8> {
+        match node {
+            NodeKind::Root       => Some(self.root),
+            NodeKind::Manner     => Some(self.manner),
+            NodeKind::Laryngeal  => Some(self.laryngeal),
+            NodeKind::Labial     => self.labial,
+            NodeKind::Coronal    => self.coronal,
+            NodeKind::Dorsal     => self.dorsal,
+            NodeKind::Pharyngeal => self.pharyngeal
+        }
+    }
+
+    fn set_node(&mut self, node: NodeKind, val: Option<u8>) {
+        match node {
+            NodeKind::Root       => self.root = val.expect("\nRootNode cannot be null\nThis is a bug"),
+            NodeKind::Manner     => self.manner = val.expect("\nMannerNode cannot be null\nThis is a bug"),
+            NodeKind::Laryngeal  => self.laryngeal = val.expect("\nLaryngealNode cannot be null\nThis is a bug"),
+            NodeKind::Labial     => self.labial = val,
+            NodeKind::Coronal    => self.coronal = val,
+            NodeKind::Dorsal     => self.dorsal = val,
+            NodeKind::Pharyngeal => self.pharyngeal = val
+        }
+    }
+
+    pub fn get_feat(&self, node: NodeKind, feat: u8) -> Option<u8> {
+        Some(self.get_node(&node)? & feat)
+    }
+
+    pub fn set_feat(&mut self, node: NodeKind, feat: u8, into_pos: bool) {
+
+        let n = match self.get_node(&node) {
+            Some(x) => x,
+            None => 0u8,
+        };
+
+        if into_pos {
+            self.set_node(node, Some(n | feat)) 
+        } else {
+            self.set_node(node, Some(n & !(feat)))
+        }
+    }
+
+    pub fn inv_feat(&mut self, node: NodeKind, feat: u8) {
+        let n = match self.get_node(&node) {
+            Some(x) => x,
+            None => 0u8, // todo: maybe we should just return (or error) in this case?
+        };
+
+        self.set_node(node, Some(n ^ feat))
+    }
+
+    pub fn inv_node(&mut self, node: NodeKind) {
+        let n = match self.get_node(&node) {
+            Some(x) => x,
+            None => 0u8, // todo: again maybe we should just return/error
+        };
+
+        self.set_node(node, Some(!n))   
+    }
 }
 
 // impl SegNode {
@@ -106,11 +179,10 @@ impl fmt::Display for Segment {
 //     pub grapheme: String,
 //     pub matrix: SegNode
 // }
-
+//
 // impl fmt::Display for Segment {
 //     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-//         write!(f, "{}: {}", self.grapheme, self.matrix)?;
-        
+//         write!(f, "{}: {}", self.grapheme, self.matrix)?;   
 //         Ok(())
 //     }
 // }
@@ -142,12 +214,10 @@ impl fmt::Display for Syllable {
     }
 }
 
-
 #[derive(Debug, Clone)]
 pub struct Word {
     pub segments: Vec<Segment>,
-    pub syllables: Vec<Syllable>
-
+    pub syllables: Vec<Syllable>,
 }
 
 impl fmt::Display for Word {
@@ -172,8 +242,6 @@ impl Word {
                             .replace("g", "ɡ")
                             .replace(":", "ː")
                             .replace("ǝ", "ə");
-
-
         w.setup(t)?;
 
         Ok(w)
@@ -191,6 +259,25 @@ impl Word {
         self.segments[start..=end].to_owned()
 
     } 
+
+    pub fn get_syll_index_from_seg_index(&self, seg_index: usize) -> usize {
+        
+        assert!(seg_index < self.segments.len());
+
+        for (i, syll) in self.syllables.iter().enumerate() {
+            if seg_index > syll.end {
+                continue;
+            }
+
+            if seg_index < syll.start {
+                panic!();
+            }
+
+            return i
+        }
+
+        unreachable!();
+    }
 
     fn setup(&mut self, input_txt: String) -> Result<(), WordSyntaxError> {
         let mut i = 0;
@@ -295,6 +382,7 @@ impl Word {
         Ok(())
     }
 
+    // Not used
     pub fn _format_text(&self, mut txt: String ) -> Vec<String> {
         txt = txt.replace("'", "ˈ")
                  .replace("g", "ɡ")
@@ -350,11 +438,9 @@ mod word_tests {
 
     use super::*;
 
-
     #[test]
     fn test_text_split() {
         let w = Word::new("na".to_owned()).unwrap();
-
 
         assert_eq!(w._format_text("ˌna.kiˈsa".to_owned()), vec!["ˌna", "ki", "ˈsa"]);
         assert_eq!(w._format_text(".na.kiˈsa".to_owned()), vec!["na", "ki", "ˈsa"]);

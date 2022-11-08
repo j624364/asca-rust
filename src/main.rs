@@ -46,18 +46,19 @@ fn main() {
     // let test = String::from("V:[+syll]...l > & / _,C");
     // let test = String::from("C=1 V=2 > 2 1  / _C");
     // let test = String::from("%:[+stress], % > [-stress], [+stress] / _ , #_ ");
-
+    
     // let w = Word::new("ˌna.kiˈsa".to_owned()).unwrap();
     let w = Word::new("a.ki.ra".to_owned()).unwrap();
     // let mut w = Word::new("ˌna.kiˈ:a".to_owned()).unwrap();
     println!("{}", w);
-        
+    
     let mut tokens;
     const ITERS: u32 = 1;
     
     let start  = Instant::now();
     // let test= String::from("t͡ɕ...b͡β > &");
-    let test= String::from("r > l");
+    // let test= String::from("r > l");
+    let test = String::from("%:[+stress], % > [-stress], [+stress] / _ , #_ ");
     let mut rule: Result<Rule, SyntaxError> = Err(SyntaxError::EmptyInput);
 
     for _ in 0..ITERS {

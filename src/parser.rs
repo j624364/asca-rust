@@ -11,8 +11,28 @@ use crate::{
     word ::Segment
 };
 
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum ModKind {
+    Negative,
+    Positive,
+    Alpha(char),
+    InversAlpha(char),
+    Number(String),
+    Unspecified
+}
 
-type Modifiers = HashMap<FeatType, bool>;
+impl Default for ModKind {
+    fn default() -> Self { ModKind::Unspecified }
+}
+
+macro_rules! modArr {
+    () => {
+        [();FeatType::Tone as usize + 1].map(|_| ModKind::default())
+    };
+}
+
+// pub type Modifiers = HashMap<FeatType, ModKind>;
+pub type Modifiers = [ModKind; FeatType::Tone as usize + 1];
 type Items = Vec<Item>;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -52,14 +72,6 @@ impl ParseKind {
     // /// [`Set`]: ParseKind::Set
     // pub fn is_set(&self) -> bool {
     //     matches!(self, Self::Set(..))
-    // }
-
-    // pub fn as_matrix(&self) -> Option<&Modifiers> {
-    //     if let Self::Matrix(v) = self {
-    //         Some(v)
-    //     } else {
-    //         None
-    //     }
     // }
 }
 
@@ -320,48 +332,30 @@ impl Parser {
     }
 
     fn join_ipa_with_params(&self, ipa: Segment, params: Item) -> Result<ParseKind, SyntaxError> {
-        // use TokenKind::*;
-        // use FeatType::*;
-
-        //let x = self.cardinals;
-        //let y = x.get(&ipa.value);
-
-
-        println!("{:?}", ipa);
-        //println!("{:?}", y.unwrap());
-        println!();
-        println!("{:?}", params);
-        println!();
-        // probably gonna have to convert ipa/matrix to Segment form
-        // i.e. Root:u32 = 5, Manner:u32 = 8, Lar:u32 = 2, etc.
-
-        if let ParseKind::Matrix(p) = params.kind {
-            Ok(ParseKind::IPA(ipa, p))
-        }
-        else {
-            unreachable!()
+        match params.kind {
+            ParseKind::Matrix(p) => Ok(ParseKind::IPA(ipa, p)),
+            _ => unreachable!("\nCritical Error: 'Parameters' being joined with IPA Segment is not a matrix!\nThis is a bug."),
         }
 
     }
     
     fn join_char_with_params(&mut self, character: Item, parameters: Item) -> Item {
-        // returns matrix or Err
+        let mut chr = character.kind.as_matrix().expect("\nCritical Error: 'Char' being joined with 'Parameters' is not a matrix!\nThis is a bug.").clone();
+        let params = parameters.kind.as_matrix().expect("\nCritical Error: 'Parameters' being joined with 'Char' is not a matrix!\nThis is a bug.").clone(); 
         
-        // panics should be unreachable()
-        let mut chr = character.kind.as_matrix().expect("Critical Error: Char is not a matrix!").clone();
-        let params = parameters.kind.as_matrix().expect("Critical Error: Params is not a matrix!"); 
-
-        chr.extend(params);   // this should overwrite matching features in chr with params 
-                              // TODO:  write test to confirm this
-
+        // TODO: test this
+        for (i, p) in params.iter().enumerate() {
+            if let ModKind::Unspecified = p {
+                continue
+            }
+            chr[i] = p.clone()
+        }
+        
         Item::new(ParseKind::Matrix(chr), Position { start: character.position.start, end: parameters.position.end })
     }
 
     fn ipa_to_vals(&self, ipa: Token) -> Result<Segment, SyntaxError> {
-        
-        let y = JSON.get(&ipa.value);
-
-        match y {
+        match JSON.get(&ipa.value) {
             Some(z) => Ok(z.clone()),
             None => return Err(SyntaxError::UnknownIPA(ipa))
         }
@@ -370,22 +364,23 @@ impl Parser {
     fn char_to_matrix(&self, chr: Token) -> Result<Item, SyntaxError> {
         // returns matrix or None
         use FeatType::*;
+        use ModKind::*;
 
-        const SYLL_M: (FeatType, bool) = (Syllabic, false);
-        const SYLL_P: (FeatType, bool) = (Syllabic, true);
+        const SYLL_M: (FeatType, ModKind) = (Syllabic, Negative);
+        const SYLL_P: (FeatType, ModKind) = (Syllabic, Positive);
 
-        const CONS_M: (FeatType, bool) = (Consonantal, false);
-        const CONS_P: (FeatType, bool) = (Consonantal, true);
+        const CONS_M: (FeatType, ModKind) = (Consonantal, Negative);
+        const CONS_P: (FeatType, ModKind) = (Consonantal, Positive);
         
-        const SONR_M: (FeatType, bool) = (Sonorant, false);
-        const SONR_P: (FeatType, bool) = (Sonorant, true);
+        const SONR_M: (FeatType, ModKind) = (Sonorant, Negative);
+        const SONR_P: (FeatType, ModKind) = (Sonorant, Positive);
 
-        const APPR_M: (FeatType, bool) = (Approximant, false);
-        const APPR_P: (FeatType, bool) = (Approximant, true);
+        const APPR_M: (FeatType, ModKind) = (Approximant, Negative);
+        const APPR_P: (FeatType, ModKind) = (Approximant, Positive);
 
 
 
-        let x = match chr.value.as_str() {
+        let char_vals = match chr.value.as_str() {
             "C" => vec![SYLL_M],                         // -syll                     // Consonant
             "O" => vec![CONS_P, SONR_M, SYLL_M],         // +cons, -son, -syll        // Obstruent
             "S" => vec![CONS_P, SONR_P, SYLL_M],         // +cons, +son, -syll        // Sonorant
@@ -396,10 +391,11 @@ impl Parser {
             _ => return Err(SyntaxError::UnknownChar(chr)),
         };
 
-        let mut args = HashMap::new();
+        let mut args = modArr!(); 
 
-        for (feature, value) in x {
-            args.insert(feature, value);
+        for (feature, value) in char_vals {
+            // args.insert(feature, value);
+            args[feature as usize] = value
         }
 
 
@@ -414,15 +410,26 @@ impl Parser {
         }
     }
 
-    fn feature_to_modifier(&self, feature: FeatType, value: String) -> (FeatType, bool) {
+    fn feature_to_modifier(&self, feature: FeatType, value: String) -> (FeatType, ModKind) {
+
         match value.as_str() {
-            "+" => return (feature, true),
-            "-" => return (feature, false),
-            _ => unreachable!()
+            "+" => return (feature, ModKind::Positive),
+            "-" => return (feature, ModKind::Negative),
+            "α"|"β"|"γ"|"δ"|"ε"|"ζ"|"η"|"θ"|"ι"|"κ"|"λ"|"μ"|"ν"|"ξ"|"ο"|"π"|"ρ"|"σ"|"ς"|"τ"|"υ"|"φ"|"χ"|"ψ"|"ω" => {
+                return (feature, ModKind::Alpha(value.chars().collect::<Vec<char>>()[0])) // TODO: what the fuck is this
+            },
+            "-α"|"-β"|"-γ"|"-δ"|"-ε"|"-ζ"|"-η"|"-θ"|"-ι"|"-κ"|"-λ"|"-μ"|"-ν"|"-ξ"|"-ο"|"-π"|"-ρ"|"-σ"|"-ς"|"-τ"|"-υ"|"-φ"|"-χ"|"-ψ"|"-ω" => {
+                return (feature, ModKind::InversAlpha(value.chars().collect::<Vec<char>>()[1]))
+            }
+            _ => if feature == FeatType::Tone || feature == FeatType::Stress { // we already know its a number if this matches thanks to the lexer
+                return (feature, ModKind::Number(value))
+            } else {
+                unreachable!();
+            }
         }
     }
 
-    fn curr_token_to_modifier(&self) -> (FeatType, bool) {
+    fn curr_token_to_modifier(&self) -> (FeatType, ModKind) {
         if let TokenKind::Feature(x) = self.curr_tkn.kind {
             self.feature_to_modifier(x, self.curr_tkn.value.clone())             
         } else {
@@ -432,7 +439,8 @@ impl Parser {
 
     fn get_matrix_args(&mut self, is_syll: bool) -> Result<Modifiers, SyntaxError> {
         // returns matrix or None
-        let mut args = HashMap::new();
+        
+        let mut args = modArr!();
         while self.has_more_tokens() {
             if self.expect(TokenKind::RightSquare) {
                 break;
@@ -449,7 +457,8 @@ impl Parser {
                     return Err(SyntaxError::BadSyllableMatrix(self.curr_tkn.clone()))
                 }
 
-                args.insert(f, b);
+                // args.insert(f, b);
+                args[f as usize] = b;
                 self.advance();
                 continue;
             }
@@ -513,7 +522,7 @@ impl Parser {
         self.advance();
 
         if !self.expect(TokenKind::Colon) {
-            return Ok(Item::new(ParseKind::IPA(ipa.clone(), HashMap::new()), pos))
+            return Ok(Item::new(ParseKind::IPA(ipa.clone(), modArr!()), pos))
         }
 
         if !self.expect(TokenKind::LeftSquare) {
@@ -736,7 +745,7 @@ impl Parser {
 
         if !self.expect(TokenKind::Colon) {
             let end = self.curr_tkn.position.start - 1;
-            return Ok(Some(Item::new(ParseKind::Syllable(HashMap::new()), Position { start, end })))
+            return Ok(Some(Item::new(ParseKind::Syllable(modArr!()), Position { start, end })))
         }
 
         if !self.expect(TokenKind::LeftSquare) {
@@ -996,11 +1005,11 @@ impl Parser {
 #[cfg(test)]
 mod parser_tests {
 
-    macro_rules! map {
-        ($($k:expr => $v:expr),* $(,)?) => {{
-            core::convert::From::from([$(($k, $v),)*])
-        }};
-    }
+    // macro_rules! map {
+    //     ($($k:expr => $v:expr),* $(,)?) => {{
+    //         core::convert::From::from([$(($k, $v),)*])
+    //     }};
+    // }
 
     use super::*;
     use crate::JSON;
@@ -1027,15 +1036,21 @@ mod parser_tests {
         assert!(result.variables.is_empty());
 
 
+        let mut x = modArr!();
+        let mut y = modArr!();
+        x[FeatType::Stress as usize] = ModKind::Positive;
         let exp_input = vec![ 
-            Item::new(ParseKind::Syllable(map!{FeatType::Stress => true}), Position { start: 0, end: 11 }),
-            Item::new(ParseKind::Syllable(map![]), Position { start: 13, end: 14 }),
+            Item::new(ParseKind::Syllable(x), Position { start: 0, end: 11 }),
+            Item::new(ParseKind::Syllable(y), Position { start: 13, end: 14 }),
         ];
 
-
+        let mut x = modArr!();
+        let mut y = modArr!();
+        x[FeatType::Stress as usize] = ModKind::Negative;
+        y[FeatType::Stress as usize] = ModKind::Positive;
         let exp_output = vec![
-            Item::new(ParseKind::Matrix(map![FeatType::Stress => false]), Position { start: 17, end: 26 }),
-            Item::new(ParseKind::Matrix(map![FeatType::Stress => true]), Position { start: 28, end: 37 }),
+            Item::new(ParseKind::Matrix(x), Position { start: 17, end: 26 }),
+            Item::new(ParseKind::Matrix(y), Position { start: 28, end: 37 }),
             ];
             
         let exp_context: Items = vec![
@@ -1069,9 +1084,9 @@ mod parser_tests {
         assert!(result.variables.is_empty());
 
         let exp_input_res = vec![
-            Item::new(ParseKind::IPA(JSON.get("t͡ɕ").unwrap().clone(), HashMap::new()), Position { start: 0, end: 3 }),
+            Item::new(ParseKind::IPA(JSON.get("t͡ɕ").unwrap().clone(), modArr!()), Position { start: 0, end: 3 }),
             Item::new(ParseKind::Ellipsis(Token::new(TokenKind::Ellipsis, "...".to_owned(), 3, 6)), Position { start: 3, end: 6 }),
-            Item::new(ParseKind::IPA(JSON.get("b͡β").unwrap().clone(), HashMap::new()), Position { start: 6, end: 9 }),
+            Item::new(ParseKind::IPA(JSON.get("b͡β").unwrap().clone(), modArr!()), Position { start: 6, end: 9 }),
         ];
 
         assert_eq!(result.input[0][0], exp_input_res[0]);
@@ -1081,13 +1096,18 @@ mod parser_tests {
 
     #[test]
     fn test_variables_plain() {
-        let c = Item::new(ParseKind::Matrix(map![FeatType::Syllabic => false]), Position { start: 0, end: 1 });
 
-        let v = Item::new(ParseKind::Matrix(map![ 
-            FeatType::Consonantal => false,
-            FeatType::Sonorant => true,
-            FeatType::Syllabic => true,
-        ]), Position { start: 4, end: 5 });
+        let mut x = modArr!();
+        x[FeatType::Syllabic as usize] = ModKind::Negative;
+        
+        let c = Item::new(ParseKind::Matrix(x), Position { start: 0, end: 1 });
+
+        let mut y = modArr!();
+        y[FeatType::Consonantal as usize] = ModKind::Negative;
+        y[FeatType::Sonorant as usize] = ModKind::Positive;
+        y[FeatType::Syllabic as usize] = ModKind::Positive;
+
+        let v = Item::new(ParseKind::Matrix(y), Position { start: 4, end: 5 });
 
         let maybe_result = Parser:: new(setup("C=1 V=2 > 2 1 / _C")).parse();
 

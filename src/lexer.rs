@@ -325,6 +325,14 @@ impl Lexer {
         let val = self.curr_char;
 
         self.advance();
+        
+        let mod_val: String = if val == '-' && matches!(self.curr_char, 'α'..='ω') {
+            self.advance();
+            let mut tmp = String::from('-'); tmp.push(self.curr_char);
+            tmp
+        } else {
+            String::from(val)
+        };
 
         let mut buffer = String::new();
 
@@ -350,16 +358,16 @@ impl Lexer {
             | TokenKind::Feature(FeatType::MannerNode)
             | TokenKind::Feature(FeatType::CoronalNode)
             | TokenKind::Feature(FeatType::LaryngealNode)
-            | TokenKind::Feature(FeatType::PharyngealNode) => if !matches!(val, 'α'..='ω') {
+            | TokenKind::Feature(FeatType::PharyngealNode) => if mod_val == "+".to_string() || mod_val == "-".to_string() {
                 panic!("Nodes cannot be +/-; they can only be used in Alpha Notation expressions.");
             }, 
-            TokenKind::Feature(FeatType::Length) | TokenKind::Feature(FeatType::Tone) => if !matches!(val, 'α'..='ω') {
+            TokenKind::Feature(FeatType::Length) | TokenKind::Feature(FeatType::Tone) => if mod_val == "+".to_string() || mod_val == "-".to_string() {
                 panic!("Tone and Length cannot be +/-; they can only be used with numeric values.");
             }
             _ => {}
         }
 
-        Some(Token::new(tkn_kind, val.to_string(), start, self.pos))
+        Some(Token::new(tkn_kind, mod_val, start, self.pos))
     }
 
     fn special_char(&mut self) -> Option<Token> {
@@ -420,27 +428,27 @@ impl Lexer {
     // fn ipa_old(&mut self) -> Option<Token> {
     //     if self.inside_square { return None }
     //     let start = self.pos;
-
+    //
     //     let mut  buffer = String::new();
     //     let mut last_buffer: String;
-
+    //
     //     let cardinals = self.cardinals_trie;
-
+    //
     //     while self.has_more_chars() {
-
+    //
     //         last_buffer = buffer.clone();
     //         buffer.push(self.curr_char);
-
+    //
     //         if !buffer.is_empty() && cardinals.find(&buffer.as_str()).is_empty() {
     //             if !last_buffer.is_empty() && cardinals.contains(&last_buffer.as_str()) {
     //                 return Some(Token::new(TokenKind::Cardinal, last_buffer, start, self.pos))
     //             }
     //             return None
     //         }
-            
+    //        
     //         self.advance();
     //     }
-
+    //
     //     if buffer.is_empty() || !cardinals.contains(&buffer.as_str()) {
     //         return None
     //     }
