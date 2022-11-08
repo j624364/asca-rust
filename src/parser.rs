@@ -66,7 +66,7 @@ impl ParseKind {
     // pub fn is_ipa(&self) -> bool {
     //     matches!(self, Self::IPA(..))
     // }
-
+    //
     // /// Returns `true` if the parse kind is [`Set`].
     // ///
     // /// [`Set`]: ParseKind::Set
@@ -915,8 +915,7 @@ impl Parser {
 
         Ok(outputs)
     }
-
-    
+  
     fn rule(&mut self) -> Result<Rule, SyntaxError> {
         let mut flg_delete: u8 = 0; 
         let mut flg_metath: u8 = 0; 
@@ -992,7 +991,6 @@ impl Parser {
 
     }
     
-
     pub fn parse(&mut self) -> Result<Rule, SyntaxError> {
         self.rule()
     }

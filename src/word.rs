@@ -1,11 +1,11 @@
-use core::panic;
+use  core::panic;
 use   std::fmt;
 use serde::{Serialize, Deserialize};
 
 use crate::{
     error::WordSyntaxError, 
     lexer::FeatType, 
-    JSON, CARDINALS, trie::Node
+    JSON, CARDINALS
 };
 
 // match feature {
@@ -79,7 +79,11 @@ pub struct Segment {
 }
 
 impl Segment {
-    fn get_node(&self, node: &NodeKind) -> Option<u8> {
+    fn into_grapheme(&self) -> &str {
+        todo!()
+    }
+
+    pub fn get_node(&self, node: &NodeKind) -> Option<u8> {
         match node {
             NodeKind::Root       => Some(self.root),
             NodeKind::Manner     => Some(self.manner),
@@ -91,7 +95,7 @@ impl Segment {
         }
     }
 
-    fn set_node(&mut self, node: NodeKind, val: Option<u8>) {
+    pub fn set_node(&mut self, node: NodeKind, val: Option<u8>) {
         match node {
             NodeKind::Root       => self.root = val.expect("\nRootNode cannot be null\nThis is a bug"),
             NodeKind::Manner     => self.manner = val.expect("\nMannerNode cannot be null\nThis is a bug"),
@@ -140,12 +144,6 @@ impl Segment {
     }
 }
 
-// impl SegNode {
-//     pub fn new(root: u8, manner: u8, laryngeal: u8, labial: Option<u8>, coronal : Option<u8>, dorsal: Option<u8>, pharyngeal: Option<u8>) -> Self {
-//         Self { root, manner, laryngeal, labial, coronal, dorsal, pharyngeal }
-//     }
-// }
-
 impl fmt::Display for Segment {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(f, "RUT: {} ", self.root)?;
@@ -173,19 +171,6 @@ impl fmt::Display for Segment {
         Ok(())
     }
 }
-
-// #[derive(Debug, Clone)]
-// pub struct Segment {
-//     pub grapheme: String,
-//     pub matrix: SegNode
-// }
-//
-// impl fmt::Display for Segment {
-//     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-//         write!(f, "{}: {}", self.grapheme, self.matrix)?;   
-//         Ok(())
-//     }
-// }
 
 #[derive(Debug, Clone)]
 pub struct Syllable {

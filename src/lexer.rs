@@ -262,7 +262,7 @@ impl Lexer {
         }
     }
 
-    fn is_bracket(&mut self) -> Option<Token> {
+    fn get_bracket(&mut self) -> Option<Token> {
         let start = self.pos;
 
         let tokenkind: TokenKind;
@@ -289,7 +289,7 @@ impl Lexer {
 
     }
 
-    fn primative(&mut self) -> Option<Token> {
+    fn get_primative(&mut self) -> Option<Token> {
         if !self.curr_char.is_ascii_uppercase() { return None }
 
         let start = self.pos;
@@ -299,7 +299,7 @@ impl Lexer {
         Some(Token::new(TokenKind::Primative, c.to_string(), start, self.pos))
     }
 
-    fn numeric(&mut self) -> Option<Token> {
+    fn get_numeric(&mut self) -> Option<Token> {
         if !self.curr_char.is_ascii_digit() { return None }
 
         let start = self.pos;
@@ -315,7 +315,7 @@ impl Lexer {
 
     }
 
-    fn feature(&mut self) -> Option<Token> {
+    fn get_feature(&mut self) -> Option<Token> {
         
         if self.curr_char != '+' && self.curr_char != '-' && !matches!(self.curr_char, 'α'..='ω') {
             return None;
@@ -370,7 +370,7 @@ impl Lexer {
         Some(Token::new(tkn_kind, mod_val, start, self.pos))
     }
 
-    fn special_char(&mut self) -> Option<Token> {
+    fn get_special_char(&mut self) -> Option<Token> {
         let start = self.pos;
 
         let tokenkind: TokenKind;
@@ -425,7 +425,7 @@ impl Lexer {
         Some(Token::new(tokenkind, value, start, self.pos))
     }
 
-    // fn ipa_old(&mut self) -> Option<Token> {
+    // fn get_ipa_old(&mut self) -> Option<Token> {
     //     if self.inside_square { return None }
     //     let start = self.pos;
     //
@@ -455,7 +455,7 @@ impl Lexer {
     //     return Some(Token::new(TokenKind::Cardinal, buffer, start, self.pos))
     // }
 
-    fn ipa(&mut self) -> Option<Token> {
+    fn get_ipa(&mut self) -> Option<Token> {
         if self.inside_square { return None }
         let start = self.pos;
 
@@ -478,7 +478,7 @@ impl Lexer {
         return None
     }
 
-    fn string(&mut self) -> Option<Token> { 
+    fn get_string(&mut self) -> Option<Token> { 
 
         if !self.curr_char.is_ascii_alphabetic() { return None }
 
@@ -509,7 +509,7 @@ impl Lexer {
         
         while self.curr_char.is_whitespace() { self.advance(); } 
 
-        match self.numeric() {
+        match self.get_numeric() {
             Some(num) => {
                 return Some(Token::new(tkn_kind, num.value, start, self.pos))
             },
@@ -584,13 +584,13 @@ impl Lexer {
         
         if !self.has_more_chars() { return Token::new(TokenKind::Eol, "eol".to_string(), self.pos, self.pos+1) }
 
-        if let Some(bkt_token) = self.is_bracket()   { return bkt_token }
-        if let Some(pmt_token) = self.primative()    { return pmt_token }
-        if let Some(num_token) = self.numeric()      { return num_token }
-        if let Some(ftr_token) = self.feature()      { return ftr_token }
-        if let Some(spc_token) = self.special_char() { return spc_token }
-        if let Some(ipa_token) = self.ipa()          { return ipa_token }
-        if let Some(str_token) = self.string()       { return str_token } 
+        if let Some(bkt_token) = self.get_bracket()   { return bkt_token }
+        if let Some(pmt_token) = self.get_primative()    { return pmt_token }
+        if let Some(num_token) = self.get_numeric()      { return num_token }
+        if let Some(ftr_token) = self.get_feature()      { return ftr_token }
+        if let Some(spc_token) = self.get_special_char() { return spc_token }
+        if let Some(ipa_token) = self.get_ipa()          { return ipa_token }
+        if let Some(str_token) = self.get_string()       { return str_token } 
         
         panic!("Unknown character at character {}", self.pos)
     }
