@@ -9,6 +9,13 @@ use crate ::{
     word  ::{Word, Segment}, lexer::TokenKind
 };
 
+enum RuleType {
+    Substitution,
+    Metathesis,
+    Deletion,
+    Reduplication,
+    Insert
+}
 
 struct BacktrackState {
     can_backtrack: bool,
@@ -22,20 +29,19 @@ pub struct SubRule {
     output:  Vec<Item>,
     context: Option<Item>,         
     except:  Option<Item>,
-    rule_type: u8,
+    rule_type: u8, // RuleType,
     variables: HashMap<usize, Item>,
 }
 
-
 #[derive(Debug)]
 pub struct Rule {
-    pub input:     Vec<Vec<Item>>,    // to support multi-rules
+    pub input:     Vec<Vec<Item>>,    // to support multirules
     pub output:    Vec<Vec<Item>>,    // these need to be Vec<Vec<Item>>
     pub context:   Vec<Item>,         
     pub except:    Vec<Item>,    
     pub rule_type: u8, // bitmap 8 = insert_rule, 4 = redup_rule, 2 = del_rule, 1 = metath_rule, 0 = substi_rule
     pub variables: HashMap<usize,Item>,    
-}                                   
+}   // todo: if we move rule_type to SubRule, that would allow us to have multirules with insert/delete/metath
 
 impl Rule {
     pub fn new(i: Vec<Vec<Item>>, o: Vec<Vec<Item>>, c :Vec<Item>, e :Vec<Item>, r: u8, v: HashMap<usize, Item>) -> Self {
@@ -43,10 +49,10 @@ impl Rule {
     }
 
     pub fn split_into_subrules(&self) -> Result<Vec<SubRule>, RuntimeError> {
+        
         // check that input, output, context, except are the same length
         // and if any are not, that they are length == 1
         // context and except can be length == 0
-
         let max = max(self.input.len(), max(self.output.len(), max(self.context.len(), self.except.len())));
 
         if self.input.len()   != max && self.input.len()   != 1 { return Err(RuntimeError::UnbalancedRule) }
@@ -54,20 +60,20 @@ impl Rule {
         if self.context.len() != max && self.context.len() != 1 && self.context.len() != 0 { return Err(RuntimeError::UnbalancedRule) }
         if self.except.len()  != max && self.except.len()  != 1 && self.except.len()  != 0 { return Err(RuntimeError::UnbalancedRule) }
 
-        let mut sr_vec = Vec::new();
-
+        // populate subrules, if one if length==1 then it's value is duplicated to rest of subrules
+        let mut sub_vec = Vec::new();
         for i in 0..max {
             let input   = if self.input.len()  == 1 { self.input[0].clone() }  else { self.input[i].clone() };
             let output  = if self.output.len() == 1 { self.output[0].clone() } else { self.output[i].clone() };
             let context = if self.context.len() == 0 { None } else if self.context.len() == 1 { Some(self.context[0].clone()) } else { Some(self.context[i].clone()) };
             let except  = if self.except.len()  == 0 { None } else if self.except.len()  == 1 { Some(self.except[0].clone()) }  else { Some(self.except[i].clone()) };
-            let rule_type = self.rule_type.clone();
+            let rule_type = self.rule_type.clone();  // todo: calc rule_type here instead of in parser
             let variables = self.variables.clone();
 
-            sr_vec.push(SubRule {input, output, context, except, rule_type, variables});
+            sub_vec.push(SubRule {input, output, context, except, rule_type, variables});
         }
 
-        Ok(sr_vec)
+        Ok(sub_vec)
     }
 
     pub fn apply(&self, word: Word /*, trace: bool*/) -> Result<Word, RuntimeError> /* return Word */{
@@ -109,7 +115,6 @@ impl Rule {
     fn state_matches_ipa_at_index(&self, seg: &Segment, mods: &Modifiers, word: Word, i: usize) -> (bool, usize) {
         todo!()
     }
-
 
     fn find_input(&self, states: Vec<Item>, word: Word) -> (bool, usize, usize) {
 

@@ -25,11 +25,17 @@ impl Default for ModKind {
     fn default() -> Self { ModKind::Unspecified }
 }
 
-macro_rules! modArr {
+macro_rules! modArrInit {
     () => {
         [();FeatType::Tone as usize + 1].map(|_| ModKind::default())
     };
 }
+
+// macro_rules! map {
+    //     ($($k:expr => $v:expr),* $(,)?) => {{
+    //         core::convert::From::from([$(($k, $v),)*])
+    //     }};
+    // }
 
 // pub type Modifiers = HashMap<FeatType, ModKind>;
 pub type Modifiers = [ModKind; FeatType::Tone as usize + 1];
@@ -212,7 +218,7 @@ impl Parser {
         Some(Item::new(ParseKind::Boundary(token.clone()), token.position))
     }
 
-    fn get_env_elements(&mut self) -> Result<Items, SyntaxError> {
+    fn get_env_elements(&mut self) -> Result<Items, RuleSyntaxError> {
         // returns list of boundaries, ellipses and terms
         let mut els = Vec::new();
 
@@ -238,7 +244,7 @@ impl Parser {
         Ok(els)
     }
 
-    fn get_env_term(&mut self) -> Result<Item, SyntaxError> {
+    fn get_env_term(&mut self) -> Result<Item, RuleSyntaxError> {
         // returns env elements
 
         let start = self.curr_tkn.position.start;
@@ -246,7 +252,7 @@ impl Parser {
         let before  = self.get_env_elements()?;
 
         if !self.expect(TokenKind::Underline) {
-            return Err(SyntaxError::ExpectedUnderline(self.curr_tkn.clone()))
+            return Err(RuleSyntaxError::ExpectedUnderline(self.curr_tkn.clone()))
         }
 
         let after = self.get_env_elements()?;
@@ -256,7 +262,7 @@ impl Parser {
         Ok(Item::new(ParseKind::Environment(before, after), Position { start, end }))
     }
 
-    fn get_spec_env(&mut self) -> Result<Option<Items>, SyntaxError> {
+    fn get_spec_env(&mut self) -> Result<Option<Items>, RuleSyntaxError> {
 
         let start = self.curr_tkn.position.start;
         let pstn = self.pos;
@@ -292,7 +298,7 @@ impl Parser {
 
     }
 
-    fn get_env(&mut self) -> Result<Items, SyntaxError> { 
+    fn get_env(&mut self) -> Result<Items, RuleSyntaxError> { 
         // returns environment
 
         if let Some(s) = self.get_spec_env()? {
@@ -311,27 +317,27 @@ impl Parser {
         }
 
         if envs.is_empty() {
-            return Err(SyntaxError::EmptyEnv)
+            return Err(RuleSyntaxError::EmptyEnv)
         }
 
         Ok(envs)
     }
 
-    fn get_except_block(&mut self) -> Result<Items, SyntaxError> {
+    fn get_except_block(&mut self) -> Result<Items, RuleSyntaxError> {
         if! self.expect(TokenKind::Pipe) {
             return Ok(Vec::new())
         }
         self.get_env()
     }
 
-    fn get_context(&mut self) -> Result<Items, SyntaxError> {
+    fn get_context(&mut self) -> Result<Items, RuleSyntaxError> {
         if !self.expect(TokenKind::Slash) {
             return Ok(Vec::new())
         }
         self.get_env()
     }
 
-    fn join_ipa_with_params(&self, ipa: Segment, params: Item) -> Result<ParseKind, SyntaxError> {
+    fn join_ipa_with_params(&self, ipa: Segment, params: Item) -> Result<ParseKind, RuleSyntaxError> {
         match params.kind {
             ParseKind::Matrix(p) => Ok(ParseKind::IPA(ipa, p)),
             _ => unreachable!("\nCritical Error: 'Parameters' being joined with IPA Segment is not a matrix!\nThis is a bug."),
@@ -354,14 +360,14 @@ impl Parser {
         Item::new(ParseKind::Matrix(chr), Position { start: character.position.start, end: parameters.position.end })
     }
 
-    fn ipa_to_vals(&self, ipa: Token) -> Result<Segment, SyntaxError> {
+    fn ipa_to_vals(&self, ipa: Token) -> Result<Segment, RuleSyntaxError> {
         match JSON.get(&ipa.value) {
             Some(z) => Ok(z.clone()),
-            None => return Err(SyntaxError::UnknownIPA(ipa))
+            None => return Err(RuleSyntaxError::UnknownIPA(ipa))
         }
     }
 
-    fn char_to_matrix(&self, chr: Token) -> Result<Item, SyntaxError> {
+    fn char_to_matrix(&self, chr: Token) -> Result<Item, RuleSyntaxError> {
         // returns matrix or None
         use FeatType::*;
         use ModKind::*;
@@ -388,10 +394,10 @@ impl Parser {
             "N" => vec![CONS_P, SONR_P, SYLL_M, APPR_M], // +cons, +son, -syll, -appr // Nasal
             "G" => vec![CONS_M, SONR_P, SYLL_M],         // -cons, +son, -syll        // Glide
             "V" => vec![CONS_M, SONR_P, SYLL_P],         // -cons, +son, +syll        // Vowel
-            _ => return Err(SyntaxError::UnknownChar(chr)),
+            _ => return Err(RuleSyntaxError::UnknownChar(chr)),
         };
 
-        let mut args = modArr!(); 
+        let mut args = modArrInit!(); 
 
         for (feature, value) in char_vals {
             // args.insert(feature, value);
@@ -430,17 +436,16 @@ impl Parser {
     }
 
     fn curr_token_to_modifier(&self) -> (FeatType, ModKind) {
-        if let TokenKind::Feature(x) = self.curr_tkn.kind {
-            self.feature_to_modifier(x, self.curr_tkn.value.clone())             
-        } else {
-            unreachable!()
+        match self.curr_tkn.kind {
+            TokenKind::Feature(x) => self.feature_to_modifier(x, self.curr_tkn.value.clone()),
+            _ => unreachable!(),
         }
     }
 
-    fn get_matrix_args(&mut self, is_syll: bool) -> Result<Modifiers, SyntaxError> {
+    fn get_matrix_args(&mut self, is_syll: bool) -> Result<Modifiers, RuleSyntaxError> {
         // returns matrix or None
         
-        let mut args = modArr!();
+        let mut args = modArrInit!();
         while self.has_more_tokens() {
             if self.expect(TokenKind::RightSquare) {
                 break;
@@ -454,7 +459,7 @@ impl Parser {
                 let (f, b) = self.curr_token_to_modifier();
 
                 if (f != FeatType::Tone && f != FeatType::Stress) && is_syll {
-                    return Err(SyntaxError::BadSyllableMatrix(self.curr_tkn.clone()))
+                    return Err(RuleSyntaxError::BadSyllableMatrix(self.curr_tkn.clone()))
                 }
 
                 // args.insert(f, b);
@@ -463,7 +468,7 @@ impl Parser {
                 continue;
             }
             
-            return Err(SyntaxError::ExpectedFeature(self.curr_tkn.clone()))
+            return Err(RuleSyntaxError::ExpectedFeature(self.curr_tkn.clone()))
         }
 
 
@@ -472,7 +477,7 @@ impl Parser {
 
     }
 
-    fn get_matrix(&mut self) -> Result<Item, SyntaxError> { 
+    fn get_matrix(&mut self) -> Result<Item, RuleSyntaxError> { 
         let start = self.token_list[self.pos-1].position.start;
         let args = self.get_matrix_args(false)?;
         let end = self.token_list[self.pos-1].position.end;
@@ -480,7 +485,7 @@ impl Parser {
         Ok(Item::new(ParseKind::Matrix(args), Position { start, end }))
     }
 
-    fn get_char(&mut self) -> Result<Item, SyntaxError> {
+    fn get_char(&mut self) -> Result<Item, RuleSyntaxError> {
         // returns matrix or None
         let chr = self.char_to_matrix(self.curr_tkn.clone())?;
         self.advance();
@@ -491,11 +496,11 @@ impl Parser {
                     let num = n.value.parse::<usize>().unwrap();
 
                     match self.var_map.get(&num) {
-                        Some(val) => return Err(SyntaxError::AlreadyInitialisedVariable(val.clone(), chr, num)),
+                        Some(val) => return Err(RuleSyntaxError::AlreadyInitialisedVariable(val.clone(), chr, num)),
                         None => self.var_map.insert(num, chr.clone())
                     };
                 },
-                None => return Err(SyntaxError::ExpectedVariable(self.curr_tkn.clone()))
+                None => return Err(RuleSyntaxError::ExpectedVariable(self.curr_tkn.clone()))
             }
         }
 
@@ -504,7 +509,7 @@ impl Parser {
         }
 
         if !self.expect(TokenKind::LeftSquare) {
-            return Err(SyntaxError::ExpectedMatrix(self.curr_tkn.clone()))
+            return Err(RuleSyntaxError::ExpectedMatrix(self.curr_tkn.clone()))
         }
         
         let params = self.get_matrix()?;
@@ -514,7 +519,7 @@ impl Parser {
         Ok(joined)
     }
 
-    fn get_ipa(&mut self) -> Result<Item, SyntaxError> {
+    fn get_ipa(&mut self) -> Result<Item, RuleSyntaxError> {
         // returns IPA or Matrix
 
         let ipa = self.ipa_to_vals(self.curr_tkn.clone())?;
@@ -522,11 +527,11 @@ impl Parser {
         self.advance();
 
         if !self.expect(TokenKind::Colon) {
-            return Ok(Item::new(ParseKind::IPA(ipa.clone(), modArr!()), pos))
+            return Ok(Item::new(ParseKind::IPA(ipa.clone(), modArrInit!()), pos))
         }
 
         if !self.expect(TokenKind::LeftSquare) {
-            return Err(SyntaxError::ExpectedMatrix(self.curr_tkn.clone()))
+            return Err(RuleSyntaxError::ExpectedMatrix(self.curr_tkn.clone()))
         }
 
         let params = self.get_matrix()?;
@@ -536,7 +541,7 @@ impl Parser {
         Ok(Item::new(joined, Position {start: pos.start, end: params.position.end}))
     }
     
-    fn get_segment(&mut self) -> Result<Option<Item>, SyntaxError> {
+    fn get_segment(&mut self) -> Result<Option<Item>, RuleSyntaxError> {
         // returns IPA / Matrix, with varable number, or None
 
         if self.peek_expect(TokenKind::Cardinal) {
@@ -553,13 +558,13 @@ impl Parser {
                         let num = n.value.parse::<usize>().unwrap();
 
                         match self.var_map.get(&num) {
-                            Some(val) => return Err(SyntaxError::AlreadyInitialisedVariable(val.clone(), chr, num)),
+                            Some(val) => return Err(RuleSyntaxError::AlreadyInitialisedVariable(val.clone(), chr, num)),
                             None => self.var_map.insert(num, chr.clone())
                         };
 
                         return Ok(Some(chr))
                     },
-                    None => return Err(SyntaxError::ExpectedVariable(self.curr_tkn.clone()))
+                    None => return Err(RuleSyntaxError::ExpectedVariable(self.curr_tkn.clone()))
                 }
             }
             return Ok(Some(chr))
@@ -573,7 +578,7 @@ impl Parser {
         return Ok(None)
     }
 
-    fn join_var_with_params(&mut self, mt: Item, params: Item) -> Result<Item, SyntaxError> {
+    fn join_var_with_params(&mut self, mt: Item, params: Item) -> Result<Item, RuleSyntaxError> {
 
         assert!(params.kind.is_matrix());
 
@@ -585,13 +590,13 @@ impl Parser {
 
         if !mt.kind.is_matrix() {
             // variable can only be assigned to a primative or a matrix
-            return Err(SyntaxError::BadVariableAssignment(mt))
+            return Err(RuleSyntaxError::BadVariableAssignment(mt))
         }
         
         Ok(self.join_char_with_params(mt, params))
     }
 
-    fn get_var(&mut self) -> Result<Option<Item>, SyntaxError> {
+    fn get_var(&mut self) -> Result<Option<Item>, RuleSyntaxError> {
         
         match self.eat_expect(TokenKind::Number) {
 
@@ -610,7 +615,7 @@ impl Parser {
                         matched_segs = m.clone();
                         matched_segs.position = t.position;
                     },
-                    None => return Err(SyntaxError::UnknownVariable(t))
+                    None => return Err(RuleSyntaxError::UnknownVariable(t))
                 }
 
                 if !self.expect(TokenKind::Colon) {
@@ -618,7 +623,7 @@ impl Parser {
                 }
 
                 if !self.expect(TokenKind::LeftSquare) {
-                    return Err(SyntaxError::ExpectedMatrix(self.curr_tkn.clone()))
+                    return Err(RuleSyntaxError::ExpectedMatrix(self.curr_tkn.clone()))
                 }
 
                 let params = self.get_matrix()?;
@@ -633,7 +638,7 @@ impl Parser {
             
     }
 
-    fn get_optionals(&mut self) -> Result<Option<Item>, SyntaxError> {
+    fn get_optionals(&mut self) -> Result<Option<Item>, RuleSyntaxError> {
         // returns optionals or None
 
         let start = self.curr_tkn.position.start;
@@ -659,7 +664,7 @@ impl Parser {
                 break;
             }
 
-            return Err(SyntaxError::ExpectedSegment(self.curr_tkn.clone()))
+            return Err(RuleSyntaxError::ExpectedSegment(self.curr_tkn.clone()))
         }
 
         // TODO: This needs cleaning up!
@@ -670,7 +675,7 @@ impl Parser {
         }
 
         if !self.expect(TokenKind::Comma) {
-            return Err(SyntaxError::ExpectedComma(self.curr_tkn.clone()))
+            return Err(RuleSyntaxError::ExpectedComma(self.curr_tkn.clone()))
         }
 
         if let Some(x) = self.eat_expect(TokenKind::Number) {
@@ -683,13 +688,13 @@ impl Parser {
         }
 
         if !self.expect(TokenKind::Colon) {
-            return Err(SyntaxError::ExpectedColon(self.curr_tkn.clone()))
+            return Err(RuleSyntaxError::ExpectedColon(self.curr_tkn.clone()))
         }
 
         if let Some(x) = self.eat_expect(TokenKind::Number) {
             hi_bound = x.value.parse().expect("Could not parse string to number. This is probably an error with the parser itself");
             if hi_bound < lo_bound {
-                return Err(SyntaxError::OptMathError(x, lo_bound, hi_bound))
+                return Err(RuleSyntaxError::OptMathError(x, lo_bound, hi_bound))
             }
         }
 
@@ -698,10 +703,10 @@ impl Parser {
             return Ok(Some(Item::new(ParseKind::Optional(segs, lo_bound, hi_bound), Position { start, end })))
         }
 
-        Err(SyntaxError::ExpectedRightBracket(self.curr_tkn.clone()))
+        Err(RuleSyntaxError::ExpectedRightBracket(self.curr_tkn.clone()))
     }
 
-    fn get_set(&mut self) -> Result<Option<Item>, SyntaxError> {
+    fn get_set(&mut self) -> Result<Option<Item>, RuleSyntaxError> {
         // returns set of segs
         let start = self.curr_tkn.position.start;
 
@@ -728,14 +733,14 @@ impl Parser {
                 continue;
             }
 
-            return Err(SyntaxError::ExpectedSegment(self.curr_tkn.clone()))
+            return Err(RuleSyntaxError::ExpectedSegment(self.curr_tkn.clone()))
         }
         let end = self.token_list[self.pos-1].position.end;
         Ok(Some(Item::new(ParseKind::Set(segs.clone()), Position { start, end })))
 
     }
 
-    fn get_syll(&mut self) -> Result<Option<Item>, SyntaxError> {
+    fn get_syll(&mut self) -> Result<Option<Item>, RuleSyntaxError> {
         // returns Syll or None
         let start = self.curr_tkn.position.start;
 
@@ -745,11 +750,11 @@ impl Parser {
 
         if !self.expect(TokenKind::Colon) {
             let end = self.curr_tkn.position.start - 1;
-            return Ok(Some(Item::new(ParseKind::Syllable(modArr!()), Position { start, end })))
+            return Ok(Some(Item::new(ParseKind::Syllable(modArrInit!()), Position { start, end })))
         }
 
         if !self.expect(TokenKind::LeftSquare) {
-            return Err(SyntaxError::ExpectedMatrix(self.curr_tkn.clone()))
+            return Err(RuleSyntaxError::ExpectedMatrix(self.curr_tkn.clone()))
         }
 
         let m = self.get_matrix_args(true)?;
@@ -759,7 +764,7 @@ impl Parser {
         Ok(Some(Item::new(ParseKind::Syllable(m), Position { start, end })))
     }
 
-    fn get_term(&mut self) -> Result<Option<Item>, SyntaxError> {
+    fn get_term(&mut self) -> Result<Option<Item>, RuleSyntaxError> {
         // returns syllable / set / segment / optionals
 
         if let Some(x) = self.get_syll()? {
@@ -785,7 +790,7 @@ impl Parser {
         Ok(None)
     }
 
-    fn get_input_term(&mut self) -> Result<Items, SyntaxError> {
+    fn get_input_term(&mut self) -> Result<Items, RuleSyntaxError> {
         // returns list of terms and ellipses
         let mut terms = Vec::<Item>::new();
 
@@ -811,7 +816,7 @@ impl Parser {
 
     }
 
-    fn get_output_element(&mut self) -> Result<Option<Item>, SyntaxError> {
+    fn get_output_element(&mut self) -> Result<Option<Item>, RuleSyntaxError> {
         // returns syllable / segment / variable
         if let Some(x) = self.get_syll()? {
             return Ok(Some(x))
@@ -832,7 +837,7 @@ impl Parser {
         Ok(None)
     }
 
-    fn get_output_term(&mut self) -> Result<Items, SyntaxError>{ 
+    fn get_output_term(&mut self) -> Result<Items, RuleSyntaxError>{ 
         // returns list of sylls, sets, and/or segments
 
         let mut terms = Vec::<Item>::new();
@@ -856,7 +861,7 @@ impl Parser {
         vec![Item::new(ParseKind::EmptySet(token.clone()), token.position)]
     }
 
-    fn get_input(&mut self) -> Result<Vec<Items>, SyntaxError> {
+    fn get_input(&mut self) -> Result<Vec<Items>, RuleSyntaxError> {
         // returns empty / list of input terms
         let mut inputs = Vec::new();
         let maybe_empty = self.get_empty();
@@ -876,14 +881,14 @@ impl Parser {
         }
 
         if inputs.is_empty() {
-            return Err(SyntaxError::EmptyInput)
+            return Err(RuleSyntaxError::EmptyInput)
         }
 
         Ok(inputs)
 
     }
 
-    fn get_output(&mut self) -> Result<Vec<Items>, SyntaxError> {
+    fn get_output(&mut self) -> Result<Vec<Items>, RuleSyntaxError> {
         // returns empty / metathesis / list of output erms 
         let mut outputs = Vec::new();
 
@@ -910,13 +915,13 @@ impl Parser {
         }
 
         if outputs.is_empty() {
-            return Err(SyntaxError::EmptyOutput)
+            return Err(RuleSyntaxError::EmptyOutput)
         }
 
         Ok(outputs)
     }
   
-    fn rule(&mut self) -> Result<Rule, SyntaxError> {
+    fn rule(&mut self) -> Result<Rule, RuleSyntaxError> {
         let mut flg_delete: u8 = 0; 
         let mut flg_metath: u8 = 0; 
         let /*mut*/ flg_redupl: u8 = 0; 
@@ -932,12 +937,12 @@ impl Parser {
             match flg_insert {
                 8 => { 
                     if self.peek_expect(TokenKind::Comma) {
-                        return Err(SyntaxError::InsertErr)
+                        return Err(RuleSyntaxError::InsertErr)
                     } else {
-                        return Err(SyntaxError::ExpectedArrow(self.curr_tkn.clone()))
+                        return Err(RuleSyntaxError::ExpectedArrow(self.curr_tkn.clone()))
                     }
                 },
-                _ => return Err(SyntaxError::ExpectedArrow(self.curr_tkn.clone()))
+                _ => return Err(RuleSyntaxError::ExpectedArrow(self.curr_tkn.clone()))
             }
         }
 
@@ -970,12 +975,12 @@ impl Parser {
                 ParseKind::EmptySet(_) | ParseKind::Metathesis(_
                 ) => { 
                     if self.peek_expect(TokenKind::Comma) {
-                        return Err(SyntaxError::DeleteErr)
+                        return Err(RuleSyntaxError::DeleteErr)
                     } else {
-                        return Err(SyntaxError::ExpectedEndL(self.curr_tkn.clone()))
+                        return Err(RuleSyntaxError::ExpectedEndL(self.curr_tkn.clone()))
                     }
                 },
-                _ => return Err(SyntaxError::ExpectedEndL(self.curr_tkn.clone()))
+                _ => return Err(RuleSyntaxError::ExpectedEndL(self.curr_tkn.clone()))
             }
         }
 
@@ -987,11 +992,11 @@ impl Parser {
             return Ok(Rule::new(input, output, context, except, rule_type, self.var_map.clone()))
         }
         
-        Err(SyntaxError::ExpectedEndL(self.curr_tkn.clone()))
+        Err(RuleSyntaxError::ExpectedEndL(self.curr_tkn.clone()))
 
     }
     
-    pub fn parse(&mut self) -> Result<Rule, SyntaxError> {
+    pub fn parse(&mut self) -> Result<Rule, RuleSyntaxError> {
         self.rule()
     }
 
@@ -1034,16 +1039,16 @@ mod parser_tests {
         assert!(result.variables.is_empty());
 
 
-        let mut x = modArr!();
-        let mut y = modArr!();
+        let mut x = modArrInit!();
+        let     y = modArrInit!();
         x[FeatType::Stress as usize] = ModKind::Positive;
         let exp_input = vec![ 
             Item::new(ParseKind::Syllable(x), Position { start: 0, end: 11 }),
             Item::new(ParseKind::Syllable(y), Position { start: 13, end: 14 }),
         ];
 
-        let mut x = modArr!();
-        let mut y = modArr!();
+        let mut x = modArrInit!();
+        let mut y = modArrInit!();
         x[FeatType::Stress as usize] = ModKind::Negative;
         y[FeatType::Stress as usize] = ModKind::Positive;
         let exp_output = vec![
@@ -1082,9 +1087,9 @@ mod parser_tests {
         assert!(result.variables.is_empty());
 
         let exp_input_res = vec![
-            Item::new(ParseKind::IPA(JSON.get("t͡ɕ").unwrap().clone(), modArr!()), Position { start: 0, end: 3 }),
+            Item::new(ParseKind::IPA(JSON.get("t͡ɕ").unwrap().clone(), modArrInit!()), Position { start: 0, end: 3 }),
             Item::new(ParseKind::Ellipsis(Token::new(TokenKind::Ellipsis, "...".to_owned(), 3, 6)), Position { start: 3, end: 6 }),
-            Item::new(ParseKind::IPA(JSON.get("b͡β").unwrap().clone(), modArr!()), Position { start: 6, end: 9 }),
+            Item::new(ParseKind::IPA(JSON.get("b͡β").unwrap().clone(), modArrInit!()), Position { start: 6, end: 9 }),
         ];
 
         assert_eq!(result.input[0][0], exp_input_res[0]);
@@ -1095,12 +1100,12 @@ mod parser_tests {
     #[test]
     fn test_variables_plain() {
 
-        let mut x = modArr!();
+        let mut x = modArrInit!();
         x[FeatType::Syllabic as usize] = ModKind::Negative;
         
         let c = Item::new(ParseKind::Matrix(x), Position { start: 0, end: 1 });
 
-        let mut y = modArr!();
+        let mut y = modArrInit!();
         y[FeatType::Consonantal as usize] = ModKind::Negative;
         y[FeatType::Sonorant as usize] = ModKind::Positive;
         y[FeatType::Syllabic as usize] = ModKind::Positive;

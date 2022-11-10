@@ -6,6 +6,31 @@ use crate ::{
 };
 
 #[derive(Debug, Clone)]
+pub enum Error {
+    WordSyn(WordSyntaxError),
+    RuleSyn(RuleSyntaxError),
+    Runtime(RuntimeError),
+}
+
+impl From<RuntimeError> for Error {
+    fn from(e:RuntimeError) -> Self {
+        Error::Runtime(e)
+    }
+}
+
+impl From<WordSyntaxError> for Error {
+    fn from(e:WordSyntaxError) -> Self {
+        Error::WordSyn(e)
+    }
+}
+
+impl From<RuleSyntaxError> for Error {
+    fn from(e:RuleSyntaxError) -> Self {
+        Error::RuleSyn(e)
+    }
+}
+
+#[derive(Debug, Clone)]
 pub enum WordSyntaxError {
     UnknownChar(String, usize),
     // CharAfterTone(String, usize),
@@ -19,7 +44,7 @@ pub enum RuntimeError {
 }
 
 #[derive(Debug, Clone)]
-pub enum SyntaxError {
+pub enum RuleSyntaxError {
     OptMathError(Token, usize, usize),
     UnknownIPA(Token),
     UnknownChar(Token),
@@ -44,7 +69,7 @@ pub enum SyntaxError {
     EmptyEnv,
 }
 
-impl fmt::Display for SyntaxError {
+impl fmt::Display for RuleSyntaxError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             Self::OptMathError(_, l, h)  => write!(f, "An Option's second argument '{}' must be greater than or equal to it's first argument '{}'", h, l),

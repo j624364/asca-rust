@@ -1,7 +1,7 @@
 use std::fmt::{self, Display};
 use crate::CARDINALS;
 
-#[derive(Debug, Copy, Clone, PartialEq, Eq, Hash)]
+#[derive(Debug, Copy, Clone, PartialEq, Eq)]
 pub enum FeatType {
     // ROOT node 
     RootNode,      
@@ -593,6 +593,7 @@ impl Lexer {
         if let Some(str_token) = self.get_string()       { return str_token } 
         
         panic!("Unknown character at character {}", self.pos)
+        // todo: return error
     }
 
     pub fn get_all_tokens(&mut self) -> Vec<Token> {
