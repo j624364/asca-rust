@@ -2,7 +2,8 @@ use std::fmt;
 
 use crate ::{
     lexer ::Token, 
-    parser::Item
+    parser::Item, 
+    word  ::Segment
 };
 
 #[derive(Debug, Clone)]
@@ -41,6 +42,7 @@ pub enum WordSyntaxError {
 #[derive(Debug, Clone)]
 pub enum RuntimeError { 
     UnbalancedRule,
+    UnknownSegment(Segment)
 }
 
 #[derive(Debug, Clone)]

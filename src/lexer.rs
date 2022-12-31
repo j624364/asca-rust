@@ -1,15 +1,76 @@
-use std::fmt::{self, Display};
-use crate::CARDINALS;
+use std  ::fmt::{self, Display};
+use serde::Deserialize;
 
-#[derive(Debug, Copy, Clone, PartialEq, Eq)]
-pub enum FeatType {
-    // ROOT node 
+use crate::CARDINALS_TRIE;
+
+#[derive(Debug, Copy, Clone, PartialEq, Eq, Deserialize, Hash)]
+pub enum NodeType {
     RootNode,      
-    Consonantal,   
+    MannerNode,
+    LaryngealNode,   
+    PlaceNode,      
+    LabialNode,      
+    CoronalNode,     
+    DorsalNode,      
+    PharyngealNode, 
+}
+
+impl NodeType {
+    pub const fn count(&self) -> usize { 8 }
+}
+
+impl Display for NodeType {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            NodeType::RootNode         => write!(f, "ROOT"),
+            NodeType::MannerNode       => write!(f, "MAN"),
+            NodeType::LaryngealNode    => write!(f, "LAR"),
+            NodeType::PlaceNode        => write!(f, "PLACE"),
+            NodeType::LabialNode       => write!(f, "LAB"),
+            NodeType::CoronalNode      => write!(f, "COR"),
+            NodeType::DorsalNode       => write!(f, "DOR"),
+            NodeType::PharyngealNode   => write!(f, "PHAR")
+        }
+    }
+}
+
+#[derive(Debug, Copy, Clone, PartialEq, Eq, Deserialize, Hash)]
+pub enum SupraType {
+    Long,       // +long || length : 2
+    Overlong,   // +overlong || length : 2 
+    PrimStress, // +stress || stress : 1
+    SecStress,  // +secstress || stress : 2
+    // Can only be used with : notation
+    Stress,     // stress : 2 == +long, stress : 3 == Overlong
+    Length,     // Len : 2 == +long, len : 3 == Overlong
+    Tone,       // Tone : 213
+}
+
+impl SupraType {
+    pub const fn count(&self) -> usize { 7 }
+}
+
+impl Display for SupraType {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            SupraType::Long            => write!(f, "long"),
+            SupraType::Overlong        => write!(f, "overlng"),
+            SupraType::PrimStress      => write!(f, "prmstr"),
+            SupraType::SecStress       => write!(f, "secstr"),
+            SupraType::Length          => write!(f, "len"),
+            SupraType::Stress          => write!(f, "str"),
+            SupraType::Tone            => write!(f, "tone"),
+        }
+    }
+}
+
+#[derive(Debug, Copy, Clone, PartialEq, Eq, Deserialize, Hash)]
+pub enum FType {
+    // ROOT node 
+    Consonantal,   // ± || α.ω 
     Sonorant,      
     Syllabic,      
     // MANNER node 
-    MannerNode,
     Continuant,      
     Approximant,     
     Lateral,         
@@ -19,22 +80,17 @@ pub enum FeatType {
     Rhotic,          
     Click,          
     // LAR node
-    LaryngealNode,   
     Voice,           
     SpreadGlottis,   
     ConstrGlottis,   
     // PLACE Node
-    PlaceNode,      
     // LABIAL subnode
-    LabialNode,      
     Bilabial,      
     Round,          
     // CORONAL subnode
-    CoronalNode,     
     Anterior,        
     Distributed,     
     // DORSAL subnode
-    DorsalNode,      
     Front,          
     Back,           
     High,           
@@ -42,64 +98,105 @@ pub enum FeatType {
     Tense,          
     Reduced,        
     // PHAR subnode
-    PharyngealNode, 
     AdvancedTongueRoot,
     RetractedTongueRoot, 
-    // Suprasegmental Features
-    Long,
-    Overlong,
-    Stress,
-    // Can only be used with : notation
-    Length, // Len : 2 == +long
-    Tone,
+}
+
+impl Display for FType {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            FType::Consonantal         => write!(f, "cons"),
+            FType::Sonorant            => write!(f, "son"),
+            FType::Syllabic            => write!(f, "syll"),
+            FType::Continuant          => write!(f, "cont"),
+            FType::Approximant         => write!(f, "appr"),
+            FType::Lateral             => write!(f, "lat"),
+            FType::Nasal               => write!(f, "nas"),
+            FType::DelayedRelease      => write!(f, "delrel"),
+            FType::Strident            => write!(f, "strid"),
+            FType::Rhotic              => write!(f, "rho"),
+            FType::Click               => write!(f, "clk"),
+            FType::Voice               => write!(f, "voi"),
+            FType::SpreadGlottis       => write!(f, "sg"),
+            FType::ConstrGlottis       => write!(f, "cg"),
+            FType::Bilabial            => write!(f, "bilab"),
+            FType::Round               => write!(f, "rnd"),
+            FType::Anterior            => write!(f, "ant"),
+            FType::Distributed         => write!(f, "dis"),
+            FType::Front               => write!(f, "fr"),
+            FType::Back                => write!(f, "bk"),
+            FType::High                => write!(f, "hi"),
+            FType::Low                 => write!(f, "lo"),
+            FType::Tense               => write!(f, "tens"),
+            FType::Reduced             => write!(f, "red"),
+            FType::AdvancedTongueRoot  => write!(f, "atr"),
+            FType::RetractedTongueRoot => write!(f, "rtr")
+        }
+    }
+}
+
+impl FType {
+    pub const fn count() -> usize { 26 }
+
+    pub fn from_usize(value: usize) -> Self {
+        use FType::*;
+        match value {
+            // ROOT node
+            00 => {debug_assert_eq!(value, Consonantal as usize); Consonantal},
+            01 => {debug_assert_eq!(value, Sonorant as usize); Sonorant},
+            02 => {debug_assert_eq!(value, Syllabic as usize); Syllabic},
+            // MANNER node
+            03 => {debug_assert_eq!(value, Continuant as usize); Continuant},
+            04 => {debug_assert_eq!(value, Approximant as usize); Approximant},
+            05 => {debug_assert_eq!(value, Lateral as usize); Lateral},
+            06 => {debug_assert_eq!(value, Nasal as usize); Nasal},
+            07 => {debug_assert_eq!(value, DelayedRelease as usize); DelayedRelease},
+            08 => {debug_assert_eq!(value, Strident as usize); Strident},
+            09 => {debug_assert_eq!(value, Rhotic as usize); Rhotic},
+            10 => {debug_assert_eq!(value, Click as usize); Click},
+            // LAR node
+            11 => {debug_assert_eq!(value, Voice as usize); Voice},
+            12 => {debug_assert_eq!(value, SpreadGlottis as usize); SpreadGlottis},
+            13 => {debug_assert_eq!(value, ConstrGlottis as usize); ConstrGlottis},
+            // PLACE Node
+            // LABIAL subnode
+            14 => {debug_assert_eq!(value, Bilabial as usize); Bilabial},
+            15 => {debug_assert_eq!(value, Round as usize); Round},
+            // CORONAL subnode
+            16 => {debug_assert_eq!(value, Anterior as usize); Anterior},
+            17 => {debug_assert_eq!(value, Distributed as usize); Distributed},
+            // DORSAL subnode
+            18 => {debug_assert_eq!(value, Front as usize); Front},
+            19 => {debug_assert_eq!(value, Back as usize); Back},
+            20 => {debug_assert_eq!(value, High as usize); High},
+            21 => {debug_assert_eq!(value, Low as usize); Low},
+            22 => {debug_assert_eq!(value, Tense as usize); Tense},
+            23 => {debug_assert_eq!(value, Reduced as usize); Reduced},
+            // PHAR subnode
+            24 => {debug_assert_eq!(value, AdvancedTongueRoot as usize); AdvancedTongueRoot},
+            25 => {debug_assert_eq!(value, RetractedTongueRoot as usize); RetractedTongueRoot},
+            _  => panic!("\nOut of Range Error converting `usize` to `FeatType`\nThis is a bug!\n")
+        }
+    }
+}
+
+#[derive(Debug, Copy, Clone, PartialEq, Eq, Deserialize, Hash)]
+pub enum FeatType {
+    Node(NodeType),
+    Feat(FType),
+    Supr(SupraType),
 }
 
 impl Display for FeatType {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        use FeatType::*;
         match self {
-            RootNode            => write!(f, "ROOT"),
-            Consonantal         => write!(f, "cons"),
-            Sonorant            => write!(f, "son"),
-            Syllabic            => write!(f, "syll"),
-            MannerNode          => write!(f, "MAN"),
-            Continuant          => write!(f, "cont"),
-            Approximant         => write!(f, "appr"),
-            Lateral             => write!(f, "lat"),
-            Nasal               => write!(f, "nas"),
-            DelayedRelease      => write!(f, "delrel"),
-            Strident            => write!(f, "strid"),
-            Rhotic              => write!(f, "rho"),
-            Click               => write!(f, "clk"),
-            LaryngealNode       => write!(f, "LAR"),
-            Voice               => write!(f, "voi"),
-            SpreadGlottis       => write!(f, "sg"),
-            ConstrGlottis       => write!(f, "cg"),
-            PlaceNode           => write!(f, "PLACE"),
-            LabialNode          => write!(f, "LAB"),
-            Bilabial            => write!(f, "bilab"),
-            Round               => write!(f, "rnd"),
-            CoronalNode         => write!(f, "COR"),
-            Anterior            => write!(f, "ant"),
-            Distributed         => write!(f, "dis"),
-            DorsalNode          => write!(f, "DOR"),
-            Front               => write!(f, "fr"),
-            Back                => write!(f, "bk"),
-            High                => write!(f, "hi"),
-            Low                 => write!(f, "lo"),
-            Tense               => write!(f, "tens"),
-            Reduced             => write!(f, "red"),
-            PharyngealNode      => write!(f, "PHAR"),
-            AdvancedTongueRoot  => write!(f, "atr"),
-            RetractedTongueRoot => write!(f, "rtr"),
-            Long                => write!(f, "long"),
-            Overlong            => write!(f, "overlng"),
-            Stress              => write!(f, "str"),
-            Length              => write!(f, "len"),
-            Tone                => write!(f, "tone"),
+            FeatType::Node(x) => write!(f, "{x}"),
+            FeatType::Feat(x) => write!(f, "{x}"),
+            FeatType::Supr(x) => write!(f, "{x}"),
         }
     }
 }
+
 
 // #[derive(Debug, Copy, Clone, PartialEq, Eq, Ord, PartialOrd)]
 #[derive(Debug, Copy, Clone, PartialEq, Eq)]
@@ -351,18 +448,14 @@ impl Lexer {
         let tkn_kind = self.feature_match(buffer, start);
             
         match tkn_kind {
-              TokenKind::Feature(FeatType::RootNode) 
-            | TokenKind::Feature(FeatType::PlaceNode) 
-            | TokenKind::Feature(FeatType::DorsalNode) 
-            | TokenKind::Feature(FeatType::LabialNode)
-            | TokenKind::Feature(FeatType::MannerNode)
-            | TokenKind::Feature(FeatType::CoronalNode)
-            | TokenKind::Feature(FeatType::LaryngealNode)
-            | TokenKind::Feature(FeatType::PharyngealNode) => if mod_val == "+".to_string() || mod_val == "-".to_string() {
-                panic!("Nodes cannot be +/-; they can only be used in Alpha Notation expressions.");
+            TokenKind::Feature(FeatType::Node(_)) => if mod_val == "+".to_string() || mod_val == "-".to_string() {
+                panic!("Nodes cannot be ±; they can only be used in Alpha Notation expressions.");
             }, 
-            TokenKind::Feature(FeatType::Length) | TokenKind::Feature(FeatType::Tone) => if mod_val == "+".to_string() || mod_val == "-".to_string() {
-                panic!("Tone and Length cannot be +/-; they can only be used with numeric values.");
+            TokenKind::Feature(FeatType::Supr(SupraType::Length)) 
+            | TokenKind::Feature(FeatType::Supr(SupraType::Stress)) 
+            | TokenKind::Feature(FeatType::Supr(SupraType::Tone)) 
+            => if mod_val == "+".to_string() || mod_val == "-".to_string() {
+                panic!("Tone, Length, and Stress cannot be ±; they can only be used with numeric values.");
             }
             _ => {}
         }
@@ -395,7 +488,7 @@ impl Lexer {
                     let c = self.curr_char;
                     self.advance();
                     tokenkind = TokenKind::Arrow;
-                    value = format!("{c}>").to_string();
+                    value = format!("{c}>");
                 },
                 _ => { tokenkind = TokenKind::Equals;    value = self.curr_char.to_string(); },
              },
@@ -404,9 +497,9 @@ impl Lexer {
                     let c = self.curr_char;
                     self.advance();
                     tokenkind = TokenKind::Arrow;
-                    value = format!("{c}>").to_string();
+                    value = format!("{c}>");
                 },
-                _ => panic!("Expected -> got -{}", self.peak_next_char())
+                _ => panic!("Expected '->' got '-{}'", self.peak_next_char())
             },
             '…' | '⋯' => { tokenkind = TokenKind::Ellipsis;     value = self.curr_char.to_string(); },
             '.' => match self.peak_next_char() {
@@ -416,7 +509,7 @@ impl Lexer {
                     else { value = "..".to_string(); }
                     tokenkind = TokenKind::Ellipsis;
                 },
-                _ => panic!("Expected .. got .{}", self.peak_next_char())
+                _ => panic!("Expected '..' got '.{}'", self.peak_next_char())
             },
             _ => return None
         }
@@ -461,12 +554,12 @@ impl Lexer {
 
         let mut  buffer = self.curr_char.to_string();
 
-        if CARDINALS.contains_partial(&buffer.as_str()) {
+        if CARDINALS_TRIE.contains_partial(&buffer.as_str()) {
             self.advance();
             loop {
                 //let tmp: String = buffer.clone() + self.curr_char.to_string().as_str();
                 let mut tmp = buffer.clone(); tmp.push(self.curr_char);
-                if CARDINALS.contains_partial(&tmp.as_str()) {
+                if CARDINALS_TRIE.contains_partial(&tmp.as_str()) {
                     buffer.push(self.curr_char);
                     self.advance();
                     continue;
@@ -493,10 +586,12 @@ impl Lexer {
             self.advance();
         }
 
-        let tkn_kind: TokenKind = self.feature_match(buffer, start);
+        let tkn_kind: TokenKind = self.string_match(buffer, start);
 
         match tkn_kind {
-          TokenKind::Feature(FeatType::Length) | TokenKind::Feature(FeatType::Tone) | TokenKind::Feature(FeatType::Stress) => {},
+          TokenKind::Feature(FeatType::Supr(SupraType::Length)) 
+          | TokenKind::Feature(FeatType::Supr(SupraType::Tone)) 
+          | TokenKind::Feature(FeatType::Supr(SupraType::Stress)) => {},
           _ => panic!("This feature must have a binary value (+/-).")
         }
 
@@ -517,62 +612,77 @@ impl Lexer {
         }
     }
 
+    fn string_match(&mut self, buffer: String, start: usize) -> TokenKind {
+        use TokenKind::*;
+        use FeatType::*;
+        use SupraType::*;
+        match buffer.to_lowercase().as_str() {
+            "stress" | "str" | "strss" => Feature(Supr(Stress)),
+            "length" | "len" | "ln"    => Feature(Supr(Length)),
+            "tone"   | "ton" | "tn"    => Feature(Supr(Tone)),
+            _ => panic!("Unknown String Feature at pos: {}", start)
+        }
+    }
+
     fn feature_match(&mut self, buffer: String, start: usize) -> TokenKind {
         // apologies for the mess! this may need to be `un-hardcoded` at some stage
         use TokenKind::*;
         use FeatType::*;
+        use NodeType::*;
+        use FType::*;
+        use SupraType::*;
         match buffer.to_lowercase().as_str() {
             // Root Node Features
-            "root"        | "rut"       | "rt"                  => { return Feature(RootNode) },
-            "consonantal" | "consonant" | "cons" | "cns"        => { return Feature(Consonantal) },
-            "sonorant"    | "sonor"     | "son"  | "sn"         => { return Feature(Sonorant) },
-            "syllabic"    | "syllab"    | "syll" | "sll"        => { return Feature(Syllabic) },
+            "root"        | "rut"       | "rt"                  => return Feature(Node(RootNode)),
+            "consonantal" | "consonant" | "cons" | "cns"        => return Feature(Feat(Consonantal)),
+            "sonorant"    | "sonor"     | "son"  | "sn"         => return Feature(Feat(Sonorant)),
+            "syllabic"    | "syllab"    | "syll" | "sll"        => return Feature(Feat(Syllabic)),
             // Manner Node Features
-            "manner"         | "mann"   | "man"  | "mnr" | "mn" => { return Feature(MannerNode) },
-            "continuant"     | "contin" | "cont" | "cnt"        => { return Feature(Continuant) },
-            "approximant"    | "approx" | "appr" | "app"        => { return Feature(Approximant) },
-            "lateral"        | "latrl"  | "ltrl" | "lat"        => { return Feature(Lateral) },
-            "nasal"          | "nsl"    | "nas"                 => { return Feature(Nasal) },
-            "delayedrelease" | "delrel" | "dlrl" | "dr"         => { return Feature(DelayedRelease) },
-            "strident"       | "strid"  | "stri"                => { return Feature(Strident) },
-            "rhotic"         | "rhot"   | "rho"  | "rh"         => { return Feature(Rhotic) },
-            "click"          | "clck"   | "clk"                 => { return Feature(Click) },
+            "manner"         | "mann"   | "man"  | "mnr" | "mn" => return Feature(Node(NodeType::MannerNode)),
+            "continuant"     | "contin" | "cont" | "cnt"        => return Feature(Feat(Continuant)),
+            "approximant"    | "approx" | "appr" | "app"        => return Feature(Feat(Approximant)),
+            "lateral"        | "latrl"  | "ltrl" | "lat"        => return Feature(Feat(Lateral)),
+            "nasal"          | "nsl"    | "nas"                 => return Feature(Feat(Nasal)),
+            "delayedrelease" | "delrel" | "dlrl" | "dr"         => return Feature(Feat(DelayedRelease)),
+            "strident"       | "strid"  | "stri"                => return Feature(Feat(Strident)),
+            "rhotic"         | "rhot"   | "rho"  | "rh"         => return Feature(Feat(Rhotic)),
+            "click"          | "clck"   | "clk"                 => return Feature(Feat(Click)),
             // Laryngeal Node Features
-            "laryngeal"      | "laryng"     | "laryn"  | "lar"  => { return Feature(LaryngealNode) },
-            "voice"          | "voi"        | "vce"    | "vc"   => { return Feature(Voice) },
-            "spreadglottis"  | "spreadglot" | "spread" | "sg"   => { return Feature(SpreadGlottis) },
-            "constrictedglottis"            | "constricted"     |
-            "constglot"      | "constr"     | "cg"              => { return Feature(ConstrGlottis) },
+            "laryngeal"      | "laryng"     | "laryn"  | "lar"  => return Feature(Node(LaryngealNode)),
+            "voice"          | "voi"        | "vce"    | "vc"   => return Feature(Feat(Voice)),
+            "spreadglottis"  | "spreadglot" | "spread" | "sg"   => return Feature(Feat(SpreadGlottis)),
+            "constrictedglottis"            | "constricted" |
+            "constglot"      | "constr"     | "cg"              => return Feature(Feat(ConstrGlottis)),
             // Place Node Feature
-            "place"       | "plce"    | "plc"                   => { return Feature(PlaceNode) },
+            "place"       | "plce"    | "plc"                   => return Feature(Node(PlaceNode)),
             // Labial Place Node Features
-            "labial"      | "lab"                               => { return Feature(LabialNode) },
+            "labial"      | "lab"                               => return Feature(Node(LabialNode)),
             // todo: come up with a better name for this feature
-            "bilabial"    | "bilab"   | "blb"                   => { return Feature(Bilabial) },
-            "round"       | "rnd"                               => { return Feature(Round) },
+            "bilabial"    | "bilab"   | "blb"                   => return Feature(Feat(Bilabial)),
+            "round"       | "rnd"                               => return Feature(Feat(Round)),
             // Coronal Place Node Features
-            "coronal"     | "coron"   | "cor"                   => { return Feature(CoronalNode) },
-            "anterior"    | "anter"   | "ant"                   => { return Feature(Anterior) },
-            "distributed" | "distrib" | "dist" | "dst"          => { return Feature(Distributed) },
+            "coronal"     | "coron"   | "cor"                   => return Feature(Node(CoronalNode)),
+            "anterior"    | "anter"   | "ant"                   => return Feature(Feat(Anterior)),
+            "distributed" | "distrib" | "dist" | "dst"          => return Feature(Feat(Distributed)),
             // Dorsal Place Node Features
-            "dorsal"  | "dors"  | "dor"                         => { return Feature(DorsalNode) },
-            "front"   | "frnt"  | "fnt"  | "fro" | "fr"         => { return Feature(Front) },
-            "back"    | "bck"   | "bk"                          => { return Feature(Back) },
-            "high"    | "hgh"   | "hi"                          => { return Feature(High) },
-            "low"     | "lo"                                    => { return Feature(Low) },
-            "tense"   | "tens"  | "tns"  | "ten"                => { return Feature(Tense) },
-            "reduced" | "reduc" | "redu" | "red"                => { return Feature(Reduced) },
+            "dorsal"  | "dors"  | "dor"                         => return Feature(Node(DorsalNode)),
+            "front"   | "frnt"  | "fnt"  | "fro" | "fr"         => return Feature(Feat(Front)),
+            "back"    | "bck"   | "bk"                          => return Feature(Feat(Back)),
+            "high"    | "hgh"   | "hi"                          => return Feature(Feat(High)),
+            "low"     | "lo"                                    => return Feature(Feat(Low)),
+            "tense"   | "tens"  | "tns"  | "ten"                => return Feature(Feat(Tense)),
+            "reduced" | "reduc" | "redu" | "red"                => return Feature(Feat(Reduced)),
             // Pharyngeal Place Node Features
             "pharyngeal" | "pharyng" | "pharyn"  |
-            "phar"       | "phr"                                => { return Feature(PharyngealNode) },
-            "advancedtongueroot"     | "atr"                    => { return Feature(AdvancedTongueRoot) },
-            "retractedtongueroot"    | "rtr"                    => { return Feature(RetractedTongueRoot) },
+            "phar"       | "phr"                                => return Feature(Node(PharyngealNode)),
+            "advancedtongueroot"     | "atr"                    => return Feature(Feat(AdvancedTongueRoot)),
+            "retractedtongueroot"    | "rtr"                    => return Feature(Feat(RetractedTongueRoot)),
             // Suprasegmental Features
-            "long"     | "lng"                                  => { return Feature(Long) },
-            "overlong" | "overlng" | "ovrlng" | "olng"          => { return Feature(Overlong) },
-            "stress"   | "str"     | "strss"                    => { return Feature(Stress) },
-            "length"   | "len"                                  => { return Feature(Length) },
-            "tone"     | "tn"                                   => { return Feature(Tone) },
+            "long"     | "lng"                                  => return Feature(Supr(Long)),
+            "overlong" | "overlng" | "ovrlng" | "xlng"          => return Feature(Supr(Overlong)),
+            "stress"   | "primarystress" | "primstress" |
+            "primstr"  | "prmstr"  | "str" | "prim"             => return Feature(Supr(PrimStress)),
+            "secondarystress"| "secstress" | "secstr" | "sec"   => return Feature(Supr(SecStress)),
         
             _ => panic!("Unknown feature at pos: {}", start)
         }
@@ -582,9 +692,9 @@ impl Lexer {
         
         while self.curr_char.is_whitespace() { self.advance(); }
         
-        if !self.has_more_chars() { return Token::new(TokenKind::Eol, "eol".to_string(), self.pos, self.pos+1) }
+        if !self.has_more_chars() { return Token::new(TokenKind::Eol, String::new(), self.pos, self.pos+1) }
 
-        if let Some(bkt_token) = self.get_bracket()   { return bkt_token }
+        if let Some(bkt_token) = self.get_bracket()      { return bkt_token }
         if let Some(pmt_token) = self.get_primative()    { return pmt_token }
         if let Some(num_token) = self.get_numeric()      { return num_token }
         if let Some(ftr_token) = self.get_feature()      { return ftr_token }
@@ -638,7 +748,7 @@ mod lexer_tests {
             Token::new(TokenKind::Cardinal, "b͡β".to_owned(),  4,  7),
             Token::new(TokenKind::Cardinal,  "b".to_owned(),  8,  9),
             Token::new(TokenKind::Cardinal,  "a".to_owned(), 10, 11),
-            Token::new(TokenKind::Eol,     "eol".to_owned(), 11, 12),
+            Token::new(TokenKind::Eol,        String::new(), 11, 12),
         ];
 
         let result = Lexer::new(test_input.clone()).get_all_tokens();        
@@ -659,7 +769,7 @@ mod lexer_tests {
             Token::new(TokenKind::Cardinal, "b͡β".to_owned(), 3, 6),
             Token::new(TokenKind::Cardinal,  "b".to_owned(), 6, 7),
             Token::new(TokenKind::Cardinal,  "a".to_owned(), 7, 8),
-            Token::new(TokenKind::Eol,     "eol".to_owned(), 8, 9),
+            Token::new(TokenKind::Eol,        String::new(), 8, 9),
         ];
 
         let result = Lexer::new(test_input.clone()).get_all_tokens();  
@@ -681,7 +791,7 @@ mod lexer_tests {
             Token::new(TokenKind::Cardinal,   "b͡β".to_owned(),  6,  9),
             Token::new(TokenKind::GreaterThan, ">".to_owned(), 10, 11),
             Token::new(TokenKind::Ampersand,   "&".to_owned(), 12, 13),
-            Token::new(TokenKind::Eol,       "eol".to_owned(), 13, 14),
+            Token::new(TokenKind::Eol,          String::new(), 13, 14),
         ];
 
         let result = Lexer::new(test_input.clone()).get_all_tokens();        
@@ -695,17 +805,17 @@ mod lexer_tests {
 
     #[test]
     fn test_feature_matrix() {
-        
+        use FeatType::*;
         let test_input= String::from("[+voi, -sg, αPLACE]");
         let expected_result = vec![
-            Token::new(TokenKind::LeftSquare,                       "[".to_owned(),  0,  1),
-            Token::new(TokenKind::Feature(FeatType::Voice),         "+".to_owned(),  1,  5),
-            Token::new(TokenKind::Comma,                            ",".to_owned(),  5,  6),
-            Token::new(TokenKind::Feature(FeatType::SpreadGlottis), "-".to_owned(),  7, 10),
-            Token::new(TokenKind::Comma,                            ",".to_owned(), 10, 11),
-            Token::new(TokenKind::Feature(FeatType::PlaceNode),     "α".to_owned(), 12, 18),
-            Token::new(TokenKind::RightSquare,                      "]".to_owned(), 18, 19),
-            Token::new(TokenKind::Eol,                            "eol".to_owned(), 19, 20),
+            Token::new(TokenKind::LeftSquare,                          "[".to_owned(),  0,  1),
+            Token::new(TokenKind::Feature(Feat(FType::Voice)),         "+".to_owned(),  1,  5),
+            Token::new(TokenKind::Comma,                               ",".to_owned(),  5,  6),
+            Token::new(TokenKind::Feature(Feat(FType::SpreadGlottis)), "-".to_owned(),  7, 10),
+            Token::new(TokenKind::Comma,                               ",".to_owned(), 10, 11),
+            Token::new(TokenKind::Feature(Node(NodeType::PlaceNode)),  "α".to_owned(), 12, 18),
+            Token::new(TokenKind::RightSquare,                         "]".to_owned(), 18, 19),
+            Token::new(TokenKind::Eol,                                  String::new(), 19, 20),
         ];
 
         let result = Lexer::new(test_input.clone()).get_all_tokens();        
@@ -735,7 +845,7 @@ mod lexer_tests {
             Token::new(TokenKind::Slash,       "/".to_owned(), 14, 15),
             Token::new(TokenKind::Underline,   "_".to_owned(), 16, 17),
             Token::new(TokenKind::Primative,   "C".to_owned(), 17, 18),
-            Token::new(TokenKind::Eol,       "eol".to_owned(), 18, 19),
+            Token::new(TokenKind::Eol,          String::new(), 18, 19),
         ];
 
         let result = Lexer::new(test_input.clone()).get_all_tokens();        

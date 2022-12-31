@@ -4,32 +4,64 @@ use std::{
 };
 
 use crate::{
-    JSON    , 
     lexer::*, 
     rule ::*, 
     error::*, 
-    word ::Segment
+    word ::Segment,
+    rule ::RuleType,
+    CARDINALS_MAP, 
 };
 
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub enum ModKind {
+// #[derive(Debug, Clone, PartialEq, Eq)]
+// pub enum ModKind {
+//     Negative,
+//     Positive,
+//     Alpha(char),
+//     InversAlpha(char),
+//     Number(String),
+//     Unspecified
+// } 
+// impl Default for ModKind {
+//     fn default() -> Self { ModKind::Unspecified }
+// }
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum BinMod {
     Negative,
-    Positive,
+    Positive
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum AlphaMod {
     Alpha(char),
-    InversAlpha(char),
+    InversAlpha(char)
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum SegMKind{
+    Binary(BinMod),
+    Alpha(AlphaMod),
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum SuprMKind{
     Number(String),
-    Unspecified
+    Alpha(AlphaMod),
 }
 
-impl Default for ModKind {
-    fn default() -> Self { ModKind::Unspecified }
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum Mods {
+    Binary(BinMod),
+    Number(String),
+    Alpha(AlphaMod),
 }
 
-macro_rules! modArrInit {
-    () => {
-        [();FeatType::Tone as usize + 1].map(|_| ModKind::default())
-    };
-}
+// Modkinds {
+//     Binary(Neg | Pos),
+//     Alpha(Reg | Inv),
+//     Number(String),     
+//     Unspecified
+// }
 
 // macro_rules! map {
     //     ($($k:expr => $v:expr),* $(,)?) => {{
@@ -37,20 +69,36 @@ macro_rules! modArrInit {
     //     }};
     // }
 
-// pub type Modifiers = HashMap<FeatType, ModKind>;
-pub type Modifiers = [ModKind; FeatType::Tone as usize + 1];
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct Modifiers {
+    pub nodes: [Option<SegMKind>; NodeType::PharyngealNode as usize + 1],
+    pub feats: [Option<SegMKind>; FType::RetractedTongueRoot as usize + 1],
+    pub suprs: [Option<SuprMKind>; 3], // [Stress, Length, Tone]
+}
+
+impl Modifiers {
+    pub fn new() -> Self {
+        Self { 
+            nodes: [();NodeType::PharyngealNode as usize + 1].map(|_| None), 
+            feats: [();FType::RetractedTongueRoot as usize + 1].map(|_| None), 
+            suprs: [();3].map(|_| None)
+        }
+    }
+}
+
 type Items = Vec<Item>;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum ParseKind {
-    EmptySet   (Token),
-    Boundary   (Token),
-    Ellipsis   (Token),
-    Metathesis (Token),
+    EmptySet   ,
+    WordBound  ,
+    SyllBound  ,
+    Ellipsis   ,
+    Metathesis ,
     Variable   (Token  , Modifiers),
     IPA        (Segment, Modifiers),
     Matrix     (Modifiers),
-    Syllable   (Modifiers), // just stress, tone
+    Syllable   (Option<SuprMKind>, Option<SuprMKind>), // (Stress, Tone)  // PrimStress/SecStress converts to Stress
     Set        (Items),
     Optional   (Items, usize, usize),
     Environment(Items, Items),
@@ -89,18 +137,21 @@ impl fmt::Display for ParseKind {
                 // .fold(String::new(), |acc, i| acc + &i.to_string() + ", ");
 
                 // write!(f, "{} = [{}]", t, tt)
-                write!(f, "{} = {:?}", t, p)
+                write!(f, "{} = {:#?}", t, p)
             },
-            ParseKind::EmptySet(t) |
-            ParseKind::Boundary(t) |
-            ParseKind::Ellipsis(t) |
-            ParseKind::Metathesis(t) => write!(f, "{}", t),
+            ParseKind::EmptySet   => write!(f, "∅"),
+            ParseKind::WordBound  => write!(f, "#"),
+            ParseKind::SyllBound  => write!(f, "$"),
+            ParseKind::Ellipsis   => write!(f, "…"),
+            ParseKind::Metathesis => write!(f, "&"),
 
             ParseKind::IPA(s, m) => write!(f, "{} = {:?}", s, m),
 
-            ParseKind::Matrix(tokens) | 
-            ParseKind::Syllable(tokens) => {
+            ParseKind::Matrix(tokens) => {
                 write!(f, "{:#?}", tokens)
+            },
+            ParseKind::Syllable(str, tone) => {
+                write!(f, "{:#?} : {:#?}", str, tone)
             },
 
             ParseKind::Set(_) => todo!(),
@@ -211,11 +262,17 @@ impl Parser {
     }
 
     fn get_bound(&mut self) -> Option<Item> { 
-        if !self.peek_expect(TokenKind::SyllBoundary) && !self.peek_expect(TokenKind::WordBoundary) {
-            return None
+        if self.peek_expect(TokenKind::SyllBoundary) {
+            let token = self.eat();
+            return Some(Item::new(ParseKind::SyllBound, token.position))
         }
-        let token = self.eat();
-        Some(Item::new(ParseKind::Boundary(token.clone()), token.position))
+
+        if self.peek_expect(TokenKind::WordBoundary) {
+            let token = self.eat();
+            return Some(Item::new(ParseKind::WordBound, token.position))
+        }
+
+        None
     }
 
     fn get_env_elements(&mut self) -> Result<Items, RuleSyntaxError> {
@@ -229,7 +286,7 @@ impl Parser {
             }
 
             if let Some(el) = self.eat_expect(TokenKind::Ellipsis) {
-                els.push(Item::new(ParseKind::Ellipsis(el.clone()), el.position));
+                els.push(Item::new(ParseKind::Ellipsis, el.position));
                 continue;
             }
 
@@ -350,18 +407,32 @@ impl Parser {
         let params = parameters.kind.as_matrix().expect("\nCritical Error: 'Parameters' being joined with 'Char' is not a matrix!\nThis is a bug.").clone(); 
         
         // TODO: test this
-        for (i, p) in params.iter().enumerate() {
-            if let ModKind::Unspecified = p {
+        for (i, p) in params.nodes.iter().enumerate() {
+            if let None = p {
                 continue
             }
-            chr[i] = p.clone()
+            chr.nodes[i] = p.clone()
+        }
+
+        for (i, p) in params.feats.iter().enumerate() {
+            if let None = p {
+                continue
+            }
+            chr.feats[i] = p.clone()
+        }
+
+        for (i, p) in params.suprs.iter().enumerate() {
+            if let None = p {
+                continue
+            }
+            chr.suprs[i] = p.clone()
         }
         
         Item::new(ParseKind::Matrix(chr), Position { start: character.position.start, end: parameters.position.end })
     }
 
     fn ipa_to_vals(&self, ipa: Token) -> Result<Segment, RuleSyntaxError> {
-        match JSON.get(&ipa.value) {
+        match CARDINALS_MAP.get(&ipa.value) {
             Some(z) => Ok(z.clone()),
             None => return Err(RuleSyntaxError::UnknownIPA(ipa))
         }
@@ -369,20 +440,20 @@ impl Parser {
 
     fn char_to_matrix(&self, chr: Token) -> Result<Item, RuleSyntaxError> {
         // returns matrix or None
-        use FeatType::*;
-        use ModKind::*;
+        use FType::*;
+        use SegMKind::*;
 
-        const SYLL_M: (FeatType, ModKind) = (Syllabic, Negative);
-        const SYLL_P: (FeatType, ModKind) = (Syllabic, Positive);
+        const SYLL_M: (FType, SegMKind) = (Syllabic, Binary(BinMod::Negative));
+        const SYLL_P: (FType, SegMKind) = (Syllabic, Binary(BinMod::Positive));
 
-        const CONS_M: (FeatType, ModKind) = (Consonantal, Negative);
-        const CONS_P: (FeatType, ModKind) = (Consonantal, Positive);
+        const CONS_M: (FType, SegMKind) = (Consonantal, Binary(BinMod::Negative));
+        const CONS_P: (FType, SegMKind) = (Consonantal, Binary(BinMod::Positive));
         
-        const SONR_M: (FeatType, ModKind) = (Sonorant, Negative);
-        const SONR_P: (FeatType, ModKind) = (Sonorant, Positive);
+        const SONR_M: (FType, SegMKind) = (Sonorant, Binary(BinMod::Negative));
+        const SONR_P: (FType, SegMKind) = (Sonorant, Binary(BinMod::Positive));
 
-        const APPR_M: (FeatType, ModKind) = (Approximant, Negative);
-        const APPR_P: (FeatType, ModKind) = (Approximant, Positive);
+        const APPR_M: (FType, SegMKind) = (Approximant, Binary(BinMod::Negative));
+        const APPR_P: (FType, SegMKind) = (Approximant, Binary(BinMod::Positive));
 
 
 
@@ -397,11 +468,11 @@ impl Parser {
             _ => return Err(RuleSyntaxError::UnknownChar(chr)),
         };
 
-        let mut args = modArrInit!(); 
+        let mut args = Modifiers::new(); 
 
         for (feature, value) in char_vals {
             // args.insert(feature, value);
-            args[feature as usize] = value
+            args.feats[feature as usize] = Some(value)
         }
 
 
@@ -416,26 +487,56 @@ impl Parser {
         }
     }
 
-    fn feature_to_modifier(&self, feature: FeatType, value: String) -> (FeatType, ModKind) {
+    fn feature_to_modifier(&self, feature: FeatType, value: String) -> (FeatType, Mods) {
 
-        match value.as_str() {
-            "+" => return (feature, ModKind::Positive),
-            "-" => return (feature, ModKind::Negative),
+        match value.as_str() { //todo: come up with something better than this
+            "+" => {
+                if feature == FeatType::Supr(SupraType::Long) {
+                    return (FeatType::Supr(SupraType::Length), Mods::Number("2".to_owned()))
+                } 
+                if feature == FeatType::Supr(SupraType::Overlong) {
+                    return (FeatType::Supr(SupraType::Length), Mods::Number("3".to_owned()))
+                }
+                if feature == FeatType::Supr(SupraType::PrimStress) {
+                    return (FeatType::Supr(SupraType::Stress), Mods::Number("1".to_owned()))
+                }
+                if feature == FeatType::Supr(SupraType::SecStress) {
+                    return (FeatType::Supr(SupraType::Stress), Mods::Number("2".to_owned()))
+                }
+                return (feature, Mods::Binary(BinMod::Positive))
+            },
+            "-" => {
+                if feature == FeatType::Supr(SupraType::Long) {
+                    return (FeatType::Supr(SupraType::Length), Mods::Number("1".to_owned()))
+                } 
+                if feature == FeatType::Supr(SupraType::Overlong) {
+                    return (FeatType::Supr(SupraType::Length), Mods::Number("<3".to_owned()))
+                }
+                if feature == FeatType::Supr(SupraType::PrimStress) {
+                    return (FeatType::Supr(SupraType::Stress), Mods::Number("0".to_owned()))
+                }
+                if feature == FeatType::Supr(SupraType::SecStress) {
+                    return (FeatType::Supr(SupraType::Stress), Mods::Number("<2".to_owned()))
+                }
+                return (feature, Mods::Binary(BinMod::Negative))
+            },
             "α"|"β"|"γ"|"δ"|"ε"|"ζ"|"η"|"θ"|"ι"|"κ"|"λ"|"μ"|"ν"|"ξ"|"ο"|"π"|"ρ"|"σ"|"ς"|"τ"|"υ"|"φ"|"χ"|"ψ"|"ω" => {
-                return (feature, ModKind::Alpha(value.chars().collect::<Vec<char>>()[0])) // TODO: what the fuck is this
+                return (feature, Mods::Alpha(AlphaMod::Alpha(value.chars().collect::<Vec<char>>()[0]))) // TODO: there MUST be a better way to do this, I feel like YandereDev rn
             },
             "-α"|"-β"|"-γ"|"-δ"|"-ε"|"-ζ"|"-η"|"-θ"|"-ι"|"-κ"|"-λ"|"-μ"|"-ν"|"-ξ"|"-ο"|"-π"|"-ρ"|"-σ"|"-ς"|"-τ"|"-υ"|"-φ"|"-χ"|"-ψ"|"-ω" => {
-                return (feature, ModKind::InversAlpha(value.chars().collect::<Vec<char>>()[1]))
+                return (feature, Mods::Alpha(AlphaMod::InversAlpha(value.chars().collect::<Vec<char>>()[1])))
             }
-            _ => if feature == FeatType::Tone || feature == FeatType::Stress { // we already know its a number if this matches thanks to the lexer
-                return (feature, ModKind::Number(value))
+            _ => if feature == FeatType::Supr(SupraType::Tone) 
+            || feature == FeatType::Supr(SupraType::Length) 
+            || feature == FeatType::Supr(SupraType::Stress) { // we already know its a number if this matches thanks to the lexer
+                return (feature, Mods::Number(value))
             } else {
                 unreachable!();
             }
         }
     }
 
-    fn curr_token_to_modifier(&self) -> (FeatType, ModKind) {
+    fn curr_token_to_modifier(&self) -> (FeatType, Mods) {
         match self.curr_tkn.kind {
             TokenKind::Feature(x) => self.feature_to_modifier(x, self.curr_tkn.value.clone()),
             _ => unreachable!(),
@@ -445,7 +546,7 @@ impl Parser {
     fn get_matrix_args(&mut self, is_syll: bool) -> Result<Modifiers, RuleSyntaxError> {
         // returns matrix or None
         
-        let mut args = modArrInit!();
+        let mut args = Modifiers::new();
         while self.has_more_tokens() {
             if self.expect(TokenKind::RightSquare) {
                 break;
@@ -456,14 +557,32 @@ impl Parser {
             }
             
             if self.is_feature() {
-                let (f, b) = self.curr_token_to_modifier();
+                let (ft, mk) = self.curr_token_to_modifier();
 
-                if (f != FeatType::Tone && f != FeatType::Stress) && is_syll {
+                if (
+                    ft != FeatType::Supr(SupraType::Tone) && ft != FeatType::Supr(SupraType::Stress)
+                   ) && is_syll {
                     return Err(RuleSyntaxError::BadSyllableMatrix(self.curr_tkn.clone()))
                 }
 
-                // args.insert(f, b);
-                args[f as usize] = b;
+                match ft {
+                    FeatType::Node(t) => args.nodes[t as usize] = match mk {
+                        Mods::Binary(b) => Some(SegMKind::Binary(b)),
+                        Mods::Alpha(a) => Some(SegMKind::Alpha(a)),
+                        Mods::Number(_) => unreachable!(),
+                    },
+                    FeatType::Feat(t) => args.feats[t as usize] = match mk {
+                        Mods::Binary(b) => Some(SegMKind::Binary(b)),
+                        Mods::Alpha(a) => Some(SegMKind::Alpha(a)),
+                        Mods::Number(_) => unreachable!(),
+                    },
+                    FeatType::Supr(t) => args.suprs[t as usize - 4] = match mk { // TODO: '-4'  is a hack 
+                        Mods::Number(n) => Some(SuprMKind::Number(n)),
+                        Mods::Alpha(a) => Some(SuprMKind::Alpha(a)),
+                        Mods::Binary(_) => unreachable!(),
+                    }
+                }
+                // args[f as usize] = b;
                 self.advance();
                 continue;
             }
@@ -527,7 +646,7 @@ impl Parser {
         self.advance();
 
         if !self.expect(TokenKind::Colon) {
-            return Ok(Item::new(ParseKind::IPA(ipa.clone(), modArrInit!()), pos))
+            return Ok(Item::new(ParseKind::IPA(ipa.clone(), Modifiers::new()), pos))
         }
 
         if !self.expect(TokenKind::LeftSquare) {
@@ -667,7 +786,7 @@ impl Parser {
             return Err(RuleSyntaxError::ExpectedSegment(self.curr_tkn.clone()))
         }
 
-        // TODO: This needs cleaning up!
+        // TODO: This might need cleaning up!
 
         if self.expect(TokenKind::RightBracket) {
             let end = self.token_list[self.pos-1].position.end;
@@ -750,7 +869,7 @@ impl Parser {
 
         if !self.expect(TokenKind::Colon) {
             let end = self.curr_tkn.position.start - 1;
-            return Ok(Some(Item::new(ParseKind::Syllable(modArrInit!()), Position { start, end })))
+            return Ok(Some(Item::new(ParseKind::Syllable(None, None), Position { start, end })))
         }
 
         if !self.expect(TokenKind::LeftSquare) {
@@ -760,8 +879,10 @@ impl Parser {
         let m = self.get_matrix_args(true)?;
 
         let end = self.token_list[self.pos-1].position.end;
+        
+        return Ok(Some(Item::new(ParseKind::Syllable( m.suprs[SupraType::Stress as usize - 4].clone(),  m.suprs[SupraType::Tone as usize - 4].clone()), Position { start, end })))
+    
 
-        Ok(Some(Item::new(ParseKind::Syllable(m), Position { start, end })))
     }
 
     fn get_term(&mut self) -> Result<Option<Item>, RuleSyntaxError> {
@@ -796,7 +917,7 @@ impl Parser {
 
         loop {
             if let Some(el) = self.eat_expect(TokenKind::Ellipsis) {
-                terms.push(Item::new(ParseKind::Ellipsis(el.clone()), el.position));
+                terms.push(Item::new(ParseKind::Ellipsis, el.position));
                 continue;
             }
 
@@ -858,7 +979,7 @@ impl Parser {
             return Vec::new()
         }
         let token = self.eat();
-        vec![Item::new(ParseKind::EmptySet(token.clone()), token.position)]
+        vec![Item::new(ParseKind::EmptySet, token.position)]
     }
 
     fn get_input(&mut self) -> Result<Vec<Items>, RuleSyntaxError> {
@@ -900,10 +1021,10 @@ impl Parser {
         }
         // check for metathesis
         if let Some(el) = self.eat_expect(TokenKind::Ampersand) {
-            outputs.push(vec![Item::new(ParseKind::Metathesis(el.clone()), el.position)]);
+            outputs.push(vec![Item::new(ParseKind::Metathesis, el.position)]);
             return Ok(outputs)
         }
-        // todo: add check for `+`
+        // NOTE: need to add check for `+` (Duplication) if/when added
 
         loop {
             let x = self.get_output_term()?;
@@ -922,65 +1043,58 @@ impl Parser {
     }
   
     fn rule(&mut self) -> Result<Rule, RuleSyntaxError> {
-        let mut flg_delete: u8 = 0; 
-        let mut flg_metath: u8 = 0; 
-        let /*mut*/ flg_redupl: u8 = 0; 
 
         let input = self.get_input()?;
 
-        let flg_insert: u8 = match input[0][0].kind {
-            ParseKind::EmptySet(_) => 8,
-            _ => 0
+        let mut rule_type: Option<RuleType> = match input[0][0].kind {
+            ParseKind::EmptySet => Some(RuleType::Insertion),
+            _ => None
         };
 
         if !self.expect(TokenKind::Arrow) && !self.expect(TokenKind::GreaterThan) {
-            match flg_insert {
-                8 => { 
+            match rule_type {
+                Some(_) => { 
                     if self.peek_expect(TokenKind::Comma) {
                         return Err(RuleSyntaxError::InsertErr)
                     } else {
                         return Err(RuleSyntaxError::ExpectedArrow(self.curr_tkn.clone()))
                     }
                 },
-                _ => return Err(RuleSyntaxError::ExpectedArrow(self.curr_tkn.clone()))
+                None => return Err(RuleSyntaxError::ExpectedArrow(self.curr_tkn.clone()))
             }
         }
 
         let output = self.get_output()?;
-        
+
         match output[0][0].kind {
-            ParseKind::Metathesis(_) => flg_metath = 1,
-            ParseKind::EmptySet(_)   => flg_delete = 2,
-            // ParseKind::Duplicate(_)  => flg_redupl = 4,
+            ParseKind::Metathesis => match rule_type {
+                Some(_) => todo!("Syntax Error: Insertion + Metathesis"),
+                None => rule_type = Some(RuleType::Metathesis),
+            },
+            ParseKind::EmptySet   => match rule_type {
+                Some(_) => todo!("Syntax Error: Insertion + Deletion"),
+                None => rule_type = Some(RuleType::Deletion)
+            },
+            // ParseKind::Duplicate(_)  => {},
             _ => {}
         }
 
-        let rule_type = flg_delete | flg_insert | flg_metath | flg_redupl;
+        let rt= rule_type.unwrap_or(RuleType::Substitution);
         
-        // if flg_insert != 0 && ((flg_metath != 0) | (flg_redupl != 0) | (flg_delete != 0)) {
-        if rule_type != 1 && rule_type % 2 != 0 {
-
-            println!("\n\n{}", rule_type);
-
-            panic!("\nAHHHHHHHHHHHH\n");
-            //todo: Add Syntax error
-        }
-
         if self.expect(TokenKind::Eol) {
-            return Ok(Rule::new(input, output, Vec::new(), Vec::new(), rule_type, self.var_map.clone()))
+            return Ok(Rule::new(input, output, Vec::new(), Vec::new(), rt, self.var_map.clone()))
         }
 
         if !self.peek_expect(TokenKind::Slash) && !self.peek_expect(TokenKind::Pipe) {
-            match input[0][0].kind {
-                ParseKind::EmptySet(_) | ParseKind::Metathesis(_
-                ) => { 
+            match rt {
+                RuleType::Substitution => return Err(RuleSyntaxError::ExpectedEndL(self.curr_tkn.clone())),
+                _ => {
                     if self.peek_expect(TokenKind::Comma) {
                         return Err(RuleSyntaxError::DeleteErr)
                     } else {
                         return Err(RuleSyntaxError::ExpectedEndL(self.curr_tkn.clone()))
                     }
-                },
-                _ => return Err(RuleSyntaxError::ExpectedEndL(self.curr_tkn.clone()))
+                }
             }
         }
 
@@ -989,7 +1103,7 @@ impl Parser {
         let except = self.get_except_block()?;
 
         if self.expect(TokenKind::Eol) {
-            return Ok(Rule::new(input, output, context, except, rule_type, self.var_map.clone()))
+            return Ok(Rule::new(input, output, context, except, rt, self.var_map.clone()))
         }
         
         Err(RuleSyntaxError::ExpectedEndL(self.curr_tkn.clone()))
@@ -1015,7 +1129,7 @@ mod parser_tests {
     // }
 
     use super::*;
-    use crate::JSON;
+    use crate::CARDINALS_MAP;
 
     fn setup(test_str: &str) -> Vec<Token> {
 
@@ -1035,22 +1149,19 @@ mod parser_tests {
         assert_eq!(result.output.len(), 2);
         assert_eq!(result.context.len(), 2);
         assert!(result.except.is_empty());
-        assert_eq!(result.rule_type, 0);
+        assert_eq!(result.rule_type, RuleType::Substitution);
         assert!(result.variables.is_empty());
 
 
-        let mut x = modArrInit!();
-        let     y = modArrInit!();
-        x[FeatType::Stress as usize] = ModKind::Positive;
         let exp_input = vec![ 
-            Item::new(ParseKind::Syllable(x), Position { start: 0, end: 11 }),
-            Item::new(ParseKind::Syllable(y), Position { start: 13, end: 14 }),
+            Item::new(ParseKind::Syllable(Some(SuprMKind::Number("1".to_owned())), None), Position { start: 0, end: 11 }),
+            Item::new(ParseKind::Syllable(None, None), Position { start: 13, end: 14 }),
         ];
 
-        let mut x = modArrInit!();
-        let mut y = modArrInit!();
-        x[FeatType::Stress as usize] = ModKind::Negative;
-        y[FeatType::Stress as usize] = ModKind::Positive;
+        let mut x = Modifiers::new();
+        let mut y = Modifiers::new();
+        x.suprs[SupraType::Stress as usize - 4] = Some(SuprMKind::Number("0".to_owned()));
+        y.suprs[SupraType::Stress as usize - 4] = Some(SuprMKind::Number("1".to_owned()));
         let exp_output = vec![
             Item::new(ParseKind::Matrix(x), Position { start: 17, end: 26 }),
             Item::new(ParseKind::Matrix(y), Position { start: 28, end: 37 }),
@@ -1058,17 +1169,17 @@ mod parser_tests {
             
         let exp_context: Items = vec![
             Item::new(ParseKind::Environment(vec![], vec![]), Position { start: 40, end: 41 }),
-            Item::new(ParseKind::Environment(vec![Item::new(ParseKind::Boundary(Token::new(TokenKind::WordBoundary, "#".to_owned(), 44, 45)), Position { start: 44, end: 45 })], vec![]), Position { start: 44, end: 46 }),
+            Item::new(ParseKind::Environment(vec![Item::new(ParseKind::WordBound, Position { start: 44, end: 45 })], vec![]), Position { start: 44, end: 46 }),
         ];
 
-        assert_eq!(result.input[0][0], exp_input[0]);
-        assert_eq!(result.input[1][0], exp_input[1]);
+        assert_eq!(result.input[0][0], exp_input[0], "1");
+        assert_eq!(result.input[1][0], exp_input[1], "2");
 
-        assert_eq!(result.output[0][0], exp_output[0]);
-        assert_eq!(result.output[1][0], exp_output[1]);
+        assert_eq!(result.output[0][0], exp_output[0], "3");
+        assert_eq!(result.output[1][0], exp_output[1], "4");
 
-        assert_eq!(result.context[0], exp_context[0]);
-        assert_eq!(result.context[1], exp_context[1]);
+        assert_eq!(result.context[0], exp_context[0], "5");
+        assert_eq!(result.context[1], exp_context[1], "6");
     }
 
     #[test]
@@ -1083,13 +1194,13 @@ mod parser_tests {
         assert_eq!(result.output.len(), 1);
         assert!(result.context.is_empty());
         assert!(result.except.is_empty());
-        assert_eq!(result.rule_type, 1);
+        assert_eq!(result.rule_type, RuleType::Metathesis);
         assert!(result.variables.is_empty());
 
         let exp_input_res = vec![
-            Item::new(ParseKind::IPA(JSON.get("t͡ɕ").unwrap().clone(), modArrInit!()), Position { start: 0, end: 3 }),
-            Item::new(ParseKind::Ellipsis(Token::new(TokenKind::Ellipsis, "...".to_owned(), 3, 6)), Position { start: 3, end: 6 }),
-            Item::new(ParseKind::IPA(JSON.get("b͡β").unwrap().clone(), modArrInit!()), Position { start: 6, end: 9 }),
+            Item::new(ParseKind::IPA(CARDINALS_MAP.get("t͡ɕ").unwrap().clone(), Modifiers::new()), Position { start: 0, end: 3 }),
+            Item::new(ParseKind::Ellipsis, Position { start: 3, end: 6 }),
+            Item::new(ParseKind::IPA(CARDINALS_MAP.get("b͡β").unwrap().clone(), Modifiers::new()), Position { start: 6, end: 9 }),
         ];
 
         assert_eq!(result.input[0][0], exp_input_res[0]);
@@ -1100,15 +1211,15 @@ mod parser_tests {
     #[test]
     fn test_variables_plain() {
 
-        let mut x = modArrInit!();
-        x[FeatType::Syllabic as usize] = ModKind::Negative;
+        let mut x = Modifiers::new();
+        x.feats[FType::Syllabic as usize] = Some(SegMKind::Binary(BinMod::Negative));
         
         let c = Item::new(ParseKind::Matrix(x), Position { start: 0, end: 1 });
 
-        let mut y = modArrInit!();
-        y[FeatType::Consonantal as usize] = ModKind::Negative;
-        y[FeatType::Sonorant as usize] = ModKind::Positive;
-        y[FeatType::Syllabic as usize] = ModKind::Positive;
+        let mut y = Modifiers::new();
+        y.feats[FType::Consonantal as usize] = Some(SegMKind::Binary(BinMod::Negative));
+        y.feats[FType::Sonorant as usize] = Some(SegMKind::Binary(BinMod::Positive));
+        y.feats[FType::Syllabic as usize] = Some(SegMKind::Binary(BinMod::Positive));
 
         let v = Item::new(ParseKind::Matrix(y), Position { start: 4, end: 5 });
 
@@ -1122,7 +1233,7 @@ mod parser_tests {
         assert_eq!(result.output.len(), 1);
         assert_eq!(result.context.len(), 1);
         assert!(result.except.is_empty());
-        assert_eq!(result.rule_type, 0);
+        assert_eq!(result.rule_type, RuleType::Substitution);
 
         assert_eq!(result.variables.len(), 2);
         assert!(result.variables.contains_key(&1));

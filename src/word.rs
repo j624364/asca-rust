@@ -1,11 +1,13 @@
 use  core::panic;
 use   std::fmt;
-use serde::{Serialize, Deserialize};
+use serde::Deserialize;
 
-use crate::{
-    error::WordSyntaxError, 
-    lexer::FeatType, 
-    JSON, CARDINALS
+use crate :: {
+    lexer :: FType, 
+    error :: {WordSyntaxError, RuntimeError}, 
+    parser:: {Modifiers, SegMKind, BinMod}, 
+    CARDINALS_MAP, CARDINALS_TRIE, 
+    CARDINALS_VEC, DIACRITS
 };
 
 // match feature {
@@ -14,6 +16,37 @@ use crate::{
 //     | Long | Overlong | Stress | Length | Tone => { do x },
 //     _ => segment_to_byte(feature)
 // }
+
+#[derive(Debug, Clone, Copy)]
+pub enum Stress {
+    Primary,
+    Secondary,
+    Unstressed
+}
+
+impl Default for Stress {
+    fn default() -> Self {
+        Self::Unstressed
+    }
+}
+
+impl fmt::Display for Stress {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Stress::Primary    => write!(f, "P"),
+            Stress::Secondary  => write!(f, "S"),
+            Stress::Unstressed => write!(f, "-"),
+        }
+    }
+}
+
+#[derive(Debug, Clone)]
+pub struct Diacritic {
+    pub name: String,
+    pub diacrit: char,
+    pub prereqs: Modifiers,
+    pub payload: Modifiers,
+}
 
 pub enum NodeKind {
     Root,
@@ -26,8 +59,8 @@ pub enum NodeKind {
 }
 
 #[allow(unused)]
-pub fn feature_to_node_byte(feat: FeatType) -> (NodeKind, u8) {
-    use FeatType::*;
+pub const fn feature_to_node_mask(feat: FType) -> (NodeKind, u8) {
+    use FType::*;
     match feat {
         Consonantal         => (NodeKind::Root, 0b100),
         Sonorant            => (NodeKind::Root, 0b010),
@@ -67,7 +100,20 @@ pub fn feature_to_node_byte(feat: FeatType) -> (NodeKind, u8) {
     }
 }
 
-#[derive(Default, Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+fn modifier_index_to_node_mask(i: usize) -> (NodeKind, u8) {
+
+    assert!(i <= FType::count()-1);
+
+    // if i <= FeatType::PharyngealNode as usize || i > FeatType::RetractedTongueRoot as usize {
+    //     assert!(false);
+    // }
+
+    let ft = FType::from_usize(i);
+
+    feature_to_node_mask(ft)
+}
+
+#[derive(Default, Debug, Clone, PartialEq, Eq, Deserialize)]
 pub struct Segment {
     pub root      : u8,
     pub manner    : u8,
@@ -79,7 +125,55 @@ pub struct Segment {
 }
 
 impl Segment {
-    fn into_grapheme(&self) -> &str {
+    fn into_grapheme(&self) -> Result<&str, RuntimeError> {
+        fn match_from_modifiers(seg: &Segment, mods:&Modifiers) -> bool {
+
+            // TODO: deal with mods.nodes and mods.suprs
+
+            for (i, md) in mods.feats.iter().enumerate() {
+
+                let positive = match md {
+                    Some(SegMKind::Binary(b)) => match b {
+                        BinMod::Negative => false,
+                        BinMod::Positive => true,
+                    }
+                    Some(SegMKind::Alpha(_)) => todo!(),
+                    None => continue,
+                };
+
+                let (node, mask) = modifier_index_to_node_mask(i);
+                
+                if seg.feat_match(node, mask, positive) {
+                    continue;
+                }
+
+                return false
+            }
+
+            true
+        }
+
+
+        for c_grapheme in CARDINALS_VEC.iter() {
+            let x = CARDINALS_MAP.get(c_grapheme).unwrap();
+            if *x == *self { return Ok(c_grapheme) }
+
+            let mut buffer = (c_grapheme, x);
+
+            for d in DIACRITS.iter() {
+                if match_from_modifiers(buffer.1, &d.prereqs) && match_from_modifiers(buffer.1, &d.payload) {
+                    todo!("add diacritic to buffer")
+                }
+
+                if *buffer.1 == *self { return Ok(buffer.0) }
+            }
+
+        }
+
+        Err(RuntimeError::UnknownSegment(self.clone()))
+    }
+
+    pub fn match_modifiers(&self, mods: &Modifiers) -> bool {
         todo!()
     }
 
@@ -111,37 +205,63 @@ impl Segment {
         Some(self.get_node(&node)? & feat)
     }
 
-    pub fn set_feat(&mut self, node: NodeKind, feat: u8, into_pos: bool) {
+    pub fn set_feat(&mut self, node: NodeKind, feat: u8, to_positive: bool) {
 
         let n = match self.get_node(&node) {
             Some(x) => x,
             None => 0u8,
         };
 
-        if into_pos {
+        if to_positive {
             self.set_node(node, Some(n | feat)) 
         } else {
             self.set_node(node, Some(n & !(feat)))
         }
     }
 
-    pub fn inv_feat(&mut self, node: NodeKind, feat: u8) {
-        let n = match self.get_node(&node) {
-            Some(x) => x,
-            None => 0u8, // todo: maybe we should just return (or error) in this case?
+    pub fn feat_match(&self, node: NodeKind, mask: u8, positive: bool) -> bool {
+        let Some(n) = self.get_node(&node) else {
+            return false
         };
 
-        self.set_node(node, Some(n ^ feat))
+        if positive {
+            n & mask == mask
+        } else {
+            n & mask == 0
+        }
     }
 
-    pub fn inv_node(&mut self, node: NodeKind) {
-        let n = match self.get_node(&node) {
-            Some(x) => x,
-            None => 0u8, // todo: again maybe we should just return/error
+    pub fn node_match(&self, node: NodeKind, match_value: Option<u8>) -> bool {
+        let Some(n) = self.get_node(&node) else {
+            if match_value.is_none() {
+                return true
+            } else {
+                return false
+            }
         };
 
-        self.set_node(node, Some(!n))   
+        let Some(m) = match_value else {return false};
+
+        n == m
     }
+
+    // pub fn inv_feat(&mut self, node: NodeKind, feat: u8) {
+    //     let n = match self.get_node(&node) {
+    //         Some(x) => x,
+    //         None => 0u8, // todo: maybe we should just return (or error) in this case?
+    //     };
+
+    //     self.set_node(node, Some(n ^ feat))
+    // }
+
+    // pub fn inv_node(&mut self, node: NodeKind) {
+    //     let n = match self.get_node(&node) {
+    //         Some(x) => x,
+    //         None => 0u8, // todo: again maybe we should just return/error
+    //     };
+
+    //     self.set_node(node, Some(!n))   
+    // }
 }
 
 impl fmt::Display for Segment {
@@ -176,26 +296,19 @@ impl fmt::Display for Segment {
 pub struct Syllable {
     pub start: usize,
     pub end: usize,
-    pub stress: u8,
+    pub stress: Stress,
     pub tone: String
 }
 
 impl Syllable {
     pub fn new() -> Self {
-        Self {start: 0, end: 0, stress: 0, tone: String::new()}
+        Self {start: 0, end: 0, stress: Stress::default(), tone: String::new()}
     }
 }
 
 impl fmt::Display for Syllable {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        let binding = format!("E:{}", self.stress).clone();
-        let stress = match self.stress {
-            0 => "-",
-            1 => "S",
-            2 => "P",
-            _ => binding.as_str()
-        };
-        write!(f, "({}:{},{},'{}')", self.start, self.end, &stress, self.tone)
+        write!(f, "({}:{},{},'{}')", self.start, self.end, self.stress, self.tone)
     }
 }
 
@@ -280,8 +393,8 @@ impl Word {
                 sy.start = self.segments.len();
                 
                 match txt[i] {
-                    'ˌ' => sy.stress = 1,
-                    'ˈ' => sy.stress = 2,
+                    'ˌ' => sy.stress = Stress::Secondary,
+                    'ˈ' => sy.stress = Stress::Primary,
                     _ => unreachable!()
                 }
                 
@@ -292,7 +405,7 @@ impl Word {
             if txt[i] == '.' || txt[i].is_ascii_digit() {
 
                 if self.segments.is_empty() || txt[i-1] == '.' || txt[i-1].is_ascii_digit() {
-                    i+=1;
+                    i+=1;           // todo: We could error here, but for now we can just skip
                     continue;
                 }
 
@@ -312,9 +425,10 @@ impl Word {
 
                 self.syllables.push(sy.clone());
                 
+                // Reset syllable for next pass
                 sy.start = self.segments.len();
-                sy.stress = 0;
-                sy.tone = "".to_string();
+                sy.stress = Stress::default();
+                sy.tone = String::new();
 
                 i+=1;
                 continue;
@@ -332,18 +446,18 @@ impl Word {
 
             let mut buffer = txt[i].to_string();
 
-            if CARDINALS.contains_partial(&buffer.as_str()) {
+            if CARDINALS_TRIE.contains_partial(&buffer.as_str()) {
                 i += 1;
                 while i < txt.len() {
                     let mut tmp = buffer.clone(); tmp.push(txt[i]);
-                    if CARDINALS.contains_partial(&tmp.as_str()) {
+                    if CARDINALS_TRIE.contains_partial(&tmp.as_str()) {
                         buffer.push(txt[i]);
                         i += 1;
                         continue;
                     }
                     break;
                 }
-                let maybe_seg = JSON.get(&buffer);
+                let maybe_seg = CARDINALS_MAP.get(&buffer);
 
                 let seg_stuff = match maybe_seg {
                     Some(s) => Ok(s),
@@ -367,7 +481,7 @@ impl Word {
         Ok(())
     }
 
-    // Not used
+    // NOTE: deprecated, only currently used by tests
     pub fn _format_text(&self, mut txt: String ) -> Vec<String> {
         txt = txt.replace("'", "ˈ")
                  .replace("g", "ɡ")
@@ -376,7 +490,7 @@ impl Word {
         
         
         // what we want is to split the string with the delimiters at the start each slice
-        // however split_inclusive splits with the delimiters at the end — and there is seamingly no alternative (for some reason) 
+        // however split_inclusive splits with the delimiters at the end — and there is seemingly no alternative (for some reason) 
         // so this mess is needed for now unless something better comes to me
 
         let mut split_str : Vec<String> = txt.split_inclusive(&['ˈ', 'ˌ', '.']).map(|f| f.to_string()).collect();

@@ -6,6 +6,7 @@ mod rule;
 mod error;
 
 use serde_json;
+use serde::Deserialize;
 use std::{collections::HashMap, time::Instant};
 use colored::Colorize;
 use lazy_static::lazy_static;
@@ -17,12 +18,69 @@ use word  ::*;
 use rule  ::*;
 use error ::*;
 
-const FILE: &str = include_str!("cardinals.json");
+const CARDINALS_FILE: &str = include_str!("cardinals.json");
+const DIACRITIC_FILE: &str = include_str!("diacritics.json");
 lazy_static! {
-    static ref JSON: HashMap<String, Segment> = serde_json::from_str(&FILE).unwrap();
-    static ref CARDINALS: Trie = {
+    static ref CARDINALS_MAP: HashMap<String, Segment> = serde_json::from_str(&CARDINALS_FILE).unwrap();
+    static ref DIACRITS: Vec<Diacritic> = {
+        // this seems unnecessary, but at least it works
+        // plus, it's lazy 
+        #[derive(Deserialize)]
+        struct DT {
+            pub name: String,
+            pub diacrit: char,
+            pub prereqs: HashMap<FeatType, bool>,
+            pub payload: HashMap<FeatType, bool>,
+        }
+
+        impl DT {
+            pub fn hm_to_mod(&self, hm: &HashMap<FeatType, bool>) -> Modifiers {
+                let mut args = Modifiers::new();
+                for (key, value) in hm.into_iter() {
+                    match value {
+                        true => match key {
+                            FeatType::Node(n) => args.nodes[*n as usize] = Some(SegMKind::Binary(BinMod::Positive)),
+                            FeatType::Feat(f) => args.feats[*f as usize] = Some(SegMKind::Binary(BinMod::Positive)),
+                            FeatType::Supr(_) => unreachable!()
+                        },
+                        false => match key {
+                            FeatType::Node(n) => args.nodes[*n as usize] = Some(SegMKind::Binary(BinMod::Negative)),
+                            FeatType::Feat(f) => args.feats[*f as usize] = Some(SegMKind::Binary(BinMod::Negative)),
+                            FeatType::Supr(_) => unreachable!()
+                        },
+                    }
+                }
+
+                args
+            }
+
+            pub fn to_diacritic(&self) ->  Diacritic {
+                Diacritic { 
+                    name: self.name.clone(), 
+                    diacrit: self.diacrit, 
+                    prereqs: self.hm_to_mod(&self.prereqs), 
+                    payload: self.hm_to_mod(&self.payload)
+                }
+            }
+
+            
+        }
+
+        let dt: Vec<DT> = serde_json::from_str(&DIACRITIC_FILE).unwrap();
+
+        dt.iter().map(|x| x.to_diacritic()).collect()
+    };
+    static ref CARDINALS_VEC: Vec<String> = {
+        let mut m = Vec::new();
+        CARDINALS_MAP.iter().for_each(|(k,_)| {
+            m.push(k.clone());
+        });
+
+        m
+    };
+    static ref CARDINALS_TRIE: Trie = {
         let mut m = Trie::new();
-        JSON.iter().for_each(|(k,_)| {
+        CARDINALS_MAP.iter().for_each(|(k,_)| {
             m.insert(k.as_str());
         });
 
@@ -53,7 +111,7 @@ fn parse_words(unparsed_words: Vec<String>) -> Result<Vec<Word>,WordSyntaxError>
 }
 
 fn apply_rules(rules: Vec<Rule>, words: Vec<Word>, trace: bool) -> Result<(Vec<Word>, Vec<Vec<String>>), RuntimeError> {
-    // todo: work out tracing
+    // TODO: work out tracing
 
     let mut transformed_words: Vec<Word> = vec![];
 
@@ -106,7 +164,7 @@ fn run(unparsed_rules: Vec<String>, unparsed_words: Vec<String>, trace: bool) ->
 
 }
 
-fn main2() {
+fn main() {
     let unparsed_rules: Vec<String> = vec![
         String::from("r > l"),
     ];
@@ -115,12 +173,15 @@ fn main2() {
         String::from("a.ri"),
     ];
 
-    let trace = false;
-
-    let res = run(unparsed_rules, unparsed_words, trace);
+    let res = run(unparsed_rules, unparsed_words, false);
+    
+    match res {
+        Ok(_) => todo!(),
+        Err(_) => todo!(),
+    }
 }
 
-fn main() {
+fn main2() {
     // let test = String::from("[]...[] > &");
     // let test = String::from("[+voi, -sg, αPLACE]...C > &");
     // let test = String::from("V > [+long] / _C#");

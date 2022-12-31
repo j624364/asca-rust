@@ -6,15 +6,17 @@ use std::{
 use crate ::{
     parser::{Item, ParseKind, Modifiers}, 
     error ::RuntimeError, 
-    word  ::{Word, Segment}, lexer::TokenKind
+    word  ::{Word, Segment}
 };
 
-enum RuleType {
+#[derive(Debug, Copy, Clone, PartialEq, Eq)]
+pub enum RuleType {
     Substitution,
     Metathesis,
     Deletion,
     Reduplication,
-    Insert
+    Insertion,
+
 }
 
 struct BacktrackState {
@@ -29,7 +31,7 @@ pub struct SubRule {
     output:  Vec<Item>,
     context: Option<Item>,         
     except:  Option<Item>,
-    rule_type: u8, // RuleType,
+    rule_type: RuleType, // RuleType,
     variables: HashMap<usize, Item>,
 }
 
@@ -39,12 +41,12 @@ pub struct Rule {
     pub output:    Vec<Vec<Item>>,    // these need to be Vec<Vec<Item>>
     pub context:   Vec<Item>,         
     pub except:    Vec<Item>,    
-    pub rule_type: u8, // bitmap 8 = insert_rule, 4 = redup_rule, 2 = del_rule, 1 = metath_rule, 0 = substi_rule
+    pub rule_type: RuleType, // bitmap 8 = insert_rule, 4 = redup_rule, 2 = del_rule, 1 = metath_rule, 0 = substi_rule
     pub variables: HashMap<usize,Item>,    
 }   // todo: if we move rule_type to SubRule, that would allow us to have multirules with insert/delete/metath
 
 impl Rule {
-    pub fn new(i: Vec<Vec<Item>>, o: Vec<Vec<Item>>, c :Vec<Item>, e :Vec<Item>, r: u8, v: HashMap<usize, Item>) -> Self {
+    pub fn new(i: Vec<Vec<Item>>, o: Vec<Vec<Item>>, c :Vec<Item>, e :Vec<Item>, r: RuleType, v: HashMap<usize, Item>) -> Self {
         Self { input: i, output: o, context: c, except: e , rule_type: r, variables: v}
     }
 
@@ -77,7 +79,6 @@ impl Rule {
     }
 
     pub fn apply(&self, word: Word /*, trace: bool*/) -> Result<Word, RuntimeError> /* return Word */{
-        // todo!();
         let out_word = word.clone(); 
 
         let sub_rules = self.split_into_subrules()?;
@@ -130,7 +131,7 @@ impl Rule {
 
         while curr_state.is_some() {
             match curr_state.clone().unwrap().kind {
-                ParseKind::Ellipsis(_) => { // NOTE: this will probably not work
+                ParseKind::Ellipsis => { // NOTE: this will probably not work
                     let (is_match, consumed) = if i >= word.segments.len() {
                         (false, 0)
                     } else {
@@ -177,19 +178,20 @@ impl Rule {
                     continue;
                 },
                 ParseKind::Matrix(_) => todo!(),
-                ParseKind::Syllable(_) => todo!(),
+                ParseKind::Syllable(_,_) => todo!(),
                 ParseKind::Set(_) => todo!(),
                 ParseKind::Optional(_, _, _) => todo!(),
 
-                ParseKind::EmptySet(_) => unreachable!("Insert rule check should not be done here"), // probably has to be done in apply() to skip straight to env check
-                ParseKind::Metathesis(_) => unreachable!("'&' not allowed in input"),
-                ParseKind::Boundary(_) => { unreachable!("Boundaries not allowed in input")
+                ParseKind::EmptySet => unreachable!("Insert rule check should not be done here"), // probably has to be done in apply() to skip straight to env check
+                ParseKind::Metathesis => unreachable!("'&' not allowed in input"),
+                ParseKind::WordBound => { unreachable!("Word boundaries not allowed in input")
                     // if b.kind == TokenKind::WordBoundary {
                     //     if i != 0 && i != word.segments.len()-1 {
                     //         panic!()
                     //     }
                     // }
                 },
+                ParseKind::SyllBound => todo!(),
                 ParseKind::Environment(_, _) => unreachable!("Env. not allowed in input"),
             }
         }
@@ -240,11 +242,11 @@ impl fmt::Display for Rule {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
 
         match self.rule_type {
-            8 => writeln!(f, "Insertion Rule ->")?,
-            4 => writeln!(f, "Reduplication Rule ->")?,
-            2 => writeln!(f, "Deletion Rule ->")?,
-            1 => writeln!(f, "Metathesis Rule ->")?,
-            _ => writeln!(f, "Rule ->")?
+            RuleType::Insertion     => writeln!(f, "Insertion Rule ->")?,
+            RuleType::Reduplication => writeln!(f, "Reduplication Rule ->")?,
+            RuleType::Deletion      => writeln!(f, "Deletion Rule ->")?,
+            RuleType::Metathesis    => writeln!(f, "Metathesis Rule ->")?,
+            RuleType::Substitution  => writeln!(f, "Rule ->")?,
         }
 
         writeln!(f, "    Input = [")?;
