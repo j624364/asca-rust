@@ -51,7 +51,6 @@ impl Rule {
     }
 
     pub fn split_into_subrules(&self) -> Result<Vec<SubRule>, RuntimeError> {
-        
         // check that input, output, context, except are the same length
         // and if any are not, that they are length == 1
         // context and except can be length == 0
@@ -69,7 +68,7 @@ impl Rule {
             let output  = if self.output.len() == 1 { self.output[0].clone() } else { self.output[i].clone() };
             let context = if self.context.len() == 0 { None } else if self.context.len() == 1 { Some(self.context[0].clone()) } else { Some(self.context[i].clone()) };
             let except  = if self.except.len()  == 0 { None } else if self.except.len()  == 1 { Some(self.except[0].clone()) }  else { Some(self.except[i].clone()) };
-            let rule_type = self.rule_type.clone();  // todo: calc rule_type here instead of in parser
+            let rule_type = self.rule_type.clone();  // TODO: calc rule_type here instead of in parser
             let variables = self.variables.clone();
 
             sub_vec.push(SubRule {input, output, context, except, rule_type, variables});
