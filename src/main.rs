@@ -5,7 +5,6 @@ mod word;
 mod rule;
 mod error;
 
-use serde_json;
 use serde::Deserialize;
 use std::{collections::HashMap, time::Instant};
 use colored::Colorize;
@@ -36,7 +35,7 @@ lazy_static! {
         impl DT {
             pub fn hm_to_mod(&self, hm: &HashMap<FeatType, bool>) -> Modifiers {
                 let mut args = Modifiers::new();
-                for (key, value) in hm.into_iter() {
+                for (key, value) in hm.iter() {
                     match value {
                         true => match key {
                             FeatType::Node(n) => args.nodes[*n as usize] = Some(SegMKind::Binary(BinMod::Positive)),
@@ -66,7 +65,7 @@ lazy_static! {
             
         }
 
-        let dt: Vec<DT> = serde_json::from_str(&DIACRITIC_FILE).unwrap();
+        let dt: Vec<DT> = serde_json::from_str(DIACRITIC_FILE).unwrap();
 
         dt.iter().map(|x| x.to_diacritic()).collect()
     };
@@ -265,7 +264,7 @@ fn main2() {
                         ))
                     },
                     _ => println!("{}", format!("{}{}", 
-                            format!("Error").red().bold(),
+                            "Error".to_string().red().bold(),
                             format!(": {}", e).bold()
                         ))
                 }

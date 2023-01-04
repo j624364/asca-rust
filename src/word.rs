@@ -102,7 +102,7 @@ pub const fn feature_to_node_mask(feat: FType) -> (NodeKind, u8) {
 
 fn modifier_index_to_node_mask(i: usize) -> (NodeKind, u8) {
 
-    assert!(i <= FType::count()-1);
+    assert!(i < FType::count());
 
     // if i <= FeatType::PharyngealNode as usize || i > FeatType::RetractedTongueRoot as usize {
     //     assert!(false);
@@ -113,7 +113,7 @@ fn modifier_index_to_node_mask(i: usize) -> (NodeKind, u8) {
     feature_to_node_mask(ft)
 }
 
-#[derive(Default, Debug, Clone, PartialEq, Eq, Deserialize)]
+#[derive(Default, Debug, Clone, Copy, PartialEq, Eq, Deserialize)]
 pub struct Segment {
     pub root      : u8,
     pub manner    : u8,
@@ -170,7 +170,7 @@ impl Segment {
 
         }
 
-        Err(RuntimeError::UnknownSegment(self.clone()))
+        Err(RuntimeError::UnknownSegment(*self))
     }
 
     pub fn match_modifiers(&self, mods: &Modifiers) -> bool {
@@ -207,10 +207,7 @@ impl Segment {
 
     pub fn set_feat(&mut self, node: NodeKind, feat: u8, to_positive: bool) {
 
-        let n = match self.get_node(&node) {
-            Some(x) => x,
-            None => 0u8,
-        };
+        let n = self.get_node(&node).unwrap_or(0u8);
 
         if to_positive {
             self.set_node(node, Some(n | feat)) 
@@ -233,11 +230,7 @@ impl Segment {
 
     pub fn node_match(&self, node: NodeKind, match_value: Option<u8>) -> bool {
         let Some(n) = self.get_node(&node) else {
-            if match_value.is_none() {
-                return true
-            } else {
-                return false
-            }
+            return match_value.is_none()
         };
 
         let Some(m) = match_value else {return false};
@@ -323,7 +316,7 @@ impl fmt::Display for Word {
         for seg in &self.segments {
             writeln!(f, "{}", seg)?;
         }
-        writeln!(f, "")?;
+        writeln!(f)?;
         for syll in &self.syllables {
             writeln!(f, "{}", syll)?;
         }
@@ -336,10 +329,10 @@ impl Word {
     pub fn new(text: String) -> Result<Self, WordSyntaxError>  {
         let mut w = Self {segments: Vec::new(), syllables: Vec::new() };
         // let split_txt = w.format_text(txt);
-        let t = text.replace("'", "ˈ")
-                            .replace("g", "ɡ")
-                            .replace(":", "ː")
-                            .replace("ǝ", "ə");
+        let t = text.replace('\'', "ˈ")
+                            .replace('g',  "ɡ")
+                            .replace(':',  "ː")
+                            .replace('ǝ',  "ə");
         w.setup(t)?;
 
         Ok(w)
@@ -446,11 +439,11 @@ impl Word {
 
             let mut buffer = txt[i].to_string();
 
-            if CARDINALS_TRIE.contains_partial(&buffer.as_str()) {
+            if CARDINALS_TRIE.contains_partial(buffer.as_str()) {
                 i += 1;
                 while i < txt.len() {
                     let mut tmp = buffer.clone(); tmp.push(txt[i]);
-                    if CARDINALS_TRIE.contains_partial(&tmp.as_str()) {
+                    if CARDINALS_TRIE.contains_partial(tmp.as_str()) {
                         buffer.push(txt[i]);
                         i += 1;
                         continue;
@@ -459,12 +452,12 @@ impl Word {
                 }
                 let maybe_seg = CARDINALS_MAP.get(&buffer);
 
-                let seg_stuff = match maybe_seg {
+                let seg_stuff = *match maybe_seg {
                     Some(s) => Ok(s),
                     None => Err(WordSyntaxError::UnknownChar(buffer.clone(), i))
-                }?.clone();
+                }?;
 
-                self.segments.push(seg_stuff)
+                self.segments.push(seg_stuff);
             } else {
                 return Err(WordSyntaxError::UnknownChar(buffer.clone(), i));
             }
@@ -483,10 +476,10 @@ impl Word {
 
     // NOTE: deprecated, only currently used by tests
     pub fn _format_text(&self, mut txt: String ) -> Vec<String> {
-        txt = txt.replace("'", "ˈ")
-                 .replace("g", "ɡ")
-                 .replace(":", "ː")
-                 .replace("ǝ", "ə");
+        txt = txt.replace('\'', "ˈ")
+                 .replace('g',  "ɡ")
+                 .replace(':',  "ː")
+                 .replace('ǝ',  "ə");
         
         
         // what we want is to split the string with the delimiters at the start each slice
@@ -506,21 +499,21 @@ impl Word {
 
         // we then go through each element, removing and re-appending the delimiters
         while i < split_str.len() {
-            if split_str[i].ends_with("ˈ") || split_str[i].ends_with("ˌ") {
+            if split_str[i].ends_with('ˈ') || split_str[i].ends_with('ˌ') {
                 let chr = split_str[i].pop().unwrap().to_string();
                 split_text.push(split_str[i].clone());
                 i += 1;
                 split_str[i] = chr + split_str[i].as_str();
             }
             
-            if split_str[i].ends_with(".") { split_str[i].pop(); }
+            if split_str[i].ends_with('.') { split_str[i].pop(); }
             split_text.push(split_str[i].clone());
             i += 1;
         }
 
         // would be malformed, same as above. But as with that, i think we should just ignore it
         let lst = split_text.last().unwrap();
-        if lst.ends_with("ˈ") || lst.ends_with("ˌ") {
+        if lst.ends_with('ˈ') || lst.ends_with('ˌ') {
             let l = split_text.len()-1;
             split_text[l].pop();
         }

@@ -58,17 +58,17 @@ impl Rule {
 
         if self.input.len()   != max && self.input.len()   != 1 { return Err(RuntimeError::UnbalancedRule) }
         if self.output.len()  != max && self.output.len()  != 1 { return Err(RuntimeError::UnbalancedRule) }
-        if self.context.len() != max && self.context.len() != 1 && self.context.len() != 0 { return Err(RuntimeError::UnbalancedRule) }
-        if self.except.len()  != max && self.except.len()  != 1 && self.except.len()  != 0 { return Err(RuntimeError::UnbalancedRule) }
+        if self.context.len() != max && self.context.len() != 1 && !self.context.is_empty() { return Err(RuntimeError::UnbalancedRule) }
+        if self.except.len()  != max && self.except.len()  != 1 && !self.except.is_empty() { return Err(RuntimeError::UnbalancedRule) }
 
         // populate subrules, if one if length==1 then it's value is duplicated to rest of subrules
         let mut sub_vec = Vec::new();
         for i in 0..max {
             let input   = if self.input.len()  == 1 { self.input[0].clone() }  else { self.input[i].clone() };
             let output  = if self.output.len() == 1 { self.output[0].clone() } else { self.output[i].clone() };
-            let context = if self.context.len() == 0 { None } else if self.context.len() == 1 { Some(self.context[0].clone()) } else { Some(self.context[i].clone()) };
-            let except  = if self.except.len()  == 0 { None } else if self.except.len()  == 1 { Some(self.except[0].clone()) }  else { Some(self.except[i].clone()) };
-            let rule_type = self.rule_type.clone();  // TODO: calc rule_type here instead of in parser
+            let context = if self.context.is_empty() { None } else if self.context.len() == 1 { Some(self.context[0].clone()) } else { Some(self.context[i].clone()) };
+            let except  = if self.except.is_empty()  { None } else if self.except.len()  == 1 { Some(self.except[0].clone()) }  else { Some(self.except[i].clone()) };
+            let rule_type = self.rule_type;  // TODO: calc rule_type here instead of in parser
             let variables = self.variables.clone();
 
             sub_vec.push(SubRule {input, output, context, except, rule_type, variables});
@@ -161,7 +161,7 @@ impl Rule {
                     let (is_match, consumed) = self.state_matches_ipa_at_index(&s, &m, word.clone(), i);
 
                     if !is_match {
-                        let index_before_backtrack = i.clone();
+                        let index_before_backtrack = i;
                         if !backtrack() {
                             return (false, index_before_backtrack, index_before_backtrack)
                         }

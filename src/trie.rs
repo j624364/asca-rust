@@ -144,7 +144,7 @@ impl Trie {
         q.push(cur);
         while let Some(c) = q.pop() {
             for child in c.children.iter() {
-                q.push(&child);
+                q.push(child);
             }
 
             if c.is_terminal {
@@ -153,7 +153,7 @@ impl Trie {
             }
         }
 
-        return results;
+        results
 
      }
 
@@ -169,22 +169,16 @@ impl Display for Trie {
             for _ in 0..q.len() {
                 if let Some(node) = q.pop_front() {
                     for c in node.children.iter() {
-                        let r = write!(f, "{} ", &c.key.unwrap());
-                        if r.is_err() {
-                            return r;
-                        }
-                        if c.children.len() > 0 {
-                            q.push_back(&c);
+                        write!(f, "{} ", &c.key.unwrap())?;
+                        if !c.children.is_empty() {
+                            q.push_back(c);
                         }
                     }
                 }
             }
 
-            if q.len() > 0 {
-                let r = writeln!(f);
-                if r.is_err() {
-                    return r;
-                }
+            if !q.is_empty() {
+                writeln!(f)?;
             }
         }
 

@@ -71,7 +71,7 @@ pub enum Mods {
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Modifiers {
-    pub nodes: [Option<SegMKind>; NodeType::PharyngealNode as usize + 1],
+    pub nodes: [Option<SegMKind>; NodeType::Pharyngeal as usize + 1],
     pub feats: [Option<SegMKind>; FType::RetractedTongueRoot as usize + 1],
     pub suprs: [Option<SuprMKind>; 3], // [Stress, Length, Tone]
 }
@@ -79,7 +79,7 @@ pub struct Modifiers {
 impl Modifiers {
     pub fn new() -> Self {
         Self { 
-            nodes: [();NodeType::PharyngealNode as usize + 1].map(|_| None), 
+            nodes: [();NodeType::Pharyngeal as usize + 1].map(|_| None), 
             feats: [();FType::RetractedTongueRoot as usize + 1].map(|_| None), 
             suprs: [();3].map(|_| None)
         }
@@ -230,20 +230,14 @@ impl Parser {
 
     fn has_more_tokens(&self) -> bool { self.pos < self.token_list.len() }
 
-    fn peek_expect(&self, knd: TokenKind) -> bool {
-        if self.curr_tkn.kind == knd {
-            return true
-        } else {
-            return false
-        }
-    }
+    fn peek_expect(&self, knd: TokenKind) -> bool { self.curr_tkn.kind == knd }
 
     fn expect(&mut self, knd: TokenKind) -> bool {
         if self.curr_tkn.kind == knd {
             self.advance();
-            return true
+            true
         } else {
-            return false
+            false
         }
     }
 
@@ -255,9 +249,9 @@ impl Parser {
 
     fn eat_expect(&mut self, knd: TokenKind) -> Option<Token> {
         if self.curr_tkn.kind == knd {
-            return Some(self.eat())
+            Some(self.eat())
         } else {
-            return None
+            None
         }
     }
 
@@ -346,12 +340,12 @@ impl Parser {
 
         let end = self.token_list[self.pos-1].position.end;
 
-        let mut v = Vec::new();
+        let v = vec![
+            Item::new(ParseKind::Environment(x.clone(), Vec::new()), Position { start, end }),
+            Item::new(ParseKind::Environment(Vec::new(), x), Position { start, end })
+        ];
 
-        v.push(Item::new(ParseKind::Environment(x.clone(), Vec::new()), Position { start, end }));
-        v.push(Item::new(ParseKind::Environment(Vec::new(), x), Position { start, end }));
-
-        return Ok(Some(v))
+        Ok(Some(v))
 
     }
 
@@ -408,21 +402,21 @@ impl Parser {
         
         // TODO: test this
         for (i, p) in params.nodes.iter().enumerate() {
-            if let None = p {
+            if p.is_none() {
                 continue
             }
-            chr.nodes[i] = p.clone()
+            chr.nodes[i] = *p
         }
 
         for (i, p) in params.feats.iter().enumerate() {
-            if let None = p {
+            if p.is_none() {
                 continue
             }
-            chr.feats[i] = p.clone()
+            chr.feats[i] = *p
         }
 
         for (i, p) in params.suprs.iter().enumerate() {
-            if let None = p {
+            if p.is_none() {
                 continue
             }
             chr.suprs[i] = p.clone()
@@ -433,8 +427,8 @@ impl Parser {
 
     fn ipa_to_vals(&self, ipa: Token) -> Result<Segment, RuleSyntaxError> {
         match CARDINALS_MAP.get(&ipa.value) {
-            Some(z) => Ok(z.clone()),
-            None => return Err(RuleSyntaxError::UnknownIPA(ipa))
+            Some(z) => Ok(*z),
+            None => Err(RuleSyntaxError::UnknownIPA(ipa))
         }
     }
 
@@ -479,13 +473,7 @@ impl Parser {
         Ok(Item::new(ParseKind::Matrix(args), Position { start: chr.position.start, end: chr.position.end }))
     }
 
-    fn is_feature(&self) -> bool{
-        
-        match self.curr_tkn.kind {
-            TokenKind::Feature(_) => return true,
-            _ =>  return false,
-        }
-    }
+    fn is_feature(&self) -> bool{ matches!(self.curr_tkn.kind, TokenKind::Feature(_)) }
 
     fn feature_to_modifier(&self, feature: FeatType, value: String) -> (FeatType, Mods) {
 
@@ -503,7 +491,7 @@ impl Parser {
                 if feature == FeatType::Supr(SupraType::SecStress) {
                     return (FeatType::Supr(SupraType::Stress), Mods::Number("2".to_owned()))
                 }
-                return (feature, Mods::Binary(BinMod::Positive))
+                (feature, Mods::Binary(BinMod::Positive))
             },
             "-" => {
                 if feature == FeatType::Supr(SupraType::Long) {
@@ -518,18 +506,16 @@ impl Parser {
                 if feature == FeatType::Supr(SupraType::SecStress) {
                     return (FeatType::Supr(SupraType::Stress), Mods::Number("<2".to_owned()))
                 }
-                return (feature, Mods::Binary(BinMod::Negative))
+                (feature, Mods::Binary(BinMod::Negative))
             },
-            "α"|"β"|"γ"|"δ"|"ε"|"ζ"|"η"|"θ"|"ι"|"κ"|"λ"|"μ"|"ν"|"ξ"|"ο"|"π"|"ρ"|"σ"|"ς"|"τ"|"υ"|"φ"|"χ"|"ψ"|"ω" => {
-                return (feature, Mods::Alpha(AlphaMod::Alpha(value.chars().collect::<Vec<char>>()[0]))) // TODO: there MUST be a better way to do this, I feel like YandereDev rn
-            },
-            "-α"|"-β"|"-γ"|"-δ"|"-ε"|"-ζ"|"-η"|"-θ"|"-ι"|"-κ"|"-λ"|"-μ"|"-ν"|"-ξ"|"-ο"|"-π"|"-ρ"|"-σ"|"-ς"|"-τ"|"-υ"|"-φ"|"-χ"|"-ψ"|"-ω" => {
-                return (feature, Mods::Alpha(AlphaMod::InversAlpha(value.chars().collect::<Vec<char>>()[1])))
-            }
+            "α"|"β"|"γ"|"δ"|"ε"|"ζ"|"η"|"θ"|"ι"|"κ"|"λ"|"μ"|"ν"|"ξ"|"ο"|"π"|"ρ"|"σ"|"ς"|"τ"|"υ"|"φ"|"χ"|"ψ"|"ω" => 
+                (feature, Mods::Alpha(AlphaMod::Alpha(value.chars().collect::<Vec<char>>()[0]))), // TODO: there MUST be a better way to do this, I feel like YandereDev rn
+            "-α"|"-β"|"-γ"|"-δ"|"-ε"|"-ζ"|"-η"|"-θ"|"-ι"|"-κ"|"-λ"|"-μ"|"-ν"|"-ξ"|"-ο"|"-π"|"-ρ"|"-σ"|"-ς"|"-τ"|"-υ"|"-φ"|"-χ"|"-ψ"|"-ω" =>
+                (feature, Mods::Alpha(AlphaMod::InversAlpha(value.chars().collect::<Vec<char>>()[1]))),
             _ => if feature == FeatType::Supr(SupraType::Tone) 
             || feature == FeatType::Supr(SupraType::Length) 
             || feature == FeatType::Supr(SupraType::Stress) { // we already know its a number if this matches thanks to the lexer
-                return (feature, Mods::Number(value))
+                (feature, Mods::Number(value))
             } else {
                 unreachable!();
             }
@@ -646,7 +632,7 @@ impl Parser {
         self.advance();
 
         if !self.expect(TokenKind::Colon) {
-            return Ok(Item::new(ParseKind::IPA(ipa.clone(), Modifiers::new()), pos))
+            return Ok(Item::new(ParseKind::IPA(ipa, Modifiers::new()), pos))
         }
 
         if !self.expect(TokenKind::LeftSquare) {
@@ -694,7 +680,7 @@ impl Parser {
             return Ok(Some(matrix))
         }
 
-        return Ok(None)
+        Ok(None)
     }
 
     fn join_var_with_params(&mut self, mt: Item, params: Item) -> Result<Item, RuleSyntaxError> {
@@ -752,7 +738,7 @@ impl Parser {
                 Ok(Some(joined))
 
             },
-            None => return Ok(None)
+            None => Ok(None)
         }
             
     }
@@ -835,8 +821,8 @@ impl Parser {
 
         let mut segs = Vec::new();
 
-        // TODO: this while condition may mean  "/ _{A, B, C <eol>" is valid input
-        // may have to return SyntaxError::ExpectedRightBracketAtEol
+        // NOTE: this while condition may allow  "/ _{A, B, C <eol>" as valid input
+        // should probably return SyntaxError::ExpectedRightBracketAtEol
         // bug or feature? ¯\_(ツ)_/¯
         while self.has_more_tokens() {
             if self.expect(TokenKind::RightCurly) {
@@ -880,9 +866,7 @@ impl Parser {
 
         let end = self.token_list[self.pos-1].position.end;
         
-        return Ok(Some(Item::new(ParseKind::Syllable( m.suprs[SupraType::Stress as usize - 4].clone(),  m.suprs[SupraType::Tone as usize - 4].clone()), Position { start, end })))
-    
-
+        Ok(Some(Item::new(ParseKind::Syllable( m.suprs[SupraType::Stress as usize - 4].clone(),  m.suprs[SupraType::Tone as usize - 4].clone()), Position { start, end })))
     }
 
     fn get_term(&mut self) -> Result<Option<Item>, RuleSyntaxError> {
@@ -961,14 +945,10 @@ impl Parser {
     fn get_output_term(&mut self) -> Result<Items, RuleSyntaxError>{ 
         // returns list of sylls, sets, and/or segments
 
-        let mut terms = Vec::<Item>::new();
+        let mut terms = Vec::new();
 
-        loop {
-            if let Some(trm) = self.get_output_element()? {
-                terms.push(trm)
-            } else {
-                break
-            }
+        while let Some(trm) = self.get_output_element()? {
+            terms.push(trm);
         }
 
         Ok(terms)

@@ -8,11 +8,11 @@ DEL_RUL ←   INP '>' EMP ('/' ENV)? ('|' ENV)? EOL       // [x]
 INS_RUL ←   EMP '>' OUT ('/' ENV)? ('|' ENV)? EOL       // [x]
 
 INP     ←   INP_TRM  ( ',' INP_TRM )*                   // [x]
-INP_TRM ←   ( '...' / TERM )+                           // [x]
+INP_TRM ←   ( ELLIPSS / TERM )+                        // [x]
 
 OUT     ←   OUT_TRM  ( ',' OUT_TRM )*                   // [x]
 OUT_TRM ←   OUT_EL+                                     // [x]
-OUT_EL  ←   SYLL / SEG / VAR                            // [x]
+OUT_EL  ←   SYLL / SEG / VAR                            // [x]  TODO: ALLDW SET IN OUTPUT
 
 ENV     ←   '_' ',' ENV_EL / ENV_TRM  (',' ENV_TRM)*    // [x] :: _,# ==> #_ , _#
 ENV_TRM ←   ENV_EL?  '_' ENV_EL?                        // [x]
@@ -34,7 +34,10 @@ PAR_VAL ←   '+' / '-' / [α-ω] / '-'[α-ω]                // [x]
 
 EMP     ←   '*' / '∅'                                   // [x]
 BOUND	←   '$' / '#'                                   // [x]
-IPA     ←   [Unicode-IPA-character]+                    // [x] :: NOTE: for tie-bars: [Unicode-IPA-character]+ '^' [Unicode-IPA-character]+
+ELLIPSS ←   '...' / '..' / …
+IPA     ←   IPA_CAR IPA_DIA+                            // [p] :: NOTE: tie-bar support not fully implemented: [Unicode-IPA-character] '^' [Unicode-IPA-character] 
+IPA_CAR ←   [Unicode-IPA-character]                     // [x] :: NOTE: As defined in `cardinals.json`
+IPA_DIA ←   [Unicode-DIACRITIC-character]               // [p] :: NOTE: As defined in `diacritics.json`
 ```
 
 

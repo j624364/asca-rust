@@ -5,14 +5,14 @@ use crate::CARDINALS_TRIE;
 
 #[derive(Debug, Copy, Clone, PartialEq, Eq, Deserialize, Hash)]
 pub enum NodeType {
-    RootNode,      
-    MannerNode,
-    LaryngealNode,   
-    PlaceNode,      
-    LabialNode,      
-    CoronalNode,     
-    DorsalNode,      
-    PharyngealNode, 
+    Root,      
+    Manner,
+    Laryngeal,   
+    Place,      
+    Labial,      
+    Coronal,     
+    Dorsal,      
+    Pharyngeal, 
 }
 
 impl NodeType {
@@ -22,14 +22,14 @@ impl NodeType {
 impl Display for NodeType {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            NodeType::RootNode         => write!(f, "ROOT"),
-            NodeType::MannerNode       => write!(f, "MAN"),
-            NodeType::LaryngealNode    => write!(f, "LAR"),
-            NodeType::PlaceNode        => write!(f, "PLACE"),
-            NodeType::LabialNode       => write!(f, "LAB"),
-            NodeType::CoronalNode      => write!(f, "COR"),
-            NodeType::DorsalNode       => write!(f, "DOR"),
-            NodeType::PharyngealNode   => write!(f, "PHAR")
+            NodeType::Root         => write!(f, "ROOT"),
+            NodeType::Manner       => write!(f, "MAN"),
+            NodeType::Laryngeal    => write!(f, "LAR"),
+            NodeType::Place        => write!(f, "PLACE"),
+            NodeType::Labial       => write!(f, "LAB"),
+            NodeType::Coronal      => write!(f, "COR"),
+            NodeType::Dorsal       => write!(f, "DOR"),
+            NodeType::Pharyngeal   => write!(f, "PHAR")
         }
     }
 }
@@ -142,17 +142,17 @@ impl FType {
         use FType::*;
         match value {
             // ROOT node
-            00 => {debug_assert_eq!(value, Consonantal as usize); Consonantal},
-            01 => {debug_assert_eq!(value, Sonorant as usize); Sonorant},
-            02 => {debug_assert_eq!(value, Syllabic as usize); Syllabic},
+             0 => {debug_assert_eq!(value, Consonantal as usize); Consonantal},
+             1 => {debug_assert_eq!(value, Sonorant as usize); Sonorant},
+             2 => {debug_assert_eq!(value, Syllabic as usize); Syllabic},
             // MANNER node
-            03 => {debug_assert_eq!(value, Continuant as usize); Continuant},
-            04 => {debug_assert_eq!(value, Approximant as usize); Approximant},
-            05 => {debug_assert_eq!(value, Lateral as usize); Lateral},
-            06 => {debug_assert_eq!(value, Nasal as usize); Nasal},
-            07 => {debug_assert_eq!(value, DelayedRelease as usize); DelayedRelease},
-            08 => {debug_assert_eq!(value, Strident as usize); Strident},
-            09 => {debug_assert_eq!(value, Rhotic as usize); Rhotic},
+             3 => {debug_assert_eq!(value, Continuant as usize); Continuant},
+             4 => {debug_assert_eq!(value, Approximant as usize); Approximant},
+             5 => {debug_assert_eq!(value, Lateral as usize); Lateral},
+             6 => {debug_assert_eq!(value, Nasal as usize); Nasal},
+             7 => {debug_assert_eq!(value, DelayedRelease as usize); DelayedRelease},
+             8 => {debug_assert_eq!(value, Strident as usize); Strident},
+             9 => {debug_assert_eq!(value, Rhotic as usize); Rhotic},
             10 => {debug_assert_eq!(value, Click as usize); Click},
             // LAR node
             11 => {debug_assert_eq!(value, Voice as usize); Voice},
@@ -308,8 +308,8 @@ impl Display for Token {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
 
         let mut spaces = " ".to_string();
-        if self.position.end <= 9 {spaces = spaces + " "}
-        if self.position.start <= 9 {spaces = spaces + " "}
+        if self.position.end <= 9 {spaces += " "}
+        if self.position.start <= 9 {spaces += " "}
         match self.kind {
             TokenKind::Feature(x) => write!(f, "{}{}`{}{}`",  self.position, spaces, self.value, x),
             _ => write!(f, "{}{}{} `{}`",  self.position, spaces, self.kind, self.value)
@@ -448,13 +448,13 @@ impl Lexer {
         let tkn_kind = self.feature_match(buffer, start);
             
         match tkn_kind {
-            TokenKind::Feature(FeatType::Node(_)) => if mod_val == "+".to_string() || mod_val == "-".to_string() {
+            TokenKind::Feature(FeatType::Node(_)) => if mod_val == *"+" || mod_val == *"-" {
                 panic!("Nodes cannot be ±; they can only be used in Alpha Notation expressions.");
             }, 
             TokenKind::Feature(FeatType::Supr(SupraType::Length)) 
             | TokenKind::Feature(FeatType::Supr(SupraType::Stress)) 
             | TokenKind::Feature(FeatType::Supr(SupraType::Tone)) 
-            => if mod_val == "+".to_string() || mod_val == "-".to_string() {
+            => if mod_val == *"+" || mod_val == *"-" {
                 panic!("Tone, Length, and Stress cannot be ±; they can only be used with numeric values.");
             }
             _ => {}
@@ -554,12 +554,12 @@ impl Lexer {
 
         let mut  buffer = self.curr_char.to_string();
 
-        if CARDINALS_TRIE.contains_partial(&buffer.as_str()) {
+        if CARDINALS_TRIE.contains_partial(buffer.as_str()) {
             self.advance();
             loop {
                 //let tmp: String = buffer.clone() + self.curr_char.to_string().as_str();
                 let mut tmp = buffer.clone(); tmp.push(self.curr_char);
-                if CARDINALS_TRIE.contains_partial(&tmp.as_str()) {
+                if CARDINALS_TRIE.contains_partial(tmp.as_str()) {
                     buffer.push(self.curr_char);
                     self.advance();
                     continue;
@@ -568,7 +568,7 @@ impl Lexer {
                 return Some(Token::new(TokenKind::Cardinal, buffer, start, self.pos))
             }
         }
-        return None
+        None
     }
 
     fn get_string(&mut self) -> Option<Token> { 
@@ -605,9 +605,7 @@ impl Lexer {
         while self.curr_char.is_whitespace() { self.advance(); } 
 
         match self.get_numeric() {
-            Some(num) => {
-                return Some(Token::new(tkn_kind, num.value, start, self.pos))
-            },
+            Some(num) => Some(Token::new(tkn_kind, num.value, start, self.pos)),
             _ => panic!("This feature must be followed by a number (e.g. `len : 2`).")
         }
     }
@@ -633,56 +631,56 @@ impl Lexer {
         use SupraType::*;
         match buffer.to_lowercase().as_str() {
             // Root Node Features
-            "root"        | "rut"       | "rt"                  => return Feature(Node(RootNode)),
-            "consonantal" | "consonant" | "cons" | "cns"        => return Feature(Feat(Consonantal)),
-            "sonorant"    | "sonor"     | "son"  | "sn"         => return Feature(Feat(Sonorant)),
-            "syllabic"    | "syllab"    | "syll" | "sll"        => return Feature(Feat(Syllabic)),
+            "root"        | "rut"       | "rt"                  => Feature(Node(Root)),
+            "consonantal" | "consonant" | "cons" | "cns"        => Feature(Feat(Consonantal)),
+            "sonorant"    | "sonor"     | "son"  | "sn"         => Feature(Feat(Sonorant)),
+            "syllabic"    | "syllab"    | "syll" | "sll"        => Feature(Feat(Syllabic)),
             // Manner Node Features
-            "manner"         | "mann"   | "man"  | "mnr" | "mn" => return Feature(Node(NodeType::MannerNode)),
-            "continuant"     | "contin" | "cont" | "cnt"        => return Feature(Feat(Continuant)),
-            "approximant"    | "approx" | "appr" | "app"        => return Feature(Feat(Approximant)),
-            "lateral"        | "latrl"  | "ltrl" | "lat"        => return Feature(Feat(Lateral)),
-            "nasal"          | "nsl"    | "nas"                 => return Feature(Feat(Nasal)),
-            "delayedrelease" | "delrel" | "dlrl" | "dr"         => return Feature(Feat(DelayedRelease)),
-            "strident"       | "strid"  | "stri"                => return Feature(Feat(Strident)),
-            "rhotic"         | "rhot"   | "rho"  | "rh"         => return Feature(Feat(Rhotic)),
-            "click"          | "clck"   | "clk"                 => return Feature(Feat(Click)),
+            "manner"         | "mann"   | "man"  | "mnr" | "mn" => Feature(Node(NodeType::Manner)),
+            "continuant"     | "contin" | "cont" | "cnt"        => Feature(Feat(Continuant)),
+            "approximant"    | "approx" | "appr" | "app"        => Feature(Feat(Approximant)),
+            "lateral"        | "latrl"  | "ltrl" | "lat"        => Feature(Feat(Lateral)),
+            "nasal"          | "nsl"    | "nas"                 => Feature(Feat(Nasal)),
+            "delayedrelease" | "delrel" | "dlrl" | "dr"         => Feature(Feat(DelayedRelease)),
+            "strident"       | "strid"  | "stri"                => Feature(Feat(Strident)),
+            "rhotic"         | "rhot"   | "rho"  | "rh"         => Feature(Feat(Rhotic)),
+            "click"          | "clck"   | "clk"                 => Feature(Feat(Click)),
             // Laryngeal Node Features
-            "laryngeal"      | "laryng"     | "laryn"  | "lar"  => return Feature(Node(LaryngealNode)),
-            "voice"          | "voi"        | "vce"    | "vc"   => return Feature(Feat(Voice)),
-            "spreadglottis"  | "spreadglot" | "spread" | "sg"   => return Feature(Feat(SpreadGlottis)),
+            "laryngeal"      | "laryng"     | "laryn"  | "lar"  => Feature(Node(Laryngeal)),
+            "voice"          | "voi"        | "vce"    | "vc"   => Feature(Feat(Voice)),
+            "spreadglottis"  | "spreadglot" | "spread" | "sg"   => Feature(Feat(SpreadGlottis)),
             "constrictedglottis"            | "constricted" |
-            "constglot"      | "constr"     | "cg"              => return Feature(Feat(ConstrGlottis)),
+            "constglot"      | "constr"     | "cg"              => Feature(Feat(ConstrGlottis)),
             // Place Node Feature
-            "place"       | "plce"    | "plc"                   => return Feature(Node(PlaceNode)),
+            "place"       | "plce"    | "plc"                   => Feature(Node(Place)),
             // Labial Place Node Features
-            "labial"      | "lab"                               => return Feature(Node(LabialNode)),
+            "labial"      | "lab"                               => Feature(Node(Labial)),
             // todo: come up with a better name for this feature
-            "bilabial"    | "bilab"   | "blb"                   => return Feature(Feat(Bilabial)),
-            "round"       | "rnd"                               => return Feature(Feat(Round)),
+            "bilabial"    | "bilab"   | "blb"                   => Feature(Feat(Bilabial)),
+            "round"       | "rnd"                               => Feature(Feat(Round)),
             // Coronal Place Node Features
-            "coronal"     | "coron"   | "cor"                   => return Feature(Node(CoronalNode)),
-            "anterior"    | "anter"   | "ant"                   => return Feature(Feat(Anterior)),
-            "distributed" | "distrib" | "dist" | "dst"          => return Feature(Feat(Distributed)),
+            "coronal"     | "coron"   | "cor"                   => Feature(Node(Coronal)),
+            "anterior"    | "anter"   | "ant"                   => Feature(Feat(Anterior)),
+            "distributed" | "distrib" | "dist" | "dst"          => Feature(Feat(Distributed)),
             // Dorsal Place Node Features
-            "dorsal"  | "dors"  | "dor"                         => return Feature(Node(DorsalNode)),
-            "front"   | "frnt"  | "fnt"  | "fro" | "fr"         => return Feature(Feat(Front)),
-            "back"    | "bck"   | "bk"                          => return Feature(Feat(Back)),
-            "high"    | "hgh"   | "hi"                          => return Feature(Feat(High)),
-            "low"     | "lo"                                    => return Feature(Feat(Low)),
-            "tense"   | "tens"  | "tns"  | "ten"                => return Feature(Feat(Tense)),
-            "reduced" | "reduc" | "redu" | "red"                => return Feature(Feat(Reduced)),
+            "dorsal"  | "dors"  | "dor"                         => Feature(Node(Dorsal)),
+            "front"   | "frnt"  | "fnt"  | "fro" | "fr"         => Feature(Feat(Front)),
+            "back"    | "bck"   | "bk"                          => Feature(Feat(Back)),
+            "high"    | "hgh"   | "hi"                          => Feature(Feat(High)),
+            "low"     | "lo"                                    => Feature(Feat(Low)),
+            "tense"   | "tens"  | "tns"  | "ten"                => Feature(Feat(Tense)),
+            "reduced" | "reduc" | "redu" | "red"                => Feature(Feat(Reduced)),
             // Pharyngeal Place Node Features
             "pharyngeal" | "pharyng" | "pharyn"  |
-            "phar"       | "phr"                                => return Feature(Node(PharyngealNode)),
-            "advancedtongueroot"     | "atr"                    => return Feature(Feat(AdvancedTongueRoot)),
-            "retractedtongueroot"    | "rtr"                    => return Feature(Feat(RetractedTongueRoot)),
+            "phar"       | "phr"                                => Feature(Node(Pharyngeal)),
+            "advancedtongueroot"     | "atr"                    => Feature(Feat(AdvancedTongueRoot)),
+            "retractedtongueroot"    | "rtr"                    => Feature(Feat(RetractedTongueRoot)),
             // Suprasegmental Features
-            "long"     | "lng"                                  => return Feature(Supr(Long)),
-            "overlong" | "overlng" | "ovrlng" | "xlng"          => return Feature(Supr(Overlong)),
+            "long"     | "lng"                                  => Feature(Supr(Long)),
+            "overlong" | "overlng" | "ovrlng" | "xlng"          => Feature(Supr(Overlong)),
             "stress"   | "primarystress" | "primstress" |
-            "primstr"  | "prmstr"  | "str" | "prim"             => return Feature(Supr(PrimStress)),
-            "secondarystress"| "secstress" | "secstr" | "sec"   => return Feature(Supr(SecStress)),
+            "primstr"  | "prmstr"  | "str" | "prim"             => Feature(Supr(PrimStress)),
+            "secondarystress"| "secstress" | "secstr" | "sec"   => Feature(Supr(SecStress)),
         
             _ => panic!("Unknown feature at pos: {}", start)
         }
@@ -813,7 +811,7 @@ mod lexer_tests {
             Token::new(TokenKind::Comma,                               ",".to_owned(),  5,  6),
             Token::new(TokenKind::Feature(Feat(FType::SpreadGlottis)), "-".to_owned(),  7, 10),
             Token::new(TokenKind::Comma,                               ",".to_owned(), 10, 11),
-            Token::new(TokenKind::Feature(Node(NodeType::PlaceNode)),  "α".to_owned(), 12, 18),
+            Token::new(TokenKind::Feature(Node(NodeType::Place)),  "α".to_owned(), 12, 18),
             Token::new(TokenKind::RightSquare,                         "]".to_owned(), 18, 19),
             Token::new(TokenKind::Eol,                                  String::new(), 19, 20),
         ];
