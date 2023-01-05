@@ -3,7 +3,7 @@
         "name": "denti-alveolar",
         "diacrit": "\u032a",
         "prereqs": {
-            "CoronalNode" : true
+            "Coronal" : true
         },
         "payload": {
             "Anterior": true,
@@ -142,7 +142,7 @@
         "name": "retroflex",
         "diacrit": "\u02B5",
         "prereqs": {
-            "CoronalNode": true
+            "Coronal": true
         },
         "payload": {
              "Anterior": false,

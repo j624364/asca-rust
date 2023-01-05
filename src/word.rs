@@ -1,11 +1,10 @@
-use  core::panic;
 use   std::fmt;
 use serde::Deserialize;
 
 use crate :: {
-    lexer :: FType, 
+    lexer::{  FType, NodeType}, 
     error :: {WordSyntaxError, RuntimeError}, 
-    parser:: {Modifiers, SegMKind, BinMod}, 
+    parser:: {SegMKind, BinMod}, 
     CARDINALS_MAP, CARDINALS_TRIE, 
     CARDINALS_VEC, DIACRITS
 };
@@ -40,12 +39,27 @@ impl fmt::Display for Stress {
     }
 }
 
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct DiaMods {
+    pub nodes: [Option<SegMKind>; NodeType::Pharyngeal as usize + 1],
+    pub feats: [Option<SegMKind>; FType::RetractedTongueRoot as usize + 1],
+}
+
+impl DiaMods {
+    pub fn new() -> Self {
+        Self { 
+            nodes: [();NodeType::Pharyngeal as usize + 1].map(|_| None), 
+            feats: [();FType::RetractedTongueRoot as usize + 1].map(|_| None), 
+        }
+    }
+}
+
 #[derive(Debug, Clone)]
 pub struct Diacritic {
     pub name: String,
     pub diacrit: char,
-    pub prereqs: Modifiers,
-    pub payload: Modifiers,
+    pub prereqs: DiaMods,
+    pub payload: DiaMods,
 }
 
 pub enum NodeKind {
@@ -125,10 +139,10 @@ pub struct Segment {
 }
 
 impl Segment {
-    fn into_grapheme(&self) -> Result<&str, RuntimeError> {
-        fn match_from_modifiers(seg: &Segment, mods:&Modifiers) -> bool {
+    fn get_as_grapheme(&self) -> Result<String, RuntimeError> {
+        fn match_from_modifiers(seg: &Segment, mods:&DiaMods) -> bool {
 
-            // TODO: deal with mods.nodes and mods.suprs
+            // TODO: deal with mods.nodes
 
             for (i, md) in mods.feats.iter().enumerate() {
 
@@ -154,10 +168,18 @@ impl Segment {
         }
 
 
+        // test against all cardinals for a match
         for c_grapheme in CARDINALS_VEC.iter() {
             let x = CARDINALS_MAP.get(c_grapheme).unwrap();
-            if *x == *self { return Ok(c_grapheme) }
+            if *x == *self { return Ok(c_grapheme.to_string()) }
 
+        }
+
+        // if no match is found, 
+        // loop through again, but this time test cardinal + diacritics
+
+        for c_grapheme in CARDINALS_VEC.iter() {
+            let x = CARDINALS_MAP.get(c_grapheme).unwrap();
             let mut buffer = (c_grapheme, x);
 
             for d in DIACRITS.iter() {
@@ -165,15 +187,17 @@ impl Segment {
                     todo!("add diacritic to buffer")
                 }
 
-                if *buffer.1 == *self { return Ok(buffer.0) }
+                if *buffer.1 == *self { return Ok(buffer.0.to_string()) }
             }
-
+            
         }
+
+        
 
         Err(RuntimeError::UnknownSegment(*self))
     }
 
-    pub fn match_modifiers(&self, mods: &Modifiers) -> bool {
+    pub fn match_modifiers(&self, mods: &DiaMods) -> bool {
         todo!()
     }
 
@@ -313,8 +337,8 @@ pub struct Word {
 
 impl fmt::Display for Word {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        for seg in &self.segments {
-            writeln!(f, "{}", seg)?;
+        for (pos, seg) in self.segments.iter().enumerate() {
+            writeln!(f, "{} | {}", pos, seg)?;
         }
         writeln!(f)?;
         for syll in &self.syllables {
@@ -336,6 +360,53 @@ impl Word {
         w.setup(t)?;
 
         Ok(w)
+    }
+    // TODO: `render` probably isn't the right verb here
+    pub fn render_segments(&self) -> Result<String, RuntimeError> {
+
+        let mut buffer = String::new();
+        
+        for seg in self.segments.iter() {
+            buffer.push_str(seg.get_as_grapheme()?.as_str());
+        }
+
+        Ok(buffer)
+    }
+
+    // TODO: This works, but it's backwards
+    pub fn render(&self) -> Result<String, RuntimeError> {
+
+        let mut buffer = String::new();
+        
+        'outer: for (i, seg) in self.segments.iter().enumerate() {
+            
+            for (y, syll) in self.syllables.iter().enumerate() {
+
+                if i == syll.end + 1 {
+                    buffer.push_str(&syll.tone);
+                    continue;
+                }
+
+                if i == syll.start {
+                    match syll.stress {
+                        Stress::Primary => buffer.push('ˈ'), 
+                        Stress::Secondary => buffer.push('ˌ'),
+                        Stress::Unstressed =>  if y > 0 { buffer.push('.') },
+                    }
+                    break;
+                }
+
+                if i == self.segments.len()-1 && syll.end == i{
+                    buffer.push_str(&seg.get_as_grapheme()?);
+                    buffer.push_str(&syll.tone);
+                    break 'outer;
+                }
+            }
+
+            buffer.push_str(&seg.get_as_grapheme()?);
+        }
+
+        Ok(buffer)
     }
 
     pub fn get_segs_in_syll(&self, syll_index: usize) -> Vec<Segment> {
@@ -377,6 +448,7 @@ impl Word {
         let mut sy = Syllable::new();
 
         while i < txt.len() {
+
             if txt[i] == 'ˌ' || txt[i] == 'ˈ'  {
                 if !self.segments.is_empty() {
                     sy.end = self.segments.len()-1;
@@ -432,7 +504,7 @@ impl Word {
                 if self.segments.is_empty() {
                     return Err(WordSyntaxError::NoSegmentBeforeColon(i))
                 } 
-                self.segments.push(self.segments.last().unwrap().clone());
+                self.segments.push(*self.segments.last().unwrap());
                 i += 1;
                 continue;
             }
@@ -467,9 +539,13 @@ impl Word {
         if self.segments.is_empty() {
             return Err(WordSyntaxError::CouldNotParse);
         }
-
+        
         sy.end = self.segments.len()-1;
-        self.syllables.push(sy);
+
+        if sy.end >= sy.start {
+            self.syllables.push(sy);
+        }
+
 
         Ok(())
     }
@@ -538,6 +614,29 @@ mod word_tests {
         assert_eq!(w._format_text(".na.kiˈsa".to_owned()), vec!["na", "ki", "ˈsa"]);
         assert_eq!(w._format_text("na.kiˈsa.".to_owned()), vec!["na", "ki", "ˈsa"]);
         assert_eq!(w._format_text("na.kiˈsaˌ".to_owned()), vec!["na", "ki", "ˈsa"]);
+    }
+
+    #[test]
+    fn test_get_grapheme() {
+        let s = Word::new("n".to_owned()).unwrap().segments[0];
+
+        assert_eq!(s.get_as_grapheme().unwrap(), "n")
+        
+    }
+
+    #[test]
+    fn test_render_word() {
+        let w = Word::new("na.kiˈsa".to_owned()).unwrap();
+        assert_eq!(w.render().unwrap(), "na.kiˈsa");
+
+        let w = Word::new("ˌna.kiˈsa".to_owned()).unwrap();
+        assert_eq!(w.render().unwrap(), "ˌna.kiˈsa");
+
+        let w = Word::new("ˈna.kiˌsa".to_owned()).unwrap();
+        assert_eq!(w.render().unwrap(), "ˈna.kiˌsa");
+
+        let w = Word::new("ˈna.ki.sa123".to_owned()).unwrap();
+        assert_eq!(w.render().unwrap(), "ˈna.ki.sa123");
     }
 
     // #[test]

@@ -49,7 +49,9 @@ pub enum RuntimeError {
 pub enum RuleSyntaxError {
     OptMathError(Token, usize, usize),
     UnknownIPA(Token),
-    UnknownChar(Token),
+    UnknownGrouping(Token),
+    UnknownCharacter(char, usize, usize),
+    UnknownFeature(String, usize, usize, usize),
     UnknownVariable(Token),
     ExpectedEndL(Token),
     ExpectedArrow(Token),
@@ -76,7 +78,9 @@ impl fmt::Display for RuleSyntaxError {
         match self {
             Self::OptMathError(_, l, h)  => write!(f, "An Option's second argument '{}' must be greater than or equal to it's first argument '{}'", h, l),
             Self::UnknownIPA(token)           => write!(f, "Could not get value of IPA '{}'.", token.value),
-            Self::UnknownChar(token)          => write!(f, "No known primative '{}'. Known primatives are (C)onsonant, (O)bstruent, (S)onorant, (L)iquid, (N)asal, (G)lide, and (V)owel", token.value),
+            Self::UnknownGrouping(token)          => write!(f, "Unknown grouping '{}'. Known groupings are (C)onsonant, (O)bstruent, (S)onorant, (L)iquid, (N)asal, (G)lide, and (V)owel", token.value),
+            Self::UnknownFeature(feat, l, s, e)       => write!(f, "Unknown feature '{} at {}:{}-{}'.", feat, l, s, e),
+            Self::UnknownCharacter(c, l, pos)       => write!(f, "Unknown character {} at '{}:{}'.", c, l, pos),
             Self::UnknownVariable(token)      => write!(f, "Unknown variable '{}'", token.value),
             Self::ExpectedEndL(token)         => write!(f, "Expected end of line, received '{}'. Did you forget a '/' between the output and environment?", token.value),
             Self::ExpectedArrow(token)        => write!(f, "Expected '>', '->' or '=>', but received '{}'", token.value),

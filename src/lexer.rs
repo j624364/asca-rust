@@ -1,7 +1,7 @@
 use std  ::fmt::{self, Display};
 use serde::Deserialize;
 
-use crate::CARDINALS_TRIE;
+use crate::{CARDINALS_TRIE, error::RuleSyntaxError};
 
 #[derive(Debug, Copy, Clone, PartialEq, Eq, Deserialize, Hash)]
 pub enum NodeType {
@@ -175,7 +175,7 @@ impl FType {
             // PHAR subnode
             24 => {debug_assert_eq!(value, AdvancedTongueRoot as usize); AdvancedTongueRoot},
             25 => {debug_assert_eq!(value, RetractedTongueRoot as usize); RetractedTongueRoot},
-            _  => panic!("\nOut of Range Error converting `usize` to `FeatType`\nThis is a bug!\n")
+            _  => unreachable!("\nOut of Range Error converting `usize` to `FeatType`\nThis is a bug!\n")
         }
     }
 }
@@ -271,13 +271,14 @@ impl Display for TokenKind {
 
 #[derive(Debug, Copy, Clone, PartialEq, Eq)]
 pub struct Position {
+    pub line: usize,
     pub start: usize,
     pub end: usize,
 }
 
 impl Position {
-    pub fn new(start: usize, end: usize) -> Self {
-        Self { start, end }
+    pub fn new(line: usize, start: usize, end: usize) -> Self {
+        Self { line, start, end }
     }
 }
 
@@ -295,11 +296,11 @@ pub struct Token {
 }
 
 impl Token {
-    pub fn new(kind: TokenKind, value: String, start: usize, end: usize) -> Self {
+    pub fn new(kind: TokenKind, value: String, line: usize, start: usize, end: usize) -> Self {
         Self { 
             kind, 
             value, 
-            position: Position::new(start, end)
+            position: Position::new(line, start, end)
         }
     }
 }
@@ -319,6 +320,7 @@ impl Display for Token {
 
 pub struct Lexer {
     source: Vec<char>,
+    line: usize,
     pos: usize,
     curr_char: char,
     inside_square: bool
@@ -326,9 +328,10 @@ pub struct Lexer {
 
 impl Lexer {
 
-    pub fn new(input: String) -> Self {
+    pub fn new(input: &String, line: usize) -> Self {
         let mut s = Self { 
             source: input.chars().collect(), 
+            line,
             pos: 0,
             curr_char: '\0',
             inside_square: false,
@@ -382,7 +385,7 @@ impl Lexer {
         }
         self.advance();
 
-        Some(Token::new(tokenkind, value, start, self.pos))
+        Some(Token::new(tokenkind, value, self.line, start, self.pos))
 
     }
 
@@ -393,7 +396,7 @@ impl Lexer {
         let c = self.curr_char;
         self.advance();
         
-        Some(Token::new(TokenKind::Primative, c.to_string(), start, self.pos))
+        Some(Token::new(TokenKind::Primative, c.to_string(), self.line, start, self.pos))
     }
 
     fn get_numeric(&mut self) -> Option<Token> {
@@ -408,14 +411,14 @@ impl Lexer {
             self.advance();
         }
 
-        Some(Token::new(TokenKind::Number, buffer, start, self.pos))
+        Some(Token::new(TokenKind::Number, buffer, self.line, start, self.pos))
 
     }
 
-    fn get_feature(&mut self) -> Option<Token> {
+    fn get_feature(&mut self) -> Result<Option<Token>, RuleSyntaxError> {
         
         if self.curr_char != '+' && self.curr_char != '-' && !matches!(self.curr_char, 'α'..='ω') {
-            return None;
+            return Ok(None);
         }
         
         let start = self.pos;
@@ -445,22 +448,22 @@ impl Lexer {
 
         if buffer.len() <= 1 { panic!("Expected feature after {}, found \"{}\". Pos: {}", val, buffer, start); }
 
-        let tkn_kind = self.feature_match(buffer, start);
+        let tkn_kind = self.feature_match(buffer, start, self.pos)?;
             
         match tkn_kind {
-            TokenKind::Feature(FeatType::Node(_)) => if mod_val == *"+" || mod_val == *"-" {
+            TokenKind::Feature(FeatType::Node(_)) => if mod_val == "+" || mod_val == "-" {
                 panic!("Nodes cannot be ±; they can only be used in Alpha Notation expressions.");
             }, 
             TokenKind::Feature(FeatType::Supr(SupraType::Length)) 
             | TokenKind::Feature(FeatType::Supr(SupraType::Stress)) 
             | TokenKind::Feature(FeatType::Supr(SupraType::Tone)) 
-            => if mod_val == *"+" || mod_val == *"-" {
+            => if mod_val == "+" || mod_val == "-" {
                 panic!("Tone, Length, and Stress cannot be ±; they can only be used with numeric values.");
             }
             _ => {}
         }
 
-        Some(Token::new(tkn_kind, mod_val, start, self.pos))
+        Ok(Some(Token::new(tkn_kind, mod_val, self.line, start, self.pos)))
     }
 
     fn get_special_char(&mut self) -> Option<Token> {
@@ -515,7 +518,7 @@ impl Lexer {
         }
         self.advance();
 
-        Some(Token::new(tokenkind, value, start, self.pos))
+        Some(Token::new(tokenkind, value, self.line, start, self.pos))
     }
 
     // fn get_ipa_old(&mut self) -> Option<Token> {
@@ -565,7 +568,7 @@ impl Lexer {
                     continue;
                 }
 
-                return Some(Token::new(TokenKind::Cardinal, buffer, start, self.pos))
+                return Some(Token::new(TokenKind::Cardinal, buffer, self.line, start, self.pos))
             }
         }
         None
@@ -605,7 +608,7 @@ impl Lexer {
         while self.curr_char.is_whitespace() { self.advance(); } 
 
         match self.get_numeric() {
-            Some(num) => Some(Token::new(tkn_kind, num.value, start, self.pos)),
+            Some(num) => Some(Token::new(tkn_kind, num.value, self.line, start, self.pos)),
             _ => panic!("This feature must be followed by a number (e.g. `len : 2`).")
         }
     }
@@ -622,7 +625,7 @@ impl Lexer {
         }
     }
 
-    fn feature_match(&mut self, buffer: String, start: usize) -> TokenKind {
+    fn feature_match(&mut self, buffer: String, start: usize, end: usize) -> Result<TokenKind, RuleSyntaxError> {
         // apologies for the mess! this may need to be `un-hardcoded` at some stage
         use TokenKind::*;
         use FeatType::*;
@@ -631,83 +634,82 @@ impl Lexer {
         use SupraType::*;
         match buffer.to_lowercase().as_str() {
             // Root Node Features
-            "root"        | "rut"       | "rt"                  => Feature(Node(Root)),
-            "consonantal" | "consonant" | "cons" | "cns"        => Feature(Feat(Consonantal)),
-            "sonorant"    | "sonor"     | "son"  | "sn"         => Feature(Feat(Sonorant)),
-            "syllabic"    | "syllab"    | "syll" | "sll"        => Feature(Feat(Syllabic)),
+            "root"        | "rut"       | "rt"                  => Ok(Feature(Node(Root))),
+            "consonantal" | "consonant" | "cons" | "cns"        => Ok(Feature(Feat(Consonantal))),
+            "sonorant"    | "sonor"     | "son"  | "sn"         => Ok(Feature(Feat(Sonorant))),
+            "syllabic"    | "syllab"    | "syll" | "sll"        => Ok(Feature(Feat(Syllabic))),
             // Manner Node Features
-            "manner"         | "mann"   | "man"  | "mnr" | "mn" => Feature(Node(NodeType::Manner)),
-            "continuant"     | "contin" | "cont" | "cnt"        => Feature(Feat(Continuant)),
-            "approximant"    | "approx" | "appr" | "app"        => Feature(Feat(Approximant)),
-            "lateral"        | "latrl"  | "ltrl" | "lat"        => Feature(Feat(Lateral)),
-            "nasal"          | "nsl"    | "nas"                 => Feature(Feat(Nasal)),
-            "delayedrelease" | "delrel" | "dlrl" | "dr"         => Feature(Feat(DelayedRelease)),
-            "strident"       | "strid"  | "stri"                => Feature(Feat(Strident)),
-            "rhotic"         | "rhot"   | "rho"  | "rh"         => Feature(Feat(Rhotic)),
-            "click"          | "clck"   | "clk"                 => Feature(Feat(Click)),
+            "manner"         | "mann"   | "man"  | "mnr" | "mn" => Ok(Feature(Node(Manner))),
+            "continuant"     | "contin" | "cont" | "cnt"        => Ok(Feature(Feat(Continuant))),
+            "approximant"    | "approx" | "appr" | "app"        => Ok(Feature(Feat(Approximant))),
+            "lateral"        | "latrl"  | "ltrl" | "lat"        => Ok(Feature(Feat(Lateral))),
+            "nasal"          | "nsl"    | "nas"                 => Ok(Feature(Feat(Nasal))),
+            "delayedrelease" | "delrel" | "dlrl" | "dr"         => Ok(Feature(Feat(DelayedRelease))),
+            "strident"       | "strid"  | "stri"                => Ok(Feature(Feat(Strident))),
+            "rhotic"         | "rhot"   | "rho"  | "rh"         => Ok(Feature(Feat(Rhotic))),
+            "click"          | "clck"   | "clk"                 => Ok(Feature(Feat(Click))),
             // Laryngeal Node Features
-            "laryngeal"      | "laryng"     | "laryn"  | "lar"  => Feature(Node(Laryngeal)),
-            "voice"          | "voi"        | "vce"    | "vc"   => Feature(Feat(Voice)),
-            "spreadglottis"  | "spreadglot" | "spread" | "sg"   => Feature(Feat(SpreadGlottis)),
+            "laryngeal"      | "laryng"     | "laryn"  | "lar"  => Ok(Feature(Node(Laryngeal))),
+            "voice"          | "voi"        | "vce"    | "vc"   => Ok(Feature(Feat(Voice))),
+            "spreadglottis"  | "spreadglot" | "spread" | "sg"   => Ok(Feature(Feat(SpreadGlottis))),
             "constrictedglottis"            | "constricted" |
-            "constglot"      | "constr"     | "cg"              => Feature(Feat(ConstrGlottis)),
+            "constglot"      | "constr"     | "cg"              => Ok(Feature(Feat(ConstrGlottis))),
             // Place Node Feature
-            "place"       | "plce"    | "plc"                   => Feature(Node(Place)),
+            "place"       | "plce"    | "plc"                   => Ok(Feature(Node(Place))),
             // Labial Place Node Features
-            "labial"      | "lab"                               => Feature(Node(Labial)),
-            // todo: come up with a better name for this feature
-            "bilabial"    | "bilab"   | "blb"                   => Feature(Feat(Bilabial)),
-            "round"       | "rnd"                               => Feature(Feat(Round)),
+            "labial"      | "lbl"     | "lab"                   => Ok(Feature(Node(Labial))),
+            // TODO: come up with a better name for this feature
+            "bilabial"    | "bilab"   | "blb"                   => Ok(Feature(Feat(Bilabial))),
+            "round"       | "rnd"                               => Ok(Feature(Feat(Round))),
             // Coronal Place Node Features
-            "coronal"     | "coron"   | "cor"                   => Feature(Node(Coronal)),
-            "anterior"    | "anter"   | "ant"                   => Feature(Feat(Anterior)),
-            "distributed" | "distrib" | "dist" | "dst"          => Feature(Feat(Distributed)),
+            "coronal"     | "coron"   | "cor"                   => Ok(Feature(Node(Coronal))),
+            "anterior"    | "anter"   | "ant"                   => Ok(Feature(Feat(Anterior))),
+            "distributed" | "distrib" | "dist" | "dst"          => Ok(Feature(Feat(Distributed))),
             // Dorsal Place Node Features
-            "dorsal"  | "dors"  | "dor"                         => Feature(Node(Dorsal)),
-            "front"   | "frnt"  | "fnt"  | "fro" | "fr"         => Feature(Feat(Front)),
-            "back"    | "bck"   | "bk"                          => Feature(Feat(Back)),
-            "high"    | "hgh"   | "hi"                          => Feature(Feat(High)),
-            "low"     | "lo"                                    => Feature(Feat(Low)),
-            "tense"   | "tens"  | "tns"  | "ten"                => Feature(Feat(Tense)),
-            "reduced" | "reduc" | "redu" | "red"                => Feature(Feat(Reduced)),
+            "dorsal"  | "dors"  | "dor"                         => Ok(Feature(Node(Dorsal))),
+            "front"   | "frnt"  | "fnt"  | "fro" | "fr"         => Ok(Feature(Feat(Front))),
+            "back"    | "bck"   | "bk"                          => Ok(Feature(Feat(Back))),
+            "high"    | "hgh"   | "hi"                          => Ok(Feature(Feat(High))),
+            "low"     | "lo"                                    => Ok(Feature(Feat(Low))),
+            "tense"   | "tens"  | "tns"  | "ten"                => Ok(Feature(Feat(Tense))),
+            "reduced" | "reduc" | "redu" | "red"                => Ok(Feature(Feat(Reduced))),
             // Pharyngeal Place Node Features
             "pharyngeal" | "pharyng" | "pharyn"  |
-            "phar"       | "phr"                                => Feature(Node(Pharyngeal)),
-            "advancedtongueroot"     | "atr"                    => Feature(Feat(AdvancedTongueRoot)),
-            "retractedtongueroot"    | "rtr"                    => Feature(Feat(RetractedTongueRoot)),
+            "phar"       | "phr"                                => Ok(Feature(Node(Pharyngeal))),
+            "advancedtongueroot"     | "atr"                    => Ok(Feature(Feat(AdvancedTongueRoot))),
+            "retractedtongueroot"    | "rtr"                    => Ok(Feature(Feat(RetractedTongueRoot))),
             // Suprasegmental Features
-            "long"     | "lng"                                  => Feature(Supr(Long)),
-            "overlong" | "overlng" | "ovrlng" | "xlng"          => Feature(Supr(Overlong)),
+            "long"     | "lng"                                  => Ok(Feature(Supr(Long))),
+            "overlong" | "overlng" | "ovrlng" | "xlng"          => Ok(Feature(Supr(Overlong))),
             "stress"   | "primarystress" | "primstress" |
-            "primstr"  | "prmstr"  | "str" | "prim"             => Feature(Supr(PrimStress)),
-            "secondarystress"| "secstress" | "secstr" | "sec"   => Feature(Supr(SecStress)),
-        
-            _ => panic!("Unknown feature at pos: {}", start)
+            "primstr"  | "prmstr"  | "str" | "prim"             => Ok(Feature(Supr(PrimStress))),
+            "secondarystress"| "secstress" | "secstr" | "sec"   => Ok(Feature(Supr(SecStress))),
+            
+            _ => Err(RuleSyntaxError::UnknownFeature(buffer, self.line, start, end))
         }
     }
 
-    pub fn get_next_token(&mut self) -> Token{
+    pub fn get_next_token(&mut self) -> Result<Token, RuleSyntaxError>{
         
         while self.curr_char.is_whitespace() { self.advance(); }
         
-        if !self.has_more_chars() { return Token::new(TokenKind::Eol, String::new(), self.pos, self.pos+1) }
+        if !self.has_more_chars() { return Ok(Token::new(TokenKind::Eol, String::new(), self.line, self.pos, self.pos+1)) }
 
-        if let Some(bkt_token) = self.get_bracket()      { return bkt_token }
-        if let Some(pmt_token) = self.get_primative()    { return pmt_token }
-        if let Some(num_token) = self.get_numeric()      { return num_token }
-        if let Some(ftr_token) = self.get_feature()      { return ftr_token }
-        if let Some(spc_token) = self.get_special_char() { return spc_token }
-        if let Some(ipa_token) = self.get_ipa()          { return ipa_token }
-        if let Some(str_token) = self.get_string()       { return str_token } 
+        if let Some(bkt_token) = self.get_bracket()      { return Ok(bkt_token) }
+        if let Some(pmt_token) = self.get_primative()    { return Ok(pmt_token) }
+        if let Some(num_token) = self.get_numeric()      { return Ok(num_token) }
+        if let Some(ftr_token) = self.get_feature()?     { return Ok(ftr_token) }
+        if let Some(spc_token) = self.get_special_char() { return Ok(spc_token) }
+        if let Some(ipa_token) = self.get_ipa()          { return Ok(ipa_token) }
+        if let Some(str_token) = self.get_string()       { return Ok(str_token) } 
         
-        panic!("Unknown character at character {}", self.pos)
-        // todo: return error
+        Err(RuleSyntaxError::UnknownCharacter(self.curr_char, self.line, self.pos))
     }
 
-    pub fn get_all_tokens(&mut self) -> Vec<Token> {
+    pub fn get_all_tokens(&mut self) -> Result<Vec<Token>, RuleSyntaxError> {
         let mut token_list: Vec<Token> =  Vec::new();
         loop {
-            let next_token = self.get_next_token();
+            let next_token = self.get_next_token()?;
             match next_token.kind {
                 TokenKind::Eol => {
                     token_list.push(next_token);
@@ -716,7 +718,7 @@ impl Lexer {
                 _ => {token_list.push(next_token);}
             }
         }
-        token_list
+        Ok(token_list)
     }
 }
 
@@ -731,7 +733,7 @@ mod lexer_tests {
         let test_input= String::from("%");
         let expected_result = TokenKind::Syllable;
 
-        let result = Lexer::new(test_input.clone()).get_next_token();
+        let result = Lexer::new(&test_input, 0).get_next_token().unwrap();
 
         assert_eq!(result.kind, expected_result);
         assert_eq!(result.value, test_input);
@@ -742,14 +744,14 @@ mod lexer_tests {
         
         let test_input= String::from("t͡ɕ b͡β b a");
         let expected_result = vec![
-            Token::new(TokenKind::Cardinal, "t͡ɕ".to_owned(),  0,  3),
-            Token::new(TokenKind::Cardinal, "b͡β".to_owned(),  4,  7),
-            Token::new(TokenKind::Cardinal,  "b".to_owned(),  8,  9),
-            Token::new(TokenKind::Cardinal,  "a".to_owned(), 10, 11),
-            Token::new(TokenKind::Eol,        String::new(), 11, 12),
+            Token::new(TokenKind::Cardinal, "t͡ɕ".to_owned(), 0,  0,  3),
+            Token::new(TokenKind::Cardinal, "b͡β".to_owned(), 0,  4,  7),
+            Token::new(TokenKind::Cardinal,  "b".to_owned(), 0,  8,  9),
+            Token::new(TokenKind::Cardinal,  "a".to_owned(), 0, 10, 11),
+            Token::new(TokenKind::Eol,        String::new(), 0, 11, 12),
         ];
 
-        let result = Lexer::new(test_input.clone()).get_all_tokens();        
+        let result = Lexer::new(&test_input, 0).get_all_tokens().unwrap();        
 
         assert_eq!(result.len(), expected_result.len());
 
@@ -763,14 +765,14 @@ mod lexer_tests {
         
         let test_input= String::from("t͡ɕb͡βba");
         let expected_result = vec![
-            Token::new(TokenKind::Cardinal, "t͡ɕ".to_owned(), 0, 3),
-            Token::new(TokenKind::Cardinal, "b͡β".to_owned(), 3, 6),
-            Token::new(TokenKind::Cardinal,  "b".to_owned(), 6, 7),
-            Token::new(TokenKind::Cardinal,  "a".to_owned(), 7, 8),
-            Token::new(TokenKind::Eol,        String::new(), 8, 9),
+            Token::new(TokenKind::Cardinal, "t͡ɕ".to_owned(), 0, 0, 3),
+            Token::new(TokenKind::Cardinal, "b͡β".to_owned(), 0, 3, 6),
+            Token::new(TokenKind::Cardinal,  "b".to_owned(), 0, 6, 7),
+            Token::new(TokenKind::Cardinal,  "a".to_owned(), 0, 7, 8),
+            Token::new(TokenKind::Eol,        String::new(), 0, 8, 9),
         ];
 
-        let result = Lexer::new(test_input.clone()).get_all_tokens();  
+        let result = Lexer::new(&test_input, 0).get_all_tokens().unwrap();  
 
         assert_eq!(result.len(), expected_result.len());
 
@@ -784,15 +786,15 @@ mod lexer_tests {
         
         let test_input= String::from("t͡ɕ...b͡β > &");
         let expected_result = vec![
-            Token::new(TokenKind::Cardinal,   "t͡ɕ".to_owned(),  0,  3),
-            Token::new(TokenKind::Ellipsis,  "...".to_owned(),  3,  6),
-            Token::new(TokenKind::Cardinal,   "b͡β".to_owned(),  6,  9),
-            Token::new(TokenKind::GreaterThan, ">".to_owned(), 10, 11),
-            Token::new(TokenKind::Ampersand,   "&".to_owned(), 12, 13),
-            Token::new(TokenKind::Eol,          String::new(), 13, 14),
+            Token::new(TokenKind::Cardinal,   "t͡ɕ".to_owned(), 0,  0,  3),
+            Token::new(TokenKind::Ellipsis,  "...".to_owned(), 0,  3,  6),
+            Token::new(TokenKind::Cardinal,   "b͡β".to_owned(), 0,  6,  9),
+            Token::new(TokenKind::GreaterThan, ">".to_owned(), 0, 10, 11),
+            Token::new(TokenKind::Ampersand,   "&".to_owned(), 0, 12, 13),
+            Token::new(TokenKind::Eol,          String::new(), 0, 13, 14),
         ];
 
-        let result = Lexer::new(test_input.clone()).get_all_tokens();        
+        let result = Lexer::new(&test_input, 0).get_all_tokens().unwrap();        
 
         assert_eq!(result.len(), expected_result.len());
 
@@ -806,17 +808,17 @@ mod lexer_tests {
         use FeatType::*;
         let test_input= String::from("[+voi, -sg, αPLACE]");
         let expected_result = vec![
-            Token::new(TokenKind::LeftSquare,                          "[".to_owned(),  0,  1),
-            Token::new(TokenKind::Feature(Feat(FType::Voice)),         "+".to_owned(),  1,  5),
-            Token::new(TokenKind::Comma,                               ",".to_owned(),  5,  6),
-            Token::new(TokenKind::Feature(Feat(FType::SpreadGlottis)), "-".to_owned(),  7, 10),
-            Token::new(TokenKind::Comma,                               ",".to_owned(), 10, 11),
-            Token::new(TokenKind::Feature(Node(NodeType::Place)),  "α".to_owned(), 12, 18),
-            Token::new(TokenKind::RightSquare,                         "]".to_owned(), 18, 19),
-            Token::new(TokenKind::Eol,                                  String::new(), 19, 20),
+            Token::new(TokenKind::LeftSquare,                          "[".to_owned(), 0,  0,  1),
+            Token::new(TokenKind::Feature(Feat(FType::Voice)),         "+".to_owned(), 0,  1,  5),
+            Token::new(TokenKind::Comma,                               ",".to_owned(), 0,  5,  6),
+            Token::new(TokenKind::Feature(Feat(FType::SpreadGlottis)), "-".to_owned(), 0,  7, 10),
+            Token::new(TokenKind::Comma,                               ",".to_owned(), 0, 10, 11),
+            Token::new(TokenKind::Feature(Node(NodeType::Place)),      "α".to_owned(), 0, 12, 18),
+            Token::new(TokenKind::RightSquare,                         "]".to_owned(), 0, 18, 19),
+            Token::new(TokenKind::Eol,                                  String::new(), 0, 19, 20),
         ];
 
-        let result = Lexer::new(test_input.clone()).get_all_tokens();        
+        let result = Lexer::new(&test_input, 0).get_all_tokens().unwrap();        
 
         assert_eq!(result.len(), expected_result.len());
 
@@ -831,22 +833,22 @@ mod lexer_tests {
         
         let test_input= String::from("C=1 V=2 > 2 1 / _C");
         let expected_result = vec![
-            Token::new(TokenKind::Primative,   "C".to_owned(),  0,  1),
-            Token::new(TokenKind::Equals,      "=".to_owned(),  1,  2),
-            Token::new(TokenKind::Number,      "1".to_owned(),  2,  3),
-            Token::new(TokenKind::Primative,   "V".to_owned(),  4,  5),
-            Token::new(TokenKind::Equals,      "=".to_owned(),  5,  6),
-            Token::new(TokenKind::Number,      "2".to_owned(),  6,  7),
-            Token::new(TokenKind::GreaterThan, ">".to_owned(),  8,  9),
-            Token::new(TokenKind::Number,      "2".to_owned(), 10, 11),
-            Token::new(TokenKind::Number,      "1".to_owned(), 12, 13),
-            Token::new(TokenKind::Slash,       "/".to_owned(), 14, 15),
-            Token::new(TokenKind::Underline,   "_".to_owned(), 16, 17),
-            Token::new(TokenKind::Primative,   "C".to_owned(), 17, 18),
-            Token::new(TokenKind::Eol,          String::new(), 18, 19),
+            Token::new(TokenKind::Primative,   "C".to_owned(), 0,  0,  1),
+            Token::new(TokenKind::Equals,      "=".to_owned(), 0,  1,  2),
+            Token::new(TokenKind::Number,      "1".to_owned(), 0,  2,  3),
+            Token::new(TokenKind::Primative,   "V".to_owned(), 0,  4,  5),
+            Token::new(TokenKind::Equals,      "=".to_owned(), 0,  5,  6),
+            Token::new(TokenKind::Number,      "2".to_owned(), 0,  6,  7),
+            Token::new(TokenKind::GreaterThan, ">".to_owned(), 0,  8,  9),
+            Token::new(TokenKind::Number,      "2".to_owned(), 0, 10, 11),
+            Token::new(TokenKind::Number,      "1".to_owned(), 0, 12, 13),
+            Token::new(TokenKind::Slash,       "/".to_owned(), 0, 14, 15),
+            Token::new(TokenKind::Underline,   "_".to_owned(), 0, 16, 17),
+            Token::new(TokenKind::Primative,   "C".to_owned(), 0, 17, 18),
+            Token::new(TokenKind::Eol,          String::new(), 0, 18, 19),
         ];
 
-        let result = Lexer::new(test_input.clone()).get_all_tokens();        
+        let result = Lexer::new(&test_input, 0).get_all_tokens().unwrap();        
 
         assert_eq!(result.len(), expected_result.len());
 

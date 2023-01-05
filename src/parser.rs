@@ -200,17 +200,19 @@ impl fmt::Display for Item {
 
 pub struct Parser {
     token_list: Vec<Token>,
+    line: usize,
     pos: usize,
     curr_tkn: Token,
     var_map: HashMap<usize,Item>
 }
 
 impl Parser {
-    pub fn new(lst: Vec<Token>) -> Self {
+    pub fn new(lst: Vec<Token>, line: usize) -> Self {
         let mut s = Self { 
             token_list: lst, 
+            line,
             pos: 0, 
-            curr_tkn: Token { kind: TokenKind::Eol, value: "eol".to_string(), position: Position { start: 0, end: 1 } },
+            curr_tkn: Token { kind: TokenKind::Eol, value: "eol".to_string(), position: Position { line, start: 0, end: 1 } },
             var_map: HashMap::new(), 
         };
         s.curr_tkn = s.token_list[s.pos].clone();
@@ -224,7 +226,7 @@ impl Parser {
         self.curr_tkn = if self.has_more_tokens() {
             self.token_list[self.pos].clone()
         } else {
-            Token { kind: TokenKind::Eol, value: "eol".to_string(), position: Position { start: self.pos, end: self.pos+1 } }
+            Token { kind: TokenKind::Eol, value: "eol".to_string(), position: Position { line: self.line, start: self.pos, end: self.pos+1 } }
         }
     }
 
@@ -310,7 +312,7 @@ impl Parser {
 
         let end = self.token_list[self.pos-1].position.end;
 
-        Ok(Item::new(ParseKind::Environment(before, after), Position { start, end }))
+        Ok(Item::new(ParseKind::Environment(before, after), Position { line: self.line, start, end }))
     }
 
     fn get_spec_env(&mut self) -> Result<Option<Items>, RuleSyntaxError> {
@@ -341,8 +343,8 @@ impl Parser {
         let end = self.token_list[self.pos-1].position.end;
 
         let v = vec![
-            Item::new(ParseKind::Environment(x.clone(), Vec::new()), Position { start, end }),
-            Item::new(ParseKind::Environment(Vec::new(), x), Position { start, end })
+            Item::new(ParseKind::Environment(x.clone(), Vec::new()), Position { line: self.line, start, end }),
+            Item::new(ParseKind::Environment(Vec::new(), x), Position { line: self.line, start, end })
         ];
 
         Ok(Some(v))
@@ -422,7 +424,7 @@ impl Parser {
             chr.suprs[i] = p.clone()
         }
         
-        Item::new(ParseKind::Matrix(chr), Position { start: character.position.start, end: parameters.position.end })
+        Item::new(ParseKind::Matrix(chr), Position { line: self.line, start: character.position.start, end: parameters.position.end })
     }
 
     fn ipa_to_vals(&self, ipa: Token) -> Result<Segment, RuleSyntaxError> {
@@ -459,7 +461,7 @@ impl Parser {
             "N" => vec![CONS_P, SONR_P, SYLL_M, APPR_M], // +cons, +son, -syll, -appr // Nasal
             "G" => vec![CONS_M, SONR_P, SYLL_M],         // -cons, +son, -syll        // Glide
             "V" => vec![CONS_M, SONR_P, SYLL_P],         // -cons, +son, +syll        // Vowel
-            _ => return Err(RuleSyntaxError::UnknownChar(chr)),
+            _ => return Err(RuleSyntaxError::UnknownGrouping(chr)),
         };
 
         let mut args = Modifiers::new(); 
@@ -470,7 +472,7 @@ impl Parser {
         }
 
 
-        Ok(Item::new(ParseKind::Matrix(args), Position { start: chr.position.start, end: chr.position.end }))
+        Ok(Item::new(ParseKind::Matrix(args), Position { line: self.line, start: chr.position.start, end: chr.position.end }))
     }
 
     fn is_feature(&self) -> bool{ matches!(self.curr_tkn.kind, TokenKind::Feature(_)) }
@@ -587,7 +589,7 @@ impl Parser {
         let args = self.get_matrix_args(false)?;
         let end = self.token_list[self.pos-1].position.end;
         
-        Ok(Item::new(ParseKind::Matrix(args), Position { start, end }))
+        Ok(Item::new(ParseKind::Matrix(args), Position { line: self.line, start, end }))
     }
 
     fn get_char(&mut self) -> Result<Item, RuleSyntaxError> {
@@ -643,7 +645,7 @@ impl Parser {
 
         let joined = self.join_ipa_with_params(ipa, params.clone())?;
 
-        Ok(Item::new(joined, Position {start: pos.start, end: params.position.end}))
+        Ok(Item::new(joined, Position { line: self.line, start: pos.start, end: params.position.end }))
     }
     
     fn get_segment(&mut self) -> Result<Option<Item>, RuleSyntaxError> {
@@ -776,7 +778,7 @@ impl Parser {
 
         if self.expect(TokenKind::RightBracket) {
             let end = self.token_list[self.pos-1].position.end;
-            return Ok(Some(Item::new(ParseKind::Optional(segs, 0, 1), Position { start, end })))
+            return Ok(Some(Item::new(ParseKind::Optional(segs, 0, 1), Position { line: self.line, start, end })))
         }
 
         if !self.expect(TokenKind::Comma) {
@@ -789,7 +791,7 @@ impl Parser {
 
         if self.expect(TokenKind::RightBracket) {
             let end = self.token_list[self.pos-1].position.end;
-            return Ok(Some(Item::new(ParseKind::Optional(segs, 0, lo_bound), Position { start, end })))
+            return Ok(Some(Item::new(ParseKind::Optional(segs, 0, lo_bound), Position { line: self.line, start, end })))
         }
 
         if !self.expect(TokenKind::Colon) {
@@ -805,7 +807,7 @@ impl Parser {
 
         if self.expect(TokenKind::RightBracket) {
             let end = self.token_list[self.pos-1].position.end;
-            return Ok(Some(Item::new(ParseKind::Optional(segs, lo_bound, hi_bound), Position { start, end })))
+            return Ok(Some(Item::new(ParseKind::Optional(segs, lo_bound, hi_bound), Position { line: self.line, start, end })))
         }
 
         Err(RuleSyntaxError::ExpectedRightBracket(self.curr_tkn.clone()))
@@ -841,7 +843,7 @@ impl Parser {
             return Err(RuleSyntaxError::ExpectedSegment(self.curr_tkn.clone()))
         }
         let end = self.token_list[self.pos-1].position.end;
-        Ok(Some(Item::new(ParseKind::Set(segs.clone()), Position { start, end })))
+        Ok(Some(Item::new(ParseKind::Set(segs.clone()), Position { line: self.line, start, end })))
 
     }
 
@@ -855,7 +857,7 @@ impl Parser {
 
         if !self.expect(TokenKind::Colon) {
             let end = self.curr_tkn.position.start - 1;
-            return Ok(Some(Item::new(ParseKind::Syllable(None, None), Position { start, end })))
+            return Ok(Some(Item::new(ParseKind::Syllable(None, None), Position { line: self.line, start, end })))
         }
 
         if !self.expect(TokenKind::LeftSquare) {
@@ -866,7 +868,7 @@ impl Parser {
 
         let end = self.token_list[self.pos-1].position.end;
         
-        Ok(Some(Item::new(ParseKind::Syllable( m.suprs[SupraType::Stress as usize - 4].clone(),  m.suprs[SupraType::Tone as usize - 4].clone()), Position { start, end })))
+        Ok(Some(Item::new(ParseKind::Syllable( m.suprs[SupraType::Stress as usize - 4].clone(),  m.suprs[SupraType::Tone as usize - 4].clone()), Position { line: self.line, start, end })))
     }
 
     fn get_term(&mut self) -> Result<Option<Item>, RuleSyntaxError> {
@@ -1113,13 +1115,13 @@ mod parser_tests {
 
     fn setup(test_str: &str) -> Vec<Token> {
 
-        Lexer::new(String::from(test_str)).get_all_tokens()
+        Lexer::new(&String::from(test_str),0).get_all_tokens().unwrap()
 
     }
 
     #[test]
     fn test_multi_rule() {
-        let maybe_result = Parser:: new(setup("%:[+stress], % > [-stress], [+stress] / _ , #_")).parse();
+        let maybe_result = Parser:: new(setup("%:[+stress], % > [-stress], [+stress] / _ , #_"),0).parse();
 
         assert!(maybe_result.is_ok());
 
@@ -1134,8 +1136,8 @@ mod parser_tests {
 
 
         let exp_input = vec![ 
-            Item::new(ParseKind::Syllable(Some(SuprMKind::Number("1".to_owned())), None), Position { start: 0, end: 11 }),
-            Item::new(ParseKind::Syllable(None, None), Position { start: 13, end: 14 }),
+            Item::new(ParseKind::Syllable(Some(SuprMKind::Number("1".to_owned())), None), Position { line: 0, start: 0, end: 11 }),
+            Item::new(ParseKind::Syllable(None, None), Position { line: 0, start: 13, end: 14 }),
         ];
 
         let mut x = Modifiers::new();
@@ -1143,13 +1145,13 @@ mod parser_tests {
         x.suprs[SupraType::Stress as usize - 4] = Some(SuprMKind::Number("0".to_owned()));
         y.suprs[SupraType::Stress as usize - 4] = Some(SuprMKind::Number("1".to_owned()));
         let exp_output = vec![
-            Item::new(ParseKind::Matrix(x), Position { start: 17, end: 26 }),
-            Item::new(ParseKind::Matrix(y), Position { start: 28, end: 37 }),
+            Item::new(ParseKind::Matrix(x), Position { line: 0, start: 17, end: 26 }),
+            Item::new(ParseKind::Matrix(y), Position { line: 0, start: 28, end: 37 }),
             ];
             
         let exp_context: Items = vec![
-            Item::new(ParseKind::Environment(vec![], vec![]), Position { start: 40, end: 41 }),
-            Item::new(ParseKind::Environment(vec![Item::new(ParseKind::WordBound, Position { start: 44, end: 45 })], vec![]), Position { start: 44, end: 46 }),
+            Item::new(ParseKind::Environment(vec![], vec![]), Position { line: 0, start: 40, end: 41 }),
+            Item::new(ParseKind::Environment(vec![Item::new(ParseKind::WordBound, Position { line: 0, start: 44, end: 45 })], vec![]), Position { line: 0, start: 44, end: 46 }),
         ];
 
         assert_eq!(result.input[0][0], exp_input[0], "1");
@@ -1164,7 +1166,7 @@ mod parser_tests {
 
     #[test]
     fn test_metathesis() {
-        let maybe_result = Parser:: new(setup("t͡ɕ...b͡β > &")).parse();
+        let maybe_result = Parser:: new(setup("t͡ɕ...b͡β > &"),0).parse();
 
         assert!(maybe_result.is_ok());
 
@@ -1178,9 +1180,9 @@ mod parser_tests {
         assert!(result.variables.is_empty());
 
         let exp_input_res = vec![
-            Item::new(ParseKind::IPA(CARDINALS_MAP.get("t͡ɕ").unwrap().clone(), Modifiers::new()), Position { start: 0, end: 3 }),
-            Item::new(ParseKind::Ellipsis, Position { start: 3, end: 6 }),
-            Item::new(ParseKind::IPA(CARDINALS_MAP.get("b͡β").unwrap().clone(), Modifiers::new()), Position { start: 6, end: 9 }),
+            Item::new(ParseKind::IPA(CARDINALS_MAP.get("t͡ɕ").unwrap().clone(), Modifiers::new()), Position { line: 0, start: 0, end: 3 }),
+            Item::new(ParseKind::Ellipsis, Position { line: 0, start: 3, end: 6 }),
+            Item::new(ParseKind::IPA(CARDINALS_MAP.get("b͡β").unwrap().clone(), Modifiers::new()), Position { line: 0, start: 6, end: 9 }),
         ];
 
         assert_eq!(result.input[0][0], exp_input_res[0]);
@@ -1194,16 +1196,16 @@ mod parser_tests {
         let mut x = Modifiers::new();
         x.feats[FType::Syllabic as usize] = Some(SegMKind::Binary(BinMod::Negative));
         
-        let c = Item::new(ParseKind::Matrix(x), Position { start: 0, end: 1 });
+        let c = Item::new(ParseKind::Matrix(x), Position { line: 0, start: 0, end: 1 });
 
         let mut y = Modifiers::new();
         y.feats[FType::Consonantal as usize] = Some(SegMKind::Binary(BinMod::Negative));
         y.feats[FType::Sonorant as usize] = Some(SegMKind::Binary(BinMod::Positive));
         y.feats[FType::Syllabic as usize] = Some(SegMKind::Binary(BinMod::Positive));
 
-        let v = Item::new(ParseKind::Matrix(y), Position { start: 4, end: 5 });
+        let v = Item::new(ParseKind::Matrix(y), Position { line: 0, start: 4, end: 5 });
 
-        let maybe_result = Parser:: new(setup("C=1 V=2 > 2 1 / _C")).parse();
+        let maybe_result = Parser:: new(setup("C=1 V=2 > 2 1 / _C"), 0).parse();
 
         assert!(maybe_result.is_ok());
 

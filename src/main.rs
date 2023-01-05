@@ -20,32 +20,93 @@ use error ::*;
 const CARDINALS_FILE: &str = include_str!("cardinals.json");
 const DIACRITIC_FILE: &str = include_str!("diacritics.json");
 lazy_static! {
-    static ref CARDINALS_MAP: HashMap<String, Segment> = serde_json::from_str(&CARDINALS_FILE).unwrap();
+    static ref CARDINALS_MAP: HashMap<String, Segment> = serde_json::from_str(CARDINALS_FILE).unwrap();
     static ref DIACRITS: Vec<Diacritic> = {
         // this seems unnecessary, but at least it works
-        // plus, it's lazy 
+        #[derive(Debug, Copy, Clone, PartialEq, Eq, Deserialize, Hash)]
+        pub enum DiaFeatType {
+            Root,      
+            Manner,
+            Laryngeal,   
+            Place,      
+            Labial,      
+            Coronal,     
+            Dorsal,      
+            Pharyngeal, 
+            // RooT Node
+            Consonantal,
+            Sonorant,      
+            Syllabic,      
+            // MANNER node 
+            Continuant,      
+            Approximant,     
+            Lateral,         
+            Nasal,           
+            DelayedRelease,  
+            Strident,        
+            Rhotic,          
+            Click,          
+            // LAR node
+            Voice,           
+            SpreadGlottis,   
+            ConstrGlottis,   
+            // PLACE Node
+            // LABIAL subnode
+            Bilabial,      
+            Round,          
+            // CORONAL subnode
+            Anterior,        
+            Distributed,     
+            // DORSAL subnode
+            Front,          
+            Back,           
+            High,           
+            Low,            
+            Tense,          
+            Reduced,        
+            // PHAR subnode
+            AdvancedTongueRoot,
+            RetractedTongueRoot, 
+        }
+        
         #[derive(Deserialize)]
         struct DT {
             pub name: String,
             pub diacrit: char,
-            pub prereqs: HashMap<FeatType, bool>,
-            pub payload: HashMap<FeatType, bool>,
+            pub prereqs: Option<HashMap<DiaFeatType, bool>>,
+            pub payload: Option<HashMap<DiaFeatType, bool>>,
         }
 
         impl DT {
-            pub fn hm_to_mod(&self, hm: &HashMap<FeatType, bool>) -> Modifiers {
-                let mut args = Modifiers::new();
+            pub fn hm_to_mod(&self, hm: &Option<HashMap<DiaFeatType, bool>>) -> DiaMods {
+                let mut args = DiaMods::new();
+
+                if hm.is_none() {return args};
+                
+                let hm = hm.clone().unwrap();
+
                 for (key, value) in hm.iter() {
                     match value {
-                        true => match key {
-                            FeatType::Node(n) => args.nodes[*n as usize] = Some(SegMKind::Binary(BinMod::Positive)),
-                            FeatType::Feat(f) => args.feats[*f as usize] = Some(SegMKind::Binary(BinMod::Positive)),
-                            FeatType::Supr(_) => unreachable!()
+                        true =>{
+                            // DiaFeatType::Root => args.nodes[*n as usize] = Some(SegMKind::Binary(BinMod::Positive)),
+                            // DiaFeatType::Feat(f) => args.feats[*f as usize] = Some(SegMKind::Binary(BinMod::Positive)),
+
+                            let x = *key as usize;
+                            if x > 7 {
+                                args.feats[x - 8] = Some(SegMKind::Binary(BinMod::Positive))
+                            } else { 
+                                args.nodes[x] = Some(SegMKind::Binary(BinMod::Positive))
+                            };
+                            
+
                         },
-                        false => match key {
-                            FeatType::Node(n) => args.nodes[*n as usize] = Some(SegMKind::Binary(BinMod::Negative)),
-                            FeatType::Feat(f) => args.feats[*f as usize] = Some(SegMKind::Binary(BinMod::Negative)),
-                            FeatType::Supr(_) => unreachable!()
+                        false => {
+                            let x = *key as usize;
+                            if x > 7 {
+                                args.feats[x - 8] = Some(SegMKind::Binary(BinMod::Negative))
+                            } else { 
+                                args.nodes[x] = Some(SegMKind::Binary(BinMod::Negative))
+                            };
                         },
                     }
                 }
@@ -87,23 +148,21 @@ lazy_static! {
     };    
 }
 
-fn parse_rules(unparsed_rules: Vec<String>) -> Result<Vec<Rule>,RuleSyntaxError> {
+fn parse_rules(unparsed_rules: &Vec<String>) -> Result<Vec<Rule>,RuleSyntaxError> {
     
     let mut rules: Vec<Rule> = vec![];
-    for r in unparsed_rules{
-        let tokens = Lexer::new(r).get_all_tokens(); // should return error
-        
-        rules.push(Parser:: new(tokens).parse()?);
+    for (l, r) in unparsed_rules.iter().enumerate() {
+        rules.push(Parser:: new(Lexer::new(r, l).get_all_tokens()?, l).parse()?);
     }
 
     Ok(rules)
 }
 
-fn parse_words(unparsed_words: Vec<String>) -> Result<Vec<Word>,WordSyntaxError> {
+fn parse_words(unparsed_words: &Vec<String>) -> Result<Vec<Word>,WordSyntaxError> {
     
     let mut words: Vec<Word> = vec![];
     for w in unparsed_words {
-        words.push(Word::new(w)?);
+        words.push(Word::new(w.clone())?);
     }
 
     Ok(words)
@@ -153,7 +212,7 @@ fn words_to_string(words: Vec<Word>) -> Result<Vec<String>, RuntimeError> {
     Ok(wrds_str)
 }
 
-fn run(unparsed_rules: Vec<String>, unparsed_words: Vec<String>, trace: bool) -> Result<(Vec<String>, Vec<Vec<String>>), Error> {
+fn run(unparsed_rules: &Vec<String>, unparsed_words: &Vec<String>, trace: bool) -> Result<(Vec<String>, Vec<Vec<String>>), Error> {
     let words = parse_words(unparsed_words)?;
     let rules = parse_rules(unparsed_rules)?;
 
@@ -163,8 +222,85 @@ fn run(unparsed_rules: Vec<String>, unparsed_words: Vec<String>, trace: bool) ->
 
 }
 
+fn deal_with_result(res: Result<(Vec<String>, Vec<Vec<String>>), Error>, rules: &Vec<String>, words: &Vec<String>) {
+    match res {
+        Ok(_) => todo!(),
+        Err(err) => match err {
+            Error::WordSyn(_) => todo!(),
+            Error::RuleSyn(e) => {
+                use RuleSyntaxError::*;
+                match e.clone() {
+                    OptMathError(t, _, _) | 
+                    UnknownIPA(t) | 
+                    UnknownGrouping(t) | 
+                    UnknownVariable(t) | 
+                    ExpectedEndL(t) | 
+                    ExpectedArrow(t) | 
+                    ExpectedComma(t) | 
+                    ExpectedColon(t) | 
+                    ExpectedMatrix(t) | 
+                    ExpectedSegment(t) | 
+                    ExpectedFeature(t) | 
+                    ExpectedVariable(t) | 
+                    ExpectedUnderline(t) | 
+                    ExpectedRightBracket(t) |
+                    BadSyllableMatrix(t)  => {
+                        let line = t.position.line;
+                        let start = t.position.start;
+                        let end = t.position.end;
+
+                        let marg = "\n    |     ";
+                        let arrs = " ".repeat(start) + &"^".repeat(end-start) + "\n";
+
+                        println!("{}{}{}{}{}{}",  
+                            "Syntax Error".bright_red().bold(),
+                            format!(": {}", e).bold(), 
+                            marg.bright_cyan().bold(), 
+                            rules[line], 
+                            marg.bright_cyan().bold(), 
+                            arrs.bright_red().bold()
+                        )
+                    },
+                    UnknownFeature(_, line, start, end) => {
+                        let marg = "\n    |     ";
+                        let arrs = " ".repeat(start) + &"^".repeat(end-start) + "\n";
+
+                        println!("{}{}{}{}{}{}",  
+                            "Syntax Error".bright_red().bold(),
+                            format!(": {}", e).bold(), 
+                            marg.bright_cyan().bold(), 
+                            rules[line], 
+                            marg.bright_cyan().bold(), 
+                            arrs.bright_red().bold()
+                        )
+
+                    },
+                    UnknownCharacter(_, line, pos) => {
+                        let marg = "\n    |     ";
+                        let arrs = " ".repeat(pos) + "^" + "\n";
+
+                        println!("{}{}{}{}{}{}",  
+                            "Syntax Error".bright_red().bold(),
+                            format!(": {}", e).bold(), 
+                            marg.bright_cyan().bold(), 
+                            rules[line], 
+                            marg.bright_cyan().bold(), 
+                            arrs.bright_red().bold()
+                        )
+
+                    },
+                    _ => println!("{}{}", "Error".to_string().red().bold(), format!(": {}", e).bold())
+                }
+            },
+            Error::Runtime(_) => todo!(),
+        },
+    }
+
+}
+
 fn main() {
     let unparsed_rules: Vec<String> = vec![
+        String::from("X:[+long, +setr, -nas]"),
         String::from("r > l"),
     ];
 
@@ -172,12 +308,11 @@ fn main() {
         String::from("a.ri"),
     ];
 
-    let res = run(unparsed_rules, unparsed_words, false);
+    let res = run(&unparsed_rules, &unparsed_words, false);
+
+    deal_with_result(res, &unparsed_rules, &unparsed_words);
     
-    match res {
-        Ok(_) => todo!(),
-        Err(_) => todo!(),
-    }
+    
 }
 
 fn main2() {
@@ -203,17 +338,18 @@ fn main2() {
     // let test= String::from("t͡ɕ...b͡β > &");
     // let test= String::from("r > l");
     let test = String::from("%:[+stress], % > [-stress], [+stress] / _ , #_ ");
+    let test = String::from("%:[+setr]");
     let mut maybe_rule: Result<Rule, RuleSyntaxError> = Err(RuleSyntaxError::EmptyInput);
 
     for _ in 0..ITERS {
         
-        let mut lex = Lexer::new(test.clone());
-        tokens = lex.get_all_tokens();
+        let mut lex = Lexer::new(&test,0);
+        tokens = lex.get_all_tokens().unwrap();
     
         // tokens.clone().into_iter().for_each(|t| {
         //         println!("{}", t);
         //     });
-        let mut parser = Parser:: new(tokens);
+        let mut parser = Parser:: new(tokens,0);
 
         maybe_rule = parser.parse();
     }
@@ -222,52 +358,4 @@ fn main2() {
     println!("\nTotal Time: {:?}", dur);
     println!("Average Time per Iteration: {:?}\n", dur/ITERS);
 
-    match maybe_rule {
-            Ok(r) => {
-                print!("{}", r); 
-                match r.apply(w) {
-                    Ok(_) => {},
-                    Err(_) => {}
-                }
-            },
-            Err(e) => {
-                use RuleSyntaxError::*;
-                match e.clone() {
-                    OptMathError(t, _, _) | 
-                    UnknownIPA(t) | 
-                    UnknownChar(t) | 
-                    UnknownVariable(t) | 
-                    ExpectedEndL(t) | 
-                    ExpectedArrow(t) | 
-                    ExpectedComma(t) | 
-                    ExpectedColon(t) | 
-                    ExpectedMatrix(t) | 
-                    ExpectedSegment(t) | 
-                    ExpectedFeature(t) | 
-                    ExpectedVariable(t) | 
-                    ExpectedUnderline(t) | 
-                    ExpectedRightBracket(t) |
-                    BadSyllableMatrix(t)  => {
-                        let start = t.position.start;
-                        let end = t.position.end;
-
-                        let marg = "\n    |     ";
-                        let arrs = " ".repeat(start) + &"^".repeat(end-start) + "\n";
-
-                        println!("{}", format!("{}{}{}{}{}{}", 
-                            format!("Syntax Error").bright_red().bold(),
-                            format!(": {}", e).bold(), 
-                            format!("{}", marg).bright_cyan().bold(), 
-                            test, 
-                            format!("{}", marg).bright_cyan().bold(), 
-                            format!("{}", arrs).bright_red().bold()
-                        ))
-                    },
-                    _ => println!("{}", format!("{}{}", 
-                            "Error".to_string().red().bold(),
-                            format!(": {}", e).bold()
-                        ))
-                }
-            }
-        }
 }

@@ -208,8 +208,7 @@ impl Rule {
             // syllable will have to be dealt with separately up here
 
             
-            let mut i = 0;
-            for seg in &word.segments {
+            for (i, seg) in word.segments.iter().enumerate() {
 
                 if let ParseKind::IPA(s, params) = &x.kind {
                     // todo: deal with modifiers
@@ -226,8 +225,6 @@ impl Rule {
                 } else if let ParseKind::Variable(ident, params) = &x.kind {
 
                 }
-
-                i+=1;
 
             }
         }
@@ -286,7 +283,7 @@ mod rule_tests {
         
         use crate::{Lexer, Parser};
 
-        Parser:: new(Lexer::new(String::from(test_str)).get_all_tokens()).parse().unwrap()
+        Parser:: new(Lexer::new(&String::from(test_str),0).get_all_tokens().unwrap(), 0).parse().unwrap()
 
     }
 
