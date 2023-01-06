@@ -6,7 +6,7 @@ mod rule;
 mod error;
 
 use serde::Deserialize;
-use std::{collections::HashMap, time::Instant};
+use std::collections::HashMap;
 use colored::Colorize;
 use lazy_static::lazy_static;
 
@@ -22,51 +22,18 @@ const DIACRITIC_FILE: &str = include_str!("diacritics.json");
 lazy_static! {
     static ref CARDINALS_MAP: HashMap<String, Segment> = serde_json::from_str(CARDINALS_FILE).unwrap();
     static ref DIACRITS: Vec<Diacritic> = {
-        // this seems unnecessary, but at least it works
+        // this seems very unnecessary, but I don't know enough about serde
+        // at least it works
         #[derive(Debug, Copy, Clone, PartialEq, Eq, Deserialize, Hash)]
         pub enum DiaFeatType {
-            Root,      
-            Manner,
-            Laryngeal,   
-            Place,      
-            Labial,      
-            Coronal,     
-            Dorsal,      
-            Pharyngeal, 
-            // RooT Node
-            Consonantal,
-            Sonorant,      
-            Syllabic,      
-            // MANNER node 
-            Continuant,      
-            Approximant,     
-            Lateral,         
-            Nasal,           
-            DelayedRelease,  
-            Strident,        
-            Rhotic,          
-            Click,          
-            // LAR node
-            Voice,           
-            SpreadGlottis,   
-            ConstrGlottis,   
-            // PLACE Node
-            // LABIAL subnode
-            Bilabial,      
-            Round,          
-            // CORONAL subnode
-            Anterior,        
-            Distributed,     
-            // DORSAL subnode
-            Front,          
-            Back,           
-            High,           
-            Low,            
-            Tense,          
-            Reduced,        
-            // PHAR subnode
-            AdvancedTongueRoot,
-            RetractedTongueRoot, 
+            Root, Manner, Laryngeal, Place, Labial, Coronal, Dorsal, Pharyngeal, 
+            /*RUT*/ Consonantal, Sonorant, Syllabic,      
+            /*MAN*/ Continuant, Approximant, Lateral, Nasal, DelayedRelease, Strident, Rhotic, Click,          
+            /*LAR*/ Voice, SpreadGlottis, ConstrGlottis,   
+            /*LAB*/ Bilabial, Round,          
+            /*COR*/ Anterior, Distributed,     
+            /*DOR*/ Front, Back, High, Low, Tense, Reduced,        
+            /*PHR*/ AdvancedTongueRoot, RetractedTongueRoot, 
         }
         
         #[derive(Deserialize)]
@@ -81,36 +48,23 @@ lazy_static! {
             pub fn hm_to_mod(&self, hm: &Option<HashMap<DiaFeatType, bool>>) -> DiaMods {
                 let mut args = DiaMods::new();
 
-                if hm.is_none() {return args};
-                
-                let hm = hm.clone().unwrap();
+                // if hm.is_none() {return args};
 
-                for (key, value) in hm.iter() {
+                let Some(s) = hm else {return args};
+                
+                for (key, value) in s.iter() {
+                    let x = *key as usize;
                     match value {
                         true =>{
-                            // DiaFeatType::Root => args.nodes[*n as usize] = Some(SegMKind::Binary(BinMod::Positive)),
-                            // DiaFeatType::Feat(f) => args.feats[*f as usize] = Some(SegMKind::Binary(BinMod::Positive)),
-
-                            let x = *key as usize;
-                            if x > 7 {
-                                args.feats[x - 8] = Some(SegMKind::Binary(BinMod::Positive))
-                            } else { 
-                                args.nodes[x] = Some(SegMKind::Binary(BinMod::Positive))
-                            };
-                            
-
+                            if x > 7 { args.feats[x - 8] = Some(SegMKind::Binary(BinMod::Positive)) }
+                            else { args.nodes[x] = Some(SegMKind::Binary(BinMod::Positive)) };
                         },
                         false => {
-                            let x = *key as usize;
-                            if x > 7 {
-                                args.feats[x - 8] = Some(SegMKind::Binary(BinMod::Negative))
-                            } else { 
-                                args.nodes[x] = Some(SegMKind::Binary(BinMod::Negative))
-                            };
-                        },
+                            if x > 7 { args.feats[x - 8] = Some(SegMKind::Binary(BinMod::Negative)) } 
+                            else { args.nodes[x] = Some(SegMKind::Binary(BinMod::Negative)) };
+                        }
                     }
                 }
-
                 args
             }
 
@@ -148,7 +102,7 @@ lazy_static! {
     };    
 }
 
-fn parse_rules(unparsed_rules: &Vec<String>) -> Result<Vec<Rule>,RuleSyntaxError> {
+fn parse_rules(unparsed_rules: &[String]) -> Result<Vec<Rule>,RuleSyntaxError> {
     
     let mut rules: Vec<Rule> = vec![];
     for (l, r) in unparsed_rules.iter().enumerate() {
@@ -158,7 +112,7 @@ fn parse_rules(unparsed_rules: &Vec<String>) -> Result<Vec<Rule>,RuleSyntaxError
     Ok(rules)
 }
 
-fn parse_words(unparsed_words: &Vec<String>) -> Result<Vec<Word>,WordSyntaxError> {
+fn parse_words(unparsed_words: &[String]) -> Result<Vec<Word>,WordSyntaxError> {
     
     let mut words: Vec<Word> = vec![];
     for w in unparsed_words {
@@ -170,14 +124,11 @@ fn parse_words(unparsed_words: &Vec<String>) -> Result<Vec<Word>,WordSyntaxError
 
 fn apply_rules(rules: Vec<Rule>, words: Vec<Word>, trace: bool) -> Result<(Vec<Word>, Vec<Vec<String>>), RuntimeError> {
     // TODO: work out tracing
-
     let mut transformed_words: Vec<Word> = vec![];
-
     let mut traced_words: Vec<Vec<String>> = vec![];
 
     for (i, w) in words.iter().enumerate() {
         let mut wb = w.clone();
-
         if trace {
             traced_words.push(vec![]);
             traced_words[i].push(word_to_string(wb.clone())?);
@@ -205,14 +156,18 @@ fn words_to_string(words: Vec<Word>) -> Result<Vec<String>, RuntimeError> {
 
     let mut wrds_str: Vec<String> = vec![];
 
-    for w in words {
-        wrds_str.push(word_to_string(w)?);
+    for (i, w) in words.iter().enumerate() {
+        match w.render() {
+            Ok(r) => wrds_str.push(r),
+            Err((b, j)) => return Err(RuntimeError::UnknownSegment(b,i,j)),
+        }
+        
     }
 
     Ok(wrds_str)
 }
 
-fn run(unparsed_rules: &Vec<String>, unparsed_words: &Vec<String>, trace: bool) -> Result<(Vec<String>, Vec<Vec<String>>), Error> {
+fn run(unparsed_rules: &[String], unparsed_words: &[String], trace: bool) -> Result<(Vec<String>, Vec<Vec<String>>), Error> {
     let words = parse_words(unparsed_words)?;
     let rules = parse_rules(unparsed_rules)?;
 
@@ -222,18 +177,23 @@ fn run(unparsed_rules: &Vec<String>, unparsed_words: &Vec<String>, trace: bool) 
 
 }
 
-fn deal_with_result(res: Result<(Vec<String>, Vec<Vec<String>>), Error>, rules: &Vec<String>, words: &Vec<String>) {
+fn deal_with_result(res: Result<(Vec<String>, Vec<Vec<String>>), Error>, rules: &[String], words: &[String]) {
+
+    const MARG: &str = "\n    |     ";
+
     match res {
         Ok(_) => todo!(),
         Err(err) => match err {
             Error::WordSyn(_) => todo!(),
             Error::RuleSyn(e) => {
                 use RuleSyntaxError::*;
-                match e.clone() {
+                print!("{}{}", "Syntax Error".bright_red().bold(), format!(": {}", e).bold());
+                match e {
                     OptMathError(t, _, _) | 
                     UnknownIPA(t) | 
                     UnknownGrouping(t) | 
                     UnknownVariable(t) | 
+                    UnexpectedEol(t, _) | 
                     ExpectedEndL(t) | 
                     ExpectedArrow(t) | 
                     ExpectedComma(t) | 
@@ -249,50 +209,59 @@ fn deal_with_result(res: Result<(Vec<String>, Vec<Vec<String>>), Error>, rules: 
                         let start = t.position.start;
                         let end = t.position.end;
 
-                        let marg = "\n    |     ";
-                        let arrs = " ".repeat(start) + &"^".repeat(end-start) + "\n";
+                        let arrows = " ".repeat(start) + &"^".repeat(end-start) + "\n";
 
-                        println!("{}{}{}{}{}{}",  
-                            "Syntax Error".bright_red().bold(),
-                            format!(": {}", e).bold(), 
-                            marg.bright_cyan().bold(), 
+                        println!("{}{}{}{}",  
+                            MARG.bright_cyan().bold(), 
                             rules[line], 
-                            marg.bright_cyan().bold(), 
-                            arrs.bright_red().bold()
+                            MARG.bright_cyan().bold(), 
+                            arrows.bright_red().bold()
                         )
                     },
                     UnknownFeature(_, line, start, end) => {
-                        let marg = "\n    |     ";
-                        let arrs = " ".repeat(start) + &"^".repeat(end-start) + "\n";
+                        let arrows = " ".repeat(start) + &"^".repeat(end-start) + "\n";
 
-                        println!("{}{}{}{}{}{}",  
-                            "Syntax Error".bright_red().bold(),
-                            format!(": {}", e).bold(), 
-                            marg.bright_cyan().bold(), 
+                        println!("{}{}{}{}",  
+                            MARG.bright_cyan().bold(), 
                             rules[line], 
-                            marg.bright_cyan().bold(), 
-                            arrs.bright_red().bold()
+                            MARG.bright_cyan().bold(), 
+                            arrows.bright_red().bold()
                         )
 
                     },
                     UnknownCharacter(_, line, pos) => {
-                        let marg = "\n    |     ";
-                        let arrs = " ".repeat(pos) + "^" + "\n";
+                        let arrows = " ".repeat(pos) + "^" + "\n";
 
-                        println!("{}{}{}{}{}{}",  
-                            "Syntax Error".bright_red().bold(),
-                            format!(": {}", e).bold(), 
-                            marg.bright_cyan().bold(), 
+                        println!("{}{}{}{}",  
+                            MARG.bright_cyan().bold(), 
                             rules[line], 
-                            marg.bright_cyan().bold(), 
-                            arrs.bright_red().bold()
+                            MARG.bright_cyan().bold(), 
+                            arrows.bright_red().bold()
                         )
 
                     },
-                    _ => println!("{}{}", "Error".to_string().red().bold(), format!(": {}", e).bold())
+                    BadVariableAssignment(_) |              // TODO: these should print itself in the line
+                    AlreadyInitialisedVariable(_, _, _) |   // 
+                    InsertErr | DeleteErr | EmptyInput | 
+                    EmptyOutput | EmptyEnv => {},
                 }
             },
-            Error::Runtime(_) => todo!(),
+            Error::Runtime(re) => match re.clone() {
+                RuntimeError::UnbalancedRule => todo!(),
+                RuntimeError::UnknownSegment(buffer, word, seg) => {
+                    let arrows = " ".repeat(words[word].len() + seg) + "^" + "\n";
+
+                    println!("{}{}{}{} => {}{}{}",  
+                            "Runtime Error".bright_red().bold(),
+                            format!(": {}", re).bold(), 
+                            MARG.bright_cyan().bold(), 
+                            words[word], 
+                            buffer,
+                            MARG.bright_cyan().bold(), 
+                            arrows.bright_red().bold()
+                        )
+                },
+            }
         },
     }
 
@@ -300,7 +269,7 @@ fn deal_with_result(res: Result<(Vec<String>, Vec<Vec<String>>), Error>, rules: 
 
 fn main() {
     let unparsed_rules: Vec<String> = vec![
-        String::from("X:[+long, +setr, -nas]"),
+        String::from("C:[+d.r., -dr, -nas "),
         String::from("r > l"),
     ];
 
@@ -315,47 +284,47 @@ fn main() {
     
 }
 
-fn main2() {
-    // let test = String::from("[]...[] > &");
-    // let test = String::from("[+voi, -sg, αPLACE]...C > &");
-    // let test = String::from("V > [+long] / _C#");
-    // let test = String::from("%:[tone:214] > [tone:35] / _%:[tone:214] ");
-    // let test = String::from("t͡ɕ...b͡β > &");
-    // let test = String::from("r...V > &");
-    // let test = String::from("V:[+syll]...l > & / _,C");
-    // let test = String::from("C=1 V=2 > 2 1  / _C");
-    // let test = String::from("%:[+stress], % > [-stress], [+stress] / _ , #_ ");
+// fn main2() {
+//     // let test = String::from("[]...[] > &");
+//     // let test = String::from("[+voi, -sg, αPLACE]...C > &");
+//     // let test = String::from("V > [+long] / _C#");
+//     // let test = String::from("%:[tone:214] > [tone:35] / _%:[tone:214] ");
+//     // let test = String::from("t͡ɕ...b͡β > &");
+//     // let test = String::from("r...V > &");
+//     // let test = String::from("V:[+syll]...l > & / _,C");
+//     // let test = String::from("C=1 V=2 > 2 1  / _C");
+//     // let test = String::from("%:[+stress], % > [-stress], [+stress] / _ , #_ ");
     
-    // let w = Word::new("ˌna.kiˈsa".to_owned()).unwrap();
-    let w = Word::new("a.ki.ra".to_owned()).unwrap();
-    // let mut w = Word::new("ˌna.kiˈ:a".to_owned()).unwrap();
-    println!("{}", w);
+//     // let w = Word::new("ˌna.kiˈsa".to_owned()).unwrap();
+//     let w = Word::new("a.ki.ra".to_owned()).unwrap();
+//     // let mut w = Word::new("ˌna.kiˈ:a".to_owned()).unwrap();
+//     println!("{}", w);
     
-    let mut tokens;
-    const ITERS: u32 = 1;
+//     let mut tokens;
+//     const ITERS: u32 = 1;
     
-    let start  = Instant::now();
-    // let test= String::from("t͡ɕ...b͡β > &");
-    // let test= String::from("r > l");
-    let test = String::from("%:[+stress], % > [-stress], [+stress] / _ , #_ ");
-    let test = String::from("%:[+setr]");
-    let mut maybe_rule: Result<Rule, RuleSyntaxError> = Err(RuleSyntaxError::EmptyInput);
+//     let start  = Instant::now();
+//     // let test= String::from("t͡ɕ...b͡β > &");
+//     // let test= String::from("r > l");
+//     let test = String::from("%:[+stress], % > [-stress], [+stress] / _ , #_ ");
+//     let test = String::from("%:[+setr]");
+//     let mut maybe_rule: Result<Rule, RuleSyntaxError> = Err(RuleSyntaxError::EmptyInput);
 
-    for _ in 0..ITERS {
+//     for _ in 0..ITERS {
         
-        let mut lex = Lexer::new(&test,0);
-        tokens = lex.get_all_tokens().unwrap();
+//         let mut lex = Lexer::new(&test,0);
+//         tokens = lex.get_all_tokens().unwrap();
     
-        // tokens.clone().into_iter().for_each(|t| {
-        //         println!("{}", t);
-        //     });
-        let mut parser = Parser:: new(tokens,0);
+//         // tokens.clone().into_iter().for_each(|t| {
+//         //         println!("{}", t);
+//         //     });
+//         let mut parser = Parser:: new(tokens,0);
 
-        maybe_rule = parser.parse();
-    }
+//         maybe_rule = parser.parse();
+//     }
 
-    let dur = start.elapsed();
-    println!("\nTotal Time: {:?}", dur);
-    println!("Average Time per Iteration: {:?}\n", dur/ITERS);
+//     let dur = start.elapsed();
+//     println!("\nTotal Time: {:?}", dur);
+//     println!("Average Time per Iteration: {:?}\n", dur/ITERS);
 
-}
+// }

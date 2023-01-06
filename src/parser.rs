@@ -96,7 +96,7 @@ pub enum ParseKind {
     Ellipsis   ,
     Metathesis ,
     Variable   (Token  , Modifiers),
-    IPA        (Segment, Modifiers),
+    Ipa        (Segment, Modifiers),
     Matrix     (Modifiers),
     Syllable   (Option<SuprMKind>, Option<SuprMKind>), // (Stress, Tone)  // PrimStress/SecStress converts to Stress
     Set        (Items),
@@ -145,7 +145,7 @@ impl fmt::Display for ParseKind {
             ParseKind::Ellipsis   => write!(f, "…"),
             ParseKind::Metathesis => write!(f, "&"),
 
-            ParseKind::IPA(s, m) => write!(f, "{} = {:?}", s, m),
+            ParseKind::Ipa(s, m) => write!(f, "{} = {:?}", s, m),
 
             ParseKind::Matrix(tokens) => {
                 write!(f, "{:#?}", tokens)
@@ -392,7 +392,7 @@ impl Parser {
 
     fn join_ipa_with_params(&self, ipa: Segment, params: Item) -> Result<ParseKind, RuleSyntaxError> {
         match params.kind {
-            ParseKind::Matrix(p) => Ok(ParseKind::IPA(ipa, p)),
+            ParseKind::Matrix(p) => Ok(ParseKind::Ipa(ipa, p)),
             _ => unreachable!("\nCritical Error: 'Parameters' being joined with IPA Segment is not a matrix!\nThis is a bug."),
         }
 
@@ -556,17 +556,17 @@ impl Parser {
                 match ft {
                     FeatType::Node(t) => args.nodes[t as usize] = match mk {
                         Mods::Binary(b) => Some(SegMKind::Binary(b)),
-                        Mods::Alpha(a) => Some(SegMKind::Alpha(a)),
+                        Mods::Alpha(a)  => Some(SegMKind::Alpha(a)),
                         Mods::Number(_) => unreachable!(),
                     },
                     FeatType::Feat(t) => args.feats[t as usize] = match mk {
                         Mods::Binary(b) => Some(SegMKind::Binary(b)),
-                        Mods::Alpha(a) => Some(SegMKind::Alpha(a)),
+                        Mods::Alpha(a)  => Some(SegMKind::Alpha(a)),
                         Mods::Number(_) => unreachable!(),
                     },
                     FeatType::Supr(t) => args.suprs[t as usize - 4] = match mk { // TODO: '-4'  is a hack 
                         Mods::Number(n) => Some(SuprMKind::Number(n)),
-                        Mods::Alpha(a) => Some(SuprMKind::Alpha(a)),
+                        Mods::Alpha(a)  => Some(SuprMKind::Alpha(a)),
                         Mods::Binary(_) => unreachable!(),
                     }
                 }
@@ -575,6 +575,9 @@ impl Parser {
                 continue;
             }
             
+            if self.curr_tkn.kind == TokenKind::Eol {
+                return Err(RuleSyntaxError::UnexpectedEol(self.curr_tkn.clone(), ']'))
+            }
             return Err(RuleSyntaxError::ExpectedFeature(self.curr_tkn.clone()))
         }
 
@@ -634,7 +637,7 @@ impl Parser {
         self.advance();
 
         if !self.expect(TokenKind::Colon) {
-            return Ok(Item::new(ParseKind::IPA(ipa, Modifiers::new()), pos))
+            return Ok(Item::new(ParseKind::Ipa(ipa, Modifiers::new()), pos))
         }
 
         if !self.expect(TokenKind::LeftSquare) {
@@ -1180,9 +1183,9 @@ mod parser_tests {
         assert!(result.variables.is_empty());
 
         let exp_input_res = vec![
-            Item::new(ParseKind::IPA(CARDINALS_MAP.get("t͡ɕ").unwrap().clone(), Modifiers::new()), Position { line: 0, start: 0, end: 3 }),
+            Item::new(ParseKind::Ipa(CARDINALS_MAP.get("t͡ɕ").unwrap().clone(), Modifiers::new()), Position { line: 0, start: 0, end: 3 }),
             Item::new(ParseKind::Ellipsis, Position { line: 0, start: 3, end: 6 }),
-            Item::new(ParseKind::IPA(CARDINALS_MAP.get("b͡β").unwrap().clone(), Modifiers::new()), Position { line: 0, start: 6, end: 9 }),
+            Item::new(ParseKind::Ipa(CARDINALS_MAP.get("b͡β").unwrap().clone(), Modifiers::new()), Position { line: 0, start: 6, end: 9 }),
         ];
 
         assert_eq!(result.input[0][0], exp_input_res[0]);

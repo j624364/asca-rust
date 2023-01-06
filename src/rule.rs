@@ -78,7 +78,7 @@ impl Rule {
     }
 
     pub fn apply(&self, word: Word /*, trace: bool*/) -> Result<Word, RuntimeError> /* return Word */{
-        let out_word = word.clone(); 
+        let out_word = word; 
 
         let sub_rules = self.split_into_subrules()?;
 
@@ -157,8 +157,8 @@ impl Rule {
 
                 },
                 ParseKind::Variable(_, _) => todo!(),
-                ParseKind::IPA(ref s, ref m) => {
-                    let (is_match, consumed) = self.state_matches_ipa_at_index(&s, &m, word.clone(), i);
+                ParseKind::Ipa(ref s, ref m) => {
+                    let (is_match, consumed) = self.state_matches_ipa_at_index(s, m, word.clone(), i);
 
                     if !is_match {
                         let index_before_backtrack = i;
@@ -210,7 +210,7 @@ impl Rule {
             
             for (i, seg) in word.segments.iter().enumerate() {
 
-                if let ParseKind::IPA(s, params) = &x.kind {
+                if let ParseKind::Ipa(s, params) = &x.kind {
                     // todo: deal with modifiers
                     if *seg == *s {
                         return Some((i, i));
@@ -246,27 +246,27 @@ impl fmt::Display for Rule {
         }
 
         writeln!(f, "    Input = [")?;
-        self.input.iter().for_each(|i| {
-            println!("        {:?}", i);
-        });
+        for i in self.input.iter() {
+            writeln!(f, "        {:?}", i)?;
+        }
         writeln!(f, "    ]")?;
 
         writeln!(f, "    Output = [")?;
-        self.output.iter().for_each(|o| {
-            println!("        {:?}", o);
-        });
+        for o in self.output.iter() {
+            writeln!(f, "        {:?}", o)?;
+        }
         writeln!(f, "    ]")?;
 
         writeln!(f, "    Context = [")?;
-        self.context.iter().for_each(|c| {
-            println!("        {}", c);
-        });
+        for c in self.context.iter() {
+            writeln!(f, "        {}", c)?;
+        }
         writeln!(f, "    ]")?;
 
         writeln!(f, "    Exception = [")?;
-        self.except.iter().for_each(|e| {
-            println!("        {}", e);
-        });
+        for e in self.except.iter() {
+            writeln!(f, "        {}", e)?;
+        }
         writeln!(f, "    ]")?;
 
 

@@ -3,7 +3,6 @@ use std::fmt;
 use crate ::{
     lexer ::Token, 
     parser::Item, 
-    word  ::Segment
 };
 
 #[derive(Debug, Clone)]
@@ -42,7 +41,13 @@ pub enum WordSyntaxError {
 #[derive(Debug, Clone)]
 pub enum RuntimeError { 
     UnbalancedRule,
-    UnknownSegment(Segment)
+    UnknownSegment(String, usize,  usize) // (Segs before, Word Pos in list, Segment Pos in Words)
+}
+
+impl fmt::Display for RuntimeError {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        todo!()
+    }
 }
 
 #[derive(Debug, Clone)]
@@ -53,6 +58,7 @@ pub enum RuleSyntaxError {
     UnknownCharacter(char, usize, usize),
     UnknownFeature(String, usize, usize, usize),
     UnknownVariable(Token),
+    UnexpectedEol(Token, char),
     ExpectedEndL(Token),
     ExpectedArrow(Token),
     ExpectedComma(Token),
@@ -77,23 +83,24 @@ impl fmt::Display for RuleSyntaxError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             Self::OptMathError(_, l, h)  => write!(f, "An Option's second argument '{}' must be greater than or equal to it's first argument '{}'", h, l),
-            Self::UnknownIPA(token)           => write!(f, "Could not get value of IPA '{}'.", token.value),
-            Self::UnknownGrouping(token)          => write!(f, "Unknown grouping '{}'. Known groupings are (C)onsonant, (O)bstruent, (S)onorant, (L)iquid, (N)asal, (G)lide, and (V)owel", token.value),
-            Self::UnknownFeature(feat, l, s, e)       => write!(f, "Unknown feature '{} at {}:{}-{}'.", feat, l, s, e),
-            Self::UnknownCharacter(c, l, pos)       => write!(f, "Unknown character {} at '{}:{}'.", c, l, pos),
-            Self::UnknownVariable(token)      => write!(f, "Unknown variable '{}'", token.value),
-            Self::ExpectedEndL(token)         => write!(f, "Expected end of line, received '{}'. Did you forget a '/' between the output and environment?", token.value),
-            Self::ExpectedArrow(token)        => write!(f, "Expected '>', '->' or '=>', but received '{}'", token.value),
-            Self::ExpectedComma(token)        => write!(f, "Expected ',', but received '{}'", token.value),
-            Self::ExpectedColon(token)        => write!(f, "Expected ':', but received '{}'", token.value),
-            Self::ExpectedMatrix(token)       => write!(f, "Expected '[', but received '{}'", token.value),
-            Self::ExpectedSegment(token)      => write!(f, "Expected an IPA character, Primative or Matrix, but received '{}'", token.value),
-            Self::ExpectedFeature(token)      => write!(f, "{} cannot be placed inside a matrix. An element inside `[]` must a distinctive feature", token.value),
-            Self::ExpectedVariable(token)     => write!(f, "Expected number, but received {} ", token.value),
-            Self::ExpectedUnderline(token)    => write!(f, "Expected '_', but received '{}'", token.value),
-            Self::ExpectedRightBracket(token) => write!(f, "Expected ')', but received '{}'", token.value),
-            Self::BadSyllableMatrix(_) => write!(f, "A syllable can only have parameters stress and tone"),
-            Self::BadVariableAssignment(_) => write!(f, "A variable can only be assigned to a primative (C, V, etc.) or a matrix"),
+            Self::UnknownIPA(token)             => write!(f, "Could not get value of IPA '{}'.", token.value),
+            Self::UnknownGrouping(token)        => write!(f, "Unknown grouping '{}'. Known groupings are (C)onsonant, (O)bstruent, (S)onorant, (L)iquid, (N)asal, (G)lide, and (V)owel", token.value),
+            Self::UnknownFeature(feat, l, s, e) => write!(f, "Unknown feature '{} at {}:{}-{}'.", feat, l, s, e),
+            Self::UnknownCharacter(c, l, pos)   => write!(f, "Unknown character {} at '{}:{}'.", c, l, pos),
+            Self::UnknownVariable(token)        => write!(f, "Unknown variable '{}'", token.value),
+            Self::UnexpectedEol(_, c)           => write!(f, "Expected `{}`, but received End of Line", c),
+            Self::ExpectedEndL(token)           => write!(f, "Expected end of line, received '{}'. Did you forget a '/' between the output and environment?", token.value),
+            Self::ExpectedArrow(token)          => write!(f, "Expected '>', '->' or '=>', but received '{}'", token.value),
+            Self::ExpectedComma(token)          => write!(f, "Expected ',', but received '{}'", token.value),
+            Self::ExpectedColon(token)          => write!(f, "Expected ':', but received '{}'", token.value),
+            Self::ExpectedMatrix(token)         => write!(f, "Expected '[', but received '{}'", token.value),
+            Self::ExpectedSegment(token)        => write!(f, "Expected an IPA character, Primative or Matrix, but received '{}'", token.value),
+            Self::ExpectedFeature(token)        => write!(f, "{} cannot be placed inside a matrix. An element inside `[]` must a distinctive feature", token.value),
+            Self::ExpectedVariable(token)       => write!(f, "Expected number, but received {} ", token.value),
+            Self::ExpectedUnderline(token)      => write!(f, "Expected '_', but received '{}'", token.value),
+            Self::ExpectedRightBracket(token)   => write!(f, "Expected ')', but received '{}'", token.value),
+            Self::BadSyllableMatrix(_)          => write!(f, "A syllable can only have parameters stress and tone"),
+            Self::BadVariableAssignment(_)      => write!(f, "A variable can only be assigned to a primative (C, V, etc.) or a matrix"),
             Self::AlreadyInitialisedVariable(set_item, _, num) => write!(f, "Variable '{}' is already initialised as {}", num, set_item.kind),
             Self::InsertErr   => write!(f, "The input of an insertion rule must only contain `*` or `∅`"),
             Self::DeleteErr   => write!(f, "The output of a deletion rule must only contain `*` or `∅`"),

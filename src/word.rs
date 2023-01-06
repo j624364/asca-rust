@@ -3,7 +3,7 @@ use serde::Deserialize;
 
 use crate :: {
     lexer::{  FType, NodeType}, 
-    error :: {WordSyntaxError, RuntimeError}, 
+    error :: WordSyntaxError, 
     parser:: {SegMKind, BinMod}, 
     CARDINALS_MAP, CARDINALS_TRIE, 
     CARDINALS_VEC, DIACRITS
@@ -139,7 +139,7 @@ pub struct Segment {
 }
 
 impl Segment {
-    fn get_as_grapheme(&self) -> Result<String, RuntimeError> {
+    fn get_as_grapheme(&self) -> Option<String> {
         fn match_from_modifiers(seg: &Segment, mods:&DiaMods) -> bool {
 
             // TODO: deal with mods.nodes
@@ -171,7 +171,7 @@ impl Segment {
         // test against all cardinals for a match
         for c_grapheme in CARDINALS_VEC.iter() {
             let x = CARDINALS_MAP.get(c_grapheme).unwrap();
-            if *x == *self { return Ok(c_grapheme.to_string()) }
+            if *x == *self { return Some(c_grapheme.to_string()) }
 
         }
 
@@ -187,14 +187,15 @@ impl Segment {
                     todo!("add diacritic to buffer")
                 }
 
-                if *buffer.1 == *self { return Ok(buffer.0.to_string()) }
+                if *buffer.1 == *self { return Some(buffer.0.to_string()) }
             }
             
         }
 
         
 
-        Err(RuntimeError::UnknownSegment(*self))
+        // Err(RuntimeError::UnknownSegment(*self))
+        None
     }
 
     pub fn match_modifiers(&self, mods: &DiaMods) -> bool {
@@ -290,19 +291,19 @@ impl fmt::Display for Segment {
 
         match self.labial {
             Some(v) => write!(f, "LAB: {} ", v)?,
-            None => write!(f, "LAB: - ")?
+            None    => write!(f, "LAB: - ")?
         }
         match self.coronal {
             Some(v) => write!(f, "COR: {} ", v)?,
-            None => write!(f, "COR: - ")?
+            None    => write!(f, "COR: - ")?
         }
         match self.dorsal {
             Some(v) => write!(f, "DOR: {} ", v)?,
-            None => write!(f, "DOR: - ")?
+            None    => write!(f, "DOR: - ")?
         }
         match self.pharyngeal {
             Some(v) => write!(f, "PHR: {} ", v)?,
-            None => write!(f, "PHR: - ")?
+            None    => write!(f, "PHR: - ")?
         }
 
         Ok(())
@@ -362,7 +363,7 @@ impl Word {
         Ok(w)
     }
     // TODO: `render` probably isn't the right verb here
-    pub fn render_segments(&self) -> Result<String, RuntimeError> {
+    pub fn render_segments(&self) -> Option<String> {
 
         let mut buffer = String::new();
         
@@ -370,11 +371,11 @@ impl Word {
             buffer.push_str(seg.get_as_grapheme()?.as_str());
         }
 
-        Ok(buffer)
+        Some(buffer)
     }
 
     // TODO: This works, but it's backwards
-    pub fn render(&self) -> Result<String, RuntimeError> {
+    pub fn render(&self) -> Result<String, (String, usize)> {
 
         let mut buffer = String::new();
         
@@ -397,13 +398,15 @@ impl Word {
                 }
 
                 if i == self.segments.len()-1 && syll.end == i{
-                    buffer.push_str(&seg.get_as_grapheme()?);
+                    let Some(x) = &seg.get_as_grapheme() else { return Err((buffer, i)) };
+                    buffer.push_str(x);
                     buffer.push_str(&syll.tone);
                     break 'outer;
                 }
             }
 
-            buffer.push_str(&seg.get_as_grapheme()?);
+            let Some(x) = &seg.get_as_grapheme() else { return Err((buffer, i)) };
+            buffer.push_str(x);
         }
 
         Ok(buffer)

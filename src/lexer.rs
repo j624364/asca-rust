@@ -236,35 +236,35 @@ impl Display for TokenKind {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         use TokenKind::*;
         match self {
-            LeftSquare => write!(f, "LSquare"),
-            RightSquare => write!(f, "RSquare"),
-            LeftCurly => write!(f, "LCurly"),
-            RightCurly => write!(f, "RCurly"),
-            // LeftAngle => write!(f, "LAngle"),
+            LeftSquare   => write!(f, "LSquare"),
+            RightSquare  => write!(f, "RSquare"),
+            LeftCurly    => write!(f, "LCurly"),
+            RightCurly   => write!(f, "RCurly"),
+            // LeftAngle  => write!(f, "LAngle"),
             // RightAngle => write!(f, "RAngle"),
-            LeftBracket => write!(f, "LBrack"),
+            LeftBracket  => write!(f, "LBrack"),
             RightBracket => write!(f, "RBrack"),
-            LessThan => write!(f, "LT"),
-            GreaterThan => write!(f, "GT"),
-            Equals => write!(f, "Eq"),
-            Underline => write!(f, "UL"),
-            Arrow => write!(f, "Arrow"),
-            Comma => write!(f, "Comma"),
-            Colon => write!(f, "Colon"),
+            LessThan     => write!(f, "LT"),
+            GreaterThan  => write!(f, "GT"),
+            Equals       => write!(f, "Eq"),
+            Underline    => write!(f, "UL"),
+            Arrow        => write!(f, "Arrow"),
+            Comma        => write!(f, "Comma"),
+            Colon        => write!(f, "Colon"),
             WordBoundary => write!(f, "WBound"),
             SyllBoundary => write!(f, "SBound"),
-            Syllable => write!(f, "Syll"),
-            Ampersand => write!(f, "Amper"),
-            Primative => write!(f, "Prim"),
-            Number => write!(f, "Num"),
-            Slash => write!(f, "Slash"),
-            Pipe => write!(f, "Pipe"),
-            Cardinal => write!(f, "Cardinal"),
-            Star => write!(f, "Star"),
-            EmptySet => write!(f, "Empty"),
-            Ellipsis => write!(f, "Ellipsis"),
-            Feature(x) => write!(f, "{}", x),
-            Eol => write!(f, "End of Line"),
+            Syllable     => write!(f, "Syll"),
+            Ampersand    => write!(f, "Amper"),
+            Primative    => write!(f, "Prim"),
+            Number       => write!(f, "Num"),
+            Slash        => write!(f, "Slash"),
+            Pipe         => write!(f, "Pipe"),
+            Cardinal     => write!(f, "Cardinal"),
+            Star         => write!(f, "Star"),
+            EmptySet     => write!(f, "Empty"),
+            Ellipsis     => write!(f, "Ellipsis"),
+            Feature(x)   => write!(f, "{}", x),
+            Eol          => write!(f, "End of Line"),
         }
     }
 }
@@ -328,7 +328,7 @@ pub struct Lexer {
 
 impl Lexer {
 
-    pub fn new(input: &String, line: usize) -> Self {
+    pub fn new(input: &str, line: usize) -> Self {
         let mut s = Self { 
             source: input.chars().collect(), 
             line,
@@ -438,7 +438,7 @@ impl Lexer {
 
         while self.curr_char.is_whitespace() { self.advance(); } 
 
-        while self.curr_char.is_ascii_alphabetic() {
+        while self.curr_char.is_ascii_alphabetic() || self.curr_char == '.' {
             buffer.push(self.curr_char);
             self.advance();
             
@@ -637,36 +637,37 @@ impl Lexer {
             "root"        | "rut"       | "rt"                  => Ok(Feature(Node(Root))),
             "consonantal" | "consonant" | "cons" | "cns"        => Ok(Feature(Feat(Consonantal))),
             "sonorant"    | "sonor"     | "son"  | "sn"         => Ok(Feature(Feat(Sonorant))),
-            "syllabic"    | "syllab"    | "syll" | "sll"        => Ok(Feature(Feat(Syllabic))),
+            "syllabic"    | "syllab"    | "syll" | "syl"        => Ok(Feature(Feat(Syllabic))),
             // Manner Node Features
-            "manner"         | "mann"   | "man"  | "mnr" | "mn" => Ok(Feature(Node(Manner))),
+            "manner"         | "mann"   | "man"  | "mnr"        => Ok(Feature(Node(Manner))),
             "continuant"     | "contin" | "cont" | "cnt"        => Ok(Feature(Feat(Continuant))),
             "approximant"    | "approx" | "appr" | "app"        => Ok(Feature(Feat(Approximant))),
             "lateral"        | "latrl"  | "ltrl" | "lat"        => Ok(Feature(Feat(Lateral))),
             "nasal"          | "nsl"    | "nas"                 => Ok(Feature(Feat(Nasal))),
-            "delayedrelease" | "delrel" | "dlrl" | "dr"         => Ok(Feature(Feat(DelayedRelease))),
+            "delayedrelease" | "delrel" | "d.r." | "dr"         => Ok(Feature(Feat(DelayedRelease))),
             "strident"       | "strid"  | "stri"                => Ok(Feature(Feat(Strident))),
             "rhotic"         | "rhot"   | "rho"  | "rh"         => Ok(Feature(Feat(Rhotic))),
-            "click"          | "clck"   | "clk"                 => Ok(Feature(Feat(Click))),
+            "click"          | "clik"   | "clk"                 => Ok(Feature(Feat(Click))),
             // Laryngeal Node Features
             "laryngeal"      | "laryng"     | "laryn"  | "lar"  => Ok(Feature(Node(Laryngeal))),
             "voice"          | "voi"        | "vce"    | "vc"   => Ok(Feature(Feat(Voice))),
-            "spreadglottis"  | "spreadglot" | "spread" | "sg"   => Ok(Feature(Feat(SpreadGlottis))),
+            "spreadglottis"  | "spreadglot" | 
+            "spread"         | "s.g."       | "sg"              => Ok(Feature(Feat(SpreadGlottis))),
             "constrictedglottis"            | "constricted" |
-            "constglot"      | "constr"     | "cg"              => Ok(Feature(Feat(ConstrGlottis))),
+            "constglot"      | "constr"     | "c.g."   | "cg"   => Ok(Feature(Feat(ConstrGlottis))),
             // Place Node Feature
             "place"       | "plce"    | "plc"                   => Ok(Feature(Node(Place))),
             // Labial Place Node Features
             "labial"      | "lbl"     | "lab"                   => Ok(Feature(Node(Labial))),
             // TODO: come up with a better name for this feature
             "bilabial"    | "bilab"   | "blb"                   => Ok(Feature(Feat(Bilabial))),
-            "round"       | "rnd"                               => Ok(Feature(Feat(Round))),
+            "round"       | "rnd"     | "rd"                    => Ok(Feature(Feat(Round))),
             // Coronal Place Node Features
             "coronal"     | "coron"   | "cor"                   => Ok(Feature(Node(Coronal))),
             "anterior"    | "anter"   | "ant"                   => Ok(Feature(Feat(Anterior))),
             "distributed" | "distrib" | "dist" | "dst"          => Ok(Feature(Feat(Distributed))),
             // Dorsal Place Node Features
-            "dorsal"  | "dors"  | "dor"                         => Ok(Feature(Node(Dorsal))),
+            "dorsal"  | "drsl"  | "dors" | "dor"                => Ok(Feature(Node(Dorsal))),
             "front"   | "frnt"  | "fnt"  | "fro" | "fr"         => Ok(Feature(Feat(Front))),
             "back"    | "bck"   | "bk"                          => Ok(Feature(Feat(Back))),
             "high"    | "hgh"   | "hi"                          => Ok(Feature(Feat(High))),
@@ -676,14 +677,14 @@ impl Lexer {
             // Pharyngeal Place Node Features
             "pharyngeal" | "pharyng" | "pharyn"  |
             "phar"       | "phr"                                => Ok(Feature(Node(Pharyngeal))),
-            "advancedtongueroot"     | "atr"                    => Ok(Feature(Feat(AdvancedTongueRoot))),
-            "retractedtongueroot"    | "rtr"                    => Ok(Feature(Feat(RetractedTongueRoot))),
+            "advancedtongueroot"     | "a.t.r."  | "atr"        => Ok(Feature(Feat(AdvancedTongueRoot))),
+            "retractedtongueroot"    | "r.t.r."  | "rtr"        => Ok(Feature(Feat(RetractedTongueRoot))),
             // Suprasegmental Features
             "long"     | "lng"                                  => Ok(Feature(Supr(Long))),
             "overlong" | "overlng" | "ovrlng" | "xlng"          => Ok(Feature(Supr(Overlong))),
             "stress"   | "primarystress" | "primstress" |
-            "primstr"  | "prmstr"  | "str" | "prim"             => Ok(Feature(Supr(PrimStress))),
-            "secondarystress"| "secstress" | "secstr" | "sec"   => Ok(Feature(Supr(SecStress))),
+            "primstr"  | "prm.str."  | "str" | "prim"           => Ok(Feature(Supr(PrimStress))),
+            "secondarystress"| "secstress" | "sec.str." | "sec" => Ok(Feature(Supr(SecStress))),
             
             _ => Err(RuleSyntaxError::UnknownFeature(buffer, self.line, start, end))
         }
