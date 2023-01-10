@@ -145,7 +145,7 @@ impl fmt::Display for ParseKind {
             ParseKind::Ellipsis   => write!(f, "…"),
             ParseKind::Metathesis => write!(f, "&"),
 
-            ParseKind::Ipa(s, m) => write!(f, "{} = {:?}", s, m),
+            ParseKind::Ipa(s, m) => write!(f, "{:?} + {:?}", s, m),
 
             ParseKind::Matrix(tokens) => {
                 write!(f, "{:#?}", tokens)
@@ -198,6 +198,7 @@ impl fmt::Display for Item {
     }
 }
 
+// TODO: Allow Set in Output if there is a matching set in input
 pub struct Parser {
     token_list: Vec<Token>,
     line: usize,

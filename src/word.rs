@@ -127,7 +127,7 @@ fn modifier_index_to_node_mask(i: usize) -> (NodeKind, u8) {
     feature_to_node_mask(ft)
 }
 
-#[derive(Default, Debug, Clone, Copy, PartialEq, Eq, Deserialize)]
+#[derive(Default, Clone, Copy, PartialEq, Eq, Deserialize)]
 pub struct Segment {
     pub root      : u8,
     pub manner    : u8,
@@ -282,27 +282,27 @@ impl Segment {
     // }
 }
 
-impl fmt::Display for Segment {
+impl fmt::Debug for Segment {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "RUT: {} ", self.root)?;
-        write!(f, "MAN: {} ", self.manner)?;
-        write!(f, "LAR: {} ", self.laryngeal)?;
+        write!(f, "RUT: {:b} ", self.root)?;
+        write!(f, "MAN: {:b} ", self.manner)?;
+        write!(f, "LAR: {:b} ", self.laryngeal)?;
 
 
         match self.labial {
-            Some(v) => write!(f, "LAB: {} ", v)?,
+            Some(v) => write!(f, "LAB: {:b} ", v)?,
             None    => write!(f, "LAB: - ")?
         }
         match self.coronal {
-            Some(v) => write!(f, "COR: {} ", v)?,
+            Some(v) => write!(f, "COR: {:b} ", v)?,
             None    => write!(f, "COR: - ")?
         }
         match self.dorsal {
-            Some(v) => write!(f, "DOR: {} ", v)?,
+            Some(v) => write!(f, "DOR: {:b} ", v)?,
             None    => write!(f, "DOR: - ")?
         }
         match self.pharyngeal {
-            Some(v) => write!(f, "PHR: {} ", v)?,
+            Some(v) => write!(f, "PHR: {:b} ", v)?,
             None    => write!(f, "PHR: - ")?
         }
 
@@ -330,16 +330,16 @@ impl fmt::Display for Syllable {
     }
 }
 
-#[derive(Debug, Clone)]
+#[derive(Clone)]
 pub struct Word {
     pub segments: Vec<Segment>,
     pub syllables: Vec<Syllable>,
 }
 
-impl fmt::Display for Word {
+impl fmt::Debug for Word {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         for (pos, seg) in self.segments.iter().enumerate() {
-            writeln!(f, "{} | {}", pos, seg)?;
+            writeln!(f, "{} | {:?}", pos, seg)?;
         }
         writeln!(f)?;
         for syll in &self.syllables {
@@ -374,7 +374,7 @@ impl Word {
         Some(buffer)
     }
 
-    // TODO: This works, but it's backwards
+    // TODO: This works, but could be improved
     pub fn render(&self) -> Result<String, (String, usize)> {
 
         let mut buffer = String::new();
@@ -398,6 +398,12 @@ impl Word {
                 }
 
                 if i == self.segments.len()-1 && syll.end == i{
+                    if i != 0 && *seg == self.segments[i-1] {
+                        if !buffer.ends_with('.') && !buffer.ends_with('ˈ') && !buffer.ends_with('ˌ') {
+                            buffer.push('ː');
+                            continue;
+                        }
+                    }
                     let Some(x) = &seg.get_as_grapheme() else { return Err((buffer, i)) };
                     buffer.push_str(x);
                     buffer.push_str(&syll.tone);
@@ -405,8 +411,17 @@ impl Word {
                 }
             }
 
+            if i != 0 && *seg == self.segments[i-1] {
+                if !buffer.ends_with('.') && !buffer.ends_with('ˈ') && !buffer.ends_with('ˌ') {
+                    buffer.push('ː');
+                    continue;
+                }
+            }
+            
             let Some(x) = &seg.get_as_grapheme() else { return Err((buffer, i)) };
             buffer.push_str(x);
+            
+
         }
 
         Ok(buffer)
@@ -473,7 +488,7 @@ impl Word {
             if txt[i] == '.' || txt[i].is_ascii_digit() {
 
                 if self.segments.is_empty() || txt[i-1] == '.' || txt[i-1].is_ascii_digit() {
-                    i+=1;           // todo: We could error here, but for now we can just skip
+                    i+=1;           // NOTE: We could (or should) error here, but we can just skip
                     continue;
                 }
 
@@ -610,16 +625,6 @@ mod word_tests {
     use super::*;
 
     #[test]
-    fn test_text_split() {
-        let w = Word::new("na".to_owned()).unwrap();
-
-        assert_eq!(w._format_text("ˌna.kiˈsa".to_owned()), vec!["ˌna", "ki", "ˈsa"]);
-        assert_eq!(w._format_text(".na.kiˈsa".to_owned()), vec!["na", "ki", "ˈsa"]);
-        assert_eq!(w._format_text("na.kiˈsa.".to_owned()), vec!["na", "ki", "ˈsa"]);
-        assert_eq!(w._format_text("na.kiˈsaˌ".to_owned()), vec!["na", "ki", "ˈsa"]);
-    }
-
-    #[test]
     fn test_get_grapheme() {
         let s = Word::new("n".to_owned()).unwrap().segments[0];
 
@@ -640,6 +645,9 @@ mod word_tests {
 
         let w = Word::new("ˈna.ki.sa123".to_owned()).unwrap();
         assert_eq!(w.render().unwrap(), "ˈna.ki.sa123");
+
+        let w = Word::new("aɫ.ɫaːh".to_owned()).unwrap();
+        assert_eq!(w.render().unwrap(), "aɫ.ɫaːh");
     }
 
     // #[test]

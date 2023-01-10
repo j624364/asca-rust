@@ -22,14 +22,14 @@ impl NodeType {
 impl Display for NodeType {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            NodeType::Root         => write!(f, "ROOT"),
+            NodeType::Root         => write!(f, "RUT"),
             NodeType::Manner       => write!(f, "MAN"),
             NodeType::Laryngeal    => write!(f, "LAR"),
-            NodeType::Place        => write!(f, "PLACE"),
+            NodeType::Place        => write!(f, "PLC"),
             NodeType::Labial       => write!(f, "LAB"),
             NodeType::Coronal      => write!(f, "COR"),
             NodeType::Dorsal       => write!(f, "DOR"),
-            NodeType::Pharyngeal   => write!(f, "PHAR")
+            NodeType::Pharyngeal   => write!(f, "PHR")
         }
     }
 }
@@ -65,41 +65,16 @@ impl Display for SupraType {
 }
 
 #[derive(Debug, Copy, Clone, PartialEq, Eq, Deserialize, Hash)]
-pub enum FType {
-    // ROOT node 
-    Consonantal,   // ± || α.ω 
-    Sonorant,      
-    Syllabic,      
-    // MANNER node 
-    Continuant,      
-    Approximant,     
-    Lateral,         
-    Nasal,           
-    DelayedRelease,  
-    Strident,        
-    Rhotic,          
-    Click,          
-    // LAR node
-    Voice,           
-    SpreadGlottis,   
-    ConstrGlottis,   
+pub enum FType { 
+    // can be ± || α.ω 
+    /*RUT*/ Consonantal, Sonorant, Syllabic,      
+    /*MAN*/ Continuant, Approximant, Lateral, Nasal, DelayedRelease, Strident, Rhotic, Click,          
+    /*LAR*/ Voice, SpreadGlottis, ConstrGlottis,   
     // PLACE Node
-    // LABIAL subnode
-    Bilabial,      
-    Round,          
-    // CORONAL subnode
-    Anterior,        
-    Distributed,     
-    // DORSAL subnode
-    Front,          
-    Back,           
-    High,           
-    Low,            
-    Tense,          
-    Reduced,        
-    // PHAR subnode
-    AdvancedTongueRoot,
-    RetractedTongueRoot, 
+    /*LAB*/ Bilabial, Round,          
+    /*COR*/ Anterior, Distributed,     
+    /*DOR*/ Front, Back, High, Low, Tense, Reduced,        
+    /*PHR*/ AdvancedTongueRoot, RetractedTongueRoot, 
 }
 
 impl Display for FType {
@@ -112,13 +87,13 @@ impl Display for FType {
             FType::Approximant         => write!(f, "appr"),
             FType::Lateral             => write!(f, "lat"),
             FType::Nasal               => write!(f, "nas"),
-            FType::DelayedRelease      => write!(f, "delrel"),
+            FType::DelayedRelease      => write!(f, "d.r."),
             FType::Strident            => write!(f, "strid"),
             FType::Rhotic              => write!(f, "rho"),
             FType::Click               => write!(f, "clk"),
             FType::Voice               => write!(f, "voi"),
-            FType::SpreadGlottis       => write!(f, "sg"),
-            FType::ConstrGlottis       => write!(f, "cg"),
+            FType::SpreadGlottis       => write!(f, "s.g."),
+            FType::ConstrGlottis       => write!(f, "c.g."),
             FType::Bilabial            => write!(f, "bilab"),
             FType::Round               => write!(f, "rnd"),
             FType::Anterior            => write!(f, "ant"),
@@ -663,15 +638,15 @@ impl Lexer {
             "bilabial"    | "bilab"   | "blb"                   => Ok(Feature(Feat(Bilabial))),
             "round"       | "rnd"     | "rd"                    => Ok(Feature(Feat(Round))),
             // Coronal Place Node Features
-            "coronal"     | "coron"   | "cor"                   => Ok(Feature(Node(Coronal))),
+            "coronal"     | "coron"   | "crnl" | "cor"          => Ok(Feature(Node(Coronal))),
             "anterior"    | "anter"   | "ant"                   => Ok(Feature(Feat(Anterior))),
-            "distributed" | "distrib" | "dist" | "dst"          => Ok(Feature(Feat(Distributed))),
+            "distributed" | "distrib" | "dist" | "dis" | "dst"  => Ok(Feature(Feat(Distributed))),
             // Dorsal Place Node Features
             "dorsal"  | "drsl"  | "dors" | "dor"                => Ok(Feature(Node(Dorsal))),
             "front"   | "frnt"  | "fnt"  | "fro" | "fr"         => Ok(Feature(Feat(Front))),
             "back"    | "bck"   | "bk"                          => Ok(Feature(Feat(Back))),
             "high"    | "hgh"   | "hi"                          => Ok(Feature(Feat(High))),
-            "low"     | "lo"                                    => Ok(Feature(Feat(Low))),
+            "low"     | "lw"    | "lo"                          => Ok(Feature(Feat(Low))),
             "tense"   | "tens"  | "tns"  | "ten"                => Ok(Feature(Feat(Tense))),
             "reduced" | "reduc" | "redu" | "red"                => Ok(Feature(Feat(Reduced))),
             // Pharyngeal Place Node Features
