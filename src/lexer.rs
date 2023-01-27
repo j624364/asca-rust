@@ -16,7 +16,7 @@ pub enum NodeType {
 }
 
 impl NodeType {
-    pub const fn count(&self) -> usize { 8 }
+    pub const fn count() -> usize { 8 }
 }
 
 impl Display for NodeType {
@@ -36,29 +36,24 @@ impl Display for NodeType {
 
 #[derive(Debug, Copy, Clone, PartialEq, Eq, Deserialize, Hash)]
 pub enum SupraType {
-    Long,       // +long || length : 2
-    Overlong,   // +overlong || length : 2 
-    PrimStress, // +stress || stress : 1
-    SecStress,  // +secstress || stress : 2
-    // Can only be used with : notation
-    Stress,     // stress : 2 == +long, stress : 3 == Overlong
-    Length,     // Len : 2 == +long, len : 3 == Overlong
-    Tone,       // Tone : 213
+    Long,       // ±long
+    Overlong,   // ±overlong
+    Stress,     // ±stress    (+ matches prim and sec, - matches unstressed)
+    SecStress,  // ±secstress (+ matches sec, - matches prim and unstressed)
+    Tone,       // Can only be used with : notation (e.g. Tone : 213 )
 }
 
-impl SupraType {
-    pub const fn count(&self) -> usize { 7 }
-}
+// impl SupraType {
+//     pub const fn count(&self) -> usize { 7 }
+// }
 
 impl Display for SupraType {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             SupraType::Long            => write!(f, "long"),
             SupraType::Overlong        => write!(f, "overlng"),
-            SupraType::PrimStress      => write!(f, "prmstr"),
-            SupraType::SecStress       => write!(f, "secstr"),
-            SupraType::Length          => write!(f, "len"),
             SupraType::Stress          => write!(f, "str"),
+            SupraType::SecStress       => write!(f, "secstr"),
             SupraType::Tone            => write!(f, "tone"),
         }
     }
@@ -429,11 +424,9 @@ impl Lexer {
             TokenKind::Feature(FeatType::Node(_)) => if mod_val == "+" || mod_val == "-" {
                 panic!("Nodes cannot be ±; they can only be used in Alpha Notation expressions.");
             }, 
-            TokenKind::Feature(FeatType::Supr(SupraType::Length)) 
-            | TokenKind::Feature(FeatType::Supr(SupraType::Stress)) 
-            | TokenKind::Feature(FeatType::Supr(SupraType::Tone)) 
+            TokenKind::Feature(FeatType::Supr(SupraType::Tone)) 
             => if mod_val == "+" || mod_val == "-" {
-                panic!("Tone, Length, and Stress cannot be ±; they can only be used with numeric values.");
+                panic!("Tone cannot be ±; it can only be used with numeric values.");
             }
             _ => {}
         }
@@ -567,10 +560,8 @@ impl Lexer {
         let tkn_kind: TokenKind = self.string_match(buffer, start);
 
         match tkn_kind {
-          TokenKind::Feature(FeatType::Supr(SupraType::Length)) 
-          | TokenKind::Feature(FeatType::Supr(SupraType::Tone)) 
-          | TokenKind::Feature(FeatType::Supr(SupraType::Stress)) => {},
-          _ => panic!("This feature must have a binary value (+/-).")
+            TokenKind::Feature(FeatType::Supr(SupraType::Tone)) => {}
+            s => panic!("This feature `{}` must have a binary value (+/-).", s),
         }
 
         while self.curr_char.is_whitespace() { self.advance(); } 
@@ -593,8 +584,6 @@ impl Lexer {
         use FeatType::*;
         use SupraType::*;
         match buffer.to_lowercase().as_str() {
-            "stress" | "str" | "strss" => Feature(Supr(Stress)),
-            "length" | "len" | "ln"    => Feature(Supr(Length)),
             "tone"   | "ton" | "tn"    => Feature(Supr(Tone)),
             _ => panic!("Unknown String Feature at pos: {}", start)
         }
@@ -657,9 +646,9 @@ impl Lexer {
             // Suprasegmental Features
             "long"     | "lng"                                  => Ok(Feature(Supr(Long))),
             "overlong" | "overlng" | "ovrlng" | "xlng"          => Ok(Feature(Supr(Overlong))),
-            "stress"   | "primarystress" | "primstress" |
-            "primstr"  | "prm.str."  | "str" | "prim"           => Ok(Feature(Supr(PrimStress))),
-            "secondarystress"| "secstress" | "sec.str." | "sec" => Ok(Feature(Supr(SecStress))),
+            "stress"   | "str"                                  => Ok(Feature(Supr(Stress))),
+            "secondarystress"| "sec.stress" | "secstress" 
+            | "sec.str." | "sec"                                => Ok(Feature(Supr(SecStress))),
             
             _ => Err(RuleSyntaxError::UnknownFeature(buffer, self.line, start, end))
         }

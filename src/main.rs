@@ -122,24 +122,25 @@ fn parse_words(unparsed_words: &[String]) -> Result<Vec<Word>,WordSyntaxError> {
     Ok(words)
 }
 
-fn apply_rules(rules: Vec<Rule>, words: Vec<Word>, trace: bool) -> Result<(Vec<Word>, Vec<Vec<String>>), RuntimeError> {
+fn apply_rules(rules: &[Rule], words: &[Word], is_traced: bool) -> Result<(Vec<Word>, Vec<Vec<String>>), RuntimeError> {
     // TODO: work out tracing
     let mut transformed_words: Vec<Word> = vec![];
     let mut traced_words: Vec<Vec<String>> = vec![];
 
     for (i, w) in words.iter().enumerate() {
         let mut wb = w.clone();
-        if trace {
+        if is_traced {
             traced_words.push(vec![]);
-            traced_words[i].push(word_to_string(wb.clone())?);
+            traced_words[i].push(traced_word_to_string(wb.clone(), None));
 
         }
 
-        for r in &rules {
+        for r in rules.iter() {
             wb = r.apply(wb.clone())?;
 
-            if trace {
-                traced_words[i].push(word_to_string(wb.clone())?);
+            if is_traced {
+                let asdf = traced_word_to_string(wb.clone(), traced_words[i].last());
+                traced_words[i].push(asdf);
             }
         }
         transformed_words.push(wb);
@@ -148,11 +149,17 @@ fn apply_rules(rules: Vec<Rule>, words: Vec<Word>, trace: bool) -> Result<(Vec<W
     Ok((transformed_words, traced_words))
 }
 
-fn word_to_string(word: Word) -> Result<String, RuntimeError> {
-    todo!();
+fn traced_word_to_string(word: Word, before: Option<&String>) -> String {
+
+    let word_before = before.unwrap_or(&"()".to_string()).clone();
+    
+    match word.render() {
+        Ok(res) => res,
+        Err((buffer, _)) => format!("Err: {} => {}", word_before, buffer)
+    }
 }
 
-fn words_to_string(words: Vec<Word>) -> Result<Vec<String>, RuntimeError> {
+fn words_to_string(words: &[Word]) -> Result<Vec<String>, RuntimeError> {
 
     let mut wrds_str: Vec<String> = vec![];
 
@@ -171,9 +178,9 @@ fn run(unparsed_rules: &[String], unparsed_words: &[String], trace: bool) -> Res
     let words = parse_words(unparsed_words)?;
     let rules = parse_rules(unparsed_rules)?;
 
-    let (res, trace_res) = apply_rules(rules, words, trace)?;
+    let (res, trace_res) = apply_rules(&rules, &words, trace)?;
 
-    Ok((words_to_string(res)?, trace_res))
+    Ok((words_to_string(&res)?, trace_res))
 
 }
 

@@ -16,25 +16,48 @@ use crate :: {
 //     _ => segment_to_byte(feature)
 // }
 
-#[derive(Debug, Clone, Copy)]
-pub enum Stress {
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum StressKind {
     Primary,
     Secondary,
     Unstressed
 }
 
-impl Default for Stress {
+impl Default for StressKind {
     fn default() -> Self {
         Self::Unstressed
     }
 }
 
-impl fmt::Display for Stress {
+impl fmt::Display for StressKind {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            Stress::Primary    => write!(f, "P"),
-            Stress::Secondary  => write!(f, "S"),
-            Stress::Unstressed => write!(f, "-"),
+            StressKind::Primary    => write!(f, "P"),
+            StressKind::Secondary  => write!(f, "S"),
+            StressKind::Unstressed => write!(f, "-"),
+        }
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum LengthKind {
+    Short,
+    Long,
+    Overlong
+}
+
+impl Default for LengthKind {
+    fn default() -> Self {
+        Self::Short
+    }
+}
+
+impl fmt::Display for LengthKind {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            LengthKind::Short    => write!(f, "-"),
+            LengthKind::Long     => write!(f, ":"),
+            LengthKind::Overlong => write!(f, "::"),
         }
     }
 }
@@ -180,7 +203,7 @@ impl Segment {
 
         for c_grapheme in CARDINALS_VEC.iter() {
             let x = CARDINALS_MAP.get(c_grapheme).unwrap();
-            let mut buffer = (c_grapheme, x);
+            let buffer = (c_grapheme, x);
 
             for d in DIACRITS.iter() {
                 if match_from_modifiers(buffer.1, &d.prereqs) && match_from_modifiers(buffer.1, &d.payload) {
@@ -268,7 +291,6 @@ impl Segment {
     //         Some(x) => x,
     //         None => 0u8, // todo: maybe we should just return (or error) in this case?
     //     };
-
     //     self.set_node(node, Some(n ^ feat))
     // }
 
@@ -277,7 +299,6 @@ impl Segment {
     //         Some(x) => x,
     //         None => 0u8, // todo: again maybe we should just return/error
     //     };
-
     //     self.set_node(node, Some(!n))   
     // }
 }
@@ -314,13 +335,13 @@ impl fmt::Debug for Segment {
 pub struct Syllable {
     pub start: usize,
     pub end: usize,
-    pub stress: Stress,
+    pub stress: StressKind,
     pub tone: String
 }
 
 impl Syllable {
     pub fn new() -> Self {
-        Self {start: 0, end: 0, stress: Stress::default(), tone: String::new()}
+        Self {start: 0, end: 0, stress: StressKind::default(), tone: String::new()}
     }
 }
 
@@ -363,7 +384,7 @@ impl Word {
         Ok(w)
     }
     // TODO: `render` probably isn't the right verb here
-    pub fn render_segments(&self) -> Option<String> {
+    pub fn render_only_segments(&self) -> Option<String> {
 
         let mut buffer = String::new();
         
@@ -390,19 +411,17 @@ impl Word {
 
                 if i == syll.start {
                     match syll.stress {
-                        Stress::Primary => buffer.push('ˈ'), 
-                        Stress::Secondary => buffer.push('ˌ'),
-                        Stress::Unstressed =>  if y > 0 { buffer.push('.') },
+                        StressKind::Primary => buffer.push('ˈ'), 
+                        StressKind::Secondary => buffer.push('ˌ'),
+                        StressKind::Unstressed =>  if y > 0 { buffer.push('.') },
                     }
                     break;
                 }
 
                 if i == self.segments.len()-1 && syll.end == i{
-                    if i != 0 && *seg == self.segments[i-1] {
-                        if !buffer.ends_with('.') && !buffer.ends_with('ˈ') && !buffer.ends_with('ˌ') {
-                            buffer.push('ː');
-                            continue;
-                        }
+                    if i != 0 && *seg == self.segments[i-1] && !buffer.ends_with('.') && !buffer.ends_with('ˈ') && !buffer.ends_with('ˌ') {
+                        buffer.push('ː');
+                        continue;
                     }
                     let Some(x) = &seg.get_as_grapheme() else { return Err((buffer, i)) };
                     buffer.push_str(x);
@@ -411,11 +430,9 @@ impl Word {
                 }
             }
 
-            if i != 0 && *seg == self.segments[i-1] {
-                if !buffer.ends_with('.') && !buffer.ends_with('ˈ') && !buffer.ends_with('ˌ') {
-                    buffer.push('ː');
-                    continue;
-                }
+            if i != 0 && *seg == self.segments[i-1] && !buffer.ends_with('.') && !buffer.ends_with('ˈ') && !buffer.ends_with('ˌ') {
+                buffer.push('ː');
+                continue;
             }
             
             let Some(x) = &seg.get_as_grapheme() else { return Err((buffer, i)) };
@@ -459,6 +476,24 @@ impl Word {
         unreachable!();
     }
 
+    pub fn is_syll_final(&self, seg_index: usize) -> bool {
+        let syll_index = self.get_syll_index_from_seg_index(seg_index);
+        syll_index == self.syllables[syll_index].end
+    }
+
+    pub fn is_syll_initial(&self, seg_index: usize) -> bool {
+        let syll_index = self.get_syll_index_from_seg_index(seg_index);
+        syll_index == self.syllables[syll_index].start
+    }
+
+    pub fn is_word_final(&self, seg_index: usize) -> bool {
+        seg_index == self.segments.len() - 1
+    }
+
+    pub fn is_word_initial(&self, seg_index: usize) -> bool {
+        seg_index == 0
+    }
+
     fn setup(&mut self, input_txt: String) -> Result<(), WordSyntaxError> {
         let mut i = 0;
         let txt: Vec<char> = input_txt.chars().collect();
@@ -476,8 +511,8 @@ impl Word {
                 sy.start = self.segments.len();
                 
                 match txt[i] {
-                    'ˌ' => sy.stress = Stress::Secondary,
-                    'ˈ' => sy.stress = Stress::Primary,
+                    'ˌ' => sy.stress = StressKind::Secondary,
+                    'ˈ' => sy.stress = StressKind::Primary,
                     _ => unreachable!()
                 }
                 
@@ -510,7 +545,7 @@ impl Word {
                 
                 // Reset syllable for next pass
                 sy.start = self.segments.len();
-                sy.stress = Stress::default();
+                sy.stress = StressKind::default();
                 sy.tone = String::new();
 
                 i+=1;
@@ -569,52 +604,43 @@ impl Word {
     }
 
     // NOTE: deprecated, only currently used by tests
-    pub fn _format_text(&self, mut txt: String ) -> Vec<String> {
-        txt = txt.replace('\'', "ˈ")
-                 .replace('g',  "ɡ")
-                 .replace(':',  "ː")
-                 .replace('ǝ',  "ə");
-        
-        
-        // what we want is to split the string with the delimiters at the start each slice
-        // however split_inclusive splits with the delimiters at the end — and there is seemingly no alternative (for some reason) 
-        // so this mess is needed for now unless something better comes to me
-
-        let mut split_str : Vec<String> = txt.split_inclusive(&['ˈ', 'ˌ', '.']).map(|f| f.to_string()).collect();
-        let mut split_text = Vec::new();
-        
-        let mut i = 0;
-        // if the first character is a delimiter, it will be on it's own as the first element
-        // we want to append it to the front of the second element
-        if split_str[0] == "ˈ" || split_str[0] == "ˌ" {
-            split_str[1] = split_str[0].clone() + split_str[1].clone().as_str();
-            i = 1;
-        } else if split_str[0] == "." { i = 1 } // this would is malformed, but i think we shouldn't error, and just move on in this case
-
-        // we then go through each element, removing and re-appending the delimiters
-        while i < split_str.len() {
-            if split_str[i].ends_with('ˈ') || split_str[i].ends_with('ˌ') {
-                let chr = split_str[i].pop().unwrap().to_string();
-                split_text.push(split_str[i].clone());
-                i += 1;
-                split_str[i] = chr + split_str[i].as_str();
-            }
-            
-            if split_str[i].ends_with('.') { split_str[i].pop(); }
-            split_text.push(split_str[i].clone());
-            i += 1;
-        }
-
-        // would be malformed, same as above. But as with that, i think we should just ignore it
-        let lst = split_text.last().unwrap();
-        if lst.ends_with('ˈ') || lst.ends_with('ˌ') {
-            let l = split_text.len()-1;
-            split_text[l].pop();
-        }
-        
-        split_text
-
-    }
+    // pub fn format_text(&self, mut txt: String ) -> Vec<String> {
+    //     txt = txt.replace('\'', "ˈ")
+    //              .replace('g',  "ɡ")
+    //              .replace(':',  "ː")
+    //              .replace('ǝ',  "ə");
+    //     // what we want is to split the string with the delimiters at the start each slice
+    //     // however split_inclusive splits with the delimiters at the end — and there is seemingly no alternative (for some reason) 
+    //     // so this mess is needed for now unless something better comes to me
+    //     let mut split_str : Vec<String> = txt.split_inclusive(&['ˈ', 'ˌ', '.']).map(|f| f.to_string()).collect();
+    //     let mut split_text = Vec::new();
+    //     let mut i = 0;
+    //     // if the first character is a delimiter, it will be on it's own as the first element
+    //     // we want to append it to the front of the second element
+    //     if split_str[0] == "ˈ" || split_str[0] == "ˌ" {
+    //         split_str[1] = split_str[0].clone() + split_str[1].clone().as_str();
+    //         i = 1;
+    //     } else if split_str[0] == "." { i = 1 } // this would is malformed, but i think we shouldn't error, and just move on in this case
+    //     // we then go through each element, removing and re-appending the delimiters
+    //     while i < split_str.len() {
+    //         if split_str[i].ends_with('ˈ') || split_str[i].ends_with('ˌ') {
+    //             let chr = split_str[i].pop().unwrap().to_string();
+    //             split_text.push(split_str[i].clone());
+    //             i += 1;
+    //             split_str[i] = chr + split_str[i].as_str();
+    //         }
+    //         if split_str[i].ends_with('.') { split_str[i].pop(); }
+    //         split_text.push(split_str[i].clone());
+    //         i += 1;
+    //     }
+    //     // would be malformed, same as above. But as with that, i think we should just ignore it
+    //     let lst = split_text.last().unwrap();
+    //     if lst.ends_with('ˈ') || lst.ends_with('ˌ') {
+    //         let l = split_text.len()-1;
+    //         split_text[l].pop();
+    //     }
+    //     split_text
+    // }
 }
 
 
