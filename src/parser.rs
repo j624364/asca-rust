@@ -152,7 +152,7 @@ impl fmt::Display for ParseKind {
 
             ParseKind::Set(_) => todo!(),
 
-            ParseKind::Optional(_, _, _) => todo!(),
+            ParseKind::Optional(..) => todo!(),
 
             ParseKind::Environment(bef, aft) => {
                 let xb = bef.iter()
@@ -209,7 +209,7 @@ impl Parser {
             token_list: lst, 
             line,
             pos: 0, 
-            curr_tkn: Token { kind: TokenKind::Eol, value: "eol".to_string(), position: Position::new(line, 0, 1 ) },
+            curr_tkn: Token { kind: TokenKind::Eol, value: String::new(), position: Position::new(line, 0, 1 ) },
             var_map: HashMap::new(), 
         };
         s.curr_tkn = s.token_list[s.pos].clone();
@@ -223,7 +223,7 @@ impl Parser {
         self.curr_tkn = if self.has_more_tokens() {
             self.token_list[self.pos].clone()
         } else {
-            Token { kind: TokenKind::Eol, value: "eol".to_string(), position: Position::new(self.line, self.pos, self.pos+1) }
+            Token { kind: TokenKind::Eol, value: String::new(), position: Position::new(self.line, self.pos, self.pos+1) }
         }
     }
 
@@ -496,7 +496,6 @@ impl Parser {
 
     fn get_matrix_args(&mut self, is_syll: bool) -> Result<Modifiers, RuleSyntaxError> {
         // returns matrix or None
-        
         let mut args = Modifiers::new();
         while self.has_more_tokens() {
             if self.expect(TokenKind::RightSquare) {
@@ -741,7 +740,27 @@ impl Parser {
                 break;
             }
 
+            if let Some(x) = self.get_bound() {
+                segs.push(x);
+                continue;
+            }
+
+            if let Some(x) = self.get_syll()? {
+                segs.push(x);
+                continue;
+            }
+
+            if let Some(x) = self.get_set()? {
+                segs.push(x);
+                continue;
+            }
+
             if let Some(x) = self.get_segment()? {
+                segs.push(x);
+                continue;
+            }
+            
+            if let Some(x) = self.get_var()? {
                 segs.push(x);
                 continue;
             }
@@ -901,14 +920,16 @@ impl Parser {
     }
 
     fn get_output_element(&mut self) -> Result<Option<Item>, RuleSyntaxError> {
-        // returns syllable / segment / variable
+        // returns syllable / segment / variable / set
         if let Some(x) = self.get_syll()? {
             return Ok(Some(x))
         }
 
-        // if let Some(x) = self.get_set()? {
-        //     return Ok(Some(x))
-        // }
+        // NOTE: a set in the output only makes sense when matched to a set in the input w/ the same # of elements
+        // TODO: This could be validated at end of parsing
+        if let Some(x) = self.get_set()? {  
+            return Ok(Some(x))
+        }
 
         if let Some(x) = self.get_segment()? {
             return Ok(Some(x))
@@ -969,7 +990,7 @@ impl Parser {
     }
 
     fn get_output(&mut self) -> Result<Vec<Vec<Item>>, RuleSyntaxError> {
-        // returns empty / metathesis / list of output erms 
+        // returns empty / metathesis / list of output terms 
         let mut outputs = Vec::new();
 
         // check for deletion rule
