@@ -311,19 +311,19 @@ impl fmt::Debug for Segment {
 
 
         match self.labial {
-            Some(v) => write!(f, "LAB: {:b} ", v)?,
+            Some(v) => write!(f, "LAB: {v:b} ")?,
             None    => write!(f, "LAB: - ")?
         }
         match self.coronal {
-            Some(v) => write!(f, "COR: {:b} ", v)?,
+            Some(v) => write!(f, "COR: {v:b} ")?,
             None    => write!(f, "COR: - ")?
         }
         match self.dorsal {
-            Some(v) => write!(f, "DOR: {:b} ", v)?,
+            Some(v) => write!(f, "DOR: {v:b} ")?,
             None    => write!(f, "DOR: - ")?
         }
         match self.pharyngeal {
-            Some(v) => write!(f, "PHR: {:b} ", v)?,
+            Some(v) => write!(f, "PHR: {v:b} ")?,
             None    => write!(f, "PHR: - ")?
         }
 
@@ -360,11 +360,11 @@ pub struct Word {
 impl fmt::Debug for Word {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         for (pos, seg) in self.segments.iter().enumerate() {
-            writeln!(f, "{} | {:?}", pos, seg)?;
+            writeln!(f, "{pos} | {seg:?}")?;
         }
         writeln!(f)?;
         for syll in &self.syllables {
-            writeln!(f, "{}", syll)?;
+            writeln!(f, "{syll}")?;
         }
 
         Ok(())

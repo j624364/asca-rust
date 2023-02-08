@@ -130,7 +130,7 @@ impl fmt::Display for ParseKind {
                 // .fold(String::new(), |acc, i| acc + &i.to_string() + ", ");
 
                 // write!(f, "{} = [{}]", t, tt)
-                write!(f, "{} = {:#?}", t, p)
+                write!(f, "{t} = {p:#?}")
             },
             ParseKind::EmptySet   => write!(f, "∅"),
             ParseKind::WordBound  => write!(f, "#"),
@@ -138,13 +138,13 @@ impl fmt::Display for ParseKind {
             ParseKind::Ellipsis   => write!(f, "…"),
             ParseKind::Metathesis => write!(f, "&"),
 
-            ParseKind::Ipa(s, m) => write!(f, "{:?} + {:?}", s, m),
+            ParseKind::Ipa(s, m) => write!(f, "{s:?} + {m:?}"),
 
             ParseKind::Matrix(tokens) => {
-                write!(f, "{:#?}", tokens)
+                write!(f, "{tokens:#?}")
             },
             ParseKind::Syllable(str, tone) => {
-                write!(f, "{:#?} : {:#?}", str, tone)
+                write!(f, "{str:#?} : {tone:#?}")
             },
 
             ParseKind::Set(_) => todo!(),
@@ -159,13 +159,13 @@ impl fmt::Display for ParseKind {
                 .fold(String::new(), |acc, i| acc + &i.to_string() + ", ");
                 
                 if xb.is_empty() && xa.is_empty() {
-                    write!(f, "[{}] __ [{}]", xb, xa)
+                    write!(f, "[{xb}] __ [{xa}]")
                 } else if xb.is_empty() {
-                    write!(f, "[{}] __ {}", xb, xa)
+                    write!(f, "[{xb}] __ {xa}")
                 } else if xa.is_empty() {
-                    write!(f, "{} __ [{}]", xb, xa)
+                    write!(f, "{xb} __ [{xa}]")
                 } else {
-                    write!(f, "{} __ {}", xb, xa)
+                    write!(f, "{xb} __ {xa}")
                 }
 
             }
@@ -523,7 +523,7 @@ impl Parser {
             if self.curr_tkn.kind == TokenKind::Eol {
                 return Err(RuleSyntaxError::UnexpectedEol(self.curr_tkn.clone(), ']'))
             }
-            return Err(RuleSyntaxError::ExpectedFeature(self.curr_tkn.clone()))
+            return Err(RuleSyntaxError::ExpectedTokenFeature(self.curr_tkn.clone()))
         }
 
 

@@ -151,7 +151,7 @@ impl Rule {
         for mut i in sub_rules {
             res_word = i.apply(res_word)?;
 
-            println!("{:#?} ---> {:#?}", i, res_word);
+            println!("{i:#?} ---> {res_word:#?}");
         }
 
         Ok(res_word) // TODO: return new word
@@ -281,25 +281,25 @@ impl fmt::Debug for Rule {
 
         writeln!(f, "    Input = [")?;
         for i in self.input.iter() {
-            writeln!(f, "        {:?}", i)?;
+            writeln!(f, "        {i:?}")?;
         }
         writeln!(f, "    ]")?;
 
         writeln!(f, "    Output = [")?;
         for o in self.output.iter() {
-            writeln!(f, "        {:?}", o)?;
+            writeln!(f, "        {o:?}")?;
         }
         writeln!(f, "    ]")?;
 
         writeln!(f, "    Context = [")?;
         for c in self.context.iter() {
-            writeln!(f, "        {}", c)?;
+            writeln!(f, "        {c}")?;
         }
         writeln!(f, "    ]")?;
 
         writeln!(f, "    Exception = [")?;
         for e in self.except.iter() {
-            writeln!(f, "        {}", e)?;
+            writeln!(f, "        {e}")?;
         }
         writeln!(f, "    ]")?;
 

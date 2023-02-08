@@ -233,7 +233,7 @@ impl Display for TokenKind {
             Star         => write!(f, "Star"),
             EmptySet     => write!(f, "Empty"),
             Ellipsis     => write!(f, "Ellipsis"),
-            Feature(x)   => write!(f, "{}", x),
+            Feature(x)   => write!(f, "{x}"),
             Eol          => write!(f, "End of Line"),
         }
     }
@@ -332,7 +332,7 @@ impl Lexer {
         }
     }
 
-    fn get_bracket(&mut self) -> Option<Token> {
+    fn get_bracket(&mut self) -> Result<Option<Token>, RuleSyntaxError> {
         let start = self.pos;
 
         let tokenkind: TokenKind;
@@ -347,15 +347,17 @@ impl Lexer {
             '⟨' => unimplemented!(), // { tokenkind = TokenKind::LeftAngle;    value = "⟨".to_string(); },
             '⟩' => unimplemented!(), // { tokenkind = TokenKind::RightAngle;   value = "⟩".to_string(); },
             '[' => { 
-                if self.inside_square {panic!("Can't have nested square brackets! Pos: {}", self.pos)}
+                if self.inside_square {
+                    return Err(RuleSyntaxError::NestedBrackets(self.line, self.pos));
+                }
                 tokenkind = TokenKind::LeftSquare;
                 value = "[".to_string(); 
                 self.inside_square = true},
-            _ => return None
+            _ => return Ok(None)
         }
         self.advance();
 
-        Some(Token::new(tokenkind, value, self.line, start, self.pos))
+        Ok(Some(Token::new(tokenkind, value, self.line, start, self.pos)))
 
     }
 
@@ -396,7 +398,7 @@ impl Lexer {
 
         self.advance();
         
-        let mod_val: String = if val == '-' && matches!(self.curr_char, 'α'..='ω') {
+        let mod_val = if val == '-' && matches!(self.curr_char, 'α'..='ω') {
             self.advance();
             let mut tmp = String::from('-'); tmp.push(self.curr_char);
             tmp
@@ -416,17 +418,19 @@ impl Lexer {
 
         }
 
-        if buffer.len() <= 1 { panic!("Expected feature after {}, found \"{}\". Pos: {}", val, buffer, start); }
+        if buffer.len() <= 1 { 
+            return Err(RuleSyntaxError::ExpectedAlphabetic(self.curr_char, self.line, self.pos))
+        }
 
         let tkn_kind = self.feature_match(buffer, start, self.pos)?;
             
         match tkn_kind {
             TokenKind::Feature(FeatType::Node(_)) => if mod_val == "+" || mod_val == "-" {
-                panic!("Nodes cannot be ±; they can only be used in Alpha Notation expressions.");
+                return Err(RuleSyntaxError::WrongModNode(self.line, start))
             }, 
             TokenKind::Feature(FeatType::Supr(SupraType::Tone)) 
             => if mod_val == "+" || mod_val == "-" {
-                panic!("Tone cannot be ±; it can only be used with numeric values.");
+                return Err(RuleSyntaxError::WrongModTone(self.line, start))
             }
             _ => {}
         }
@@ -434,7 +438,7 @@ impl Lexer {
         Ok(Some(Token::new(tkn_kind, mod_val, self.line, start, self.pos)))
     }
 
-    fn get_special_char(&mut self) -> Option<Token> {
+    fn get_special_char(&mut self) -> Result<Option<Token>, RuleSyntaxError> {
         let start = self.pos;
 
         let tokenkind: TokenKind;
@@ -470,7 +474,7 @@ impl Lexer {
                     tokenkind = TokenKind::Arrow;
                     value = format!("{c}>");
                 },
-                _ => panic!("Expected '->' got '-{}'", self.peak_next_char())
+                _ => return Err(RuleSyntaxError::ExpectedCharArrow(self.peak_next_char(), self.line, self.pos))
             },
             '…' | '⋯' => { tokenkind = TokenKind::Ellipsis;     value = self.curr_char.to_string(); },
             '.' => match self.peak_next_char() {
@@ -480,13 +484,14 @@ impl Lexer {
                     else { value = "..".to_string(); }
                     tokenkind = TokenKind::Ellipsis;
                 },
-                _ => panic!("Expected '..' got '.{}'", self.peak_next_char())
+                _ => return Err(RuleSyntaxError::ExpectedCharDot(self.peak_next_char(), self.line, self.pos))
+
             },
-            _ => return None
+            _ => return Ok(None)
         }
         self.advance();
 
-        Some(Token::new(tokenkind, value, self.line, start, self.pos))
+        Ok(Some(Token::new(tokenkind, value, self.line, start, self.pos)))
     }
 
     // fn get_ipa_old(&mut self) -> Option<Token> {
@@ -542,11 +547,13 @@ impl Lexer {
         None
     }
 
-    fn get_string(&mut self) -> Option<Token> { 
+    fn get_string(&mut self) -> Result<Option<Token>, RuleSyntaxError> { 
 
-        if !self.curr_char.is_ascii_alphabetic() { return None }
+        if !self.curr_char.is_ascii_alphabetic() { return Ok(None) }
 
-        if !self.inside_square { panic!("Features must be inside square brackets") }
+        if !self.inside_square { 
+            return Err(RuleSyntaxError::OutsideBrackets(self.curr_char, self.line, self.pos))
+        }
 
         let start = self.pos;
 
@@ -557,35 +564,31 @@ impl Lexer {
             self.advance();
         }
 
-        let tkn_kind: TokenKind = self.string_match(buffer, start);
-
-        match tkn_kind {
-            TokenKind::Feature(FeatType::Supr(SupraType::Tone)) => {}
-            s => panic!("This feature `{}` must have a binary value (+/-).", s),
-        }
+        let tkn_kind: TokenKind = self.string_match(buffer, start)?;
 
         while self.curr_char.is_whitespace() { self.advance(); } 
 
         match self.curr_char {
             ':' => self.advance(),
-            _ => panic!("This feature must be followed by a colon and then a number (e.g. `len : 2`).")
+            _ => return Err(RuleSyntaxError::ExpectedCharColon(self.curr_char, self.line, self.pos))
         } 
         
         while self.curr_char.is_whitespace() { self.advance(); } 
 
         match self.get_numeric() {
-            Some(num) => Some(Token::new(tkn_kind, num.value, self.line, start, self.pos)),
-            _ => panic!("This feature must be followed by a number (e.g. `len : 2`).")
+            Some(num) => Ok(Some(Token::new(tkn_kind, num.value, self.line, start, self.pos))),
+            _ => Err(RuleSyntaxError::ExpectedNumber(self.curr_char, self.line, self.pos))
+
         }
     }
 
-    fn string_match(&mut self, buffer: String, start: usize) -> TokenKind {
+    fn string_match(&mut self, buffer: String, start: usize) -> Result<TokenKind, RuleSyntaxError> {
         use TokenKind::*;
         use FeatType::*;
         use SupraType::*;
         match buffer.to_lowercase().as_str() {
-            "tone"   | "ton" | "tn"    => Feature(Supr(Tone)),
-            _ => panic!("Unknown String Feature at pos: {}", start)
+            "tone"   | "ton" | "tn"    => Ok(Feature(Supr(Tone))),
+            _ => Err(RuleSyntaxError::UnknownFeature(buffer.clone(), self.line, start, buffer.len()))
         }
     }
 
@@ -647,8 +650,8 @@ impl Lexer {
             "long"     | "lng"                                  => Ok(Feature(Supr(Long))),
             "overlong" | "overlng" | "ovrlng" | "xlng"          => Ok(Feature(Supr(Overlong))),
             "stress"   | "str"                                  => Ok(Feature(Supr(Stress))),
-            "secondarystress"| "sec.stress" | "secstress" 
-            | "sec.str." | "sec"                                => Ok(Feature(Supr(SecStress))),
+            "secondarystress"| "sec.stress" | "secstress" |
+            "sec.str."       | "sec"                            => Ok(Feature(Supr(SecStress))),
             
             _ => Err(RuleSyntaxError::UnknownFeature(buffer, self.line, start, end))
         }
@@ -660,13 +663,13 @@ impl Lexer {
         
         if !self.has_more_chars() { return Ok(Token::new(TokenKind::Eol, String::new(), self.line, self.pos, self.pos+1)) }
 
-        if let Some(bkt_token) = self.get_bracket()      { return Ok(bkt_token) }
-        if let Some(pmt_token) = self.get_primative()    { return Ok(pmt_token) }
-        if let Some(num_token) = self.get_numeric()      { return Ok(num_token) }
-        if let Some(ftr_token) = self.get_feature()?     { return Ok(ftr_token) }
-        if let Some(spc_token) = self.get_special_char() { return Ok(spc_token) }
-        if let Some(ipa_token) = self.get_ipa()          { return Ok(ipa_token) }
-        if let Some(str_token) = self.get_string()       { return Ok(str_token) } 
+        if let Some(bkt_token) = self.get_bracket()?      { return Ok(bkt_token) }
+        if let Some(pmt_token) = self.get_primative()     { return Ok(pmt_token) }
+        if let Some(num_token) = self.get_numeric()       { return Ok(num_token) }
+        if let Some(ftr_token) = self.get_feature()?      { return Ok(ftr_token) }
+        if let Some(spc_token) = self.get_special_char()? { return Ok(spc_token) }
+        if let Some(ipa_token) = self.get_ipa()           { return Ok(ipa_token) }
+        if let Some(str_token) = self.get_string()?       { return Ok(str_token) } 
         
         Err(RuleSyntaxError::UnknownCharacter(self.curr_char, self.line, self.pos))
     }

@@ -155,7 +155,7 @@ fn traced_word_to_string(word: Word, before: Option<&String>) -> String {
     
     match word.render() {
         Ok(res) => res,
-        Err((buffer, _)) => format!("Err: {} => {}", word_before, buffer)
+        Err((buffer, _)) => format!("Err: {word_before} => {buffer}")
     }
 }
 
@@ -194,7 +194,7 @@ fn deal_with_result(res: Result<(Vec<String>, Vec<Vec<String>>), Error>, rules: 
             Error::WordSyn(_) => todo!(),
             Error::RuleSyn(e) => {
                 use RuleSyntaxError::*;
-                print!("{}{}", "Syntax Error".bright_red().bold(), format!(": {}", e).bold());
+                print!("{}{}", "Syntax Error".bright_red().bold(), format!(": {e}").bold());
                 match e {
                     OptMathError(t, _, _) | 
                     UnknownIPA(t) | 
@@ -208,7 +208,7 @@ fn deal_with_result(res: Result<(Vec<String>, Vec<Vec<String>>), Error>, rules: 
                     ExpectedColon(t) | 
                     ExpectedMatrix(t) | 
                     ExpectedSegment(t) | 
-                    ExpectedFeature(t) | 
+                    ExpectedTokenFeature(t) | 
                     ExpectedVariable(t) | 
                     ExpectedUnderline(t) | 
                     ExpectedRightBracket(t) |
@@ -237,7 +237,18 @@ fn deal_with_result(res: Result<(Vec<String>, Vec<Vec<String>>), Error>, rules: 
                         )
 
                     },
-                    UnknownCharacter(_, line, pos) => {
+                    BadVariableAssignment(_) |              // TODO: these should print itself in the line
+                    AlreadyInitialisedVariable(_, _, _) |   // 
+                    InsertErr | DeleteErr | EmptyInput | 
+                    EmptyOutput | EmptyEnv => todo!(),
+
+                    UnknownCharacter  (_, line, pos) |
+                    ExpectedCharColon (_, line, pos) |
+                    ExpectedAlphabetic(_, line, pos) |
+                    ExpectedCharArrow (_, line, pos) |
+                    ExpectedCharDot   (_, line, pos) |
+                    ExpectedNumber    (_, line, pos) |
+                    OutsideBrackets   (_, line, pos) => {
                         let arrows = " ".repeat(pos) + "^" + "\n";
 
                         println!("{}{}{}{}",  
@@ -246,12 +257,19 @@ fn deal_with_result(res: Result<(Vec<String>, Vec<Vec<String>>), Error>, rules: 
                             MARG.bright_cyan().bold(), 
                             arrows.bright_red().bold()
                         )
-
                     },
-                    BadVariableAssignment(_) |              // TODO: these should print itself in the line
-                    AlreadyInitialisedVariable(_, _, _) |   // 
-                    InsertErr | DeleteErr | EmptyInput | 
-                    EmptyOutput | EmptyEnv => {},
+                    WrongModNode  (line, pos) |
+                    WrongModTone  (line, pos) |
+                    NestedBrackets(line, pos) => {
+                        let arrows = " ".repeat(pos) + "^" + "\n";
+
+                        println!("{}{}{}{}",  
+                            MARG.bright_cyan().bold(), 
+                            rules[line], 
+                            MARG.bright_cyan().bold(), 
+                            arrows.bright_red().bold()
+                        )
+                    },
                 }
             },
             Error::Runtime(re) => match re.clone() {
@@ -260,7 +278,7 @@ fn deal_with_result(res: Result<(Vec<String>, Vec<Vec<String>>), Error>, rules: 
                     let arrows = " ".repeat(words[word].len() + seg) + "^" + "\n";
                     println!("{}{}{}{} => {}{}{}",  
                             "Runtime Error".bright_red().bold(),
-                            format!(": {}", re).bold(), 
+                            format!(": {re}").bold(), 
                             MARG.bright_cyan().bold(), 
                             words[word], 
                             buffer,
