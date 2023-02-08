@@ -190,7 +190,7 @@ pub enum TokenKind {
     SyllBoundary, // $
     Syllable,     // %
     Ampersand,    // %
-    Primative,    // Primitive Category i.e. C for Cons, V for Vowel
+    Group,        // Primitive Category i.e. C for Cons, V for Vowel
     Number,       // Number
     Slash,        // /
     Pipe,         // | 
@@ -225,7 +225,7 @@ impl Display for TokenKind {
             SyllBoundary => write!(f, "SBound"),
             Syllable     => write!(f, "Syll"),
             Ampersand    => write!(f, "Amper"),
-            Primative    => write!(f, "Prim"),
+            Group        => write!(f, "Prim"),
             Number       => write!(f, "Num"),
             Slash        => write!(f, "Slash"),
             Pipe         => write!(f, "Pipe"),
@@ -366,7 +366,7 @@ impl Lexer {
         let c = self.curr_char;
         self.advance();
         
-        Some(Token::new(TokenKind::Primative, c.to_string(), self.line, start, self.pos))
+        Some(Token::new(TokenKind::Group, c.to_string(), self.line, start, self.pos))
     }
 
     fn get_numeric(&mut self) -> Option<Token> {
@@ -798,10 +798,10 @@ mod lexer_tests {
         
         let test_input= String::from("C=1 V=2 > 2 1 / _C");
         let expected_result = vec![
-            Token::new(TokenKind::Primative,   "C".to_owned(), 0,  0,  1),
+            Token::new(TokenKind::Group,       "C".to_owned(), 0,  0,  1),
             Token::new(TokenKind::Equals,      "=".to_owned(), 0,  1,  2),
             Token::new(TokenKind::Number,      "1".to_owned(), 0,  2,  3),
-            Token::new(TokenKind::Primative,   "V".to_owned(), 0,  4,  5),
+            Token::new(TokenKind::Group,       "V".to_owned(), 0,  4,  5),
             Token::new(TokenKind::Equals,      "=".to_owned(), 0,  5,  6),
             Token::new(TokenKind::Number,      "2".to_owned(), 0,  6,  7),
             Token::new(TokenKind::GreaterThan, ">".to_owned(), 0,  8,  9),
@@ -809,7 +809,7 @@ mod lexer_tests {
             Token::new(TokenKind::Number,      "1".to_owned(), 0, 12, 13),
             Token::new(TokenKind::Slash,       "/".to_owned(), 0, 14, 15),
             Token::new(TokenKind::Underline,   "_".to_owned(), 0, 16, 17),
-            Token::new(TokenKind::Primative,   "C".to_owned(), 0, 17, 18),
+            Token::new(TokenKind::Group,       "C".to_owned(), 0, 17, 18),
             Token::new(TokenKind::Eol,          String::new(), 0, 18, 19),
         ];
 

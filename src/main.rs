@@ -187,10 +187,10 @@ fn run(unparsed_rules: &[String], unparsed_words: &[String], trace: bool) -> Res
 fn deal_with_result(res: Result<(Vec<String>, Vec<Vec<String>>), Error>, rules: &[String], words: &[String]) {
 
     const MARG: &str = "\n    |     ";
-
     match res {
         Ok(_) => todo!(),
         Err(err) => match err {
+            // TODO: this should probably be a method of Error
             Error::WordSyn(_) => todo!(),
             Error::RuleSyn(e) => {
                 use RuleSyntaxError::*;
@@ -200,6 +200,7 @@ fn deal_with_result(res: Result<(Vec<String>, Vec<Vec<String>>), Error>, rules: 
                     UnknownIPA(t) | 
                     UnknownGrouping(t) | 
                     UnknownVariable(t) | 
+                    TooManyUnderlines(t) | 
                     UnexpectedEol(t, _) | 
                     ExpectedEndL(t) | 
                     ExpectedArrow(t) | 
@@ -257,7 +258,6 @@ fn deal_with_result(res: Result<(Vec<String>, Vec<Vec<String>>), Error>, rules: 
                 RuntimeError::UnbalancedRule => todo!(),
                 RuntimeError::UnknownSegment(buffer, word, seg) => {
                     let arrows = " ".repeat(words[word].len() + seg) + "^" + "\n";
-
                     println!("{}{}{}{} => {}{}{}",  
                             "Runtime Error".bright_red().bold(),
                             format!(": {}", re).bold(), 

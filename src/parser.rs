@@ -109,17 +109,14 @@ impl ParseKind {
         }
     }
 
-    pub fn is_matrix(&self) -> bool {
-        matches!(self, Self::Matrix(..))
-    }
-
+    // pub fn is_matrix(&self) -> bool {
+    //     matches!(self, Self::Matrix(..))
+    // }
+    //
     // pub fn is_ipa(&self) -> bool {
     //     matches!(self, Self::IPA(..))
     // }
     //
-    // /// Returns `true` if the parse kind is [`Set`].
-    // ///
-    // /// [`Set`]: ParseKind::Set
     // pub fn is_set(&self) -> bool {
     //     matches!(self, Self::Set(..))
     // }
@@ -194,7 +191,6 @@ impl fmt::Display for Item {
     }
 }
 
-// TODO: Allow Set in Output if there is a matching set in input
 pub struct Parser {
     token_list: Vec<Token>,
     line: usize,
@@ -255,16 +251,12 @@ impl Parser {
     }
 
     fn get_bound(&mut self) -> Option<Item> { 
-        if self.peek_expect(TokenKind::SyllBoundary) {
-            let token = self.eat();
+        if let Some(token) = self.eat_expect(TokenKind::SyllBoundary) {
             return Some(Item::new(ParseKind::SyllBound, token.position))
         }
-
-        if self.peek_expect(TokenKind::WordBoundary) {
-            let token = self.eat();
+        if let Some(token) = self.eat_expect(TokenKind::WordBoundary) {
             return Some(Item::new(ParseKind::WordBound, token.position))
         }
-
         None
     }
 
@@ -277,12 +269,10 @@ impl Parser {
                 els.push(x);
                 continue;
             }
-
             if let Some(el) = self.eat_expect(TokenKind::Ellipsis) {
                 els.push(Item::new(ParseKind::Ellipsis, el.position));
                 continue;
             }
-
             if let Some(x) = self.get_term()? {
                 els.push(x);
                 continue;
@@ -296,20 +286,22 @@ impl Parser {
 
     fn get_env_term(&mut self) -> Result<Item, RuleSyntaxError> {
         // returns env elements
-
         let start = self.curr_tkn.position.start;
-        
+
         let before  = self.get_env_elements()?;
 
         if !self.expect(TokenKind::Underline) {
             return Err(RuleSyntaxError::ExpectedUnderline(self.curr_tkn.clone()))
         }
-
         let after = self.get_env_elements()?;
+
+        if self.peek_expect(TokenKind::Underline) {
+            return Err(RuleSyntaxError::TooManyUnderlines(self.curr_tkn.clone()))
+        }
 
         let end = self.token_list[self.pos-1].position.end;
 
-        Ok(Item::new(ParseKind::Environment(before, after), Position { line: self.line, start, end }))
+        Ok(Item::new(ParseKind::Environment(before, after), Position::new(self.line, start, end)))
     }
 
     fn get_spec_env(&mut self) -> Result<Option<Vec<Item>>, RuleSyntaxError> {
@@ -321,7 +313,7 @@ impl Parser {
             return Ok(None)
         }
 
-        assert_eq!(pstn, self.pos - 1);
+        debug_assert_eq!(pstn, self.pos - 1);
 
         if !self.expect(TokenKind::Comma) {
             self.pos -=2;
@@ -350,13 +342,9 @@ impl Parser {
 
     fn get_env(&mut self) -> Result<Vec<Item>, RuleSyntaxError> { 
         // returns environment
-
-        if let Some(s) = self.get_spec_env()? {
-            return Ok(s)
-        }
+        if let Some(s) = self.get_spec_env()? { return Ok(s) }
 
         let mut envs = Vec::new();
- 
         loop {
             let x = self.get_env_term()?;
             envs.push(x);
@@ -366,15 +354,13 @@ impl Parser {
             }
         }
 
-        if envs.is_empty() {
-            return Err(RuleSyntaxError::EmptyEnv)
-        }
+        if envs.is_empty() { return Err(RuleSyntaxError::EmptyEnv) }
 
         Ok(envs)
     }
 
     fn get_except_block(&mut self) -> Result<Vec<Item>, RuleSyntaxError> {
-        if! self.expect(TokenKind::Pipe) {
+        if !self.expect(TokenKind::Pipe) {
             return Ok(Vec::new())
         }
         self.get_env()
@@ -387,15 +373,7 @@ impl Parser {
         self.get_env()
     }
 
-    fn join_ipa_with_params(&self, ipa: Segment, params: Item) -> Result<ParseKind, RuleSyntaxError> {
-        match params.kind {
-            ParseKind::Matrix(p) => Ok(ParseKind::Ipa(ipa, Some(p))),
-            _ => unreachable!("\nCritical Error: 'Parameters' being joined with IPA Segment is not a matrix!\nThis is a bug."),
-        }
-
-    }
-    
-    fn join_group_with_matrix(&mut self, character: Item, parameters: Item) -> Item {
+    fn join_group_with_params(&mut self, character: Item, parameters: Item) -> Item {
         let mut chr = character.kind.as_matrix().expect("\nCritical Error: 'Char' being joined with 'Parameters' is not a matrix!\nThis is a bug.").clone();
         let params = parameters.kind.as_matrix().expect("\nCritical Error: 'Parameters' being joined with 'Char' is not a matrix!\nThis is a bug.").clone(); 
         
@@ -433,19 +411,14 @@ impl Parser {
         use FType::*;
         use SegMKind::*;
 
-        const SYLL_M: (FType, SegMKind) = (Syllabic, Binary(BinMod::Negative));
-        const SYLL_P: (FType, SegMKind) = (Syllabic, Binary(BinMod::Positive));
-
+        const SYLL_M: (FType, SegMKind) = (Syllabic,    Binary(BinMod::Negative));
+        const SYLL_P: (FType, SegMKind) = (Syllabic,    Binary(BinMod::Positive));
         const CONS_M: (FType, SegMKind) = (Consonantal, Binary(BinMod::Negative));
         const CONS_P: (FType, SegMKind) = (Consonantal, Binary(BinMod::Positive));
-        
-        const SONR_M: (FType, SegMKind) = (Sonorant, Binary(BinMod::Negative));
-        const SONR_P: (FType, SegMKind) = (Sonorant, Binary(BinMod::Positive));
-
+        const SONR_M: (FType, SegMKind) = (Sonorant,    Binary(BinMod::Negative));
+        const SONR_P: (FType, SegMKind) = (Sonorant,    Binary(BinMod::Positive));
         const APPR_M: (FType, SegMKind) = (Approximant, Binary(BinMod::Negative));
         const APPR_P: (FType, SegMKind) = (Approximant, Binary(BinMod::Positive));
-
-
 
         let char_vals = match chr.value.as_str() {
             "C" => vec![SYLL_M],                         // -syll                     // Consonant
@@ -461,7 +434,6 @@ impl Parser {
         let mut args = Modifiers::new(); 
 
         for (feature, value) in char_vals {
-            // args.insert(feature, value);
             args.feats[feature as usize] = Some(value)
         }
 
@@ -471,30 +443,28 @@ impl Parser {
 
     fn is_feature(&self) -> bool{ matches!(self.curr_tkn.kind, TokenKind::Feature(_)) }
 
-    fn feature_to_modifier(&self, feature: FeatType, value: String) -> (FeatType, Mods) {
-
-        match value.as_str() {
-            "+" => (feature, Mods::Binary(BinMod::Positive)),
-            "-" => (feature, Mods::Binary(BinMod::Negative)),
-            "α"|"β"|"γ"|"δ"|"ε"|"ζ"|"η"|"θ"|"ι"|"κ"|"λ"|"μ"|"ν"|"ξ"|"ο"|"π"|"ρ"|"σ"|"ς"|"τ"|"υ"|"φ"|"χ"|"ψ"|"ω" => 
-                (feature, Mods::Alpha(AlphaMod::Alpha(value.chars().collect::<Vec<char>>()[0]))), // TODO: there MUST be a better way to do this, I feel like YandereDev rn
-            "-α"|"-β"|"-γ"|"-δ"|"-ε"|"-ζ"|"-η"|"-θ"|"-ι"|"-κ"|"-λ"|"-μ"|"-ν"|"-ξ"|"-ο"|"-π"|"-ρ"|"-σ"|"-ς"|"-τ"|"-υ"|"-φ"|"-χ"|"-ψ"|"-ω" =>
-                (feature, Mods::Alpha(AlphaMod::InversAlpha(value.chars().collect::<Vec<char>>()[1]))),
-            _ if feature == FeatType::Supr(SupraType::Tone) => (feature, Mods::Number(value)),
-            _ => {
-                unreachable!();
-            }
-        }
-    }
-
     fn curr_token_to_modifier(&self) -> (FeatType, Mods) {
         match self.curr_tkn.kind {
-            TokenKind::Feature(x) => self.feature_to_modifier(x, self.curr_tkn.value.clone()),
+            TokenKind::Feature(feature) => {
+                let value = &self.curr_tkn.value;
+                match value.as_str() {
+                    "+" => (feature, Mods::Binary(BinMod::Positive)),
+                    "-" => (feature, Mods::Binary(BinMod::Negative)),
+                    "α"|"β"|"γ"|"δ"|"ε"|"ζ"|"η"|"θ"|"ι"|"κ"|"λ"|"μ"|"ν"|"ξ"|"ο"|"π"|"ρ"|"σ"|"ς"|"τ"|"υ"|"φ"|"χ"|"ψ"|"ω" => 
+                        (feature, Mods::Alpha(AlphaMod::Alpha(value.chars().next().expect("Unable to index 'alpha' string")))),
+                    "-α"|"-β"|"-γ"|"-δ"|"-ε"|"-ζ"|"-η"|"-θ"|"-ι"|"-κ"|"-λ"|"-μ"|"-ν"|"-ξ"|"-ο"|"-π"|"-ρ"|"-σ"|"-ς"|"-τ"|"-υ"|"-φ"|"-χ"|"-ψ"|"-ω" =>
+                        (feature, Mods::Alpha(AlphaMod::InversAlpha(value.chars().nth(1).expect("Unable to index 'inv-alpha' string")))),
+                    _ if feature == FeatType::Supr(SupraType::Tone) => (feature, Mods::Number(value.to_owned())),
+                    _ => {
+                        unreachable!();
+                    }
+                }
+            },
             _ => unreachable!(),
         }
     }
 
-    fn get_matrix_args(&mut self, is_syll: bool) -> Result<Modifiers, RuleSyntaxError> {
+    fn get_param_args(&mut self, is_syll: bool) -> Result<Modifiers, RuleSyntaxError> {
         // returns matrix or None
         let mut args = Modifiers::new();
         while self.has_more_tokens() {
@@ -562,9 +532,9 @@ impl Parser {
 
     }
 
-    fn get_matrix(&mut self) -> Result<Item, RuleSyntaxError> { 
+    fn get_params(&mut self) -> Result<Item, RuleSyntaxError> { 
         let start = self.token_list[self.pos-1].position.start;
-        let args = self.get_matrix_args(false)?;
+        let args = self.get_param_args(false)?;
         let end = self.token_list[self.pos-1].position.end;
         
         Ok(Item::new(ParseKind::Matrix(args), Position::new(self.line, start, end)))
@@ -575,20 +545,6 @@ impl Parser {
         let chr = self.group_to_matrix(self.curr_tkn.clone())?;
         self.advance();
 
-        if self.expect(TokenKind::Equals) {
-            match self.eat_expect(TokenKind::Number) {
-                Some(n) => {
-                    let num = n.value.parse::<usize>().unwrap();
-
-                    match self.var_map.get(&num) {
-                        Some(val) => return Err(RuleSyntaxError::AlreadyInitialisedVariable(val.clone(), chr, num)),
-                        None => self.var_map.insert(num, chr.clone())
-                    };
-                },
-                None => return Err(RuleSyntaxError::ExpectedVariable(self.curr_tkn.clone()))
-            }
-        }
-
         if !self.expect(TokenKind::Colon) {
             return Ok(chr)
         }
@@ -597,16 +553,15 @@ impl Parser {
             return Err(RuleSyntaxError::ExpectedMatrix(self.curr_tkn.clone()))
         }
         
-        let params = self.get_matrix()?;
+        let params = self.get_params()?;
 
-        let joined = self.join_group_with_matrix(chr, params);
+        let joined_matrix = self.join_group_with_params(chr, params);
 
-        Ok(joined)
+        Ok(joined_matrix)
     }
 
     fn get_ipa(&mut self) -> Result<Item, RuleSyntaxError> {
         // returns IPA or Matrix
-
         let ipa = self.ipa_to_vals(self.curr_tkn.clone())?;
         let pos = self.curr_tkn.position;
         self.advance();
@@ -614,196 +569,145 @@ impl Parser {
         if !self.expect(TokenKind::Colon) {
             return Ok(Item::new(ParseKind::Ipa(ipa, None), pos))
         }
-
         if !self.expect(TokenKind::LeftSquare) {
             return Err(RuleSyntaxError::ExpectedMatrix(self.curr_tkn.clone()))
         }
+        let params = self.get_params()?;
 
-        let params = self.get_matrix()?;
-
-        let joined = self.join_ipa_with_params(ipa, params.clone())?;
+        let joined = ParseKind::Ipa(ipa, Some(params.kind.as_matrix().expect("'Parameters' being joined with IPA Segment is not a matrix! This is a bug").clone()));
 
         Ok(Item::new(joined, Position::new(self.line, pos.start, params.position.end )))
     }
     
-    fn get_segment(&mut self) -> Result<Option<Item>, RuleSyntaxError> {
-        // returns IPA / Matrix, with varable number, or None
+    fn get_var_assign(&mut self, n: Token, chr: &Item) -> Result<(), RuleSyntaxError> {
+        // TODO: Work out Variable Assignment
+        // This current strategy will not work
+        let num = n.value.parse::<usize>().expect("Couldn't parse to VAR to number");
+        match self.var_map.get(&num) {
+            Some(val) => return Err(RuleSyntaxError::AlreadyInitialisedVariable(val.clone(), chr.clone(), num)),
+            None => self.var_map.insert(num, chr.clone())
+        };
 
+        Ok(())
+    }
+
+    fn get_seg(&mut self) -> Result<Option<Item>, RuleSyntaxError> {
+        // returns IPA / Matrix, with varable number, or None
         if self.peek_expect(TokenKind::Cardinal) {
             let ipa = self.get_ipa()?;
             return Ok(Some(ipa))
         }
-
-        if self.peek_expect(TokenKind::Primative) {
+        if self.peek_expect(TokenKind::Group) {
             let chr = self.get_group()?;
 
             if self.expect(TokenKind::Equals) {
-                match self.eat_expect(TokenKind::Number) {
-                    Some(n) => {
-                        let num = n.value.parse::<usize>().unwrap();
 
-                        match self.var_map.get(&num) {
-                            Some(val) => return Err(RuleSyntaxError::AlreadyInitialisedVariable(val.clone(), chr, num)),
-                            None => self.var_map.insert(num, chr.clone())
-                        };
+                let Some(n) = self.eat_expect(TokenKind::Number) else {
+                    return Err(RuleSyntaxError::ExpectedVariable(self.curr_tkn.clone()))
+                };
 
-                        return Ok(Some(chr))
-                    },
-                    None => return Err(RuleSyntaxError::ExpectedVariable(self.curr_tkn.clone()))
-                }
+                self.get_var_assign(n, &chr)?;
+                return Ok(Some(chr))
+                
             }
             return Ok(Some(chr))
         }
-
         if self.expect(TokenKind::LeftSquare) {
-            let matrix = self.get_matrix()?;
-            return Ok(Some(matrix))
+            let params = self.get_params()?;
+
+            if self.expect(TokenKind::Equals) {
+
+                let Some(n) = self.eat_expect(TokenKind::Number) else {
+                    return Err(RuleSyntaxError::ExpectedVariable(self.curr_tkn.clone()))
+                };
+
+                self.get_var_assign(n, &params)?;
+                return Ok(Some(params))
+                
+            }
+            return Ok(Some(params))
         }
 
         Ok(None)
     }
 
-    fn join_var_with_params(&mut self, mt: Item, params: Item) -> Result<Item, RuleSyntaxError> {
-
-        assert!(params.kind.is_matrix());
-
-        // let kind = ParseKind::Variable(mt.clone(), p);
-
-        // let pos = Position::new(self.line, mt.position.start, params.position.end );
-
-        // Ok(Item::new(kind, pos))
-
-        if !mt.kind.is_matrix() {
-            // variable can only be assigned to a primative or a matrix
-            return Err(RuleSyntaxError::BadVariableAssignment(mt))
-        }
-        
-        Ok(self.join_group_with_matrix(mt, params))
-    }
-
     fn get_var(&mut self) -> Result<Option<Item>, RuleSyntaxError> {
-        
-        match self.eat_expect(TokenKind::Number) {
+        let Some(t) = self.eat_expect(TokenKind::Number) else { return Ok(None) };
+        // TODO: This should be done at runtime
+        // let num_val = t.value.parse::<usize>().expect("");
+        // let mut matched_segs: Item;
+        // match self.var_map.get(&num_val) {
+        //     Some(m) => {
+        //         matched_segs = m.clone();
+        //         matched_segs.position = t.position;
+        //     },
+        //     None => return Err(RuleSyntaxError::UnknownVariable(t))
+        // }
+    
+    
+        let mut pos = t.position;
 
-            Some(t) => {
-
-                // does 't' exist in var_map?
-                // if so, replace with value in var_map
-                // if not, throw UnknownVariableError
-
-                let num_val = t.value.parse::<usize>().unwrap();
-
-                let mut matched_segs: Item;
-
-                match self.var_map.get(&num_val) {
-                    Some(m) => {
-                        matched_segs = m.clone();
-                        matched_segs.position = t.position;
-                    },
-                    None => return Err(RuleSyntaxError::UnknownVariable(t))
-                }
-
-                if !self.expect(TokenKind::Colon) {
-                    return Ok(Some(matched_segs))
-                }
-
-                if !self.expect(TokenKind::LeftSquare) {
-                    return Err(RuleSyntaxError::ExpectedMatrix(self.curr_tkn.clone()))
-                }
-
-                let params = self.get_matrix()?;
-
-                let joined = self.join_var_with_params(matched_segs, params)?;
-
-                Ok(Some(joined))
-
-            },
-            None => Ok(None)
+        if !self.expect(TokenKind::Colon) {
+            let var = Item::new(ParseKind::Variable(t, None), pos);
+            return Ok(Some(var))
         }
-            
+        if !self.expect(TokenKind::LeftSquare) {
+            return Err(RuleSyntaxError::ExpectedMatrix(self.curr_tkn.clone()))
+        }
+
+        let params = self.get_params()?;
+        let matrix = params.kind.as_matrix().expect("\nCritical Error: 'Parameters' being joined with 'variable' is not a matrix!\nThis is a bug.").clone();
+        
+        pos.end = params.position.end;
+        Ok(Some(Item::new(ParseKind::Variable(t, Some(matrix)), pos)))    
     }
 
-    fn get_optionals(&mut self) -> Result<Option<Item>, RuleSyntaxError> {
+    fn get_opt(&mut self) -> Result<Option<Item>, RuleSyntaxError> {
         // returns optionals or None
+        let start_pos = self.curr_tkn.position.start;
 
-        let start = self.curr_tkn.position.start;
-
-        if !self.expect(TokenKind::LeftBracket) {
-            return Ok(None)
-        }
+        if !self.expect(TokenKind::LeftBracket) { return Ok(None) }
 
         let mut segs = Vec::new();
         let mut first_bound: usize = 0;
         let mut second_bound: usize = 0;
         while self.has_more_tokens() {
-            if self.peek_expect(TokenKind::RightBracket) {
-                break;
-            }
-
-            if let Some(x) = self.get_bound() {
-                segs.push(x);
-                continue;
-            }
-
-            if let Some(x) = self.get_syll()? {
-                segs.push(x);
-                continue;
-            }
-
-            if let Some(x) = self.get_set()? {
-                segs.push(x);
-                continue;
-            }
-
-            if let Some(x) = self.get_segment()? {
-                segs.push(x);
-                continue;
-            }
-            
-            if let Some(x) = self.get_var()? {
-                segs.push(x);
-                continue;
-            }
-
-            if self.peek_expect(TokenKind::Comma){
-                break;
-            }
+            if self.peek_expect(TokenKind::RightBracket) { break; }
+            if let Some(x) = self.get_bound()   { segs.push(x); continue; }
+            if let Some(x) = self.get_syll()?   { segs.push(x); continue; }
+            if let Some(x) = self.get_set()?    { segs.push(x); continue; }
+            if let Some(x) = self.get_seg()?    { segs.push(x); continue; }
+            if let Some(x) = self.get_var()?    { segs.push(x); continue; }
+            if self.peek_expect(TokenKind::Comma){ break; }
 
             return Err(RuleSyntaxError::ExpectedSegment(self.curr_tkn.clone()))
         }
-
         if self.expect(TokenKind::RightBracket) {
-            let end = self.token_list[self.pos-1].position.end;
-            return Ok(Some(Item::new(ParseKind::Optional(segs, 0, 1), Position::new(self.line, start, end))))
+            let end_pos = self.token_list[self.pos-1].position.end;
+            return Ok(Some(Item::new(ParseKind::Optional(segs, 0, 1), Position::new(self.line, start_pos, end_pos))))
         }
-
         if !self.expect(TokenKind::Comma) {
             return Err(RuleSyntaxError::ExpectedComma(self.curr_tkn.clone()))
         }
-
         if let Some(x) = self.eat_expect(TokenKind::Number) {
             first_bound = x.value.parse().expect("Could not parse string to number. This is a bug!");
         }
-
         if self.expect(TokenKind::RightBracket) {
-            let end = self.token_list[self.pos-1].position.end;
-            return Ok(Some(Item::new(ParseKind::Optional(segs, 0, first_bound), Position::new(self.line, start, end))))
+            let end_pos = self.token_list[self.pos-1].position.end;
+            return Ok(Some(Item::new(ParseKind::Optional(segs, 0, first_bound), Position::new(self.line, start_pos, end_pos))))
         }
-
         if !self.expect(TokenKind::Colon) {
             return Err(RuleSyntaxError::ExpectedColon(self.curr_tkn.clone()))
         }
-
         if let Some(x) = self.eat_expect(TokenKind::Number) {
             second_bound = x.value.parse().expect("Could not parse string to number. This is a bug!");
             if second_bound < first_bound { 
                 return Err(RuleSyntaxError::OptMathError(x, first_bound, second_bound))
             }
         }
-
         if self.expect(TokenKind::RightBracket) {
-            let end = self.token_list[self.pos-1].position.end;
-            return Ok(Some(Item::new(ParseKind::Optional(segs, first_bound, second_bound), Position::new(self.line, start, end))))
+            let end_pos = self.token_list[self.pos-1].position.end;
+            return Ok(Some(Item::new(ParseKind::Optional(segs, first_bound, second_bound), Position::new(self.line, start_pos, end_pos))))
         }
 
         Err(RuleSyntaxError::ExpectedRightBracket(self.curr_tkn.clone()))
@@ -811,14 +715,12 @@ impl Parser {
 
     fn get_set(&mut self) -> Result<Option<Item>, RuleSyntaxError> {
         // returns set of segs
-        let start = self.curr_tkn.position.start;
+        let start_pos = self.curr_tkn.position.start;
 
         if !self.expect(TokenKind::LeftCurly) {
             return Ok(None)
         }
-
         let mut segs = Vec::new();
-
         // NOTE: this while condition may allow  "/ _{A, B, C <eol>" as valid input
         // should probably return SyntaxError::ExpectedRightBracketAtEol
         // bug or feature? ¯\_(ツ)_/¯
@@ -826,131 +728,89 @@ impl Parser {
             if self.expect(TokenKind::RightCurly) {
                 break;
             }
-
             if self.expect(TokenKind::Comma) {
                 continue;
             }
-
-            if let Some(x) = self.get_segment()? {
+            if let Some(x) = self.get_seg()? {
                 segs.push(x);
                 continue;
             }
-
             return Err(RuleSyntaxError::ExpectedSegment(self.curr_tkn.clone()))
         }
-        let end = self.token_list[self.pos-1].position.end;
-        Ok(Some(Item::new(ParseKind::Set(segs.clone()), Position::new(self.line, start, end))))
+        let end_pos = self.token_list[self.pos-1].position.end;
+        Ok(Some(Item::new(ParseKind::Set(segs.clone()), Position::new(self.line, start_pos, end_pos))))
 
     }
 
     fn get_syll(&mut self) -> Result<Option<Item>, RuleSyntaxError> {
         // returns Syll or None
-        let start = self.curr_tkn.position.start;
+        let start_pos = self.curr_tkn.position.start;
 
         if !self.expect(TokenKind::Syllable) {
             return Ok(None)
         }
-
         if !self.expect(TokenKind::Colon) {
-            let end = self.curr_tkn.position.start - 1;
-            return Ok(Some(Item::new(ParseKind::Syllable(None, None), Position::new(self.line, start, end))))
+            let end_pos = self.curr_tkn.position.start - 1;
+            return Ok(Some(Item::new(ParseKind::Syllable(None, None), Position::new(self.line, start_pos, end_pos))))
         }
-
         if !self.expect(TokenKind::LeftSquare) {
             return Err(RuleSyntaxError::ExpectedMatrix(self.curr_tkn.clone()))
         }
 
-        let m = self.get_matrix_args(true)?;
-
-        let end = self.token_list[self.pos-1].position.end;
-        
-        Ok(Some(Item::new(ParseKind::Syllable( m.suprs.stress,  m.suprs.tone), Position::new(self.line, start, end))))
+        let mods = self.get_param_args(true)?;
+        let end_pos = self.token_list[self.pos-1].position.end;
+        Ok(Some(Item::new(ParseKind::Syllable( mods.suprs.stress,  mods.suprs.tone), Position::new(self.line, start_pos, end_pos))))
     }
 
     fn get_term(&mut self) -> Result<Option<Item>, RuleSyntaxError> {
         // returns syllable / set / segment / optionals
-
-        if let Some(x) = self.get_syll()? {
-            return Ok(Some(x))
-        }
-
-        if let Some(x) = self.get_set()? {
-            return Ok(Some(x))
-        }
-
-        if let Some(x) = self.get_segment()? {
-            return Ok(Some(x))
-        }
-
-        if let Some(x) = self.get_optionals()? {
-            return Ok(Some(x))
-        }
-
-        if let Some(x) = self.get_var()? {
-            return Ok(Some(x))
-        }
+        if let Some(x) = self.get_syll()? { return Ok(Some(x)) }
+        if let Some(x) = self.get_set()?  { return Ok(Some(x)) }
+        if let Some(x) = self.get_seg()?  { return Ok(Some(x)) }
+        if let Some(x) = self.get_opt()?  { return Ok(Some(x)) }
+        if let Some(x) = self.get_var()?  { return Ok(Some(x)) }
 
         Ok(None)
     }
 
     fn get_input_term(&mut self) -> Result<Vec<Item>, RuleSyntaxError> {
         // returns list of terms and ellipses
-        let mut terms = Vec::<Item>::new();
-
+        let mut terms = Vec::new();
         loop {
             if let Some(el) = self.eat_expect(TokenKind::Ellipsis) {
                 terms.push(Item::new(ParseKind::Ellipsis, el.position));
                 continue;
             }
-
-            if self.peek_expect(TokenKind::GreaterThan) { // So we can try simple rules that don't call functions we are yet to implement
-                break                                       //  We can probably remove this after parser logic is done
+            if self.peek_expect(TokenKind::GreaterThan) {   // So we can try simple rules that don't call functions we are yet to implement
+                break                                       // We can probably remove this after parser logic is done
             }                                               // Though it wouldn't hurt performance to leave it in
-
             if let Some(trm) = self.get_term()? {
                 terms.push(trm)
             } else {
                 break
             }
-
         }
-
         Ok(terms)
-
     }
 
     fn get_output_element(&mut self) -> Result<Option<Item>, RuleSyntaxError> {
         // returns syllable / segment / variable / set
-        if let Some(x) = self.get_syll()? {
-            return Ok(Some(x))
-        }
-
+        if let Some(x) = self.get_syll()? { return Ok(Some(x)) }
         // NOTE: a set in the output only makes sense when matched to a set in the input w/ the same # of elements
         // TODO: This could be validated at end of parsing
-        if let Some(x) = self.get_set()? {  
-            return Ok(Some(x))
-        }
-
-        if let Some(x) = self.get_segment()? {
-            return Ok(Some(x))
-        }
-
-        if let Some(x) = self.get_var()? {
-            return Ok(Some(x))
-        }
+        if let Some(x) = self.get_set()? { return Ok(Some(x)) }
+        if let Some(x) = self.get_seg()? { return Ok(Some(x)) }
+        if let Some(x) = self.get_var()? { return Ok(Some(x)) }
 
         Ok(None)
     }
 
     fn get_output_term(&mut self) -> Result<Vec<Item>, RuleSyntaxError>{ 
         // returns list of sylls, sets, and/or segments
-
         let mut terms = Vec::new();
-
         while let Some(trm) = self.get_output_element()? {
             terms.push(trm);
         }
-
         Ok(terms)
     }
 
@@ -966,12 +826,10 @@ impl Parser {
         // returns empty / list of input terms
         let mut inputs = Vec::new();
         let maybe_empty = self.get_empty();
-
         if !maybe_empty.is_empty() {
             inputs.push(maybe_empty);
             return Ok(inputs)
         }
-
         loop {
             let x = self.get_input_term()?;
             inputs.push(x);
@@ -980,19 +838,15 @@ impl Parser {
                 break
             }
         }
-
         if inputs.is_empty() {
             return Err(RuleSyntaxError::EmptyInput)
         }
-
         Ok(inputs)
-
     }
 
     fn get_output(&mut self) -> Result<Vec<Vec<Item>>, RuleSyntaxError> {
         // returns empty / metathesis / list of output terms 
         let mut outputs = Vec::new();
-
         // check for deletion rule
         let maybe_empty = self.get_empty();
         if !maybe_empty.is_empty() {
@@ -1005,7 +859,6 @@ impl Parser {
             return Ok(outputs)
         }
         // NOTE: need to add check for `+` (Duplication) if/when added
-
         loop {
             let x = self.get_output_term()?;
             outputs.push(x);
@@ -1014,16 +867,14 @@ impl Parser {
                 break
             }
         }
-
         if outputs.is_empty() {
             return Err(RuleSyntaxError::EmptyOutput)
         }
-
         Ok(outputs)
     }
   
     fn rule(&mut self) -> Result<Rule, RuleSyntaxError> {
-
+        
         let input = self.get_input()?;
 
         let mut rule_type: Option<RuleType> = match input[0][0].kind {
@@ -1032,16 +883,13 @@ impl Parser {
         };
 
         if !self.expect(TokenKind::Arrow) && !self.expect(TokenKind::GreaterThan) {
-            match rule_type {
-                Some(_) => { 
-                    if self.peek_expect(TokenKind::Comma) {
-                        return Err(RuleSyntaxError::InsertErr)
-                    } else {
-                        return Err(RuleSyntaxError::ExpectedArrow(self.curr_tkn.clone()))
-                    }
-                },
-                None => return Err(RuleSyntaxError::ExpectedArrow(self.curr_tkn.clone()))
+            if rule_type.is_some() { 
+                if self.peek_expect(TokenKind::Comma) {
+                    return Err(RuleSyntaxError::InsertErr)
+                }
+                return Err(RuleSyntaxError::ExpectedArrow(self.curr_tkn.clone()))
             }
+            return Err(RuleSyntaxError::ExpectedArrow(self.curr_tkn.clone()))
         }
 
         let output = self.get_output()?;
@@ -1059,34 +907,31 @@ impl Parser {
             _ => {}
         }
 
-        let rt= rule_type.unwrap_or(RuleType::Substitution);
+        let rule_type= rule_type.unwrap_or(RuleType::Substitution);
         
         if self.expect(TokenKind::Eol) {
-            return Ok(Rule::new(input, output, Vec::new(), Vec::new(), rt, self.var_map.clone()))
+            return Ok(Rule::new(input, output, Vec::new(), Vec::new(), rule_type, self.var_map.clone()))
         }
 
         if !self.peek_expect(TokenKind::Slash) && !self.peek_expect(TokenKind::Pipe) {
-            match rt {
-                RuleType::Substitution => return Err(RuleSyntaxError::ExpectedEndL(self.curr_tkn.clone())),
-                _ => {
-                    if self.peek_expect(TokenKind::Comma) {
-                        return Err(RuleSyntaxError::DeleteErr)
-                    } else {
-                        return Err(RuleSyntaxError::ExpectedEndL(self.curr_tkn.clone()))
-                    }
-                }
+            if let RuleType::Substitution = rule_type {
+                return Err(RuleSyntaxError::ExpectedEndL(self.curr_tkn.clone()))
             }
+            if self.peek_expect(TokenKind::Comma) {
+                return Err(RuleSyntaxError::DeleteErr)
+            }
+            return Err(RuleSyntaxError::ExpectedEndL(self.curr_tkn.clone()))
         }
 
         let context = self.get_context()?;
         
         let except = self.get_except_block()?;
 
-        if self.expect(TokenKind::Eol) {
-            return Ok(Rule::new(input, output, context, except, rt, self.var_map.clone()))
+        if !self.expect(TokenKind::Eol) {
+            return Err(RuleSyntaxError::ExpectedEndL(self.curr_tkn.clone()))
         }
         
-        Err(RuleSyntaxError::ExpectedEndL(self.curr_tkn.clone()))
+        Ok(Rule::new(input, output, context, except, rule_type, self.var_map.clone()))
 
     }
     
@@ -1111,11 +956,7 @@ mod parser_tests {
     use super::*;
     use crate::CARDINALS_MAP;
 
-    fn setup(test_str: &str) -> Vec<Token> {
-
-        Lexer::new(&String::from(test_str),0).get_all_tokens().unwrap()
-
-    }
+    fn setup(test_str: &str) -> Vec<Token> { Lexer::new(&String::from(test_str),0).get_all_tokens().unwrap() }
 
     #[test]
     fn test_multi_rule() {
@@ -1145,7 +986,7 @@ mod parser_tests {
         let exp_output = vec![
             Item::new(ParseKind::Matrix(x), Position::new(0, 17, 26)),
             Item::new(ParseKind::Matrix(y), Position::new(0, 28, 37)),
-            ];
+        ];
             
         let exp_context: Vec<Item> = vec![
             Item::new(ParseKind::Environment(vec![], vec![]), Position::new(0, 40, 41)),

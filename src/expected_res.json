@@ -1,0 +1,32 @@
+[
+    {
+        "rule_input" : ["r > l"],
+        "word_input" : ["a'rin"],
+        "word_output": ["a'lin"]
+    },
+    {
+        "rule_input" : ["[+cons, -son, -voice, -cont] > [+cont]", "[+cons, -son, +voice, -cont] > [-voice]", "[+cons, +voice, +sg] > [-sg]"],
+        "word_input" : ["kun'tos","'kʷod","'me.dʱu","'ɡʱans","'ɡʷʱels"],
+        "word_output": ["xun'θos","'xʷot","'me.du", "'ɡans", "'ɡʷels"]
+    },
+    {
+        "rule_input" : ["[-voice, +cont] > [+voice] / V:[-stress](C)($)_"],
+        "word_input" : ["xun'θos","u'pe.ri","'me.du"],
+        "word_output": ["xun'ðos","u'fe.ri","'me.du"]
+    },
+    {
+        "rule_input" : ["%:[+stress] > [-stress]", "% > [+stress] / #_"],
+        "word_input" : ["xun'ðos"],
+        "word_output": ["'xun.ðos"]
+    },
+    {
+        "rule_input" : ["[+nasal] > [αPLACE] / _C:[αPLACE]"],
+        "word_input" : ["sam.daz", "hunɡ", "inp"],
+        "word_output": ["san.daz", "huŋɡ", "imp"]
+    },
+    {
+        "rule_input" : ["r...l > &"],
+        "word_input" : ["pa.ra.ba.la"],
+        "word_output": ["pa.la.ba.ra"]
+    }
+]

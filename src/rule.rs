@@ -42,32 +42,28 @@ impl SubRule {
         // match context left/right, if no match early return
         // apply
         // syllable re-match/repair
-        
+        //
         // let Some((match_pos, match_len)) = self.match_input(&word)? else {
         //     return Ok(word)
         // };
-
-
         todo!()
     }
 
     // fn match_input(&mut self, word: &Word) -> Result<Option<(usize, usize)>, RuntimeError> {
     //     assert!(!self.input.is_empty());
     //     assert!(!word.segments.is_empty());
-
+    //
     //     let mut match_pos = 0usize;
     //     let mut matched = false;
     //     let max_match_pos = word.syllables.len() - 1;
-        
+    //     
     //     while !matched && match_pos < max_match_pos {
     //         let (matched, match_length, _) = self.match_x(word, match_pos, None)?;
     //         if matched {
     //             return Ok(Some((match_pos, match_length)))
     //         }
     //         match_pos += 1;
-            
     //     }
-
     //     Ok(None)
     // }
 
@@ -76,30 +72,30 @@ impl SubRule {
     //     if match_pos == word.segments.len() - 1 {
     //         return Ok(Some((true, match_length, None)))
     //     }
-
+    //
     //     for 
     // }
 
-    fn match_seg_at_pos(&mut self, item: Item, seg: Segment) -> Result<bool, RuntimeError> {
+    fn match_input_at_pos(&mut self, item: Item, seg: Segment) -> Result<bool, RuntimeError> {
         match item.kind {
-            ParseKind::EmptySet => todo!(),
-            ParseKind::WordBound => todo!(),
-            ParseKind::SyllBound => todo!(),
-            ParseKind::Ellipsis => todo!(),
-            ParseKind::Metathesis => todo!(),
+            ParseKind::SyllBound => todo!(),        // Match on or before seg?
+            ParseKind::Ellipsis => return Ok(true), // backtracking
             ParseKind::Variable(_, _) => todo!(),
             ParseKind::Ipa(s, m) => if m.is_none(){
                 if s == seg {
                     return Ok(true)
                 }
             } else {
-                // TODO: compare modifiers
+                todo!("Need to compare modifiers")  // TODO: compare modifiers
             },
-            ParseKind::Matrix(_) => todo!(),
-            ParseKind::Syllable(_, _) => todo!(),
+            ParseKind::Matrix(_) => todo!(),        // I imagine this will be similar (if not identical) to the else condition above
+            ParseKind::Syllable(_, _) => todo!(),   // if we match syllable we need to jump to the next boundary
             ParseKind::Set(_) => todo!(),
             ParseKind::Optional(_, _, _) => todo!(),
-            ParseKind::Environment(_, _) => todo!(),
+            
+            ParseKind::EmptySet   | // TODO: if insertion rule, we should jump straight to matching environment
+            ParseKind::Metathesis | ParseKind::WordBound  | 
+            ParseKind::Environment(_, _) => unreachable!(),
         }
 
         Ok(false)
