@@ -192,14 +192,13 @@ fn deal_with_result(res: Result<(Vec<String>, Vec<Vec<String>>), Error>, rules: 
         Err(err) => match err {
             // TODO: this should probably be a method of Error
             Error::WordSyn(_) => todo!(),
-            Error::RuleSyn(e) => {
+            Error::RuleSyn(rse) => {
                 use RuleSyntaxError::*;
-                print!("{}{}", "Syntax Error".bright_red().bold(), format!(": {e}").bold());
-                match e {
+                print!("{}{}", "Syntax Error".bright_red().bold(), format!(": {rse}").bold());
+                match rse {
                     OptMathError(t, _, _) | 
                     UnknownIPA(t) | 
                     UnknownGrouping(t) | 
-                    UnknownVariable(t) | 
                     TooManyUnderlines(t) | 
                     UnexpectedEol(t, _) | 
                     ExpectedEndL(t) | 
@@ -237,8 +236,7 @@ fn deal_with_result(res: Result<(Vec<String>, Vec<Vec<String>>), Error>, rules: 
                         )
 
                     },
-                    BadVariableAssignment(_) |              // TODO: these should print itself in the line
-                    AlreadyInitialisedVariable(_, _, _) |   // 
+                    AlreadyInitialisedVariable(_, _, _) |   // TODO: this should print itself
                     InsertErr | DeleteErr | EmptyInput | 
                     EmptyOutput | EmptyEnv => todo!(),
 
@@ -272,21 +270,39 @@ fn deal_with_result(res: Result<(Vec<String>, Vec<Vec<String>>), Error>, rules: 
                     },
                 }
             },
-            Error::Runtime(re) => match re.clone() {
-                RuntimeError::UnbalancedRule => todo!(),
-                RuntimeError::UnknownSegment(buffer, word, seg) => {
-                    let arrows = " ".repeat(words[word].len() + seg) + "^" + "\n";
-                    println!("{}{}{}{} => {}{}{}",  
-                            "Runtime Error".bright_red().bold(),
-                            format!(": {re}").bold(), 
-                            MARG.bright_cyan().bold(), 
-                            words[word], 
-                            buffer,
-                            MARG.bright_cyan().bold(), 
-                            arrows.bright_red().bold()
-                        )
-                },
-            }
+            Error::Runtime(re) => {
+                use RuntimeError::*;
+                print!("{}{}", "Runtime Error".bright_red().bold(), format!(": {re}").bold());
+                match re.clone() {
+                    UnbalancedRule => todo!(),
+                    UnknownSegment(buffer, word, seg) => {
+                        let arrows = " ".repeat(words[word].len() + seg) + "^" + "\n";
+                        println!("{}{}{}{} => {}{}{}",  
+                                "Runtime Error".bright_red().bold(),
+                                format!(": {re}").bold(), 
+                                MARG.bright_cyan().bold(), 
+                                words[word], 
+                                buffer,
+                                MARG.bright_cyan().bold(), 
+                                arrows.bright_red().bold()
+                            )
+                    },
+                    UnknownVariable(t) => {
+                        let line = t.position.line;
+                            let start = t.position.start;
+                            let end = t.position.end;
+
+                            let arrows = " ".repeat(start) + &"^".repeat(end-start) + "\n";
+
+                            println!("{}{}{}{}",  
+                                MARG.bright_cyan().bold(), 
+                                rules[line], 
+                                MARG.bright_cyan().bold(), 
+                                arrows.bright_red().bold()
+                            )
+                    }
+                }
+        }
         },
     }
 
@@ -294,12 +310,12 @@ fn deal_with_result(res: Result<(Vec<String>, Vec<Vec<String>>), Error>, rules: 
 
 fn main() {
     let unparsed_rules: Vec<String> = vec![
-        String::from("C:[+d.r., -dr, -nas "),
-        String::from("r > l"),
+        // String::from("C:[+d.r., -dr, -nas "),
+        String::from("{r}r > r"),
     ];
 
     let unparsed_words: Vec<String> = vec![
-        String::from("a.ri"),
+        String::from("ar.ri"),
     ];
 
     let res = run(&unparsed_rules, &unparsed_words, false);

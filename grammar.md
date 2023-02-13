@@ -21,7 +21,7 @@ ENV_EL  ←   ( BOUND / '...' / TERM )+                       // [x]
 
 TERM    ←   SYL / SET / SEG / OPT / VAR                     // [x]
 SYL     ←   '%' (':' PARAMS)?                               // [x]
-SET     ←   '{' SEG (',' SEG)* '}'                          // [x]
+SET     ←   '{' SEG (',' SEG)* '}'                          // [x] :: NOTE: At the moment, we can't have multi-segment sets i.e. "{nd}" is not allowed 
 OPT     ←   '(' OPT_TRM+ (',' [0-9]+ (':' [1-9]+)?)? ')'    // [x] :: NOTE: (C) === (C,1) === (C, 0:1)
 OPT_TRM ←   BOUND / SYL / SET / SEG / VAR                   // [x]
 SEG     ←   IPA (':' PARAMS)? / MATRIX VAR_ASN?             // [x]

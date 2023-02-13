@@ -33,20 +33,30 @@ impl From<RuleSyntaxError> for Error {
 #[derive(Debug, Clone)]
 pub enum WordSyntaxError {
     UnknownChar(String, usize),
+    NoSegmentBeforeColon(String, usize),
+    DiacriticBeforeSegment(String, usize),
     // CharAfterTone(String, usize),
-    NoSegmentBeforeColon(usize),
-    CouldNotParse
+    CouldNotParse(String),
+}
+
+impl fmt::Display for WordSyntaxError {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        todo!()
+    }
 }
 
 #[derive(Debug, Clone)]
 pub enum RuntimeError { 
     UnbalancedRule,
-    UnknownSegment(String, usize,  usize) // (Segs before, Word Pos in list, Segment Pos in Words)
+    UnknownSegment(String, usize,  usize), // (Segs before, Word Pos in list, Segment Pos in Words)
+    UnknownVariable(Token),
 }
 
 impl fmt::Display for RuntimeError {
     fn fmt(&self, _: &mut fmt::Formatter<'_>) -> fmt::Result {
         todo!()
+        // Self::UnknownVariable(token)        => write!(f, "Unknown variable '{}' at {}", token.value, token.position.start),
+
     }
 }
 
@@ -68,7 +78,6 @@ pub enum RuleSyntaxError {
     ExpectedNumber(char, LineNum, Pos),
     OutsideBrackets(char, LineNum, Pos),
     UnknownFeature(String, LineNum, StartPos, EndPos),
-    UnknownVariable(Token),
     TooManyUnderlines(Token),
     UnexpectedEol(Token, char),
     ExpectedEndL(Token),
@@ -82,7 +91,7 @@ pub enum RuleSyntaxError {
     ExpectedUnderline(Token),
     ExpectedRightBracket(Token),
     BadSyllableMatrix(Token),
-    BadVariableAssignment(Item),
+    // BadVariableAssignment(Item),
     AlreadyInitialisedVariable(Item, Item, usize),
     WrongModNode(LineNum, Pos),
     WrongModTone(LineNum, Pos),
@@ -107,7 +116,6 @@ impl fmt::Display for RuleSyntaxError {
             Self::ExpectedCharDot(c, l, pos)     => write!(f, "Expected '..', but received .'{c}' at {l}:{pos}"),
             Self::ExpectedNumber(c, l, pos)   => write!(f, "Expected a number, but received '{c}' at {l}:{pos}"),
             Self::UnknownCharacter(c, l, pos)   => write!(f, "Unknown character {c} at '{l}:{pos}'."),
-            Self::UnknownVariable(token)        => write!(f, "Unknown variable '{}'", token.value),
             Self::TooManyUnderlines(_) => write!(f, "Cannot have multiple underlines in an environment"),
             Self::UnexpectedEol(_, c)           => write!(f, "Expected `{c}`, but received End of Line"),
             Self::ExpectedEndL(token)           => write!(f, "Expected end of line, received '{}'. Did you forget a '/' between the output and environment?", token.value),
@@ -122,7 +130,7 @@ impl fmt::Display for RuleSyntaxError {
             Self::ExpectedTokenFeature(token)        => write!(f, "{} cannot be placed inside a matrix. An element inside `[]` must a distinctive feature", token.value),
             Self::ExpectedVariable(token)       => write!(f, "Expected number, but received {} ", token.value),
             Self::BadSyllableMatrix(_)          => write!(f, "A syllable can only have parameters stress and tone"),
-            Self::BadVariableAssignment(_)      => write!(f, "A variable can only be assigned to a primative (C, V, etc.) or a matrix"),
+            // Self::BadVariableAssignment(_)      => write!(f, "A variable can only be assigned to a primative (C, V, etc.) or a matrix"),
             Self::AlreadyInitialisedVariable(set_item, _, num) => write!(f, "Variable '{}' is already initialised as {}", num, set_item.kind),
             Self::WrongModNode(..)     => write!(f, "Nodes cannot be ±; they can only be used in Alpha Notation expressions."),
             Self::WrongModTone(..)     => write!(f, "Tones cannot be ±; they can only be used with numeric values."),

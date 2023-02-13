@@ -1,12 +1,12 @@
 use std::{
-    collections::{HashMap, VecDeque}, 
+    collections::HashMap, 
     fmt, cmp::max
 };
 
 use crate ::{
     parser::{Item, ParseKind, Modifiers}, 
     error ::RuntimeError, 
-    word  ::{Word, Segment}
+    word  ::{Word, Segment}, lexer::Token
 };
 
 #[derive(Debug, Copy, Clone, PartialEq, Eq)]
@@ -33,6 +33,7 @@ pub struct SubRule {
     except:  Option<Item>,
     rule_type: RuleType, // RuleType,
     variables: HashMap<usize, Item>,
+    // alphas: Vec<_>
 }
 
 impl SubRule {
@@ -46,6 +47,23 @@ impl SubRule {
         // let Some((match_pos, match_len)) = self.match_input(&word)? else {
         //     return Ok(word)
         // };
+
+        match self.rule_type {
+            RuleType::Substitution  => {/* match as normal   */},
+            RuleType::Metathesis    => {/* skip match output */},
+            RuleType::Deletion      => {/* skip match output */},
+            RuleType::Insertion     => {/* skip match input  */},
+        }
+
+        let res = self.asdf(&word, &self.input)?;
+
+        if let Some((s, e)) = res {
+            println!("{}", word.render().unwrap());
+            println!("Match! {s}:{e}")
+        } else {
+            println!("No match")
+        }
+
         todo!()
     }
 
@@ -76,29 +94,113 @@ impl SubRule {
     //     for 
     // }
 
-    fn match_input_at_pos(&mut self, item: Item, seg: Segment) -> Result<bool, RuntimeError> {
-        match item.kind {
-            ParseKind::SyllBound => todo!(),        // Match on or before seg?
-            ParseKind::Ellipsis => return Ok(true), // backtracking
-            ParseKind::Variable(_, _) => todo!(),
-            ParseKind::Ipa(s, m) => if m.is_none(){
-                if s == seg {
-                    return Ok(true)
+    fn asdf(&self, word: &Word, states: &[Item]) -> Result<Option<(usize, usize)>, RuntimeError> {
+        let mut i = 0usize;
+        let mut begin = None;
+        // let mut end = None;
+
+        let mut states = states.iter();
+        let mut state = states.next().unwrap();
+
+        while i < word.segments.len() {
+            if self.match_input(state, word, i)? {
+                if begin.is_none() {
+                    begin = Some(i);
                 }
-            } else {
-                todo!("Need to compare modifiers")  // TODO: compare modifiers
-            },
-            ParseKind::Matrix(_) => todo!(),        // I imagine this will be similar (if not identical) to the else condition above
-            ParseKind::Syllable(_, _) => todo!(),   // if we match syllable we need to jump to the next boundary
-            ParseKind::Set(_) => todo!(),
-            ParseKind::Optional(_, _, _) => todo!(),
-            
-            ParseKind::EmptySet   | // TODO: if insertion rule, we should jump straight to matching environment
-            ParseKind::Metathesis | ParseKind::WordBound  | 
-            ParseKind::Environment(_, _) => unreachable!(),
+                let Some(s) = states.next() else {
+                    return Ok(Some((begin.unwrap(), i)))
+                };
+                state = s;      // TODO: if ellipsis we need to NOT advance until we no longer match, at which point we backtrack
+                i+=1;           // `...` is the same os OptionalSeg: (AnySegment, 0)
+                continue;       // or we could check next state -> if no match apply ... else apply next states
+            }                   
+
+            if begin.is_none() {
+                i+=1;
+                continue;
+            }
+            return Ok(None)
         }
 
+        if begin.is_none() {
+            return Ok(None)
+        }
+
+        if let ParseKind::WordBound | ParseKind::SyllBound = state.kind {
+            Ok(Some((begin.unwrap(), word.segments.len() - 1)))
+        } else {
+            Ok(None)
+        }        
+    }
+
+    fn match_input(&self, item: &Item, word: &Word, seg_index: usize) -> Result<bool, RuntimeError> {
+        // let seg = word.segments[seg_index];
+        match &item.kind {
+            ParseKind::Variable(vt, m) => self.match_var(vt, m, word, seg_index),
+            ParseKind::Ipa(s, m) => self.match_ipa(s, m, word, seg_index),
+            ParseKind::Matrix(m) => self.match_matrix(m, word, seg_index),
+            ParseKind::Set(s) => self.match_set(s, word, seg_index),
+            ParseKind::SyllBound => Ok(self.match_syll_bound(word, seg_index)), 
+            ParseKind::Ellipsis => Ok(true),            // TODO: backtracking
+            ParseKind::Syllable(_, _) => todo!(),       // if we match syllable we need to somehow jump to the next boundary
+            ParseKind::Optional(_, _, _) => todo!(),    // this prob should be recursive to self.asdf() and will have to backtrack like `...`            
+            _ => unreachable!(),                        // NOTE: if insertion rule, we should jump straight to matching environment
+        }
+    }
+
+    fn match_syll_bound(&self, word: &Word, seg_index: usize) -> bool {
+        // NOTE: matches for boundary BEFORE segment
+        word.is_syll_initial(seg_index)
+    }
+
+    fn match_ipa(&self, s: &Segment, mods: &Option<Modifiers>, word:& Word, seg_index: usize) -> Result<bool, RuntimeError>{
+        let seg = word.segments[seg_index];
+        if mods.is_none() {
+            Ok(*s == seg)
+        } else {
+            todo!("Need to compare modifiers")  // TODO: compare modifiers
+        }
+    }
+
+    fn match_set(&self, set: &[Item], word:& Word, seg_index: usize) -> Result<bool, RuntimeError> {
+        for s in set {
+            match &s.kind {
+                ParseKind::Variable(vt, m) => return self.match_var(vt, m, word, seg_index),
+                ParseKind::Ipa(s, m) => return self.match_ipa(s, m, word, seg_index),
+                ParseKind::Matrix(m) => return self.match_matrix(m, word, seg_index),
+                _ => unreachable!(),
+            }
+        }
         Ok(false)
+    }
+
+    fn match_var(&self, vt: &Token, mods: &Option<Modifiers>, word:& Word, seg_index: usize) -> Result<bool, RuntimeError> {
+        // let seg = word.segments[seg_index];
+        if let Some(v) = self.variables.get(&vt.value.parse::<usize>().expect("")) {
+            match &v.kind {
+                ParseKind::Matrix(m) => {
+                    let mtrx = self.join_var_with_params(m, mods);
+                    self.match_matrix(&mtrx, word, seg_index)
+                },
+                _ => unreachable!()
+            }
+        } else {
+            Err(RuntimeError::UnknownVariable(vt.clone()))
+        }
+
+    }
+
+    fn join_var_with_params(&self, var: &Modifiers, params: &Option<Modifiers>) -> Modifiers {
+
+        if params.is_none() {
+            return var.clone()
+        }
+        
+        todo!()
+    }
+
+    fn match_matrix(&self, mods: &Modifiers, word:& Word, seg_index: usize) -> Result<bool, RuntimeError> {
+        Ok(word.match_modifiers_at(mods, seg_index))
     }
 }
 

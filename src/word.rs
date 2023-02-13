@@ -4,7 +4,7 @@ use serde::Deserialize;
 use crate :: {
     lexer::{  FType, NodeType}, 
     error :: WordSyntaxError, 
-    parser:: {SegMKind, BinMod}, 
+    parser:: {SegMKind, BinMod, Modifiers}, 
     CARDINALS_MAP, CARDINALS_TRIE, 
     CARDINALS_VEC, DIACRITS
 };
@@ -286,6 +286,14 @@ impl Segment {
         n == m
     }
 
+    fn apply_diacritic(&mut self, d: &Diacritic) {
+        // check if we meet prereqs
+        if self.match_modifiers(&d.prereqs) {
+            // then apply payload
+        }
+        //else TODO: error
+    }
+
     // pub fn inv_feat(&mut self, node: NodeKind, feat: u8) {
     //     let n = match self.get_node(&node) {
     //         Some(x) => x,
@@ -376,8 +384,10 @@ impl Word {
         let mut w = Self {segments: Vec::new(), syllables: Vec::new() };
         // let split_txt = w.format_text(txt);
         let t = text.replace('\'', "ˈ")
+                            .replace(',',  "ˌ")
                             .replace('g',  "ɡ")
                             .replace(':',  "ː")
+                            .replace(';',  "ː.")
                             .replace('ǝ',  "ə");
         w.setup(t)?;
 
@@ -418,13 +428,13 @@ impl Word {
                     break;
                 }
 
-                if i == self.segments.len()-1 && syll.end == i{
+                if i == self.segments.len()-1 && syll.end == i {
                     if i != 0 && *seg == self.segments[i-1] && !buffer.ends_with('.') && !buffer.ends_with('ˈ') && !buffer.ends_with('ˌ') {
                         buffer.push('ː');
-                        continue;
+                    } else {
+                        let Some(x) = &seg.get_as_grapheme() else { return Err((buffer, i)) };
+                        buffer.push_str(x);
                     }
-                    let Some(x) = &seg.get_as_grapheme() else { return Err((buffer, i)) };
-                    buffer.push_str(x);
                     buffer.push_str(&syll.tone);
                     break 'outer;
                 }
@@ -438,7 +448,6 @@ impl Word {
             let Some(x) = &seg.get_as_grapheme() else { return Err((buffer, i)) };
             buffer.push_str(x);
             
-
         }
 
         Ok(buffer)
@@ -492,6 +501,10 @@ impl Word {
 
     pub fn is_word_initial(&self, seg_index: usize) -> bool {
         seg_index == 0
+    }
+
+    pub fn match_modifiers_at(&self, mods: &Modifiers, seg_index: usize) -> bool {
+        todo!()
     }
 
     fn setup(&mut self, input_txt: String) -> Result<(), WordSyntaxError> {
@@ -555,7 +568,7 @@ impl Word {
 
             if txt[i] == 'ː' {
                 if self.segments.is_empty() {
-                    return Err(WordSyntaxError::NoSegmentBeforeColon(i))
+                    return Err(WordSyntaxError::NoSegmentBeforeColon(input_txt, i))
                 } 
                 self.segments.push(*self.segments.last().unwrap());
                 i += 1;
@@ -579,18 +592,27 @@ impl Word {
 
                 let seg_stuff = *match maybe_seg {
                     Some(s) => Ok(s),
-                    None => Err(WordSyntaxError::UnknownChar(buffer.clone(), i))
+                    None => Err(WordSyntaxError::UnknownChar(input_txt.clone(), i)) 
                 }?;
 
                 self.segments.push(seg_stuff);
             } else {
-                return Err(WordSyntaxError::UnknownChar(buffer.clone(), i));
+                let c = buffer.chars().next().unwrap();
+                for d in DIACRITS.iter() {
+                    if  c == d.diacrit {
+                        match self.segments.last_mut() {
+                            Some(s) => s.apply_diacritic(d),
+                            None => return Err(WordSyntaxError::DiacriticBeforeSegment(input_txt, i))
+                        }
+                    }
+                }
+                return Err(WordSyntaxError::UnknownChar(input_txt, i));
             }
 
         }
 
         if self.segments.is_empty() {
-            return Err(WordSyntaxError::CouldNotParse);
+            return Err(WordSyntaxError::CouldNotParse(input_txt));
         }
         
         sy.end = self.segments.len()-1;
@@ -602,45 +624,6 @@ impl Word {
 
         Ok(())
     }
-
-    // NOTE: deprecated, only currently used by tests
-    // pub fn format_text(&self, mut txt: String ) -> Vec<String> {
-    //     txt = txt.replace('\'', "ˈ")
-    //              .replace('g',  "ɡ")
-    //              .replace(':',  "ː")
-    //              .replace('ǝ',  "ə");
-    //     // what we want is to split the string with the delimiters at the start each slice
-    //     // however split_inclusive splits with the delimiters at the end — and there is seemingly no alternative (for some reason) 
-    //     // so this mess is needed for now unless something better comes to me
-    //     let mut split_str : Vec<String> = txt.split_inclusive(&['ˈ', 'ˌ', '.']).map(|f| f.to_string()).collect();
-    //     let mut split_text = Vec::new();
-    //     let mut i = 0;
-    //     // if the first character is a delimiter, it will be on it's own as the first element
-    //     // we want to append it to the front of the second element
-    //     if split_str[0] == "ˈ" || split_str[0] == "ˌ" {
-    //         split_str[1] = split_str[0].clone() + split_str[1].clone().as_str();
-    //         i = 1;
-    //     } else if split_str[0] == "." { i = 1 } // this would is malformed, but i think we shouldn't error, and just move on in this case
-    //     // we then go through each element, removing and re-appending the delimiters
-    //     while i < split_str.len() {
-    //         if split_str[i].ends_with('ˈ') || split_str[i].ends_with('ˌ') {
-    //             let chr = split_str[i].pop().unwrap().to_string();
-    //             split_text.push(split_str[i].clone());
-    //             i += 1;
-    //             split_str[i] = chr + split_str[i].as_str();
-    //         }
-    //         if split_str[i].ends_with('.') { split_str[i].pop(); }
-    //         split_text.push(split_str[i].clone());
-    //         i += 1;
-    //     }
-    //     // would be malformed, same as above. But as with that, i think we should just ignore it
-    //     let lst = split_text.last().unwrap();
-    //     if lst.ends_with('ˈ') || lst.ends_with('ˌ') {
-    //         let l = split_text.len()-1;
-    //         split_text[l].pop();
-    //     }
-    //     split_text
-    // }
 }
 
 
@@ -660,25 +643,26 @@ mod word_tests {
 
     #[test]
     fn test_render_word() {
-        let w = Word::new("na.kiˈsa".to_owned()).unwrap();
-        assert_eq!(w.render().unwrap(), "na.kiˈsa");
-
         let w = Word::new("ˌna.kiˈsa".to_owned()).unwrap();
         assert_eq!(w.render().unwrap(), "ˌna.kiˈsa");
 
-        let w = Word::new("ˈna.kiˌsa".to_owned()).unwrap();
-        assert_eq!(w.render().unwrap(), "ˈna.kiˌsa");
+        let w = Word::new(",na.ki'sa".to_owned()).unwrap();
+        assert_eq!(w.render().unwrap(), "ˌna.kiˈsa");
+
+        // let w = Word::new("ˈmu.ðr̩".to_owned()).unwrap(); // TODO: Requires diacritic support
+        // assert_eq!(w.render().unwrap(), "ˈmu.ðr̩");
 
         let w = Word::new("ˈna.ki.sa123".to_owned()).unwrap();
         assert_eq!(w.render().unwrap(), "ˈna.ki.sa123");
 
-        let w = Word::new("aɫ.ɫaːh".to_owned()).unwrap();
+        let w = Word::new("aɫ.ɫa:h".to_owned()).unwrap();
         assert_eq!(w.render().unwrap(), "aɫ.ɫaːh");
-    }
 
-    // #[test]
-    // fn test_asdf() {
-    //     let w = Word::new("al.lah".to_owned());
-    // }
+        let w = Word::new("aɫ.ɫa;hu".to_owned()).unwrap();
+        assert_eq!(w.render().unwrap(), "aɫ.ɫaː.hu");
+
+        let w = Word::new("ˈɫɫaa".to_owned()).unwrap();
+        assert_eq!(w.render().unwrap(), "ˈɫːaː");
+    }
 
 }

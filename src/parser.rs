@@ -632,19 +632,7 @@ impl Parser {
     }
 
     fn get_var(&mut self) -> Result<Option<Item>, RuleSyntaxError> {
-        let Some(t) = self.eat_expect(TokenKind::Number) else { return Ok(None) };
-        // TODO: This should be done at runtime
-        // let num_val = t.value.parse::<usize>().expect("");
-        // let mut matched_segs: Item;
-        // match self.var_map.get(&num_val) {
-        //     Some(m) => {
-        //         matched_segs = m.clone();
-        //         matched_segs.position = t.position;
-        //     },
-        //     None => return Err(RuleSyntaxError::UnknownVariable(t))
-        // }
-    
-    
+        let Some(t) = self.eat_expect(TokenKind::Number) else { return Ok(None) };     
         let mut pos = t.position;
 
         if !self.expect(TokenKind::Colon) {
