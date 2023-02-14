@@ -2,7 +2,7 @@
 RULE    ←   SUB_RUL / RED_RUL / MET_RUL / DEL_RUL / INS_RUL
 
 SUB_RUL ←   INP '>' OUT ('/' ENV)? ('|' ENV)? EOL           // [x]
-RED_RUL ←   INP '>' '+' ('/' ENV)? ('|' ENV)? EOL           // [ ] :: NOTE: currently unsupported
+RED_RUL ←   INP '>' '+' ('/' ENV)? ('|' ENV)? EOL           // [ ] :: NOTE: no plans to supported this
 MET_RUL ←   INP '>' '&' ('/' ENV)? ('|' ENV)? EOL           // [x] :: FIXME: 'INP' here is currently actually INP_TRM
 DEL_RUL ←   INP '>' EMP ('/' ENV)? ('|' ENV)? EOL           // [x] :: FIXME: 'INP' here is currently actually INP_TRM
 INS_RUL ←   EMP '>' OUT ('/' ENV)? ('|' ENV)? EOL           // [x] :: FIXME: 'OUT' here is currently actually OUT_TRM
@@ -27,7 +27,7 @@ OPT_TRM ←   BOUND / SYL / SET / SEG / VAR                   // [x]
 SEG     ←   IPA (':' PARAMS)? / MATRIX VAR_ASN?             // [x]
 MATRIX  ←   (GROUP (':' PARAMS)? / PARAMS                   // [x]
 VAR     ←   [0-9]+ (':' PARAMS)?                            // [x]
-VAR_ASN ←   '=' [0-9]+                                      // [p]
+VAR_ASN ←   '=' [0-9]+                                      // [x]
 
 GROUP	←   [A-Z]                                           // [x]
 PARAMS  ←   '[' ARG (',' ARG)* ']'                          // [x]
@@ -38,7 +38,7 @@ ARG_VAL ←   '+' / '-' / [α-ω] / '-'[α-ω]                    // [x]
 EMP     ←   '*' / '∅'                                       // [x]
 BOUND	←   '$' / '#'                                       // [x]
 ELLIPSS ←   '...' / '..' / …
-IPA     ←   IPA_CAR IPA_DIA+                                // [p] :: NOTE: tie-bar support not fully implemented: IPA_CAR '^' IPA_CAR 
+IPA     ←   IPA_CAR (^ IPA_CAR)? IPA_DIA*                   // [x]
 IPA_CAR ←   [Unicode-IPA-character]                         // [x] :: NOTE: As defined in `cardinals.json`
 IPA_DIA ←   [Unicode-DIACRITIC-character]                   // [p] :: NOTE: As defined in `diacritics.json`
 ```

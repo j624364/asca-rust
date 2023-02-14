@@ -39,28 +39,28 @@ impl fmt::Display for StressKind {
     }
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum LengthKind {
-    Short,
-    Long,
-    Overlong
-}
+// #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+// pub enum LengthKind {
+//     Short,
+//     Long,
+//     Overlong
+// }
 
-impl Default for LengthKind {
-    fn default() -> Self {
-        Self::Short
-    }
-}
+// impl Default for LengthKind {
+//     fn default() -> Self {
+//         Self::Short
+//     }
+// }
 
-impl fmt::Display for LengthKind {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match self {
-            LengthKind::Short    => write!(f, "-"),
-            LengthKind::Long     => write!(f, ":"),
-            LengthKind::Overlong => write!(f, "::"),
-        }
-    }
-}
+// impl fmt::Display for LengthKind {
+//     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+//         match self {
+//             LengthKind::Short    => write!(f, "-"),
+//             LengthKind::Long     => write!(f, ":"),
+//             LengthKind::Overlong => write!(f, "::"),
+//         }
+//     }
+// }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct DiaMods {
@@ -95,7 +95,6 @@ pub enum NodeKind {
     Pharyngeal
 }
 
-#[allow(unused)]
 pub const fn feature_to_node_mask(feat: FType) -> (NodeKind, u8) {
     use FType::*;
     match feat {
@@ -131,23 +130,12 @@ pub const fn feature_to_node_mask(feat: FType) -> (NodeKind, u8) {
 
         AdvancedTongueRoot  => (NodeKind::Pharyngeal, 0b10),
         RetractedTongueRoot => (NodeKind::Pharyngeal, 0b01),
-
-        // if Node or SupraSeg
-        _ => unreachable!()
     }
 }
 
 fn modifier_index_to_node_mask(i: usize) -> (NodeKind, u8) {
-
     assert!(i < FType::count());
-
-    // if i <= FeatType::PharyngealNode as usize || i > FeatType::RetractedTongueRoot as usize {
-    //     assert!(false);
-    // }
-
-    let ft = FType::from_usize(i);
-
-    feature_to_node_mask(ft)
+    feature_to_node_mask(FType::from_usize(i))
 }
 
 #[derive(Default, Clone, Copy, PartialEq, Eq, Deserialize)]
@@ -214,13 +202,11 @@ impl Segment {
             }
             
         }
-
-        
-
         // Err(RuntimeError::UnknownSegment(*self))
         None
     }
 
+    #[allow(unused)]
     pub fn match_modifiers(&self, mods: &DiaMods) -> bool {
         todo!()
     }
@@ -237,6 +223,7 @@ impl Segment {
         }
     }
 
+    #[allow(unused)]
     pub fn set_node(&mut self, node: NodeKind, val: Option<u8>) {
         match node {
             NodeKind::Root       => self.root = val.expect("\nRootNode cannot be null\nThis is a bug"),
@@ -249,10 +236,12 @@ impl Segment {
         }
     }
 
+    #[allow(unused)]
     pub fn get_feat(&self, node: NodeKind, feat: u8) -> Option<u8> {
         Some(self.get_node(&node)? & feat)
     }
 
+    #[allow(unused)]
     pub fn set_feat(&mut self, node: NodeKind, feat: u8, to_positive: bool) {
 
         let n = self.get_node(&node).unwrap_or(0u8);
@@ -276,6 +265,7 @@ impl Segment {
         }
     }
 
+    #[allow(unused)]
     pub fn node_match(&self, node: NodeKind, match_value: Option<u8>) -> bool {
         let Some(n) = self.get_node(&node) else {
             return match_value.is_none()
@@ -289,10 +279,16 @@ impl Segment {
     fn apply_diacritic(&mut self, d: &Diacritic) {
         // check if we meet prereqs
         if self.match_modifiers(&d.prereqs) {
+            todo!("apply d.payload")
             // then apply payload
         }
         //else TODO: error
     }
+
+    #[allow(unused)]
+    pub fn apply_mods(&mut self, m: &Modifiers) {
+        todo!()
+    } 
 
     // pub fn inv_feat(&mut self, node: NodeKind, feat: u8) {
     //     let n = match self.get_node(&node) {
@@ -394,14 +390,12 @@ impl Word {
         Ok(w)
     }
     // TODO: `render` probably isn't the right verb here
+    #[allow(unused)]
     pub fn render_only_segments(&self) -> Option<String> {
-
         let mut buffer = String::new();
-        
         for seg in self.segments.iter() {
-            buffer.push_str(seg.get_as_grapheme()?.as_str());
+            buffer.push_str(&seg.get_as_grapheme()?);
         }
-
         Some(buffer)
     }
 
@@ -453,6 +447,7 @@ impl Word {
         Ok(buffer)
     }
 
+    #[allow(unused)]
     pub fn get_segs_in_syll(&self, syll_index: usize) -> Vec<Segment> {
 
         assert!(syll_index < self.syllables.len());
@@ -464,6 +459,15 @@ impl Word {
 
         self.segments[start..=end].to_owned()
 
+    } 
+
+    pub fn seg_count(&self) -> usize {
+        self.segments.len() - 1
+    } 
+
+    #[allow(unused)]
+    pub fn syll_count(&self) -> usize {
+        self.syllables.len() - 1
     } 
 
     pub fn get_seg_at(&self, seg_index: usize) -> Option<Segment> {
@@ -493,6 +497,7 @@ impl Word {
         unreachable!();
     }
 
+    #[allow(unused)]
     pub fn is_syll_final(&self, seg_index: usize) -> bool {
         let syll_index = self.get_syll_index_from_seg_index(seg_index);
         syll_index == self.syllables[syll_index].end
@@ -503,17 +508,25 @@ impl Word {
         syll_index == self.syllables[syll_index].start
     }
 
+    #[allow(unused)]
     pub fn is_word_final(&self, seg_index: usize) -> bool {
         seg_index == self.segments.len() - 1
     }
 
+    #[allow(unused)]
     pub fn is_word_initial(&self, seg_index: usize) -> bool {
         seg_index == 0
     }
 
+    #[allow(unused)]
     pub fn match_modifiers_at(&self, mods: &Modifiers, seg_index: usize) -> bool {
         todo!()
     }
+
+    #[allow(unused)]
+    pub fn apply_mods_at(&mut self, m: &Modifiers, seg_index: usize) {
+        todo!()
+    } 
 
     fn setup(&mut self, input_txt: String) -> Result<(), WordSyntaxError> {
         let mut i = 0;
@@ -585,22 +598,46 @@ impl Word {
 
             let mut buffer = txt[i].to_string();
 
-            if CARDINALS_TRIE.contains_partial(buffer.as_str()) {
+            if CARDINALS_TRIE.contains_prefix(buffer.as_str()) {
                 i += 1;
                 while i < txt.len() {
                     let mut tmp = buffer.clone(); tmp.push(txt[i]);
-                    if CARDINALS_TRIE.contains_partial(tmp.as_str()) {
+                    if CARDINALS_TRIE.contains_prefix(tmp.as_str()) {
                         buffer.push(txt[i]);
                         i += 1;
                         continue;
                     }
+
+                    if txt[i] == '^' {
+                        tmp.pop();
+                        tmp.push('\u{0361}');
+    
+                        if CARDINALS_TRIE.contains_prefix(tmp.as_str()) {
+                            buffer.push('\u{0361}');
+                            i += 1;
+                            continue;
+                        }
+
+                    
+                        tmp.pop();
+                        tmp.push('\u{035C}');
+    
+                        if CARDINALS_TRIE.contains_prefix(tmp.as_str()) {
+                            buffer.push('\u{035C}');
+                            i += 1;
+                            continue;
+                        }
+
+
+                    }
+
                     break;
                 }
                 let maybe_seg = CARDINALS_MAP.get(&buffer);
 
                 let seg_stuff = *match maybe_seg {
                     Some(s) => Ok(s),
-                    None => Err(WordSyntaxError::UnknownChar(input_txt.clone(), i)) 
+                    None => Err(WordSyntaxError::UnknownChar(input_txt.clone(), i)) // this should be unreachable
                 }?;
 
                 self.segments.push(seg_stuff);
@@ -644,9 +681,7 @@ mod word_tests {
     #[test]
     fn test_get_grapheme() {
         let s = Word::new("n".to_owned()).unwrap().segments[0];
-
         assert_eq!(s.get_as_grapheme().unwrap(), "n")
-        
     }
 
     #[test]
@@ -671,6 +706,12 @@ mod word_tests {
 
         let w = Word::new("ˈɫɫaa".to_owned()).unwrap();
         assert_eq!(w.render().unwrap(), "ˈɫːaː");
+
+        let w = Word::new("ˈt͡saa".to_owned()).unwrap();
+        assert_eq!(w.render().unwrap(), "ˈt͡saː");
+
+        let w = Word::new("ˈt^saa".to_owned()).unwrap();
+        assert_eq!(w.render().unwrap(), "ˈt͡saː");
     }
 
 }

@@ -89,16 +89,18 @@ impl Trie {
         curr_node.is_terminal
     }
 
-    /// returns true if input is a 'prefix' of a leaf in the tree
+    /// Returns true if input is a 'prefix' of a leaf in the tree
+    /// A prefix can also end in a leaf 
     /// # Example
     /// ``` 
     /// let mut trie = Trie::new();
     /// trie.insert("banned");
     /// trie.insert("banter");
-    /// assert_eq!(trie.contains_partial("ban"), true);
-    /// assert_eq!(trie.contains_partial("ned"), false);
+    /// assert_eq!(trie.contains_prefix("ban"), true);
+    /// assert_eq!(trie.contains_prefix("ned"), false);
+    /// assert_eq!(trie.contains_prefix("banter"), true);
     /// ```
-    pub fn contains_partial(&self, s: &str) -> bool { 
+    pub fn contains_prefix(&self, s: &str) -> bool { 
         let mut curr_node = &self.root;
 
         for c in s.chars() {
@@ -125,7 +127,7 @@ impl Trie {
     /// assert_eq!(trie.find("bann"), vec!["banned, banner"]);
     /// ```
     #[allow(dead_code)]
-    pub fn find(&self, s: &str) -> Vec<String> { 
+    pub fn find_all(&self, s: &str) -> Vec<String> { 
         let mut cur = &self.root;
 
         for c in s.chars() {
@@ -188,21 +190,36 @@ impl Display for Trie {
 
 
 
-// let mut trie = trie::Trie::new();
-// trie.insert("a");
-// trie.insert("to");
-// trie.insert("tea");
-// trie.insert("apples");
-// trie.insert("an");
-// trie.insert("test");
-// trie.insert("tea");
-// assert!(trie.contains("test"));
-// assert!(trie.contains("to"));
-// assert!(trie.contains("tea"));
-// assert!(!trie.contains("airplane"));
-// println!("{}", trie);
-// assert_eq!(trie.find("te"), vec!["test", "tea"]);
-// assert_eq!(trie.find("a"), vec!["a", "apples", "an"]);
-// trie.insert("test");
-// trie.insert("test");
-// assert_eq!(trie.length(), 7);
+#[cfg(test)]
+mod tests {
+
+    use super::*;
+
+    #[test]
+    fn test_trie() {
+        let mut trie = Trie::new();
+        trie.insert("a");
+        trie.insert("to");
+        trie.insert("tea");
+        trie.insert("apples");
+        trie.insert("an");
+        trie.insert("test");
+        trie.insert("tea");
+
+        assert!(trie.contains("test"));
+        assert!(trie.contains("to"));
+        assert!(trie.contains("tea"));
+        assert!(!trie.contains("air"));
+
+        assert!(trie.contains_prefix("te"));
+
+        assert_eq!(trie.find_all("te"), vec!["test", "tea"]);
+        assert_eq!(trie.find_all("a"), vec!["a", "apples", "an"]);
+        trie.insert("test");
+        trie.insert("test");
+        assert_eq!(trie.length(), 7);
+    }
+}
+
+
+

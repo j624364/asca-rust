@@ -236,7 +236,7 @@ fn deal_with_result(res: Result<(Vec<String>, Vec<Vec<String>>), Error>, rules: 
                         )
 
                     },
-                    AlreadyInitialisedVariable(_, _, _) |   // TODO: this should print itself
+                    // AlreadyInitialisedVariable(_, _, _) |   
                     InsertErr | DeleteErr | EmptyInput | 
                     EmptyOutput | EmptyEnv => todo!(),
 

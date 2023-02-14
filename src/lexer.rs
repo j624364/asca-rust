@@ -167,7 +167,6 @@ impl Display for FeatType {
     }
 }
 
-
 // #[derive(Debug, Copy, Clone, PartialEq, Eq, Ord, PartialOrd)]
 #[derive(Debug, Copy, Clone, PartialEq, Eq)]
 pub enum TokenKind {
@@ -297,7 +296,6 @@ pub struct Lexer {
 }
 
 impl Lexer {
-
     pub fn new(input: &str, line: usize) -> Self {
         let mut s = Self { 
             source: input.chars().collect(), 
@@ -334,7 +332,6 @@ impl Lexer {
 
     fn get_bracket(&mut self) -> Result<Option<Token>, RuleSyntaxError> {
         let start = self.pos;
-
         let tokenkind: TokenKind;
         let value: String;
 
@@ -528,17 +525,35 @@ impl Lexer {
         if self.inside_square { return None }
         let start = self.pos;
 
-        let mut  buffer = self.curr_char.to_string();
+        let mut buffer = self.curr_char.to_string();
 
-        if CARDINALS_TRIE.contains_partial(buffer.as_str()) {
+        if CARDINALS_TRIE.contains_prefix(buffer.as_str()) {
             self.advance();
             loop {
                 //let tmp: String = buffer.clone() + self.curr_char.to_string().as_str();
                 let mut tmp = buffer.clone(); tmp.push(self.curr_char);
-                if CARDINALS_TRIE.contains_partial(tmp.as_str()) {
+                if CARDINALS_TRIE.contains_prefix(tmp.as_str()) {
                     buffer.push(self.curr_char);
                     self.advance();
                     continue;
+                }
+
+                if self.curr_char == '^' {
+                    tmp.pop();
+                    tmp.push('\u{0361}');
+                    if CARDINALS_TRIE.contains_prefix(tmp.as_str()) {
+                        buffer.push('\u{0361}');
+                        self.advance();
+                        continue;
+                    }
+
+                    tmp.pop();
+                    tmp.push('\u{035C}');
+                    if CARDINALS_TRIE.contains_prefix(tmp.as_str()) {
+                        buffer.push('\u{035C}');
+                        self.advance();
+                        continue;
+                    }
                 }
 
                 return Some(Token::new(TokenKind::Cardinal, buffer, self.line, start, self.pos))
@@ -731,7 +746,7 @@ mod lexer_tests {
     #[test]
     fn test_ipa_joined() {
         
-        let test_input= String::from("t͡ɕb͡βba");
+        let test_input= String::from("t^ɕb͡βba");
         let expected_result = vec![
             Token::new(TokenKind::Cardinal, "t͡ɕ".to_owned(), 0, 0, 3),
             Token::new(TokenKind::Cardinal, "b͡β".to_owned(), 0, 3, 6),
@@ -750,9 +765,29 @@ mod lexer_tests {
     }
 
     #[test]
+    fn test_ipa_tie() {
+        
+        let test_input= String::from("t^ɕ > b^β");
+        let expected_result = vec![
+            Token::new(TokenKind::Cardinal,   "t͡ɕ".to_owned(), 0, 0, 3),
+            Token::new(TokenKind::GreaterThan, ">".to_owned(), 0, 4, 5),
+            Token::new(TokenKind::Cardinal,   "b͡β".to_owned(), 0, 6, 9),
+            Token::new(TokenKind::Eol,          String::new(), 0, 9, 10),
+        ];
+
+        let result = Lexer::new(&test_input, 0).get_all_tokens().unwrap();  
+
+        assert_eq!(result.len(), expected_result.len());
+
+        for i in 0..result.len() {
+            assert_eq!(result[i], expected_result[i]);
+        }
+    }
+
+    #[test]
     fn test_metathesis() {
         
-        let test_input= String::from("t͡ɕ...b͡β > &");
+        let test_input= String::from("t^ɕ...b͡β > &");
         let expected_result = vec![
             Token::new(TokenKind::Cardinal,   "t͡ɕ".to_owned(), 0,  0,  3),
             Token::new(TokenKind::Ellipsis,  "...".to_owned(), 0,  3,  6),

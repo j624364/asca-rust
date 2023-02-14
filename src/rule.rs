@@ -16,7 +16,17 @@ pub enum RuleType {
     Deletion,
     // Reduplication,
     Insertion,
+}
 
+pub struct Match {
+    pub start: usize,
+    pub end  : usize
+}
+
+impl Match {
+    pub fn new(start: usize, end: usize) -> Self {
+        Self {start, end}
+    }
 }
 
 // struct BacktrackState {
@@ -27,10 +37,10 @@ pub enum RuleType {
 
 #[derive(Debug)]
 pub struct SubRule {
-    input:   Vec<Item>,
-    output:  Vec<Item>,
-    context: Option<Item>,         
-    except:  Option<Item>,
+    input    : Vec<Item>,
+    output   : Vec<Item>,
+    context  : Option<Item>,         
+    except   : Option<Item>,
     rule_type: RuleType, // RuleType,
     variables: RefCell<HashMap<usize, Segment>>,
     // alphas: Vec<_>
@@ -57,9 +67,9 @@ impl SubRule {
 
         let res = self.match_input(&word, &self.input)?;
 
-        if let Some((s, e)) = res {
+        if let Some(m) = res {
             println!("{}", word.render().unwrap());
-            println!("Match! {s}:{e}")
+            println!("Match! {}:{}", m.start, m.end)
         } else {
             println!("No match")
         }
@@ -94,22 +104,22 @@ impl SubRule {
     //     for 
     // }
 
-    // NOTE: ONly returns first match
-    // may have to return `end` and then after applying, start word from end instead of 0
-    fn match_input(&self, word: &Word, states: &[Item]) -> Result<Option<(usize, usize)>, RuntimeError> {
+    // NOTE: Only returns first match
+    // may have to check `end` > 'word.length' and then after applying, start word from end instead of 0
+    fn match_input(&self, word: &Word, states: &[Item]) -> Result<Option<Match>, RuntimeError> {
         let mut i = 0usize;
         let mut begin = None;
         // let mut end = None;
         let mut states = states.iter();
         let mut state = states.next().unwrap();
 
-        while i < word.segments.len() {
+        while i <= word.seg_count() {
             if self.match_input_item(state, word, &i)? {
                 if begin.is_none() {
                     begin = Some(i);
                 }
                 let Some(s) = states.next() else {
-                    return Ok(Some((begin.unwrap(), i)))
+                    return Ok(Some(Match::new(begin.unwrap(), i)))
                 };
                 state = s;      // TODO: if ellipsis we need to NOT advance until we no longer match, at which point we backtrack
                 i+=1;           // `...` is the same os OptionalSeg: (AnySegment, 0)
@@ -128,7 +138,7 @@ impl SubRule {
         }
 
         if let ParseKind::WordBound | ParseKind::SyllBound = state.kind {
-            Ok(Some((begin.unwrap(), word.segments.len() - 1)))
+            Ok(Some(Match::new(begin.unwrap(), word.seg_count())))
         } else {
             Ok(None)
         }        
