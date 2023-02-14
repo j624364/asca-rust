@@ -315,7 +315,7 @@ fn main() {
     ];
 
     let unparsed_words: Vec<String> = vec![
-        String::from("ar.ri"),
+        String::from("arrarr"),
     ];
 
     let res = run(&unparsed_rules, &unparsed_words, false);

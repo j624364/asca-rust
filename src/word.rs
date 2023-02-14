@@ -466,6 +466,14 @@ impl Word {
 
     } 
 
+    pub fn get_seg_at(&self, seg_index: usize) -> Option<Segment> {
+        if seg_index < self.segments.len() {
+            Some(self.segments[seg_index])
+        } else {
+            None
+        }
+    }
+
     pub fn get_syll_index_from_seg_index(&self, seg_index: usize) -> usize {
         
         assert!(seg_index < self.segments.len());

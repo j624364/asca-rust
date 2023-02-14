@@ -1,7 +1,4 @@
-use std::{
-    collections::HashMap, 
-    fmt
-};
+use std::fmt;
 
 use crate::{
     lexer::*, 
@@ -37,7 +34,7 @@ pub enum Mods {
     Alpha(AlphaMod),
 }
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct Supr {
     pub kind: SupraType,
     pub modifier: SegMKind
@@ -82,7 +79,6 @@ impl Modifiers {
     }
 }
 
-// type Items = Vec<Item>;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum ParseKind {
@@ -93,7 +89,7 @@ pub enum ParseKind {
     Metathesis ,
     Variable   (Token  , Option<Modifiers>),
     Ipa        (Segment, Option<Modifiers>),
-    Matrix     (Modifiers),
+    Matrix     (Modifiers, Option<usize>),
     Syllable   (Option<Supr>, Option<String>), // (Stress, Tone) 
     Set        (Vec<Item>),
     Optional   (Vec<Item>, usize, usize),
@@ -102,7 +98,7 @@ pub enum ParseKind {
 
 impl ParseKind {
     fn as_matrix(&self) -> Option<&Modifiers> {
-        if let Self::Matrix(v) = self {
+        if let Self::Matrix(v, _) = self {
             Some(v)
         } else {
             None
@@ -140,8 +136,8 @@ impl fmt::Display for ParseKind {
 
             ParseKind::Ipa(s, m) => write!(f, "{s:?} + {m:?}"),
 
-            ParseKind::Matrix(tokens) => {
-                write!(f, "{tokens:#?}")
+            ParseKind::Matrix(tokens, var) => {
+                write!(f, "{tokens:#?}={var:#?}")
             },
             ParseKind::Syllable(str, tone) => {
                 write!(f, "{str:#?} : {tone:#?}")
@@ -196,7 +192,6 @@ pub struct Parser {
     line: usize,
     pos: usize,
     curr_tkn: Token,
-    var_map: HashMap<usize,Item>
 }
 
 impl Parser {
@@ -206,7 +201,6 @@ impl Parser {
             line,
             pos: 0, 
             curr_tkn: Token { kind: TokenKind::Eol, value: String::new(), position: Position::new(line, 0, 1 ) },
-            var_map: HashMap::new(), 
         };
         s.curr_tkn = s.token_list[s.pos].clone();
 
@@ -376,7 +370,6 @@ impl Parser {
     fn join_group_with_params(&mut self, character: Item, parameters: Item) -> Item {
         let mut chr = character.kind.as_matrix().expect("\nCritical Error: 'Char' being joined with 'Parameters' is not a matrix!\nThis is a bug.").clone();
         let params = parameters.kind.as_matrix().expect("\nCritical Error: 'Parameters' being joined with 'Char' is not a matrix!\nThis is a bug.").clone(); 
-        
         // TODO: test this
         for (i, p) in params.nodes.iter().enumerate() {
             if p.is_none() {
@@ -384,19 +377,17 @@ impl Parser {
             }
             chr.nodes[i] = *p
         }
-
         for (i, p) in params.feats.iter().enumerate() {
             if p.is_none() {
                 continue
             }
             chr.feats[i] = *p
         }
-
         chr.suprs.stress = if params.suprs.stress.is_none() {chr.suprs.stress} else {params.suprs.stress};
         chr.suprs.length = if params.suprs.length.is_none() {chr.suprs.length} else {params.suprs.length};
         chr.suprs.tone   = if params.suprs.tone.is_none()   {chr.suprs.tone}   else {params.suprs.tone};
 
-        Item::new(ParseKind::Matrix(chr), Position::new(self.line, character.position.start, parameters.position.end ))
+        Item::new(ParseKind::Matrix(chr, None), Position::new(self.line, character.position.start, parameters.position.end ))
     }
 
     fn ipa_to_vals(&self, ipa: Token) -> Result<Segment, RuleSyntaxError> {
@@ -438,7 +429,7 @@ impl Parser {
         }
 
 
-        Ok(Item::new(ParseKind::Matrix(args), Position::new(self.line, chr.position.start, chr.position.end )))
+        Ok(Item::new(ParseKind::Matrix(args, None), Position::new(self.line, chr.position.start, chr.position.end )))
     }
 
     fn is_feature(&self) -> bool{ matches!(self.curr_tkn.kind, TokenKind::Feature(_)) }
@@ -537,7 +528,7 @@ impl Parser {
         let args = self.get_param_args(false)?;
         let end = self.token_list[self.pos-1].position.end;
         
-        Ok(Item::new(ParseKind::Matrix(args), Position::new(self.line, start, end)))
+        Ok(Item::new(ParseKind::Matrix(args, None), Position::new(self.line, start, end)))
     }
 
     fn get_group(&mut self) -> Result<Item, RuleSyntaxError> {
@@ -579,36 +570,26 @@ impl Parser {
         Ok(Item::new(joined, Position::new(self.line, pos.start, params.position.end )))
     }
     
-    fn get_var_assign(&mut self, n: Token, chr: &Item) -> Result<(), RuleSyntaxError> {
-        // TODO: Work out Variable Assignment
-        // This current strategy will not work
-        let num = n.value.parse::<usize>().expect("Couldn't parse to VAR to number");
-        match self.var_map.get(&num) {
-            Some(val) => return Err(RuleSyntaxError::AlreadyInitialisedVariable(val.clone(), chr.clone(), num)),
-            None => self.var_map.insert(num, chr.clone())
-        };
-
-        Ok(())
+    fn get_var_assign(&mut self, n: Token, chr: &Item) -> Item {
+        let num = n.value.parse::<usize>().expect("Couldn't parse VAR to number");
+        let x = chr.kind.as_matrix().expect("\nCritical Error: 'Matrix' being joined with 'Variable' is not a matrix!\nThis is a bug.").clone();
+        Item::new(ParseKind::Matrix(x, Some(num)), Position::new(self.line, chr.position.start, chr.position.end ))
     }
 
     fn get_seg(&mut self) -> Result<Option<Item>, RuleSyntaxError> {
-        // returns IPA / Matrix, with varable number, or None
+        // returns IPA / Matrix with varable number / None
         if self.peek_expect(TokenKind::Cardinal) {
             let ipa = self.get_ipa()?;
             return Ok(Some(ipa))
         }
         if self.peek_expect(TokenKind::Group) {
             let chr = self.get_group()?;
-
             if self.expect(TokenKind::Equals) {
-
                 let Some(n) = self.eat_expect(TokenKind::Number) else {
                     return Err(RuleSyntaxError::ExpectedVariable(self.curr_tkn.clone()))
                 };
-
-                self.get_var_assign(n, &chr)?;
-                return Ok(Some(chr))
-                
+                let res =  self.get_var_assign(n, &chr);
+                return Ok(Some(res))
             }
             return Ok(Some(chr))
         }
@@ -621,8 +602,8 @@ impl Parser {
                     return Err(RuleSyntaxError::ExpectedVariable(self.curr_tkn.clone()))
                 };
 
-                self.get_var_assign(n, &params)?;
-                return Ok(Some(params))
+                let res = self.get_var_assign(n, &params);
+                return Ok(Some(res))
                 
             }
             return Ok(Some(params))
@@ -898,7 +879,7 @@ impl Parser {
         let rule_type= rule_type.unwrap_or(RuleType::Substitution);
         
         if self.expect(TokenKind::Eol) {
-            return Ok(Rule::new(input, output, Vec::new(), Vec::new(), rule_type, self.var_map.clone()))
+            return Ok(Rule::new(input, output, Vec::new(), Vec::new(), rule_type))
         }
 
         if !self.peek_expect(TokenKind::Slash) && !self.peek_expect(TokenKind::Pipe) {
@@ -919,7 +900,7 @@ impl Parser {
             return Err(RuleSyntaxError::ExpectedEndL(self.curr_tkn.clone()))
         }
         
-        Ok(Rule::new(input, output, context, except, rule_type, self.var_map.clone()))
+        Ok(Rule::new(input, output, context, except, rule_type))
 
     }
     
@@ -959,7 +940,6 @@ mod parser_tests {
         assert_eq!(result.context.len(), 2);
         assert!(result.except.is_empty());
         assert_eq!(result.rule_type, RuleType::Substitution);
-        assert!(result.variables.is_empty());
 
 
         let exp_input = vec![ 
@@ -972,8 +952,8 @@ mod parser_tests {
         x.suprs.stress = Some(Supr::new(SupraType::Stress, SegMKind::Binary(BinMod::Negative)));
         y.suprs.stress = Some(Supr::new(SupraType::Stress, SegMKind::Binary(BinMod::Positive)));
         let exp_output = vec![
-            Item::new(ParseKind::Matrix(x), Position::new(0, 17, 26)),
-            Item::new(ParseKind::Matrix(y), Position::new(0, 28, 37)),
+            Item::new(ParseKind::Matrix(x, None), Position::new(0, 17, 26)),
+            Item::new(ParseKind::Matrix(y, None), Position::new(0, 28, 37)),
         ];
             
         let exp_context: Vec<Item> = vec![
@@ -1004,7 +984,6 @@ mod parser_tests {
         assert!(result.context.is_empty());
         assert!(result.except.is_empty());
         assert_eq!(result.rule_type, RuleType::Metathesis);
-        assert!(result.variables.is_empty());
 
         let exp_input_res = vec![
             Item::new(ParseKind::Ipa(CARDINALS_MAP.get("t͡ɕ").unwrap().clone(), None),Position::new(0, 0, 3)),
@@ -1023,14 +1002,14 @@ mod parser_tests {
         let mut x = Modifiers::new();
         x.feats[FType::Syllabic as usize] = Some(SegMKind::Binary(BinMod::Negative));
         
-        let c = Item::new(ParseKind::Matrix(x), Position::new(0, 0, 1));
+        let c = Item::new(ParseKind::Matrix(x, Some(1)), Position::new(0, 0, 1));
 
         let mut y = Modifiers::new();
         y.feats[FType::Consonantal as usize] = Some(SegMKind::Binary(BinMod::Negative));
         y.feats[FType::Sonorant as usize] = Some(SegMKind::Binary(BinMod::Positive));
         y.feats[FType::Syllabic as usize] = Some(SegMKind::Binary(BinMod::Positive));
 
-        let v = Item::new(ParseKind::Matrix(y), Position::new(0, 4, 5));
+        let v = Item::new(ParseKind::Matrix(y, Some(2)), Position::new(0, 4, 5));
 
         let maybe_result = Parser:: new(setup("C=1 V=2 > 2 1 / _C"), 0).parse();
 
@@ -1044,12 +1023,12 @@ mod parser_tests {
         assert!(result.except.is_empty());
         assert_eq!(result.rule_type, RuleType::Substitution);
 
-        assert_eq!(result.variables.len(), 2);
-        assert!(result.variables.contains_key(&1));
-        assert!(result.variables.contains_key(&2));
-        assert_eq!(result.variables.get(&1), Some(&c));
-        assert_eq!(result.variables.get(&2), Some(&v));
-        assert_eq!(result.variables.get(&3), None);
+        // assert_eq!(result.variables.len(), 2);
+        // assert!(result.variables.contains_key(&1));
+        // assert!(result.variables.contains_key(&2));
+        // assert_eq!(result.variables.get(&1), Some(&c));
+        // assert_eq!(result.variables.get(&2), Some(&v));
+        // assert_eq!(result.variables.get(&3), None);
     }
 
     #[test] 
@@ -1066,7 +1045,7 @@ mod parser_tests {
         let mut out = Modifiers::new();
 
         out.suprs.tone = Some("321".to_string());
-        let exp_output = Item::new(ParseKind::Matrix(out), Position::new(0, 16, 27));
+        let exp_output = Item::new(ParseKind::Matrix(out, None), Position::new(0, 16, 27));
 
         assert_eq!(result.input[0][0], exp_input);
         assert_eq!(result.output[0][0], exp_output);

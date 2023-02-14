@@ -1,10 +1,10 @@
 use std::{
     collections::HashMap, 
-    fmt, cmp::max
+    fmt, cmp::max, cell::RefCell
 };
 
 use crate ::{
-    parser::{Item, ParseKind, Modifiers}, 
+    parser::{Item, ParseKind, Modifiers, Supr}, 
     error ::RuntimeError, 
     word  ::{Word, Segment}, lexer::Token
 };
@@ -32,12 +32,12 @@ pub struct SubRule {
     context: Option<Item>,         
     except:  Option<Item>,
     rule_type: RuleType, // RuleType,
-    variables: HashMap<usize, Item>,
+    variables: RefCell<HashMap<usize, Segment>>,
     // alphas: Vec<_>
 }
 
 impl SubRule {
-    fn apply(&mut self, word: Word) -> Result<Word, RuntimeError> {
+    fn apply(&self, word: Word) -> Result<Word, RuntimeError> {
         // find input, if no match early return
         // match except left/right, if no match early return
         // match context left/right, if no match early return
@@ -49,13 +49,13 @@ impl SubRule {
         // };
 
         match self.rule_type {
-            RuleType::Substitution  => {/* match as normal   */},
-            RuleType::Metathesis    => {/* skip match output */},
-            RuleType::Deletion      => {/* skip match output */},
-            RuleType::Insertion     => {/* skip match input  */},
+            RuleType::Substitution  => {/* input>env>output */},
+            RuleType::Metathesis    => {/* skip calc output */},
+            RuleType::Deletion      => {/* skip calc output */},
+            RuleType::Insertion     => {/* skip match input */},
         }
 
-        let res = self.asdf(&word, &self.input)?;
+        let res = self.match_input(&word, &self.input)?;
 
         if let Some((s, e)) = res {
             println!("{}", word.render().unwrap());
@@ -94,16 +94,17 @@ impl SubRule {
     //     for 
     // }
 
-    fn asdf(&self, word: &Word, states: &[Item]) -> Result<Option<(usize, usize)>, RuntimeError> {
+    // NOTE: ONly returns first match
+    // may have to return `end` and then after applying, start word from end instead of 0
+    fn match_input(&self, word: &Word, states: &[Item]) -> Result<Option<(usize, usize)>, RuntimeError> {
         let mut i = 0usize;
         let mut begin = None;
         // let mut end = None;
-
         let mut states = states.iter();
         let mut state = states.next().unwrap();
 
         while i < word.segments.len() {
-            if self.match_input(state, word, i)? {
+            if self.match_input_item(state, word, &i)? {
                 if begin.is_none() {
                     begin = Some(i);
                 }
@@ -133,19 +134,26 @@ impl SubRule {
         }        
     }
 
-    fn match_input(&self, item: &Item, word: &Word, seg_index: usize) -> Result<bool, RuntimeError> {
+    fn match_input_item(&self, item: &Item, word: &Word, seg_index: &usize) -> Result<bool, RuntimeError> {
         // let seg = word.segments[seg_index];
         match &item.kind {
-            ParseKind::Variable(vt, m) => self.match_var(vt, m, word, seg_index),
-            ParseKind::Ipa(s, m) => self.match_ipa(s, m, word, seg_index),
-            ParseKind::Matrix(m) => self.match_matrix(m, word, seg_index),
-            ParseKind::Set(s) => self.match_set(s, word, seg_index),
-            ParseKind::SyllBound => Ok(self.match_syll_bound(word, seg_index)), 
+            ParseKind::Variable(vt, m) => self.match_var(vt, m, word, *seg_index),
+            ParseKind::Ipa(s, m) => self.match_ipa(s, m, word, *seg_index),
+            ParseKind::Matrix(m, v) => self.match_matrix(m, v, word, *seg_index),
+            ParseKind::Set(s) => self.match_set(s, word, *seg_index),
+            ParseKind::SyllBound => Ok(self.match_syll_bound(word, *seg_index)), 
             ParseKind::Ellipsis => Ok(true),            // TODO: backtracking
-            ParseKind::Syllable(_, _) => todo!(),       // if we match syllable we need to somehow jump to the next boundary
+            ParseKind::Syllable(s, t) => self.match_syll(s, t, word, seg_index),       // if we match syllable we need to somehow jump to the next boundary
             ParseKind::Optional(_, _, _) => todo!(),    // this prob should be recursive to self.asdf() and will have to backtrack like `...`            
             _ => unreachable!(),                        // NOTE: if insertion rule, we should jump straight to matching environment
         }
+    }
+
+    fn match_syll(&self, _stress: &Option<Supr>, _tone: &Option<String>, _word: &Word, _seg_index: &usize) -> Result<bool, RuntimeError> {
+        // check current segment is at start of syll
+        // match stress and tone
+        // somehow jump to next syllalbe
+        todo!();
     }
 
     fn match_syll_bound(&self, word: &Word, seg_index: usize) -> bool {
@@ -154,7 +162,7 @@ impl SubRule {
     }
 
     fn match_ipa(&self, s: &Segment, mods: &Option<Modifiers>, word:& Word, seg_index: usize) -> Result<bool, RuntimeError>{
-        let seg = word.segments[seg_index];
+        let seg = word.get_seg_at(seg_index).unwrap();
         if mods.is_none() {
             Ok(*s == seg)
         } else {
@@ -167,7 +175,7 @@ impl SubRule {
             match &s.kind {
                 ParseKind::Variable(vt, m) => return self.match_var(vt, m, word, seg_index),
                 ParseKind::Ipa(s, m) => return self.match_ipa(s, m, word, seg_index),
-                ParseKind::Matrix(m) => return self.match_matrix(m, word, seg_index),
+                ParseKind::Matrix(m, v) => return self.match_matrix(m, v, word, seg_index),
                 _ => unreachable!(),
             }
         }
@@ -176,46 +184,39 @@ impl SubRule {
 
     fn match_var(&self, vt: &Token, mods: &Option<Modifiers>, word:& Word, seg_index: usize) -> Result<bool, RuntimeError> {
         // let seg = word.segments[seg_index];
-        if let Some(v) = self.variables.get(&vt.value.parse::<usize>().expect("")) {
-            match &v.kind {
-                ParseKind::Matrix(m) => {
-                    let mtrx = self.join_var_with_params(m, mods);
-                    self.match_matrix(&mtrx, word, seg_index)
-                },
-                _ => unreachable!()
-            }
+        if let Some(var) = self.variables.borrow_mut().get(&vt.value.parse::<usize>().expect("")) {
+            self.match_ipa(var, mods, word, seg_index)
         } else {
             Err(RuntimeError::UnknownVariable(vt.clone()))
         }
 
     }
 
-    fn join_var_with_params(&self, var: &Modifiers, params: &Option<Modifiers>) -> Modifiers {
-
-        if params.is_none() {
-            return var.clone()
+    fn match_matrix(&self, mods: &Modifiers, var:&Option<usize>, word:& Word, seg_index: usize) -> Result<bool, RuntimeError> {
+        // TODO: do var
+        if var.is_none() {
+            Ok(word.match_modifiers_at(mods, seg_index))
+        } else if word.match_modifiers_at(mods, seg_index) {
+            self.variables.borrow_mut().insert(var.unwrap(), word.get_seg_at(seg_index).unwrap());
+            Ok(true)
+        } else {
+            Ok(false)
         }
         
-        todo!()
-    }
-
-    fn match_matrix(&self, mods: &Modifiers, word:& Word, seg_index: usize) -> Result<bool, RuntimeError> {
-        Ok(word.match_modifiers_at(mods, seg_index))
     }
 }
 
 pub struct Rule {
     pub input:     Vec<Vec<Item>>,    // to support multirules
     pub output:    Vec<Vec<Item>>,    // these need to be Vec<Vec<Item>>
-    pub context:   Vec<Item>,         
-    pub except:    Vec<Item>,    
-    pub rule_type: RuleType, // bitmap 8 = insert_rule, 4 = redup_rule, 2 = del_rule, 1 = metath_rule, 0 = substi_rule
-    pub variables: HashMap<usize,Item>,    
-}   // todo: if we move rule_type to SubRule, that would allow us to have multirules with insert/delete/metath
+    pub context:   Vec<Item>,
+    pub except:    Vec<Item>,
+    pub rule_type: RuleType,
+}   // todo: if we move rule_type calc to SubRule, that would allow us to have multirules with insert/delete/metath
 
 impl Rule {
-    pub fn new(i: Vec<Vec<Item>>, o: Vec<Vec<Item>>, c :Vec<Item>, e :Vec<Item>, r: RuleType, v: HashMap<usize, Item>) -> Self {
-        Self { input: i, output: o, context: c, except: e , rule_type: r, variables: v}
+    pub fn new(i: Vec<Vec<Item>>, o: Vec<Vec<Item>>, c :Vec<Item>, e :Vec<Item>, r: RuleType) -> Self {
+        Self { input: i, output: o, context: c, except: e , rule_type: r}
     }
 
     pub fn split_into_subrules(&self) -> Result<Vec<SubRule>, RuntimeError> {
@@ -237,9 +238,8 @@ impl Rule {
             let context = if self.context.is_empty() { None } else if self.context.len() == 1 { Some(self.context[0].clone()) } else { Some(self.context[i].clone()) };
             let except  = if self.except.is_empty()  { None } else if self.except.len()  == 1 { Some(self.except[0].clone()) }  else { Some(self.except[i].clone()) };
             let rule_type = self.rule_type;  // TODO: calc rule_type here instead of in parser
-            let variables = self.variables.clone();
 
-            sub_vec.push(SubRule {input, output, context, except, rule_type, variables});
+            sub_vec.push(SubRule {input, output, context, except, rule_type, variables: RefCell::new(HashMap::new())});
         }
 
         Ok(sub_vec)
@@ -250,7 +250,7 @@ impl Rule {
         let sub_rules = self.split_into_subrules()?;
         
         let mut res_word = word; 
-        for mut i in sub_rules {
+        for i in sub_rules {
             res_word = i.apply(res_word)?;
 
             println!("{i:#?} ---> {res_word:#?}");
