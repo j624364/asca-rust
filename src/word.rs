@@ -286,8 +286,26 @@ impl Segment {
     }
 
     #[allow(unused)]
-    pub fn apply_mods(&mut self, m: &Modifiers) {
-        todo!()
+    pub fn apply_mods(&mut self, mods: &Modifiers) {
+
+        // TODO: Nodes
+
+        for (i, m) in mods.feats.iter().enumerate() {
+            if let Some(kind) = m { 
+
+                let (n, f) = feature_to_node_mask(FType::from_usize(i));
+
+                match kind {
+                    SegMKind::Binary(b) => match b {
+                        BinMod::Negative => self.set_feat(n, f, false),
+                        BinMod::Positive => self.set_feat(n, f, true),
+                    },
+                    SegMKind::Alpha(_) => todo!(),
+                }
+            }
+        }
+        
+
     } 
 
     // pub fn inv_feat(&mut self, node: NodeKind, feat: u8) {
@@ -473,6 +491,14 @@ impl Word {
     pub fn get_seg_at(&self, seg_index: usize) -> Option<Segment> {
         if seg_index < self.segments.len() {
             Some(self.segments[seg_index])
+        } else {
+            None
+        }
+    }
+
+    pub fn get_syll_at(&self, syll_index: usize) -> Option<Syllable> {
+        if syll_index < self.syllables.len() {
+            Some(self.syllables[syll_index].clone())
         } else {
             None
         }

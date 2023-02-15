@@ -4,9 +4,10 @@ use std::{
 };
 
 use crate ::{
-    parser::{Item, ParseKind, Modifiers, Supr}, 
+    parser::{Item, ParseKind, Modifiers, Supr, SegMKind, BinMod}, 
     error ::RuntimeError, 
-    word  ::{Word, Segment}, lexer::Token
+    word  ::{Word, Segment, Syllable, StressKind}, 
+    lexer ::{Token, SupraType}
 };
 
 #[derive(Debug, Copy, Clone, PartialEq, Eq)]
@@ -65,7 +66,7 @@ impl SubRule {
             RuleType::Insertion     => {/* skip match input */},
         }
 
-        let res = self.match_input(&word, &self.input)?;
+        let res = self.match_input_at(&word, &self.input, 0)?;
 
         if let Some(m) = res {
             println!("{}", word.render().unwrap());
@@ -104,30 +105,33 @@ impl SubRule {
     //     for 
     // }
 
-    // NOTE: Only returns first match
-    // may have to check `end` > 'word.length' and then after applying, start word from end instead of 0
-    fn match_input(&self, word: &Word, states: &[Item]) -> Result<Option<Match>, RuntimeError> {
-        let mut i = 0usize;
+    // NOTE: Only returns first match from start index
+    // may have to check `match.end` > 'segs.length' and then, after applying, start word from end instead of 0
+    fn match_input_at(&self, word: &Word, states: &[Item], start_index: usize) -> Result<Option<Match>, RuntimeError> {
+        let mut cur_index = start_index;
         let mut begin = None;
         // let mut end = None;
         let mut states = states.iter();
         let mut state = states.next().unwrap();
 
-        while i <= word.seg_count() {
-            if self.match_input_item(state, word, &i)? {
+        while cur_index <= word.seg_count() {
+            if self.match_input_item(state, word, &mut cur_index)? {
                 if begin.is_none() {
-                    begin = Some(i);
+                    begin = Some(cur_index); // TODO: This won't work if we jump i.e. if we match syllable
                 }
                 let Some(s) = states.next() else {
-                    return Ok(Some(Match::new(begin.unwrap(), i)))
+                    return Ok(Some(Match::new(begin.unwrap(), cur_index)))
                 };
-                state = s;      // TODO: if ellipsis we need to NOT advance until we no longer match, at which point we backtrack
-                i+=1;           // `...` is the same os OptionalSeg: (AnySegment, 0)
-                continue;       // or we could check next state -> if no match apply ... else apply next states
+                state = s;      // TODO: if ellipsis we need to NOT advance state until we no longer match, at which point we backtrack
+                                // `...` is the same os OptionalSeg: (AnySegment, 0)
+                                // or we could check next state -> if no match apply ... else apply next states
+
+                cur_index+=1;   // TODO: This does work for matching syll_bound    
+                continue;           
             }                   
 
             if begin.is_none() {
-                i+=1;
+                cur_index+=1;
                 continue;
             }
             return Ok(None)
@@ -144,26 +148,79 @@ impl SubRule {
         }        
     }
 
-    fn match_input_item(&self, item: &Item, word: &Word, seg_index: &usize) -> Result<bool, RuntimeError> {
+    fn match_input_item(&self, item: &Item, word: &Word, seg_index: &mut usize) -> Result<bool, RuntimeError> {
         // let seg = word.segments[seg_index];
         match &item.kind {
             ParseKind::Variable(vt, m) => self.match_var(vt, m, word, *seg_index),
             ParseKind::Ipa(s, m) => self.match_ipa(s, m, word, *seg_index),
             ParseKind::Matrix(m, v) => self.match_matrix(m, v, word, *seg_index),
             ParseKind::Set(s) => self.match_set(s, word, *seg_index),
-            ParseKind::SyllBound => Ok(self.match_syll_bound(word, *seg_index)), 
+            ParseKind::SyllBound => Ok(self.match_syll_bound(word, *seg_index)), // TODO: we dont want to advance cur_index after this
+            ParseKind::Syllable(s, t) => self.match_syll(s, t, word, seg_index),
             ParseKind::Ellipsis => Ok(true),            // TODO: backtracking
-            ParseKind::Syllable(s, t) => self.match_syll(s, t, word, seg_index),       // if we match syllable we need to somehow jump to the next boundary
             ParseKind::Optional(_, _, _) => todo!(),    // this prob should be recursive to self.asdf() and will have to backtrack like `...`            
-            _ => unreachable!(),                        // NOTE: if insertion rule, we should jump straight to matching environment
+            _ => unreachable!(),                        
         }
     }
 
-    fn match_syll(&self, _stress: &Option<Supr>, _tone: &Option<String>, _word: &Word, _seg_index: &usize) -> Result<bool, RuntimeError> {
-        // check current segment is at start of syll
-        // match stress and tone
-        // somehow jump to next syllalbe
-        todo!();
+    fn match_syll(&self, stress: &Option<Supr>, tone: &Option<String>, word: &Word, seg_index: &mut usize) -> Result<bool, RuntimeError> {
+        // checks current segment is at start of syll
+        // matches stress and tone
+        // jumps to next syllable
+        if !word.is_syll_initial(*seg_index) {
+            let curr_syll_index = word.get_syll_index_from_seg_index(*seg_index);
+            let curr_syll = word.get_syll_at(curr_syll_index).unwrap();
+
+            // TODO: match syll Modifiers
+            if let Some(s) = stress.as_ref() {
+                if !self.match_stress(s, &curr_syll) {
+                    return Ok(false)
+                }
+            }
+
+            if let Some(t) = tone.as_ref() {
+                if !self.match_tone(t, &curr_syll) {
+                    return Ok(false)
+                }
+            }
+
+            // match word.get_syll_at(curr_syll_index+1) { 
+            //     Some(s) => *seg_index = s.start,
+            //     None => *seg_index = curr_syll.start,
+            // }
+
+            *seg_index = curr_syll.start; // NOTE: this is only correct if we +=1 index after match in `match_input_at`
+
+            Ok(true)
+        } else {
+            Ok(false)
+        }
+    }
+
+    fn match_stress(&self, stress: &Supr, syll: &Syllable) -> bool {
+        match stress.kind {
+            // ±stress    (+ matches prim and sec, - matches unstressed)
+            SupraType::Stress => match stress.modifier {
+                SegMKind::Binary(b) => match b {
+                    BinMod::Negative => syll.stress == StressKind::Unstressed,
+                    BinMod::Positive => syll.stress != StressKind::Unstressed,
+                },
+                SegMKind::Alpha(_) => todo!(), // TODO: God know how this is gonna work
+            },
+            // ±secstress (+ matches sec, - matches prim and unstressed)
+            SupraType::SecStress => match stress.modifier {
+                SegMKind::Binary(b) => match b {
+                    BinMod::Negative => syll.stress != StressKind::Secondary,
+                    BinMod::Positive => syll.stress == StressKind::Secondary,
+                },
+                SegMKind::Alpha(_) => todo!(),
+            },
+            _ => unreachable!(),
+        }
+    }
+
+    fn match_tone(&self, tone: &str, syll: &Syllable) -> bool {        
+        tone == syll.tone
     }
 
     fn match_syll_bound(&self, word: &Word, seg_index: usize) -> bool {

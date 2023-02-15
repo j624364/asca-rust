@@ -47,11 +47,8 @@ lazy_static! {
         impl DT {
             pub fn hm_to_mod(&self, hm: &Option<HashMap<DiaFeatType, bool>>) -> DiaMods {
                 let mut args = DiaMods::new();
-
                 // if hm.is_none() {return args};
-
                 let Some(s) = hm else {return args};
-                
                 for (key, value) in s.iter() {
                     let x = *key as usize;
                     match value {
@@ -76,8 +73,6 @@ lazy_static! {
                     payload: self.hm_to_mod(&self.payload)
                 }
             }
-
-            
         }
 
         let dt: Vec<DT> = serde_json::from_str(DIACRITIC_FILE).unwrap();
