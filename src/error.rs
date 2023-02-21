@@ -133,7 +133,7 @@ impl fmt::Display for RuleSyntaxError {
             // Self::AlreadyInitialisedVariable(set_item, _, num) => write!(f, "Variable '{}' is already initialised as {}", num, set_item.kind),
             Self::WrongModNode(..)              => write!(f, "Nodes cannot be ±; they can only be used in Alpha Notation expressions."),
             Self::WrongModTone(..)              => write!(f, "Tones cannot be ±; they can only be used with numeric values."),
-            Self::NestedBrackets(..)            => write!(f, "Cannot  have nested square brackets"),
+            Self::NestedBrackets(..)            => write!(f, "Cannot have nested brackets of the same type"),
             Self::InsertErr                     => write!(f, "The input of an insertion rule must only contain `*` or `∅`"),
             Self::DeleteErr                     => write!(f, "The output of a deletion rule must only contain `*` or `∅`"),
             Self::EmptyInput                    => write!(f, "Input cannot be empty. Use `*` or '∅' to indicate insertion"),

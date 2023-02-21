@@ -925,7 +925,7 @@ mod parser_tests {
     use super::*;
     use crate::CARDINALS_MAP;
 
-    fn setup(test_str: &str) -> Vec<Token> { Lexer::new(&String::from(test_str),0).get_all_tokens().unwrap() }
+    fn setup(test_str: &str) -> Vec<Token> { Lexer::new(&String::from(test_str).chars().collect::<Vec<_>>(),0).get_all_tokens().unwrap() }
 
     #[test]
     fn test_multi_rule() {

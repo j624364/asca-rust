@@ -287,42 +287,55 @@ impl Display for Token {
     }
 }
 
-pub struct Lexer {
-    source: Vec<char>,
+pub struct Lexer<'a> {
+    source: &'a [char],
     line: usize,
     pos: usize,
-    curr_char: char,
-    inside_square: bool
+    inside_matrix: bool,
+    inside_option: bool,
+    inside_set: bool,
 }
 
-impl Lexer {
-    pub fn new(input: &str, line: usize) -> Self {
-        let mut s = Self { 
-            source: input.chars().collect(), 
-            line,
-            pos: 0,
-            curr_char: '\0',
-            inside_square: false,
-        };
-        s.curr_char = s.source[s.pos];
-
-        s
+impl<'a> Lexer<'a> {
+    pub fn new(source: &'a [char], line: usize) -> Self {
+        Self { source, line, pos: 0, inside_matrix: false , inside_option: false, inside_set: false}
     }
 
-    pub fn has_more_chars(&self) -> bool {
-        self.pos < self.source.len()
+    pub fn has_more_chars(&self) -> bool { self.pos < self.source.len() }
+
+    // fn trim_left(&mut self) {
+    //     while self.has_more_chars() && self.source[0].is_whitespace() {
+    //         self.source = &self.source[1..]
+    //     }
+    // }
+
+    // fn chop(&mut self, n: usize) -> String {
+    //     let token = &self.source[0..n];
+    //     self.source = &self.source[n..];
+    //     token.iter().collect()
+    // }
+
+    // fn chop_while<P>(&mut self, mut predicate: P) -> String where P: FnMut(&char) -> bool {
+    //     let mut n = 0;
+    //     while n < self.source.len() && predicate(&self.source[n]) {
+    //         n += 1;
+    //     }
+    //     self.chop(n)
+    // }
+
+    fn curr_char(&self) -> char {
+        if self.has_more_chars() {
+            self.source[self.pos]
+        } else {
+            '\0'
+        }
     }
 
     pub fn advance(&mut self) {
         self.pos += 1;
-        self.curr_char = if self.has_more_chars() {
-            self.source[self.pos]
-        } else {
-            '\0'
-        };
     }
 
-    pub fn peak_next_char(&self) -> char {
+    pub fn peak_next(&self) -> char {
         if self.has_more_chars() {
             self.source[self.pos + 1]
         } else {
@@ -335,21 +348,30 @@ impl Lexer {
         let tokenkind: TokenKind;
         let value: String;
 
-        match self.curr_char {
-            '(' => { tokenkind = TokenKind::LeftBracket;  value = "(".to_string(); },
-            ')' => { tokenkind = TokenKind::RightBracket; value = ")".to_string(); },
-            ']' => { tokenkind = TokenKind::RightSquare;  value = "]".to_string(); self.inside_square = false},
-            '{' => { tokenkind = TokenKind::LeftCurly;    value = "{".to_string(); },
-            '}' => { tokenkind = TokenKind::RightCurly;   value = "}".to_string(); },
+        match self.curr_char() {
+            ')' => { tokenkind = TokenKind::RightBracket; value = ")".to_string(); self.inside_option = false },
+            ']' => { tokenkind = TokenKind::RightSquare;  value = "]".to_string(); self.inside_matrix = false },
+            '}' => { tokenkind = TokenKind::RightCurly;   value = "}".to_string(); self.inside_set    = false },
             '⟨' => unimplemented!(), // { tokenkind = TokenKind::LeftAngle;    value = "⟨".to_string(); },
             '⟩' => unimplemented!(), // { tokenkind = TokenKind::RightAngle;   value = "⟩".to_string(); },
-            '[' => { 
-                if self.inside_square {
-                    return Err(RuleSyntaxError::NestedBrackets(self.line, self.pos));
+            '{' => { 
+                if self.inside_set {
+                    return Err(RuleSyntaxError::NestedBrackets(self.line, start));
                 }
-                tokenkind = TokenKind::LeftSquare;
-                value = "[".to_string(); 
-                self.inside_square = true},
+                tokenkind = TokenKind::LeftCurly; value = "{".to_string();  self.inside_set = true
+            },
+            '(' => { 
+                if self.inside_option {
+                    return Err(RuleSyntaxError::NestedBrackets(self.line, start));
+                }
+                tokenkind = TokenKind::LeftBracket; value = "(".to_string(); self.inside_option = true
+            },
+            '[' => { 
+                if self.inside_matrix {
+                    return Err(RuleSyntaxError::NestedBrackets(self.line, start));
+                }
+                tokenkind = TokenKind::LeftSquare; value = "[".to_string();  self.inside_matrix = true
+            },
             _ => return Ok(None)
         }
         self.advance();
@@ -359,24 +381,24 @@ impl Lexer {
     }
 
     fn get_primative(&mut self) -> Option<Token> {
-        if !self.curr_char.is_ascii_uppercase() { return None }
+        if !self.curr_char().is_ascii_uppercase() { return None }
 
         let start = self.pos;
-        let c = self.curr_char;
+        let c = self.curr_char();
         self.advance();
         
         Some(Token::new(TokenKind::Group, c.to_string(), self.line, start, self.pos))
     }
 
     fn get_numeric(&mut self) -> Option<Token> {
-        if !self.curr_char.is_ascii_digit() { return None }
+        if !self.curr_char().is_ascii_digit() { return None }
 
         let start = self.pos;
 
         let mut buffer: String = String::new();
 
-        while self.has_more_chars() && self.curr_char.is_ascii_digit() {
-            buffer.push(self.curr_char);
+        while self.has_more_chars() && self.curr_char().is_ascii_digit() {
+            buffer.push(self.curr_char());
             self.advance();
         }
 
@@ -386,18 +408,18 @@ impl Lexer {
 
     fn get_feature(&mut self) -> Result<Option<Token>, RuleSyntaxError> {
         
-        if self.curr_char != '+' && self.curr_char != '-' && !matches!(self.curr_char, 'α'..='ω') {
+        if self.curr_char() != '+' && self.curr_char() != '-' && !matches!(self.curr_char(), 'α'..='ω') {
             return Ok(None);
         }
         
         let start = self.pos;
-        let val = self.curr_char;
+        let val = self.curr_char();
 
         self.advance();
         
-        let mod_val = if val == '-' && matches!(self.curr_char, 'α'..='ω') {
+        let mod_val = if val == '-' && matches!(self.curr_char(), 'α'..='ω') {
             self.advance();
-            let mut tmp = String::from('-'); tmp.push(self.curr_char);
+            let mut tmp = String::from('-'); tmp.push(self.curr_char());
             tmp
         } else {
             String::from(val)
@@ -405,18 +427,18 @@ impl Lexer {
 
         let mut buffer = String::new();
 
-        while self.curr_char.is_whitespace() { self.advance(); } 
+        while self.curr_char().is_whitespace() { self.advance(); } 
 
-        while self.curr_char.is_ascii_alphabetic() || self.curr_char == '.' {
-            buffer.push(self.curr_char);
+        while self.curr_char().is_ascii_alphabetic() || self.curr_char() == '.' {
+            buffer.push(self.curr_char());
             self.advance();
             
-            while self.curr_char.is_whitespace() { self.advance(); }
+            while self.curr_char().is_whitespace() { self.advance(); }
 
         }
 
         if buffer.len() <= 1 { 
-            return Err(RuleSyntaxError::ExpectedAlphabetic(self.curr_char, self.line, self.pos))
+            return Err(RuleSyntaxError::ExpectedAlphabetic(self.curr_char(), self.line, self.pos))
         }
 
         let tkn_kind = self.feature_match(buffer, start, self.pos)?;
@@ -441,47 +463,47 @@ impl Lexer {
         let tokenkind: TokenKind;
         let value: String;
 
-        match self.curr_char {
-            ',' => { tokenkind = TokenKind::Comma;        value = self.curr_char.to_string(); },
-            ':' => { tokenkind = TokenKind::Colon;        value = self.curr_char.to_string(); },
-            '#' => { tokenkind = TokenKind::WordBoundary; value = self.curr_char.to_string(); },
-            '$' => { tokenkind = TokenKind::SyllBoundary; value = self.curr_char.to_string(); },
-            '%' => { tokenkind = TokenKind::Syllable;     value = self.curr_char.to_string(); },
-            '*' => { tokenkind = TokenKind::Star;         value = self.curr_char.to_string(); },
-            '∅' => { tokenkind = TokenKind::EmptySet;     value = self.curr_char.to_string(); },
-            '&' => { tokenkind = TokenKind::Ampersand;    value = self.curr_char.to_string(); },
-            '_' => { tokenkind = TokenKind::Underline;    value = self.curr_char.to_string(); },
-            '<' => { tokenkind = TokenKind::LessThan;     value = self.curr_char.to_string(); },
-            '>' => { tokenkind = TokenKind::GreaterThan;  value = self.curr_char.to_string(); },
-            '/' => { tokenkind = TokenKind::Slash;        value = self.curr_char.to_string(); },
-            '|' => { tokenkind = TokenKind::Pipe;         value = self.curr_char.to_string(); },
-            '=' => match self.peak_next_char() { 
+        match self.curr_char() {
+            ',' => { tokenkind = TokenKind::Comma;        value = self.curr_char().to_string(); },
+            ':' => { tokenkind = TokenKind::Colon;        value = self.curr_char().to_string(); },
+            '#' => { tokenkind = TokenKind::WordBoundary; value = self.curr_char().to_string(); },
+            '$' => { tokenkind = TokenKind::SyllBoundary; value = self.curr_char().to_string(); },
+            '%' => { tokenkind = TokenKind::Syllable;     value = self.curr_char().to_string(); },
+            '*' => { tokenkind = TokenKind::Star;         value = self.curr_char().to_string(); },
+            '∅' => { tokenkind = TokenKind::EmptySet;     value = self.curr_char().to_string(); },
+            '&' => { tokenkind = TokenKind::Ampersand;    value = self.curr_char().to_string(); },
+            '_' => { tokenkind = TokenKind::Underline;    value = self.curr_char().to_string(); },
+            '<' => { tokenkind = TokenKind::LessThan;     value = self.curr_char().to_string(); },
+            '>' => { tokenkind = TokenKind::GreaterThan;  value = self.curr_char().to_string(); },
+            '/' => { tokenkind = TokenKind::Slash;        value = self.curr_char().to_string(); },
+            '|' => { tokenkind = TokenKind::Pipe;         value = self.curr_char().to_string(); },
+            '=' => match self.peak_next() { 
                 '>' => {
-                    let c = self.curr_char;
+                    let c = self.curr_char();
                     self.advance();
                     tokenkind = TokenKind::Arrow;
                     value = format!("{c}>");
                 },
-                _ => { tokenkind = TokenKind::Equals;    value = self.curr_char.to_string(); },
+                _ => { tokenkind = TokenKind::Equals;    value = self.curr_char().to_string(); },
              },
-            '-' => match self.peak_next_char() {
+            '-' => match self.peak_next() {
                 '>' => {
-                    let c = self.curr_char;
+                    let c = self.curr_char();
                     self.advance();
                     tokenkind = TokenKind::Arrow;
                     value = format!("{c}>");
                 },
-                _ => return Err(RuleSyntaxError::ExpectedCharArrow(self.peak_next_char(), self.line, self.pos))
+                _ => return Err(RuleSyntaxError::ExpectedCharArrow(self.peak_next(), self.line, self.pos))
             },
-            '…' | '⋯' => { tokenkind = TokenKind::Ellipsis;     value = self.curr_char.to_string(); },
-            '.' => match self.peak_next_char() {
+            '…' | '⋯' => { tokenkind = TokenKind::Ellipsis;     value = self.curr_char().to_string(); },
+            '.' => match self.peak_next() {
                 '.' => {
                     self.advance(); 
-                    if '.' == self.peak_next_char() { self.advance(); value = "...".to_string()}
+                    if '.' == self.peak_next() { self.advance(); value = "...".to_string()}
                     else { value = "..".to_string(); }
                     tokenkind = TokenKind::Ellipsis;
                 },
-                _ => return Err(RuleSyntaxError::ExpectedCharDot(self.peak_next_char(), self.line, self.pos))
+                _ => return Err(RuleSyntaxError::ExpectedCharDot(self.peak_next(), self.line, self.pos))
 
             },
             _ => return Ok(None)
@@ -522,23 +544,23 @@ impl Lexer {
     // }
 
     fn get_ipa(&mut self) -> Option<Token> {
-        if self.inside_square { return None }
+        if self.inside_matrix { return None }
         let start = self.pos;
 
-        let mut buffer = self.curr_char.to_string();
+        let mut buffer = self.curr_char().to_string();
 
         if CARDINALS_TRIE.contains_prefix(buffer.as_str()) {
             self.advance();
             loop {
                 //let tmp: String = buffer.clone() + self.curr_char.to_string().as_str();
-                let mut tmp = buffer.clone(); tmp.push(self.curr_char);
+                let mut tmp = buffer.clone(); tmp.push(self.curr_char());
                 if CARDINALS_TRIE.contains_prefix(tmp.as_str()) {
-                    buffer.push(self.curr_char);
+                    buffer.push(self.curr_char());
                     self.advance();
                     continue;
                 }
 
-                if self.curr_char == '^' {
+                if self.curr_char() == '^' {
                     tmp.pop();
                     tmp.push('\u{0361}');
                     if CARDINALS_TRIE.contains_prefix(tmp.as_str()) {
@@ -564,35 +586,35 @@ impl Lexer {
 
     fn get_string(&mut self) -> Result<Option<Token>, RuleSyntaxError> { 
 
-        if !self.curr_char.is_ascii_alphabetic() { return Ok(None) }
+        if !self.curr_char().is_ascii_alphabetic() { return Ok(None) }
 
-        if !self.inside_square { 
-            return Err(RuleSyntaxError::OutsideBrackets(self.curr_char, self.line, self.pos))
+        if !self.inside_matrix { 
+            return Err(RuleSyntaxError::OutsideBrackets(self.curr_char(), self.line, self.pos))
         }
 
         let start = self.pos;
 
         let mut buffer: String = String::new();
 
-        while self.has_more_chars() && self.curr_char.is_ascii_alphabetic() {
-            buffer.push(self.curr_char);
+        while self.has_more_chars() && self.curr_char().is_ascii_alphabetic() {
+            buffer.push(self.curr_char());
             self.advance();
         }
 
         let tkn_kind: TokenKind = self.string_match(buffer, start)?;
 
-        while self.curr_char.is_whitespace() { self.advance(); } 
+        while self.curr_char().is_whitespace() { self.advance(); } 
 
-        match self.curr_char {
+        match self.curr_char() {
             ':' => self.advance(),
-            _ => return Err(RuleSyntaxError::ExpectedCharColon(self.curr_char, self.line, self.pos))
+            _ => return Err(RuleSyntaxError::ExpectedCharColon(self.curr_char(), self.line, self.pos))
         } 
         
-        while self.curr_char.is_whitespace() { self.advance(); } 
+        while self.curr_char().is_whitespace() { self.advance(); } 
 
         match self.get_numeric() {
             Some(num) => Ok(Some(Token::new(tkn_kind, num.value, self.line, start, self.pos))),
-            _ => Err(RuleSyntaxError::ExpectedNumber(self.curr_char, self.line, self.pos))
+            _ => Err(RuleSyntaxError::ExpectedNumber(self.curr_char(), self.line, self.pos))
 
         }
     }
@@ -674,7 +696,7 @@ impl Lexer {
 
     pub fn get_next_token(&mut self) -> Result<Token, RuleSyntaxError>{
         
-        while self.curr_char.is_whitespace() { self.advance(); }
+        while self.curr_char().is_whitespace() { self.advance(); }
         
         if !self.has_more_chars() { return Ok(Token::new(TokenKind::Eol, String::new(), self.line, self.pos, self.pos+1)) }
 
@@ -686,7 +708,7 @@ impl Lexer {
         if let Some(ipa_token) = self.get_ipa()           { return Ok(ipa_token) }
         if let Some(str_token) = self.get_string()?       { return Ok(str_token) } 
         
-        Err(RuleSyntaxError::UnknownCharacter(self.curr_char, self.line, self.pos))
+        Err(RuleSyntaxError::UnknownCharacter(self.curr_char(), self.line, self.pos))
     }
 
     pub fn get_all_tokens(&mut self) -> Result<Vec<Token>, RuleSyntaxError> {
@@ -713,10 +735,11 @@ mod lexer_tests {
     #[test]
     fn test_syll() {
 
-        let test_input= String::from("%");
+        let test_input = String::from("%");
+
         let expected_result = TokenKind::Syllable;
 
-        let result = Lexer::new(&test_input, 0).get_next_token().unwrap();
+        let result = Lexer::new(&test_input.chars().collect::<Vec<_>>(), 0).get_next_token().unwrap();
 
         assert_eq!(result.kind, expected_result);
         assert_eq!(result.value, test_input);
@@ -726,6 +749,7 @@ mod lexer_tests {
     fn test_ipa_sep() {
         
         let test_input= String::from("t͡ɕ b͡β b a");
+        
         let expected_result = vec![
             Token::new(TokenKind::Cardinal, "t͡ɕ".to_owned(), 0,  0,  3),
             Token::new(TokenKind::Cardinal, "b͡β".to_owned(), 0,  4,  7),
@@ -734,7 +758,7 @@ mod lexer_tests {
             Token::new(TokenKind::Eol,        String::new(), 0, 11, 12),
         ];
 
-        let result = Lexer::new(&test_input, 0).get_all_tokens().unwrap();        
+        let result = Lexer::new(&test_input.chars().collect::<Vec<_>>(), 0).get_all_tokens().unwrap();        
 
         assert_eq!(result.len(), expected_result.len());
 
@@ -755,7 +779,7 @@ mod lexer_tests {
             Token::new(TokenKind::Eol,        String::new(), 0, 8, 9),
         ];
 
-        let result = Lexer::new(&test_input, 0).get_all_tokens().unwrap();  
+        let result = Lexer::new(&test_input.chars().collect::<Vec<_>>(), 0).get_all_tokens().unwrap();  
 
         assert_eq!(result.len(), expected_result.len());
 
@@ -775,7 +799,7 @@ mod lexer_tests {
             Token::new(TokenKind::Eol,          String::new(), 0, 9, 10),
         ];
 
-        let result = Lexer::new(&test_input, 0).get_all_tokens().unwrap();  
+        let result = Lexer::new(&test_input.chars().collect::<Vec<_>>(), 0).get_all_tokens().unwrap();  
 
         assert_eq!(result.len(), expected_result.len());
 
@@ -797,7 +821,7 @@ mod lexer_tests {
             Token::new(TokenKind::Eol,          String::new(), 0, 13, 14),
         ];
 
-        let result = Lexer::new(&test_input, 0).get_all_tokens().unwrap();        
+        let result = Lexer::new(&test_input.chars().collect::<Vec<_>>(), 0).get_all_tokens().unwrap();        
 
         assert_eq!(result.len(), expected_result.len());
 
@@ -821,7 +845,7 @@ mod lexer_tests {
             Token::new(TokenKind::Eol,                                  String::new(), 0, 19, 20),
         ];
 
-        let result = Lexer::new(&test_input, 0).get_all_tokens().unwrap();        
+        let result = Lexer::new(&test_input.chars().collect::<Vec<_>>(), 0).get_all_tokens().unwrap();        
 
         assert_eq!(result.len(), expected_result.len());
 
@@ -851,7 +875,7 @@ mod lexer_tests {
             Token::new(TokenKind::Eol,          String::new(), 0, 18, 19),
         ];
 
-        let result = Lexer::new(&test_input, 0).get_all_tokens().unwrap();        
+        let result = Lexer::new(&test_input.chars().collect::<Vec<_>>(), 0).get_all_tokens().unwrap();        
 
         assert_eq!(result.len(), expected_result.len());
 

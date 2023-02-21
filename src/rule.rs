@@ -484,7 +484,7 @@ mod rule_tests {
     
     fn setup_rule(test_str: &str) -> Rule {
         use crate::{Lexer, Parser};
-        Parser:: new(Lexer::new(test_str,0).get_all_tokens().unwrap(), 0).parse().unwrap()
+        Parser:: new(Lexer::new(&test_str.chars().collect::<Vec<_>>(),0).get_all_tokens().unwrap(), 0).parse().unwrap()
     }
 
     fn setup_word(test_str: &str) -> Word {

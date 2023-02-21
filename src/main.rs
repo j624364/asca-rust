@@ -101,7 +101,7 @@ fn parse_rules(unparsed_rules: &[String]) -> Result<Vec<Rule>,RuleSyntaxError> {
     
     let mut rules: Vec<Rule> = vec![];
     for (l, r) in unparsed_rules.iter().enumerate() {
-        rules.push(Parser:: new(Lexer::new(r, l).get_all_tokens()?, l).parse()?);
+        rules.push(Parser:: new(Lexer::new(&r.chars().collect::<Vec<_>>(), l).get_all_tokens()?, l).parse()?);
     }
 
     Ok(rules)
