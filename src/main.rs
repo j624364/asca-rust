@@ -306,11 +306,11 @@ fn deal_with_result(res: Result<(Vec<String>, Vec<Vec<String>>), Error>, rules: 
 fn main() {
     let unparsed_rules: Vec<String> = vec![
         // String::from("C:[+d.r., -dr, -nas "),
-        String::from("r...l => &"),
+        String::from("p ... l => &"),
     ];
 
     let unparsed_words: Vec<String> = vec![
-        String::from("parabola"),
+        String::from("pa'ra.bo.la"),
     ];
 
     let res = run(&unparsed_rules, &unparsed_words, false);

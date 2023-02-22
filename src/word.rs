@@ -4,7 +4,7 @@ use serde::Deserialize;
 use crate :: {
     lexer::{  FType, NodeType}, 
     error :: WordSyntaxError, 
-    parser:: {SegMKind, BinMod, Modifiers}, 
+    parser:: {SegMKind, BinMod, Modifiers, Supr}, 
     CARDINALS_MAP, CARDINALS_TRIE, 
     CARDINALS_VEC, DIACRITS
 };
@@ -85,6 +85,7 @@ pub struct Diacritic {
     pub payload: DiaMods,
 }
 
+#[derive(Debug)]
 pub enum NodeKind {
     Root,
     Manner,
@@ -150,7 +151,7 @@ pub struct Segment {
 }
 
 impl Segment {
-    fn get_as_grapheme(&self) -> Option<String> {
+    pub fn get_as_grapheme(&self) -> Option<String> {
         fn match_from_modifiers(seg: &Segment, mods:&DiaMods) -> bool {
 
             // TODO: deal with mods.nodes
@@ -177,7 +178,6 @@ impl Segment {
 
             true
         }
-
 
         // test against all cardinals for a match
         for c_grapheme in CARDINALS_VEC.iter() {
@@ -545,12 +545,16 @@ impl Word {
     }
 
     #[allow(unused)]
-    pub fn match_modifiers_at(&self, mods: &Modifiers, seg_index: usize) -> bool {
+    pub fn match_mod_at(&self, md: &SegMKind, seg_index: usize) -> bool {
+        todo!()
+    }
+
+    pub fn match_supra_at(&self, supr: &Supr, seg_index: usize) -> bool {
         todo!()
     }
 
     #[allow(unused)]
-    pub fn apply_mods_at(&mut self, m: &Modifiers, seg_index: usize) {
+    pub fn apply_mod_at(&mut self, m: &Modifiers, seg_index: usize) {
         todo!()
     } 
 

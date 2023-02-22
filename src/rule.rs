@@ -4,10 +4,10 @@ use std::{
 };
 
 use crate ::{
-    parser::{Item, ParseKind, Modifiers, Supr, SegMKind, BinMod}, 
+    parser::{Item, ParseKind, Modifiers, Supr, SegMKind, BinMod, AlphaMod}, 
     error ::RuntimeError, 
-    word  ::{Word, Segment, Syllable, StressKind}, 
-    lexer ::{Token, SupraType}
+    word  ::{Word, Segment, Syllable, StressKind, feature_to_node_mask, NodeKind}, 
+    lexer ::{Token, SupraType, FType}
 };
 
 #[derive(Debug, Copy, Clone, PartialEq, Eq)]
@@ -44,7 +44,7 @@ pub struct SubRule {
     except   : Option<Item>,
     rule_type: RuleType, // RuleType,
     variables: RefCell<HashMap<usize, Segment>>,
-    // alphas: Vec<_>
+    alphas: RefCell<HashMap<char, SegMKind>> // TODO: Supras should be alpha-able as well
 }
 
 impl SubRule {
@@ -111,18 +111,25 @@ impl SubRule {
         let mut cur_index = start_index;
         let mut begin = None;
         // let mut end = None;
-        let mut states = states.iter();
-        let mut state = states.next().unwrap();
+        // let mut states = states.iter();
+        let mut state_index = 0;
+        let mut state = states[state_index].clone();
 
         while cur_index <= word.seg_count() {
-            if self.match_input_item(state, word, &mut cur_index)? {
+            if self.match_input_item(&state, word, &mut cur_index)? {
                 if begin.is_none() {
                     begin = Some(cur_index); // TODO: This won't work if we jump i.e. if we match syllable
                 }
-                let Some(s) = states.next() else {
+                
+                if state_index >= states.len() - 1 {
                     return Ok(Some(Match::new(begin.unwrap(), cur_index)))
-                };
-                state = s;      // TODO: if ellipsis we need to NOT advance state until we no longer match, at which point we backtrack
+                }
+                // let Some(s) = states.next() else {
+                //     return Ok(Some(Match::new(begin.unwrap(), cur_index)))
+                // };
+                state_index += 1;
+                state = states[state_index].clone();
+                                // TODO: if ellipsis we need to NOT advance state until we no longer match, at which point we backtrack
                                 // `...` is the same os OptionalSeg: (AnySegment, 0)
                                 // or we could check next state -> if no match apply ... else apply next states
 
@@ -133,8 +140,12 @@ impl SubRule {
             if begin.is_none() {
                 cur_index+=1;
                 continue;
+            } else {
+                cur_index = begin.unwrap() + 1; // TODO: won't work for backtracking
+                state_index = 0;
+                state = states[start_index].clone();
+                begin = None;
             }
-            return Ok(None)
         }
 
         if begin.is_none() {
@@ -249,7 +260,7 @@ impl SubRule {
         Ok(false)
     }
 
-    fn match_var(&self, vt: &Token, mods: &Option<Modifiers>, word:& Word, seg_index: usize) -> Result<bool, RuntimeError> {
+    fn match_var(&self, vt: &Token, mods: &Option<Modifiers>, word: &Word, seg_index: usize) -> Result<bool, RuntimeError> {
         // let seg = word.segments[seg_index];
         if let Some(var) = self.variables.borrow_mut().get(&vt.value.parse::<usize>().expect("")) {
             self.match_ipa(var, mods, word, seg_index)
@@ -259,11 +270,11 @@ impl SubRule {
 
     }
 
-    fn match_matrix(&self, mods: &Modifiers, var:&Option<usize>, word:& Word, seg_index: usize) -> Result<bool, RuntimeError> {
+    fn match_matrix(&self, mods: &Modifiers, var: &Option<usize>, word: &Word, seg_index: usize) -> Result<bool, RuntimeError> {
         // TODO: do var
         if var.is_none() {
-            Ok(word.match_modifiers_at(mods, seg_index))
-        } else if word.match_modifiers_at(mods, seg_index) {
+            self.match_modifiers(mods, word, seg_index)
+        } else if self.match_modifiers(mods, word, seg_index)? {
             self.variables.borrow_mut().insert(var.unwrap(), word.get_seg_at(seg_index).unwrap());
             Ok(true)
         } else {
@@ -271,6 +282,68 @@ impl SubRule {
         }
         
     }
+
+    fn match_modifiers(&self, mods: &Modifiers, word: &Word, seg_index: usize) -> Result<bool, RuntimeError> {
+        //loop through mods
+        // if alpha, check alphaMap
+            // if not there, insert and return true
+            // else, match against Map
+        // if binary
+            // match
+
+        let seg = word.segments[seg_index];
+
+        for (i, m) in mods.feats.iter().enumerate() {
+            if !self.match_mod(m, i, seg) {
+                return Ok(false);
+            }
+        }
+        Ok(true)
+    }
+
+    fn match_mod(&self, md: &Option<SegMKind>, feat_index: usize, seg: Segment) -> bool {
+        if let Some(kind) = md { 
+            let (node, mask) = feature_to_node_mask(FType::from_usize(feat_index));
+            return self.match_seg_kind(kind, seg, node, mask) 
+
+        }
+        true
+    }
+
+    fn match_seg_kind(&self, kind: &SegMKind, seg: Segment, node: NodeKind, mask: u8) -> bool {
+        match kind {
+            SegMKind::Binary(b) => { 
+                if !(match b {
+                    BinMod::Negative => seg.feat_match(node, mask, false),
+                    BinMod::Positive => seg.feat_match(node, mask, true),
+                }) {
+                    return false
+                }
+                true
+            },
+            SegMKind::Alpha(am) => match am {
+                AlphaMod::Alpha(a) => {
+                    if let Some(x) = self.alphas.borrow().get(a) {
+                        self.match_seg_kind(x, seg, node, mask)
+
+                    } else {
+                        self.alphas.borrow_mut().insert(*a, *kind);  // NOTE: This might not work as intended, probably shouldn't be `kind` here
+                        true
+                    }
+                },
+                AlphaMod::InversAlpha(ia) => {
+                    if let Some(x) = self.alphas.borrow().get(ia) {
+                        !self.match_seg_kind(x, seg, node, mask)
+
+                    } else {
+                        self.alphas.borrow_mut().insert(*ia, *kind); // NOTE: This might not work as intended, probably shouldn't be `kind` here
+                        true
+                    }
+                },
+            },
+        }
+    }
+
 }
 
 pub struct Rule {
@@ -306,7 +379,7 @@ impl Rule {
             let except  = if self.except.is_empty()  { None } else if self.except.len()  == 1 { Some(self.except[0].clone()) }  else { Some(self.except[i].clone()) };
             let rule_type = self.rule_type;  // TODO: calc rule_type here instead of in parser
 
-            sub_vec.push(SubRule {input, output, context, except, rule_type, variables: RefCell::new(HashMap::new())});
+            sub_vec.push(SubRule {input, output, context, except, rule_type, variables: RefCell::new(HashMap::new()), alphas: RefCell::new(HashMap::new())});
         }
 
         Ok(sub_vec)
