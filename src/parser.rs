@@ -55,7 +55,7 @@ pub struct Supras {
 
 impl Supras {
     pub fn new(stress: Option<Supr>, length: Option<Supr>, tone: Option<String>) -> Self {
-        Supras {stress, length, tone }
+        Self { stress, length, tone }
     }
 }
 
@@ -126,7 +126,7 @@ impl fmt::Display for ParseKind {
                 // .fold(String::new(), |acc, i| acc + &i.to_string() + ", ");
 
                 // write!(f, "{} = [{}]", t, tt)
-                write!(f, "{t} = {p:#?}")
+                write!(f, "{t:#?} = {p:#?}")
             },
             ParseKind::EmptySet   => write!(f, "∅"),
             ParseKind::WordBound  => write!(f, "#"),
