@@ -47,7 +47,7 @@ impl Supr {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub struct Supras {
+pub struct Supras { // TODO: does not work for [+stress, -secstress]
     pub stress: Option<Supr>,
     pub length: Option<Supr>,
     pub tone: Option<String>,
@@ -90,7 +90,7 @@ pub enum ParseKind {
     Variable   (Token  , Option<Modifiers>),
     Ipa        (Segment, Option<Modifiers>),
     Matrix     (Modifiers, Option<usize>),
-    Syllable   (Option<Supr>, Option<String>), // (Stress, Tone) 
+    Syllable   (Option<Supr>, Option<String>), // (Stress, Tone)  TODO: does not work for [+stress, -secstress]
     Set        (Vec<Item>),
     Optional   (Vec<Item>, usize, usize),
     Environment(Vec<Item>, Vec<Item>),
@@ -250,6 +250,20 @@ impl Parser {
         }
         if let Some(token) = self.eat_expect(TokenKind::WordBoundary) {
             return Some(Item::new(ParseKind::WordBound, token.position))
+        }
+        None
+    }
+
+    fn get_word_bound(&mut self) -> Option<Item> {
+        if let Some(token) = self.eat_expect(TokenKind::WordBoundary) {
+            return Some(Item::new(ParseKind::WordBound, token.position))
+        }
+        None
+    }
+
+    fn get_syll_bound(&mut self) -> Option<Item> {
+        if let Some(token) = self.eat_expect(TokenKind::SyllBoundary) {
+            return Some(Item::new(ParseKind::SyllBound, token.position))
         }
         None
     }
@@ -743,17 +757,16 @@ impl Parser {
     }
 
     fn get_input_term(&mut self) -> Result<Vec<Item>, RuleSyntaxError> {
-        // returns list of terms and ellipses
+        // returns list of terms, ellipses and syllable bounds
         let mut terms = Vec::new();
         loop {
             if let Some(el) = self.eat_expect(TokenKind::Ellipsis) {
                 terms.push(Item::new(ParseKind::Ellipsis, el.position));
-                continue;
-            }
-            if self.peek_expect(TokenKind::GreaterThan) {   // So we can try simple rules that don't call functions we are yet to implement
-                break                                       // We can probably remove this after parser logic is done
-            }                                               // Though it wouldn't hurt performance to leave it in
-            if let Some(trm) = self.get_term()? {
+            } else if let Some(s_bound) = self.get_syll_bound() {
+                terms.push(s_bound);
+            } else if self.peek_expect(TokenKind::GreaterThan) {   // So we can try simple rules that don't call functions we are yet to implement
+                break                                       // We can probably remove this after parser logic is done, though it wouldn't hurt performance to leave it in
+            } else if let Some(trm) = self.get_term()? {
                 terms.push(trm)
             } else {
                 break

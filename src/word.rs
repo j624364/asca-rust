@@ -85,7 +85,7 @@ pub struct Diacritic {
     pub payload: DiaMods,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Copy, Clone)]
 pub enum NodeKind {
     Root,
     Manner,
@@ -526,12 +526,12 @@ impl Word {
     #[allow(unused)]
     pub fn is_syll_final(&self, seg_index: usize) -> bool {
         let syll_index = self.get_syll_index_from_seg_index(seg_index);
-        syll_index == self.syllables[syll_index].end
+        seg_index == self.syllables[syll_index].end
     }
 
     pub fn is_syll_initial(&self, seg_index: usize) -> bool {
         let syll_index = self.get_syll_index_from_seg_index(seg_index);
-        syll_index == self.syllables[syll_index].start
+        seg_index == self.syllables[syll_index].start
     }
 
     #[allow(unused)]
