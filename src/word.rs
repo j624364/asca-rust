@@ -2,19 +2,12 @@ use   std::fmt;
 use serde::Deserialize;
 
 use crate :: {
-    lexer::{  FType, NodeType}, 
-    error :: WordSyntaxError, 
-    parser:: {SegMKind, BinMod, Modifiers, Supr}, 
+    lexer ::{FType, NodeType}, 
+    error ::WordSyntaxError, 
+    parser::{SegMKind, BinMod, Modifiers, Supr}, 
     CARDINALS_MAP, CARDINALS_TRIE, 
     CARDINALS_VEC, DIACRITS
 };
-
-// match feature {
-//     RootNode     | MannerNode  | LaryngealNode | PlaceNode 
-//     | LabialNode | CoronalNode | DorsalNode    | PharyngealNode 
-//     | Long | Overlong | Stress | Length | Tone => { do x },
-//     _ => segment_to_byte(feature)
-// }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum StressKind {
@@ -62,7 +55,7 @@ impl fmt::Display for StressKind {
 //     }
 // }
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Clone, PartialEq, Eq)]
 pub struct DiaMods {
     pub nodes: [Option<SegMKind>; NodeType::Pharyngeal as usize + 1],
     pub feats: [Option<SegMKind>; FType::RetractedTongueRoot as usize + 1],
@@ -74,6 +67,47 @@ impl DiaMods {
             nodes: [();NodeType::Pharyngeal as usize + 1].map(|_| None), 
             feats: [();FType::RetractedTongueRoot as usize + 1].map(|_| None), 
         }
+    }
+}
+
+impl fmt::Debug for DiaMods {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+
+        let mut nodes = String::new();
+        for val in self.nodes.iter() {
+            match val {
+                Some(v) => match v {
+                    SegMKind::Binary(b) => match b {
+                        BinMod::Negative => nodes.push('-'),
+                        BinMod::Positive => nodes.push('+'),
+                    },
+                    SegMKind::Alpha(am) => match am {
+                        crate::parser::AlphaMod::Alpha(a) => nodes.push(*a),
+                        crate::parser::AlphaMod::InversAlpha(ia) => nodes.push_str(&ia.to_uppercase().to_string()),
+                    },
+                },
+                None => nodes.push('0'),
+            }
+        }
+
+        let mut feats = String::new();
+        for val in self.feats.iter() {
+            match val {
+                Some(v) => match v {
+                    SegMKind::Binary(b) => match b {
+                        BinMod::Negative => feats.push('-'),
+                        BinMod::Positive => feats.push('+'),
+                    },
+                    SegMKind::Alpha(am) => match am {
+                        crate::parser::AlphaMod::Alpha(a) => feats.push(*a),
+                        crate::parser::AlphaMod::InversAlpha(ia) => feats.push_str(&ia.to_uppercase().to_string()),
+                    },
+                },
+                None => feats.push('0'),
+            }
+        }
+
+        f.debug_struct("DiaMods").field("nodes", &nodes).field("feats", &feats).finish()
     }
 }
 
@@ -90,10 +124,31 @@ pub enum NodeKind {
     Root,
     Manner,
     Laryngeal,
+    Place,
     Labial,
     Coronal,
     Dorsal,
     Pharyngeal
+}
+
+impl NodeKind {
+    pub const fn count() -> usize { 8 }
+
+    pub fn from_usize(value: usize) -> Self {
+        use NodeKind::*;
+
+        match value {
+            0 => {debug_assert_eq!(value, Root as usize); Root}
+            1 => {debug_assert_eq!(value, Manner as usize); Manner}
+            2 => {debug_assert_eq!(value, Laryngeal as usize); Laryngeal}
+            3 => {debug_assert_eq!(value, Place as usize); Place}
+            4 => {debug_assert_eq!(value, Labial as usize); Labial}
+            5 => {debug_assert_eq!(value, Coronal as usize); Coronal}
+            6 => {debug_assert_eq!(value, Dorsal as usize); Dorsal}
+            7 => {debug_assert_eq!(value, Pharyngeal as usize); Pharyngeal},
+            _ => unreachable!("\nOut of Range converting `usize` to `NodeType`\nThis is a bug!\n")
+        }
+    }
 }
 
 pub const fn feature_to_node_mask(feat: FType) -> (NodeKind, u8) {
@@ -152,66 +207,234 @@ pub struct Segment {
 
 impl Segment {
     pub fn get_as_grapheme(&self) -> Option<String> {
-        fn match_from_modifiers(seg: &Segment, mods:&DiaMods) -> bool {
-
-            // TODO: deal with mods.nodes
-
-            for (i, md) in mods.feats.iter().enumerate() {
-
-                let positive = match md {
-                    Some(SegMKind::Binary(b)) => match b {
-                        BinMod::Negative => false,
-                        BinMod::Positive => true,
-                    }
-                    Some(SegMKind::Alpha(_)) => todo!(),
-                    None => continue,
-                };
-
-                let (node, mask) = modifier_index_to_node_mask(i);
-                
-                if seg.feat_match(node, mask, positive) {
-                    continue;
-                }
-
-                return false
-            }
-
-            true
-        }
+        // fn match_from_modifiers(seg: &Segment, mods:&DiaMods) -> bool {
+        //     for (i, md) in mods.feats.iter().enumerate() {
+        //         let positive = match md {
+        //             Some(SegMKind::Binary(b)) => match b {
+        //                 BinMod::Negative => false,
+        //                 BinMod::Positive => true,
+        //             }
+        //             Some(SegMKind::Alpha(_)) => todo!(),
+        //             None => continue,
+        //         };
+        //         let (node, mask) = modifier_index_to_node_mask(i);
+        //         if seg.feat_match(node, mask, positive) {
+        //             continue;
+        //         }
+        //         return false
+        //     }
+        //     for (i, md) in mods.nodes.iter().enumerate() {
+        //         todo!()
+        //     }
+        //     true
+        // }
 
         // test against all cardinals for a match
         for c_grapheme in CARDINALS_VEC.iter() {
             let x = CARDINALS_MAP.get(c_grapheme).unwrap();
             if *x == *self { return Some(c_grapheme.to_string()) }
-
         }
 
         // if no match is found, 
         // loop through again, but this time test cardinal + diacritics
 
+        // Sort by difference (maybe also filter diff > 8 to cut on size)
+        // iterate and match starting from smallest difference
+
+        let mut candidates = Vec::new();
+
         for c_grapheme in CARDINALS_VEC.iter() {
-            let x = CARDINALS_MAP.get(c_grapheme).unwrap();
-            let buffer = (c_grapheme, x);
+            let seg: Segment = *CARDINALS_MAP.get(c_grapheme).unwrap();
+            let diff_count = self.diff_count(&seg);
+            if diff_count < 8 {
+                candidates.push((seg, c_grapheme, diff_count))
+            }
+        }
+
+        candidates.sort_by(|(.., a), (.., b) | a.cmp(b));
+        
+        // for (a,_, b) in &candidates {
+        //     eprintln!("{} {}", a.get_as_grapheme().unwrap(), b);
+        // }
+        // eprintln!("{}", candidates.len());
+        
+
+        for (cand_seg , cand_graph, _) in candidates {
+            let mut buf_seg = cand_seg;
+            let mut buf_str = cand_graph.clone();
 
             for d in DIACRITS.iter() {
-                if match_from_modifiers(buffer.1, &d.prereqs) && match_from_modifiers(buffer.1, &d.payload) {
-                    todo!("add diacritic to buffer")
-                }
+                if self.match_modifiers(&d.prereqs) && self.match_modifiers(&d.payload) {
+                    // if c_grapheme == "r" {
+                    //     eprintln!("--------");
+                    //     eprintln!("{} {} {:?} {:?}", buf_str,  d.diacrit, d.payload, d.payload);
+                    //     eprintln!("--------");
+                    // }
+                    buf_seg.apply_diacritic_payload(&d.payload);
 
-                if *buffer.1 == *self { return Some(buffer.0.to_string()) }
+                    if buf_seg == cand_seg {
+                        continue;
+                    } else {
+                        buf_str.push(d.diacrit);
+                    }
+                }
+                if buf_seg == *self { 
+                    return Some(buf_str);
+                }
             }
-            
         }
-        // Err(RuntimeError::UnknownSegment(*self))
-        None
+
+        todo!()
+
+        // for c_grapheme in CARDINALS_VEC.iter() {
+        //     let x = CARDINALS_MAP.get(c_grapheme).unwrap();
+        //     let mut buf_str = c_grapheme.clone();
+        //     let mut buf_seg = x.clone();
+
+        //     for d in DIACRITS.iter() {
+            
+        //         // let mut buf_seg = buffer.1;
+        //         if self.match_modifiers(&d.prereqs) && self.match_modifiers(&d.payload) {
+        //             // todo!("add diacritic to buffer")
+
+        //             // if c_grapheme == "r" {
+        //             //     eprintln!("--------");
+        //             //     eprintln!("{} {} {:?} {:?}", buf_str,  d.diacrit, d.payload, d.payload);
+        //             //     eprintln!("--------");
+        //             // }
+        //             buf_seg.apply_diacritic_payload(&d.payload);
+
+        //             if buf_seg == *x {
+        //                 continue;
+        //             } else {
+        //                 buf_str.push(d.diacrit);
+        //             }
+        //         }
+
+        //         // if c_grapheme == "r" {
+        //         //     eprintln!("{} {} {:?} {:?}", buf_str,  d.diacrit, d.payload, d.payload);
+        //         // }
+
+                
+
+        //         if buf_seg == *self { 
+        //             candidates.push(buf_str.clone());
+        //         }
+        //     }
+            
+        // }
+
+        // eprintln!("{:?}\n", candidates);
+
+        // if candidates.is_empty() {
+        //     return None
+        // } else {
+        //     let mut cand_index = 0;
+        //     let mut cand_len = 1024; 
+        //     for (i, c) in candidates.iter().enumerate() {
+        //         let len = c.chars().count();
+        //         if len < cand_len {
+        //             cand_index = i;
+        //             cand_len = len;
+        //         }
+        //     }
+
+        //     return Some(candidates[cand_index].clone())
+        // }
+
+
     }
 
     #[allow(unused)]
     pub fn match_modifiers(&self, mods: &DiaMods) -> bool {
-        todo!()
+        for (i, m) in mods.feats.iter().enumerate() {
+            if !self.match_feat_mod(m, i) {
+                return false
+            }
+        }
+
+        for (i, m) in mods.nodes.iter().enumerate() {
+            if !self.match_node_mod(m, i) {
+                return false
+            }
+        }
+
+        true
     }
 
-    pub fn get_node(&self, node: &NodeKind) -> Option<u8> {
+    pub fn match_node_mod(&self, md: &Option<SegMKind>, node_index: usize) -> bool {
+        if let Some(kind) = md {
+            let node = NodeKind::from_usize(node_index);
+            return self.match_node_mod_kind(kind, node)
+        }
+        true
+    }
+
+    pub fn match_node_mod_kind(&self, kind: &SegMKind, node: NodeKind) -> bool {
+        match kind {
+            SegMKind::Binary(bt) => match bt {
+                BinMod::Negative => self.is_node_none(node),
+                BinMod::Positive => self.is_node_some(node),
+            },
+            // NOTE: Alpha's don't make sense here
+            // this is a consequence of using SegMKind for everything
+            SegMKind::Alpha(_) => unreachable!(),
+        }
+    }
+
+    pub fn match_feat_mod(&self, md: &Option<SegMKind>, feat_index: usize) -> bool {
+        if let Some(kind) = md {
+            let (node, mask) = feature_to_node_mask(FType::from_usize(feat_index));
+            return self.match_feat_mod_kind(kind, node, mask)
+        }
+
+        true
+    }
+
+    pub fn match_feat_mod_kind(&self, kind: &SegMKind, node: NodeKind, mask: u8) -> bool {
+        match kind {
+            SegMKind::Binary(bt) => match bt {
+                BinMod::Negative => self.feat_match(node, mask, false),
+                BinMod::Positive => self.feat_match(node, mask, true),
+            },
+            // NOTE: Alpha's don't make sense here
+            // this is a consequence of using SegMKind for everything
+            SegMKind::Alpha(_) => unreachable!(),
+        }
+    }
+
+    fn diff(&self, other: &Segment) -> Segment {
+
+        fn asdf(first: Option<u8>, sec: Option<u8>) -> Option<u8> {
+            let Some(a) = first else { return sec};
+            let Some(b) = sec else {return first};
+            Some(a ^ b)
+        }
+
+        Segment { 
+            root: self.root ^ other.root,
+            manner: self.manner ^ other.manner, 
+            laryngeal: self.laryngeal ^ other.laryngeal, 
+            labial:  asdf(self.labial, other.labial),
+            coronal: asdf(self.coronal, other.coronal), 
+            dorsal:  asdf(self.dorsal, other.dorsal), 
+            pharyngeal: asdf(self.pharyngeal, other.pharyngeal), 
+        }
+    }
+
+    fn diff_count(&self, other: &Segment) -> usize {
+        let diff = self.diff(other);
+
+          diff.root.count_ones() as usize
+        + diff.manner.count_ones() as usize
+        + diff.laryngeal.count_ones() as usize
+        + diff.labial.unwrap_or(0).count_ones() as usize
+        + diff.coronal.unwrap_or(0).count_ones() as usize
+        + diff.dorsal.unwrap_or(0).count_ones() as usize
+        + diff.pharyngeal.unwrap_or(0).count_ones() as usize
+    }
+
+    pub fn get_node(&self, node: NodeKind) -> Option<u8> {
         match node {
             NodeKind::Root       => Some(self.root),
             NodeKind::Manner     => Some(self.manner),
@@ -219,7 +442,14 @@ impl Segment {
             NodeKind::Labial     => self.labial,
             NodeKind::Coronal    => self.coronal,
             NodeKind::Dorsal     => self.dorsal,
-            NodeKind::Pharyngeal => self.pharyngeal
+            NodeKind::Pharyngeal => self.pharyngeal,
+            NodeKind::Place      => unreachable!(),
+        }
+    }
+
+    pub fn set_place_nodes(&mut self, vals: [Option<u8>; 4]) {
+        for (i, val) in vals.iter().enumerate() {
+            self.set_node(NodeKind::from_usize(i+3), *val);
         }
     }
 
@@ -232,19 +462,20 @@ impl Segment {
             NodeKind::Labial     => self.labial = val,
             NodeKind::Coronal    => self.coronal = val,
             NodeKind::Dorsal     => self.dorsal = val,
-            NodeKind::Pharyngeal => self.pharyngeal = val
+            NodeKind::Pharyngeal => self.pharyngeal = val,
+            NodeKind::Place      => unreachable!(),
         }
     }
 
     #[allow(unused)]
     pub fn get_feat(&self, node: NodeKind, feat: u8) -> Option<u8> {
-        Some(self.get_node(&node)? & feat)
+        Some(self.get_node(node)? & feat)
     }
 
     #[allow(unused)]
     pub fn set_feat(&mut self, node: NodeKind, feat: u8, to_positive: bool) {
 
-        let n = self.get_node(&node).unwrap_or(0u8);
+        let n = self.get_node(node).unwrap_or(0u8);
 
         if to_positive {
             self.set_node(node, Some(n | feat)) 
@@ -254,7 +485,7 @@ impl Segment {
     }
 
     pub fn feat_match(&self, node: NodeKind, mask: u8, positive: bool) -> bool {
-        let Some(n) = self.get_node(&node) else {
+        let Some(n) = self.get_node(node) else {
             return false
         };
 
@@ -265,9 +496,17 @@ impl Segment {
         }
     }
 
+    pub fn is_node_some(&self, node: NodeKind) -> bool {
+        self.get_node(node).is_some()
+    }
+
+    pub fn is_node_none(&self, node: NodeKind) -> bool {
+        self.get_node(node).is_none()
+    }
+
     #[allow(unused)]
     pub fn node_match(&self, node: NodeKind, match_value: Option<u8>) -> bool {
-        let Some(n) = self.get_node(&node) else {
+        let Some(n) = self.get_node(node) else {
             return match_value.is_none()
         };
 
@@ -276,35 +515,63 @@ impl Segment {
         n == m
     }
 
-    fn apply_diacritic(&mut self, d: &Diacritic) {
-        // check if we meet prereqs
-        if self.match_modifiers(&d.prereqs) {
-            todo!("apply d.payload")
-            // then apply payload
+    fn apply_diacritic_payload(&mut self, dm:&DiaMods) {
+        for (i, m) in dm.nodes.iter().enumerate() {
+            if let Some(kind) = m {
+                let node = NodeKind::from_usize(i);
+                match kind {
+                    SegMKind::Binary(b) => match b {
+                        BinMod::Negative => self.set_node(node, None),
+                        BinMod::Positive => self.set_node(node, Some(0))
+                    },
+                    SegMKind::Alpha(_) => unreachable!(),
+                }
+            }
         }
-        //else TODO: error
-    }
 
-    #[allow(unused)]
-    pub fn apply_mods(&mut self, mods: &Modifiers) {
-
-        // TODO: Nodes
-
-        for (i, m) in mods.feats.iter().enumerate() {
-            if let Some(kind) = m { 
-
-                let (n, f) = feature_to_node_mask(FType::from_usize(i));
-
+        for (i, m) in dm.feats.iter().enumerate() {
+            if let Some(kind) = m {
+                let (n,f) = feature_to_node_mask(FType::from_usize(i));
                 match kind {
                     SegMKind::Binary(b) => match b {
                         BinMod::Negative => self.set_feat(n, f, false),
                         BinMod::Positive => self.set_feat(n, f, true),
                     },
-                    SegMKind::Alpha(_) => todo!(),
+                    SegMKind::Alpha(_) => unreachable!(),
                 }
             }
         }
+    }
+
+    fn check_and_apply_diacritic(&mut self, d: &Diacritic) -> Option<()> {
+        // check if we meet prereqs 
+        if self.match_modifiers(&d.prereqs) {
+            self.apply_diacritic_payload(&d.payload);
+            return Some(())
+        }
         
+        None
+    }
+
+    #[allow(unused)]
+    pub fn apply_feat_mods(&mut self, mods: &Modifiers) {
+        // NOTE: This ignores any Supra Mods as the Segment does not control them
+        for (i, m) in mods.feats.iter().enumerate() {
+            if let Some(kind) = m { 
+                let (n, f) = feature_to_node_mask(FType::from_usize(i));
+                match kind {
+                    SegMKind::Binary(b) => match b {
+                        BinMod::Negative => self.set_feat(n, f, false),
+                        BinMod::Positive => self.set_feat(n, f, true),
+                    },
+                    SegMKind::Alpha(_) => unreachable!(),
+                }
+            }
+        }
+
+        for (i, m) in mods.nodes.iter().enumerate() { 
+            todo!()
+        }
 
     } 
 
@@ -395,7 +662,7 @@ impl fmt::Debug for Word {
 
 impl Word {
     pub fn new(text: String) -> Result<Self, WordSyntaxError>  {
-        let mut w = Self {segments: Vec::new(), syllables: Vec::new() };
+        let mut w = Self { segments: Vec::new(), syllables: Vec::new() };
         // let split_txt = w.format_text(txt);
         let t = text.replace('\'', "ˈ")
                             .replace(',',  "ˌ")
@@ -479,6 +746,27 @@ impl Word {
 
     } 
 
+    pub fn seg_length_at(&self, seg_index: usize) -> usize {
+        // NOTE: does not take into account if index is in the middle of the repetition
+        // E.G. `aaa` len == 2 where as 'aaa' len == 3
+        //        ^                      ^
+        if self.is_syll_final(seg_index) {
+            return 1
+        }
+        let syll_index = self.get_syll_index_from_seg_index(seg_index);
+
+        let mut i = seg_index+1;
+        let mut len = 1;
+
+        while self.get_syll_index_from_seg_index(seg_index) == syll_index 
+        && self.get_seg_at(seg_index).unwrap() == self.get_seg_at(i).unwrap() {
+            len +=1;
+            i += 1;
+        }
+
+        len
+    }
+
     pub fn seg_count(&self) -> usize {
         self.segments.len() - 1
     } 
@@ -511,10 +799,6 @@ impl Word {
         for (i, syll) in self.syllables.iter().enumerate() {
             if seg_index > syll.end {
                 continue;
-            }
-
-            if seg_index < syll.start {
-                panic!();
             }
 
             return i
@@ -564,7 +848,7 @@ impl Word {
 
         let mut sy = Syllable::new();
 
-        while i < txt.len() {
+        'outer: while i < txt.len() {
 
             if txt[i] == 'ˌ' || txt[i] == 'ˈ'  {
                 if !self.segments.is_empty() {
@@ -657,26 +941,44 @@ impl Word {
                             i += 1;
                             continue;
                         }
-
-
                     }
 
                     break;
                 }
                 let maybe_seg = CARDINALS_MAP.get(&buffer);
 
-                let seg_stuff = *match maybe_seg {
-                    Some(s) => Ok(s),
-                    None => Err(WordSyntaxError::UnknownChar(input_txt.clone(), i)) // this should be unreachable
-                }?;
+                if let Some(seg_stuff) = maybe_seg {
+                    self.segments.push(*seg_stuff);
+                } else {
+                    i-=1;
 
-                self.segments.push(seg_stuff);
+                    let last_char = buffer.pop();
+                    let last_buffer = buffer;
+
+                    let maybe_seg = if last_buffer.is_empty() {
+                        CARDINALS_MAP.get(&last_char.expect("buffer is empty").to_string())
+                    } else {
+                        CARDINALS_MAP.get(&last_buffer)
+                    };
+
+                    if let Some(seg) = maybe_seg {
+                        self.segments.push(*seg) 
+                    } else {
+                        return Err(WordSyntaxError::UnknownChar(input_txt, i));
+                    }
+                }
+
             } else {
                 let c = buffer.chars().next().unwrap();
                 for d in DIACRITS.iter() {
-                    if  c == d.diacrit {
+                    if c == d.diacrit {
                         match self.segments.last_mut() {
-                            Some(s) => s.apply_diacritic(d),
+                            Some(s) => if s.check_and_apply_diacritic(d).is_some() {
+                                i+=1;
+                                continue 'outer;
+                            } else {
+                                return Err(WordSyntaxError::DiacriticDoesNotMeetPreReqs(input_txt, i))
+                            },
                             None => return Err(WordSyntaxError::DiacriticBeforeSegment(input_txt, i))
                         }
                     }
@@ -722,9 +1024,6 @@ mod word_tests {
         let w = Word::new(",na.ki'sa".to_owned()).unwrap();
         assert_eq!(w.render().unwrap(), "ˌna.kiˈsa");
 
-        // let w = Word::new("ˈmu.ðr̩".to_owned()).unwrap(); // TODO: Requires diacritic support
-        // assert_eq!(w.render().unwrap(), "ˈmu.ðr̩");
-
         let w = Word::new("ˈna.ki.sa123".to_owned()).unwrap();
         assert_eq!(w.render().unwrap(), "ˈna.ki.sa123");
 
@@ -742,6 +1041,19 @@ mod word_tests {
 
         let w = Word::new("ˈt^saa".to_owned()).unwrap();
         assert_eq!(w.render().unwrap(), "ˈt͡saː");
+    }
+
+    #[test]
+    fn test_render_diacritics() {
+        // TODO: Need to test other diacritic combinations
+        let w = Word::new("ˈmu.ðr̩".to_owned()).unwrap(); 
+        assert_eq!(w.render().unwrap(), "ˈmu.ðr̩");
+
+        let w = Word::new("ˈpʰiːkʲ".to_owned()).unwrap(); 
+        assert_eq!(w.render().unwrap(), "ˈpʰiːkʲ");
+
+        let w = Word::new("ˈpʰiːkʲ".to_owned()).unwrap(); 
+        assert_eq!(w.render().unwrap(), "ˈpʰiːkʲ");
     }
 
 }

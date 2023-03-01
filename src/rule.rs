@@ -36,6 +36,32 @@ impl Match {
 //     consumptions: Option<usize>
 // }
 
+#[derive(Debug)]
+pub enum Alpha {
+    Node(NodeKind, u8),
+    Feature(NodeKind, u8, bool),
+    Supra(Supr), // TODO: Replace Supr with something else
+}
+
+impl Alpha {
+    
+
+    /// Returns `true` if the alpha is [`Feature`].
+    ///
+    /// [`Feature`]: Alpha::Feature
+    #[must_use]
+    pub fn is_feature(&self) -> bool {
+        matches!(self, Self::Feature(..))
+    }
+
+    pub fn as_feature(&self) -> Option<(&NodeKind, &u8, &bool)> {
+        if let Self::Feature(nk, msk, pos) = self {
+            Some((nk, msk, pos))
+        } else {
+            None
+        }
+    }
+}
 
 #[derive(Debug)]
 pub struct SubRule {
@@ -45,7 +71,7 @@ pub struct SubRule {
     except   : Option<Item>,
     rule_type: RuleType, // RuleType,
     variables: RefCell<HashMap<usize, Segment>>,
-    alphas: RefCell<HashMap<char, (NodeKind, u8, bool)>> // TODO: Supras should be alpha-able as well
+    alphas: RefCell<HashMap<char, Alpha>> 
 }
 
 impl SubRule {
@@ -228,13 +254,13 @@ impl SubRule {
             ParseKind::Optional(opt_states, match_min, match_max) => if self.match_optionals(word, seg_index, opt_states, *match_min, *match_max)? {
                 todo!()
             } else {
-                return Ok(false)
+                Ok(false)
             }, 
             _ => unreachable!(),                        
         }
     }
 
-    fn match_optionals(&self, word: &Word, seg_index: &mut usize, states: &Vec<Item>, match_min: usize, match_max: usize) -> Result<bool, RuntimeError> {
+    fn match_optionals(&self, word: &Word, seg_index: &mut usize, states: &[Item], match_min: usize, match_max: usize) -> Result<bool, RuntimeError> {
         // will work like regex (){min, max} but lazy
         let max = if match_max == 0 {None} else{ Some(match_max)};
         self.match_multiple(word, seg_index,  states, &mut 0, 0, max)
@@ -242,17 +268,17 @@ impl SubRule {
 
     }
 
-    fn match_ellipsis(&self, word: &Word, seg_index: &mut usize, states: &Vec<Item>, state_index: &mut usize) -> Result<bool, RuntimeError> {
+    fn match_ellipsis(&self, word: &Word, seg_index: &mut usize, states: &[Item], state_index: &mut usize) -> Result<bool, RuntimeError> {
         self.match_multiple(word, seg_index, states, state_index, 0, None)
     }
 
     #[allow(unused)]
-    fn match_multiple(&self, word: &Word, seg_index: &mut usize,  states: &Vec<Item>, state_index: &mut usize, match_min: usize, match_max: Option<usize>) -> Result<bool, RuntimeError> {
+    fn match_multiple(&self, word: &Word, seg_index: &mut usize,  states: &[Item], state_index: &mut usize, match_min: usize, match_max: Option<usize>) -> Result<bool, RuntimeError> {
         
         let back_state = *state_index;
         let back_seg = *seg_index;
         
-        // match initial valie
+        // match initial min
 
         if *state_index < self.input.len() && *seg_index < word.segments.len() {
             todo!()
@@ -268,7 +294,7 @@ impl SubRule {
             // return true
         }
         
-        return Ok(false)
+        Ok(false)
     }
 
     fn match_syll(&self, stress: &Option<Supr>, tone: &Option<String>, word: &Word, seg_index: &mut usize) -> Result<bool, RuntimeError> {
@@ -362,10 +388,9 @@ impl SubRule {
     }
 
     fn match_matrix(&self, mods: &Modifiers, var: &Option<usize>, word: &Word, seg_index: usize) -> Result<bool, RuntimeError> {
-        // TODO: do var
         if var.is_none() {
-            Ok(self.match_modifiers(mods, word, seg_index))
-        } else if self.match_modifiers(mods, word, seg_index) {
+            self.match_modifiers(mods, word, seg_index)
+        } else if self.match_modifiers(mods, word, seg_index)? {
             self.variables.borrow_mut().insert(var.unwrap(), word.get_seg_at(seg_index).unwrap());
             Ok(true)
         } else {
@@ -374,7 +399,7 @@ impl SubRule {
         
     }
 
-    fn match_modifiers(&self, mods: &Modifiers, word: &Word, seg_index: usize) -> bool {
+    fn match_modifiers(&self, mods: &Modifiers, word: &Word, seg_index: usize) -> Result<bool, RuntimeError> {
         //loop through mods
         // if alpha, check alphaMap
             // if not there, insert and return true
@@ -382,53 +407,59 @@ impl SubRule {
         // if binary
             // match
 
+        //TODO: do mods.nodes and mods.supr
+
         let seg = word.segments[seg_index];
 
         for (i, m) in mods.feats.iter().enumerate() {
-            if !self.match_mod(m, i, seg) {
-                return false;
+            if !self.match_feat_mod(m, i, seg)? {
+                return Ok(false);
             }
         }
-        true
+        Ok(true)
     }
 
-    fn match_mod(&self, md: &Option<SegMKind>, feat_index: usize, seg: Segment) -> bool {
+    fn match_feat_mod(&self, md: &Option<SegMKind>, feat_index: usize, seg: Segment) -> Result<bool, RuntimeError> {
         if let Some(kind) = md { 
             let (node, mask) = feature_to_node_mask(FType::from_usize(feat_index));
-            return self.match_seg_kind(kind, seg, node, mask) 
+            return self.match_seg_kind(kind, seg, node, mask)
 
         }
-        true
+        Ok(true)
     }
 
-    fn match_seg_kind(&self, kind: &SegMKind, seg: Segment, node: NodeKind, mask: u8) -> bool {
+    fn match_seg_kind(&self, kind: &SegMKind, seg: Segment, node: NodeKind, mask: u8) -> Result<bool, RuntimeError> {
         match kind {
-            SegMKind::Binary(b) => { 
-                if !(match b {
-                    BinMod::Negative => seg.feat_match(node, mask, false),
-                    BinMod::Positive => seg.feat_match(node, mask, true),
-                }) {
-                    return false
-                }
-                true
+            SegMKind::Binary(bt) => match bt {
+                BinMod::Negative => Ok(seg.feat_match(node, mask, false)),
+                BinMod::Positive => Ok(seg.feat_match(node, mask, true)),
             },
             SegMKind::Alpha(am) => match am {
                 AlphaMod::Alpha(a) => {
-                    if let Some((n, m, pos)) = self.alphas.borrow().get(a) {
-                        return seg.feat_match(*n, *m, *pos)
+                    let x = self.alphas.borrow().get(a);
+                    if let Some(alph) = self.alphas.borrow().get(a) {
+                        if let Some((n, m, pos)) = alph.as_feature() {
+                            return Ok(seg.feat_match(*n, *m, *pos))
+                        } else {
+                            todo!("Err")
+                        }
                     } 
-                    self.alphas.borrow_mut().insert(*a, (node, mask, true)); 
-                    true
+                    self.alphas.borrow_mut().insert(*a, Alpha::Feature(node, mask, true)); 
+                    Ok(true)
                     
                 },
                 AlphaMod::InversAlpha(ia) => {
-                    if let Some((n, m,  pos)) = self.alphas.borrow().get(ia) {
-                        seg.feat_match(*n, *m, !pos) // TODO: test this
+                    if let Some(alph) = self.alphas.borrow().get(ia) {
+                        if let Some((n, m, pos)) = alph.as_feature() {
+                            Ok(seg.feat_match(*n, *m, !pos)) // TODO: test this
+                        } else {
+                            todo!("Err")
+                        }
                     } else if let Some(f) = seg.get_feat(node, mask) {
-                        self.alphas.borrow_mut().insert(*ia, (node, mask, f != 0));
-                        true
+                        self.alphas.borrow_mut().insert(*ia, Alpha::Feature(node, mask, f != 0));
+                        Ok(true)
                     } else {
-                        todo!()
+                        Err(todo!())
                         // return err
                     }
                     
@@ -657,13 +688,28 @@ mod rule_tests {
         Word::new(String::from(test_str)).unwrap()
     }
 
+    // TODO: Uncomment these when implemented 
     // #[test]
-    // fn test_match() {
+    // fn test_sub_simple_ipa() {
     //     let test_rule = setup_rule("r > l");
     //     let test_word = setup_word("la.ri.sa");
-
+    //
     //     assert_eq!(test_rule.apply(test_word).unwrap().render().unwrap(), "la.li.sa");
+    // }
 
+    // #[test]
+    // fn test_del_group() {
+    //     let test_rule = setup_rule("V > * / V_");
+    //     let test_word = setup_word("kailu");
 
+    //     assert_eq!(test_rule.apply(test_word).unwrap().render().unwrap(), "kalu");
+    // }
+
+    // #[test]
+    // fn test_del_matrix() {
+    //     let test_rule = setup_rule("[+syll, -high] > * / [+syll, -high]_");
+    //     let test_word = setup_word("kailu");
+    //     // from Assamese, "a high vowel gets deleted following a non-high vowel"
+    //     assert_eq!(test_rule.apply(test_word).unwrap().render().unwrap(), "kalu");
     // }
 }

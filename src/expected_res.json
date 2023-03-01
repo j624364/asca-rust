@@ -28,5 +28,10 @@
         "rule_input" : ["r...l > &"],
         "word_input" : ["pa.ra.ba.la"],
         "word_output": ["pa.la.ba.ra"]
+    },
+    {
+        "rule_input" : ["[+syll, +hi] > [αbk, βfr, γrnd] / [αbk, βfr, βγrnd] (C,0) _(C,1) #"],
+        "word_input" : ["desun, røstin, sɨdyn, sodɨn, dasin"],
+        "word_output": ["desin, røstyn, sɨdɨn, sodun, dasɨn"]
     }
 ]

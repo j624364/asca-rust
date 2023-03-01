@@ -99,14 +99,6 @@
         }
     },
     {
-        "name": "tense",
-        "diacrit": "\u0348",
-        "prereqs": null,
-        "payload": {
-            "Tense": true
-        }
-    },
-    {
         "name": "syllabic",
         "diacrit": "\u0329",
         "prereqs": null,
@@ -120,6 +112,14 @@
         "prereqs": null,
         "payload": {
             "Syllabic": false 
+        }
+    },
+    {
+        "name": "tense",
+        "diacrit": "\u0348",
+        "prereqs": null,
+        "payload": {
+            "Tense": true
         }
     },
     {
@@ -191,6 +191,15 @@
         "payload": {
             "Back":  true,
             "High": true
+        }
+    },
+    {
+        "name": "uvularised",
+        "diacrit": "\u02b6",
+        "prereqs": null,
+        "payload": {
+            "Back":  true,
+            "High": false
         }
     },
     {

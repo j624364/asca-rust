@@ -34,13 +34,20 @@ pub enum WordSyntaxError {
     UnknownChar(String, usize),
     NoSegmentBeforeColon(String, usize),
     DiacriticBeforeSegment(String, usize),
+    DiacriticDoesNotMeetPreReqs(String, usize),
     // CharAfterTone(String, usize),
     CouldNotParse(String),
 }
 
 impl fmt::Display for WordSyntaxError {
-    fn fmt(&self, _f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        todo!()
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            WordSyntaxError::UnknownChar(_, _)                 => writeln!(f,"Uknown Char"),
+            WordSyntaxError::NoSegmentBeforeColon(_, _)        => writeln!(f,"NoSegmentBeforeColon"),
+            WordSyntaxError::DiacriticBeforeSegment(_, _)      => writeln!(f,"DiacriticBeforeSegment"),
+            WordSyntaxError::DiacriticDoesNotMeetPreReqs(_, _) => writeln!(f,"DiacriticDoesNotMeetPreReqs"),
+            WordSyntaxError::CouldNotParse(_)                  => writeln!(f,"CouldNotParse"),
+        }
     }
 }
 
