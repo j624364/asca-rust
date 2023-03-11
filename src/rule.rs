@@ -6,7 +6,9 @@ use std::{
 use crate ::{
     parser::{Item, ParseKind, Modifiers, Supr, SegMKind, BinMod, AlphaMod}, 
     error ::RuntimeError, 
-    word  ::{Word, Segment, Syllable, StressKind, feature_to_node_mask, NodeKind}, 
+    word  ::Word, 
+    syll  ::{Syllable, StressKind},
+    seg   ::{Segment, NodeKind, feature_to_node_mask},
     lexer ::{Token, SupraType, FType}
 };
 

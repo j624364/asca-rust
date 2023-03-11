@@ -394,16 +394,9 @@ impl<'a> Lexer<'a> {
 
         let start = self.pos;
 
-        // let mut buffer: String = String::new();
-        // while self.has_more_chars() && self.curr_char().is_ascii_digit() {
-        //     buffer.push(self.curr_char());
-        //     self.advance();
-        // }
-
         let buffer = self.chop_while(|x| x.is_ascii_digit());
 
         Some(Token::new(TokenKind::Number, buffer, self.line, start, self.pos))
-
     }
 
     fn get_feature(&mut self) -> Result<Option<Token>, RuleSyntaxError> {
@@ -701,7 +694,7 @@ impl<'a> Lexer<'a> {
                     token_list.push(next_token);
                     break
                 },
-                _ => {token_list.push(next_token);}
+                _ => token_list.push(next_token)
             }
         }
         Ok(token_list)
