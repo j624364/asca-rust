@@ -4,7 +4,7 @@ use crate::{
     lexer::*, 
     rule ::*, 
     error::*, 
-    word ::Segment,
+    seg  ::Segment,
     rule ::RuleType,
     CARDINALS_MAP, 
 };
@@ -59,6 +59,7 @@ impl Supras {
     }
 }
 
+// TODO: Look into using IndexMap instead of arrays
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Modifiers {
     pub nodes: [Option<SegMKind>; NodeType::count()],

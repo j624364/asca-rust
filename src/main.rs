@@ -2,6 +2,8 @@ mod lexer;
 mod trie;
 mod parser;
 mod word;
+mod syll;
+mod seg;
 mod rule;
 mod error;
 
@@ -14,6 +16,7 @@ use lexer ::*;
 use parser::*;
 use trie  ::*;
 use word  ::*;
+use seg   ::*;
 use rule  ::*;
 use error ::*;
 
