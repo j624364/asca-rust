@@ -7,7 +7,7 @@ This repo homes the "business logic" for the applier which is to be hosted onlin
 ## Progress
 - [x] Parsing Words
 - [x] Parsing Rules
-- [] Input Matching
-- [] Environment Matching
-- [] Applying Output 
-- [] Convertion to WASM 
+- [ ] Input Matching
+- [ ] Environment Matching
+- [ ] Applying Output 
+- [ ] Convertion to WASM 
