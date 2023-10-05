@@ -1,15 +1,16 @@
 use std::{
     collections::HashMap, 
-    fmt, cmp::max, cell::RefCell
+    cell::RefCell,
+    cmp ::max, 
+    fmt, 
 };
 
-use crate ::{
-    parser::{Item, ParseKind, Modifiers, Supr, SegMKind, BinMod, AlphaMod}, 
-    error ::RuntimeError, 
-    word  ::Word, 
-    syll  ::{Syllable, StressKind},
-    seg   ::{Segment, NodeKind, feature_to_node_mask},
-    lexer ::{Token, SupraType, FType}
+use crate   :: {
+    parser  ::{Item, Supr}, 
+    error   :: RuleRuntimeError, 
+    word    :: Word, 
+    seg     :: NodeKind,
+    subrule :: SubRule
 };
 
 #[derive(Debug, Copy, Clone, PartialEq, Eq)]
@@ -21,23 +22,6 @@ pub enum RuleType {
     Insertion,
 }
 
-pub struct Match {
-    pub start: usize,
-    pub end  : usize
-}
-
-impl Match {
-    pub fn new(start: usize, end: usize) -> Self {
-        Self {start, end}
-    }
-}
-
-// struct BacktrackState {
-//     can_backtrack: bool,
-//     state: Item,
-//     consumptions: Option<usize>
-// }
-
 #[derive(Debug)]
 pub enum Alpha {
     Node(NodeKind, u8),
@@ -46,12 +30,7 @@ pub enum Alpha {
 }
 
 impl Alpha {
-    
-
-    /// Returns `true` if the alpha is [`Feature`].
-    ///
-    /// [`Feature`]: Alpha::Feature
-    #[must_use]
+    /// Returns `true` if the alpha is `Feature`.
     pub fn is_feature(&self) -> bool {
         matches!(self, Self::Feature(..))
     }
@@ -65,412 +44,422 @@ impl Alpha {
     }
 }
 
-#[derive(Debug)]
-pub struct SubRule {
-    input    : Vec<Item>,
-    output   : Vec<Item>,
-    context  : Option<Item>,         
-    except   : Option<Item>,
-    rule_type: RuleType, // RuleType,
-    variables: RefCell<HashMap<usize, Segment>>,
-    alphas: RefCell<HashMap<char, Alpha>> 
-}
+// pub struct Capture {
+//     input: Vec<Item>,
+//     state: ,
+// }
 
-impl SubRule {
-    fn apply(&self, word: Word) -> Result<Word, RuntimeError> {
-        // find input, if no match early return
-        // match except left/right, if no match early return
-        // match context left/right, if no match early return
-        // apply
-        // syllable re-match/repair
-        //
-        // let Some((match_pos, match_len)) = self.match_input(&word)? else {
-        //     return Ok(word)
-        // };
-
-        match self.rule_type {
-            RuleType::Substitution  => {/* input>env>output */},
-            RuleType::Metathesis    => {/* skip calc output */},
-            RuleType::Deletion      => {/* skip calc output */},
-            RuleType::Insertion     => {/* skip match input */},
-        }
-
-        let res = self.match_input_at(&word, 0)?;
-
-        if let Some(m) = res {
-            println!("{}", word.render().unwrap());
-            println!("Match! {}:{}", m.start, m.end)
-        } else {
-            println!("{}", word.render().unwrap());
-            println!("No match")
-        }
-
-        todo!()
-    }
-
-    // fn match_input(&mut self, word: &Word) -> Result<Option<(usize, usize)>, RuntimeError> {
-    //     assert!(!self.input.is_empty());
-    //     assert!(!word.segments.is_empty());
-    //
-    //     let mut match_pos = 0usize;
-    //     let mut matched = false;
-    //     let max_match_pos = word.syllables.len() - 1;
-    //     
-    //     while !matched && match_pos < max_match_pos {
-    //         let (matched, match_length, _) = self.match_x(word, match_pos, None)?;
-    //         if matched {
-    //             return Ok(Some((match_pos, match_length)))
-    //         }
-    //         match_pos += 1;
-    //     }
-    //     Ok(None)
-    // }
-
-    // fn match_x(&mut self, word: &Word, match_pos: usize, match_length: usize) -> Result<(bool, usize, usize), RuntimeError> {
-    //     todo!();
-    //     if match_pos == word.segments.len() - 1 {
-    //         return Ok(Some((true, match_length, None)))
-    //     }
-    //
-    //     for 
-    // }
-
-    // NOTE: Only returns first match from start index
-    // may have to check `match.end` > 'segs.length' and then, after applying, start word from end instead of 0
-    fn match_input_at(&self, word: &Word, start_index: usize) -> Result<Option<Match>, RuntimeError> {
-        let mut cur_index = start_index;
-        let mut begin = None;
-        // let mut end = None;
-        // let mut states = states.iter();
-        let mut state_index = 0;
-        // let mut state = self.input[state_index].clone();
-
-        while cur_index <= word.seg_count() {
-            let mtch = self.match_input_item(word, &mut state_index, &mut cur_index)?;
-            // println!("{} : {} {} {}", word.segments[cur_index].get_as_grapheme().unwrap(),  mtch, seg_adv, stt_adv);
-            if mtch {
-                if begin.is_none() {
-                    begin = Some(cur_index); // TODO: This won't work if we jump i.e. if we match syllable
-                }
-                
-                if state_index >= self.input.len() - 1 {
-                    return Ok(Some(Match::new(begin.unwrap(), cur_index)))
-                }
-                // let Some(s) = states.next() else {
-                //     return Ok(Some(Match::new(begin.unwrap(), cur_index)))
-                // };
-                // if stt_adv {
-                //     state_index += 1;
-                //     state = self.input[state_index].clone();
-                // }
-                // TODO: if Ellipsis or Optional we need to NOT advance state until we no longer match, at which point we backtrack
-                // `...` is the same os Optional: (AnySegment, 0)
-                // or we could check next state -> if no match apply ... else apply next states
-
-                // if seg_adv {
-                //     cur_index+=1; 
-                // }
-                continue;           
-            }                   
-
-            if begin.is_none() {
-                cur_index+=1;
-                continue;
-            } else {
-                cur_index = begin.unwrap() + 1; // TODO: won't work for backtracking
-                state_index = 0;
-                // state = self.input[start_index].clone();
-                begin = None;
-            }
-        }
-
-        if begin.is_none() {
-            return Ok(None)
-        }
-
-        if let ParseKind::WordBound | ParseKind::SyllBound = self.input.last().expect("Input is empty").kind {
-            Ok(Some(Match::new(begin.unwrap(), word.seg_count())))
-        } else {
-            Ok(None)
-        }        
-    }
-
-    // TODO: These could be compressed
-    fn match_input_item(&self, word: &Word, state_index: &mut usize, seg_index: &mut usize) -> Result<bool, RuntimeError> {
-        // let seg = word.segments[seg_index];
-        let state = self.input[*state_index].clone();
-        match &state.kind {
-            ParseKind::Variable(vt, m) => if self.match_var(vt, m, word, *seg_index)? {
-                *seg_index += 1;
-                *state_index += 1;
-                Ok(true)
-            } else  {
-                Ok(false)
-            },
-            ParseKind::Ipa(s, m) => if self.match_ipa(s, m, word, *seg_index)? {
-                *seg_index += 1;
-                *state_index += 1;
-                Ok(true)
-            } else {
-                Ok(false)
-            },
-            ParseKind::Matrix(m, v) => if self.match_matrix(m, v, word, *seg_index)? {
-                *seg_index += 1;
-                *state_index += 1;
-                Ok(true)
-            } else {
-                Ok(false)
-            },
-            ParseKind::Set(s) => if self.match_set(s, word, *seg_index)? {
-                *seg_index += 1;
-                *state_index += 1;
-                Ok(true)
-            } else {
-                Ok(false)
-            },
-            ParseKind::SyllBound => if self.match_syll_bound(word, *seg_index) {
-                // NOTE: we don't want to advance the segment here
-                *state_index += 1;
-                Ok(true)
-            } else {
-                Ok(false)
-            },  
-            ParseKind::Syllable(s, t) => if self.match_syll(s, t, word, seg_index)? {
-                // NOTE: currently match_syll() increments moves seg_index to end of the current syllable
-                // we must increment here to begin at the start of the next syllable
-                *seg_index += 1;
-                *state_index += 1;
-                Ok(true)
-            } else {
-                Ok(false)
-            },
-            ParseKind::Ellipsis =>  if self.match_ellipsis(word, seg_index, &self.input, state_index)? {
-                // NOTE: until match_muliple is implemented '...' will work like '.' in Regex
-                // '...' should really work akin to '.+?' in Regex, that is, a lazy-match of one-or-more elements
-                *seg_index += 1;
-                *state_index += 1;
-                Ok(true)
-            } else {
-                Ok(false)
-            },            
-            ParseKind::Optional(opt_states, match_min, match_max) => if self.match_optionals(word, seg_index, opt_states, *match_min, *match_max)? {
-                todo!()
-            } else {
-                Ok(false)
-            }, 
-            _ => unreachable!(),                        
-        }
-    }
-
-    fn match_optionals(&self, word: &Word, seg_index: &mut usize, states: &[Item], match_min: usize, match_max: usize) -> Result<bool, RuntimeError> {
-        // will work like regex (){min, max} but lazy
-        let max = if match_max == 0 {None} else{ Some(match_max)};
-        self.match_multiple(word, seg_index,  states, &mut 0, 0, max)
-        // may have to 
-
-    }
-
-    fn match_ellipsis(&self, word: &Word, seg_index: &mut usize, states: &[Item], state_index: &mut usize) -> Result<bool, RuntimeError> {
-        self.match_multiple(word, seg_index, states, state_index, 0, None)
-    }
-
-    #[allow(unused)]
-    fn match_multiple(&self, word: &Word, seg_index: &mut usize,  states: &[Item], state_index: &mut usize, match_min: usize, match_max: Option<usize>) -> Result<bool, RuntimeError> {
-        
-        let back_state = *state_index;
-        let back_seg = *seg_index;
-        
-        // match initial min
-
-        if *state_index < self.input.len() && *seg_index < word.segments.len() {
-            todo!()
-
-            // try match rest
-            // if no match 
-            //     if less than match_min then return false
-
-            //     state = back_state
-            //     index = back_index+1
-            //     continue until match_max ?
-            // else
-            // return true
-        }
-        
-        Ok(false)
-    }
-
-    fn match_syll(&self, stress: &Option<Supr>, tone: &Option<String>, word: &Word, seg_index: &mut usize) -> Result<bool, RuntimeError> {
-        // checks current segment is at start of syll
-        // matches stress and tone
-        // jumps to end of syllable if match
-        if !word.is_syll_initial(*seg_index) {
-            let curr_syll_index = word.get_syll_index_from_seg_index(*seg_index);
-            let curr_syll = word.get_syll_at(curr_syll_index).unwrap();
-
-            if let Some(s) = stress.as_ref() {
-                if !self.match_stress(s, &curr_syll) {
-                    return Ok(false)
-                }
-            }
-
-            if let Some(t) = tone.as_ref() {
-                if !self.match_tone(t, &curr_syll) {
-                    return Ok(false)
-                }
-            }
-
-            *seg_index = curr_syll.end; // NOTE: this is only correct if we advance seg_index after match in `match_input_at`
-
-            Ok(true)
-        } else {
-            Ok(false)
-        }
-    }
-
-    fn match_stress(&self, stress: &Supr, syll: &Syllable) -> bool {
-        match stress.kind {
-            // ±stress (+ matches prim and sec, - matches unstressed)
-            SupraType::Stress => match stress.modifier {
-                SegMKind::Binary(b) => match b {
-                    BinMod::Negative => syll.stress == StressKind::Unstressed,
-                    BinMod::Positive => syll.stress != StressKind::Unstressed,
-                },
-                SegMKind::Alpha(_) => todo!(),
-            },
-            // ±secstress (+ matches sec, - matches prim and unstressed)
-            SupraType::SecStress => match stress.modifier {
-                SegMKind::Binary(b) => match b {
-                    BinMod::Negative => syll.stress != StressKind::Secondary,
-                    BinMod::Positive => syll.stress == StressKind::Secondary,
-                },
-                SegMKind::Alpha(_) => todo!(),
-            },
-            _ => unreachable!(),
-        }
-    }
-
-    fn match_tone(&self, tone: &str, syll: &Syllable) -> bool {        
-        tone == syll.tone
-    }
-
-    fn match_syll_bound(&self, word: &Word, seg_index: usize) -> bool {
-        // NOTE: matches for boundary BEFORE current segment
-        word.is_syll_initial(seg_index)
-    }
-
-    fn match_ipa(&self, s: &Segment, mods: &Option<Modifiers>, word:& Word, seg_index: usize) -> Result<bool, RuntimeError>{
-        let seg = word.get_seg_at(seg_index).unwrap();
-        if mods.is_none() {
-            Ok(*s == seg)
-        } else {
-            todo!("Need to compare modifiers")  // TODO: compare modifiers
-        }
-    }
-
-    fn match_set(&self, set: &[Item], word:& Word, seg_index: usize) -> Result<bool, RuntimeError> {
-        for s in set {
-            match &s.kind {
-                ParseKind::Variable(vt, m) => return self.match_var(vt, m, word, seg_index),
-                ParseKind::Ipa(s, m) => return self.match_ipa(s, m, word, seg_index),
-                ParseKind::Matrix(m, v) => return self.match_matrix(m, v, word, seg_index),
-                _ => unreachable!(),
-            }
-        }
-        Ok(false)
-    }
-
-    fn match_var(&self, vt: &Token, mods: &Option<Modifiers>, word: &Word, seg_index: usize) -> Result<bool, RuntimeError> {
-        // let seg = word.segments[seg_index];
-        if let Some(var) = self.variables.borrow_mut().get(&vt.value.parse::<usize>().expect("")) {
-            self.match_ipa(var, mods, word, seg_index)
-        } else {
-            Err(RuntimeError::UnknownVariable(vt.clone()))
-        }
-
-    }
-
-    fn match_matrix(&self, mods: &Modifiers, var: &Option<usize>, word: &Word, seg_index: usize) -> Result<bool, RuntimeError> {
-        if var.is_none() {
-            self.match_modifiers(mods, word, seg_index)
-        } else if self.match_modifiers(mods, word, seg_index)? {
-            self.variables.borrow_mut().insert(var.unwrap(), word.get_seg_at(seg_index).unwrap());
-            Ok(true)
-        } else {
-            Ok(false)
-        }
-        
-    }
-
-    fn match_modifiers(&self, mods: &Modifiers, word: &Word, seg_index: usize) -> Result<bool, RuntimeError> {
-        //loop through mods
-        // if alpha, check alphaMap
-            // if not there, insert and return true
-            // else, match against Map
-        // if binary
-            // match
-
-        //TODO: do mods.nodes and mods.supr
-
-        let seg = word.segments[seg_index];
-
-        for (i, m) in mods.feats.iter().enumerate() {
-            if !self.match_feat_mod(m, i, seg)? {
-                return Ok(false);
-            }
-        }
-        Ok(true)
-    }
-
-    fn match_feat_mod(&self, md: &Option<SegMKind>, feat_index: usize, seg: Segment) -> Result<bool, RuntimeError> {
-        if let Some(kind) = md { 
-            let (node, mask) = feature_to_node_mask(FType::from_usize(feat_index));
-            return self.match_seg_kind(kind, seg, node, mask)
-
-        }
-        Ok(true)
-    }
-
-    fn match_seg_kind(&self, kind: &SegMKind, seg: Segment, node: NodeKind, mask: u8) -> Result<bool, RuntimeError> {
-        match kind {
-            SegMKind::Binary(bt) => match bt {
-                BinMod::Negative => Ok(seg.feat_match(node, mask, false)),
-                BinMod::Positive => Ok(seg.feat_match(node, mask, true)),
-            },
-            SegMKind::Alpha(am) => match am {
-                AlphaMod::Alpha(a) => {
-                    let x = self.alphas.borrow().get(a);
-                    if let Some(alph) = self.alphas.borrow().get(a) {
-                        if let Some((n, m, pos)) = alph.as_feature() {
-                            return Ok(seg.feat_match(*n, *m, *pos))
-                        } else {
-                            todo!("Err")
-                        }
-                    } 
-                    self.alphas.borrow_mut().insert(*a, Alpha::Feature(node, mask, true)); 
-                    Ok(true)
-                    
-                },
-                AlphaMod::InversAlpha(ia) => {
-                    if let Some(alph) = self.alphas.borrow().get(ia) {
-                        if let Some((n, m, pos)) = alph.as_feature() {
-                            Ok(seg.feat_match(*n, *m, !pos)) // TODO: test this
-                        } else {
-                            todo!("Err")
-                        }
-                    } else if let Some(f) = seg.get_feat(node, mask) {
-                        self.alphas.borrow_mut().insert(*ia, Alpha::Feature(node, mask, f != 0));
-                        Ok(true)
-                    } else {
-                        Err(todo!())
-                        // return err
-                    }
-                    
-                },
-            },
-        }
-    }
-
-}
+// #[derive(Debug)]
+// pub struct SubRule {
+//     input    : Vec<Item>,
+//     output   : Vec<Item>,
+//     context  : Option<Item>,         
+//     except   : Option<Item>,
+//     rule_type: RuleType,
+//     variables: RefCell<HashMap<usize, Segment>>,
+//     alphas   : RefCell<HashMap<char, Alpha>> 
+// }
+//
+// impl SubRule {
+//     fn apply(&self, word: Word) -> Result<Word, RuleRuntimeError> {
+//         // find input, if no match early return
+//         // match except left/right, if no match early return
+//         // match context left/right, if no match early return
+//         // apply
+//         // syllable re-match/repair
+//         //
+//         // let Some((match_pos, match_len)) = self.match_input(&word)? else {
+//         //     return Ok(word)
+//         // };
+//
+//         match self.rule_type {
+//             RuleType::Substitution  => {/* input>env>output */},
+//             RuleType::Metathesis    => {/* skip calc output */},
+//             RuleType::Deletion      => {/* skip calc output */},
+//             RuleType::Insertion     => {/* skip match input */},
+//         }
+//
+//         let res = self.match_input_at(&word, 0)?;
+//
+//         if !res.is_empty() {
+//             println!("{}", word.render().unwrap());
+//             println!("Match! {:?}", res);
+//         } else {
+//             println!("{}", word.render().unwrap());
+//             println!("No match");
+//         }
+//
+//         todo!()
+//     }
+//
+//     // fn match_input(&mut self, word: &Word) -> Result<Option<(usize, usize)>, RuntimeError> {
+//     //     assert!(!self.input.is_empty());
+//     //     assert!(!word.segments.is_empty());
+//     //
+//     //     let mut match_pos = 0usize;
+//     //     let mut matched = false;
+//     //     let max_match_pos = word.syllables.len() - 1;
+//     //     
+//     //     while !matched && match_pos < max_match_pos {
+//     //         let (matched, match_length, _) = self.match_x(word, match_pos, None)?;
+//     //         if matched {
+//     //             return Ok(Some((match_pos, match_length)))
+//     //         }
+//     //         match_pos += 1;
+//     //     }
+//     //     Ok(None)
+//     // }
+//
+//     // fn match_x(&mut self, word: &Word, match_pos: usize, match_length: usize) -> Result<(bool, usize, usize), RuntimeError> {
+//     //     todo!();
+//     //     if match_pos == word.segments.len() - 1 {
+//     //         return Ok(Some((true, match_length, None)))
+//     //     }
+//     //
+//     //     for 
+//     // }
+//
+//     // NOTE: Only returns first match from start index
+//     // may have to check `match.end` > 'segs.length' and then, after applying, start word from end instead of 0
+//     fn match_input_at(&self, word: &Word, start_index: usize) -> Result<Vec<MatchElement>, RuleRuntimeError> {
+//         let mut cur_index = start_index;
+//         let mut begin = None;
+//         // let mut end = None;
+//         // let mut states = states.iter();
+//         let mut state_index = 0;
+//         // let mut state = self.input[state_index].clone();
+//
+//         let mut captures: Vec<_> = Vec::new();
+//
+//         while cur_index <= word.seg_count() {
+//             let mtch = self.match_input_item(word, &mut cur_index, &self.input, &mut state_index)?;
+//             // println!("{} : {} {} {}", word.segments[cur_index].get_as_grapheme().unwrap(),  mtch, seg_adv, stt_adv);
+//             if let Some(m) = mtch {
+//                 if begin.is_none() {
+//                     begin = Some(cur_index); // TODO: This won't work if we jump i.e. if we match syllable
+//                 }
+//
+//                 captures.push(m);
+//             
+//                 if state_index > self.input.len() - 1 {
+//                     return Ok(captures) // Ok((Match::new(begin.unwrap(), cur_index)))
+//                 }
+//                 // let Some(s) = states.next() else {
+//                 //     return Ok(Some(Match::new(begin.unwrap(), cur_index)))
+//                 // };
+//                 // if stt_adv {
+//                 //     state_index += 1;
+//                 //     state = self.input[state_index].clone();
+//                 // }
+//                 // TODO: if Ellipsis or Optional we need to NOT advance state until we no longer match, at which point we backtrack
+//                 // `...` is the same os Optional: (AnySegment, 0)
+//                 // or we could check next state -> if no match apply ... else apply next states
+//
+//                 // if seg_adv {
+//                 //     cur_index+=1; 
+//                 // }
+//                 continue;           
+//             }                   
+//
+//             if captures.is_empty() {
+//                 cur_index+=1;
+//                 continue;
+//             } else {
+//                 cur_index = begin.unwrap() + 1;
+//                 state_index = 0;
+//                 // state = self.input[start_index].clone();
+//                 begin = None;
+//             }
+//         }
+//
+//         if begin.is_none() {
+//             return Ok(vec![])
+//         } if let ParseKind::WordBound | ParseKind::SyllBound = self.input.last().expect("Input is empty").kind {
+//             // Ok(Some(Match::new(begin.unwrap(), word.seg_count())))
+//             todo!()
+//         } else {
+//             Ok(vec![])
+//         }        
+//     }
+//
+//     // TODO: These could be compressed
+//     fn match_input_item(&self, word: &Word, seg_index: &mut usize, states: &[Item], state_index: &mut usize) -> Result<Option<MatchElement>, RuleRuntimeError> {
+//         // let seg = word.segments[seg_index];
+//         let state = states[*state_index].clone();
+//         match &state.kind {
+//             ParseKind::Variable(vt, m) => if self.match_var(vt, m, word, *seg_index)? {
+//                 *seg_index += 1;
+//                 *state_index += 1;
+//                 Ok(Some(MatchElement::Segment(seg_index.clone() - 1))) // TODO(girv): maybe have a `variable` varient
+//             } else  {
+//                 Ok(None)
+//             },
+//             ParseKind::Ipa(s, m) => if self.match_ipa(s, m, word, *seg_index)? {
+//                 *seg_index += 1;
+//                 *state_index += 1;
+//                 Ok(Some(MatchElement::Segment(seg_index.clone() - 1)))
+//             } else {
+//                 Ok(None)
+//             },
+//             ParseKind::Matrix(m, v) => if self.match_matrix(m, v, word, *seg_index)? {
+//                 *seg_index += 1;
+//                 *state_index += 1;
+//                 Ok(Some(MatchElement::Segment(seg_index.clone() - 1)))
+//             } else {
+//                 Ok(None)
+//             },
+//             ParseKind::Set(s) => if self.match_set(s, word, *seg_index)? {
+//                 *seg_index += 1;
+//                 *state_index += 1;
+//                 Ok(Some(todo!())) // TODO(girv): Set item can be segment, syll, or boundary
+//             } else {
+//                 Ok(None)
+//             },
+//             ParseKind::SyllBound => if self.match_syll_bound(word, *seg_index) {
+//                 // NOTE: we don't want to advance the segment here
+//                 *state_index += 1;
+//                 Ok(Some(MatchElement::SyllBound(seg_index.clone())))
+//             } else {
+//                 Ok(None)
+//             },  
+//             ParseKind::Syllable(s, t) => if self.match_syll(s, t, word, seg_index)? {
+//                 // NOTE(girv): currently match_syll() increments moves seg_index to end of the current syllable
+//                 // we must increment here to begin at the start of the next syllable
+//
+//                 let asdf = word.get_syll_index_from_seg_index(seg_index.clone());
+//
+//                 *seg_index += 1;
+//                 *state_index += 1;
+//                 Ok(Some(MatchElement::Syllable(asdf)))
+//             } else {
+//                 Ok(None)
+//             },
+//             ParseKind::Ellipsis =>  if self.match_ellipsis(word, seg_index, states, state_index)? {
+//            
+//                 *seg_index += 1;
+//                 *state_index += 1;
+//                 Ok(Some(vec![]))
+//             } else {
+//                 Ok(None)
+//             },            
+//             ParseKind::Optional(opt_states, match_min, match_max) => if self.match_optionals(word, seg_index, opt_states, *match_min, *match_max)? {
+//                 todo!()
+//             } else {
+//                 Ok(false)
+//             }, 
+//             _ => unreachable!()
+//         }
+//     }
+//
+//     fn match_optionals(&self, word: &Word, seg_index: &mut usize, opt_states: &[Item], match_min: usize, match_max: usize) -> Result<bool, RuleRuntimeError> {
+//         // should work like regex (...){min, max}? 
+//         let max = if match_max == 0 {None} else{ Some(match_max)};
+//         self.match_multiple(word, seg_index,  opt_states, &mut 0, match_min, max)
+//     }
+//
+//     fn match_ellipsis(&self, word: &Word, seg_index: &mut usize, states: &[Item], state_index: &mut usize) -> Result<bool, RuleRuntimeError> {
+//         // should work akin to '.+?' in Regex, that is, a lazy-match of one-or-more elements
+//         self.match_multiple(word, seg_index, states, state_index, 1, None)
+//     }
+//
+//     #[allow(unused)]
+//     fn match_multiple(&self, word: &Word, seg_index: &mut usize,  states: &[Item], state_index: &mut usize, match_min: usize, match_max: Option<usize>) -> Result<bool, RuleRuntimeError> {
+//    
+//         let back_state = *state_index;
+//         let back_seg = *seg_index;
+//    
+//         // match `min` times
+//         let mut i = 0;
+//         // TODO: Check for possible off-by-one error
+//         while i < match_min {
+//             // TODO: Test for off-by-one errors
+//             if *state_index >= states.len() || *seg_index >= word.segments.len() || !self.match_input_item(word, seg_index, states, state_index)?.is_some() {
+//                 *seg_index = back_seg; // this might not be necessary if the value is never read after this
+//                 return Ok(false)
+//             }
+//             i += 1;
+//         }
+//
+//         if *state_index < self.input.len() && *seg_index < word.segments.len() {
+//             todo!()
+//
+//             // try match rest
+//             // if no match 
+//             //     if less than match_min then return false
+//
+//             //     state = back_state
+//             //     index = back_index+1
+//             //     continue until match_max ?
+//             // else
+//             // return true
+//         } 
+//         Ok(false)
+//     }
+//
+//     fn match_syll(&self, stress: &Option<Supr>, tone: &Option<String>, word: &Word, seg_index: &mut usize) -> Result<bool, RuleRuntimeError> {
+//         // checks current segment is at start of syll
+//         // matches stress and tone
+//         // jumps to end of syllable if match
+//         if word.seg_is_syll_initial(*seg_index) {
+//             let curr_syll_index = word.get_syll_index_from_seg_index(*seg_index);
+//             let curr_syll = word.get_syll_at(curr_syll_index).unwrap();
+//
+//             if let Some(s) = stress.as_ref() {
+//                 if !self.match_stress(s, &curr_syll) {
+//                     return Ok(false)
+//                 }
+//             }
+//
+//             if let Some(t) = tone.as_ref() {
+//                 if !self.match_tone(t, &curr_syll) {
+//                     return Ok(false)
+//                 }
+//             }
+//             *seg_index = curr_syll.end; // NOTE: this is only correct if we advance seg_index after match in `match_input_at`
+//
+//             Ok(true)
+//         } else {
+//             Ok(false) 
+//         }
+//     }
+//
+//     fn match_stress(&self, stress: &Supr, syll: &Syllable) -> bool {
+//         match stress.kind {
+//             // ±stress (+ matches prim and sec, - matches unstressed)
+//             SupraType::Stress => match stress.modifier {
+//                 SegMKind::Binary(b) => match b {
+//                     BinMod::Negative => syll.stress == StressKind::Unstressed,
+//                     BinMod::Positive => syll.stress != StressKind::Unstressed,
+//                 },
+//                 SegMKind::Alpha(_) => todo!(),
+//             },
+//             // ±secstress (+ matches sec, - matches prim and unstressed)
+//             SupraType::SecStress => match stress.modifier {
+//                 SegMKind::Binary(b) => match b {
+//                     BinMod::Negative => syll.stress != StressKind::Secondary,
+//                     BinMod::Positive => syll.stress == StressKind::Secondary,
+//                 },
+//                 SegMKind::Alpha(_) => todo!(),
+//             },
+//             _ => unreachable!(),
+//         }
+//     }
+//
+//     fn match_tone(&self, tone: &str, syll: &Syllable) -> bool {        
+//         tone == syll.tone
+//     }
+//
+//     fn match_syll_bound(&self, word: &Word, seg_index: usize) -> bool {
+//         // NOTE: matches for boundary BEFORE current segment
+//         word.seg_is_syll_initial(seg_index)
+//     }
+//
+//     fn match_ipa(&self, s: &Segment, mods: &Option<Modifiers>, word:&Word, seg_index: usize) -> Result<bool, RuleRuntimeError>{
+//         let seg = word.get_seg_at(seg_index).unwrap();
+//         if mods.is_none() {
+//             Ok(*s == seg)
+//         } else {
+//             todo!("Need to compare modifiers")  // TODO: compare modifiers
+//         }
+//     }
+//
+//     fn match_set(&self, set: &[Item], word:& Word, seg_index: usize) -> Result<bool, RuleRuntimeError> {
+//         for s in set {
+//             match &s.kind {
+//                 ParseKind::Variable(vt, m) => return self.match_var(vt, m, word, seg_index),
+//                 ParseKind::Ipa(s, m) => return self.match_ipa(s, m, word, seg_index),
+//                 ParseKind::Matrix(m, v) => return self.match_matrix(m, v, word, seg_index),
+//                 _ => unreachable!(),
+//             }
+//         }
+//         Ok(false)
+//     }
+//
+//     fn match_var(&self, vt: &Token, mods: &Option<Modifiers>, word: &Word, seg_index: usize) -> Result<bool, RuleRuntimeError> {
+//         // let seg = word.segments[seg_index];
+//         if let Some(var) = self.variables.borrow_mut().get(&vt.value.parse::<usize>().expect("")) {
+//             self.match_ipa(var, mods, word, seg_index)
+//         } else {
+//             Err(RuleRuntimeError::UnknownVariable(vt.clone()))
+//         }
+//     }
+//
+//     fn match_matrix(&self, mods: &Modifiers, var: &Option<usize>, word: &Word, seg_index: usize) -> Result<bool, RuleRuntimeError> {
+//         if var.is_none() {
+//             self.match_modifiers(mods, word, seg_index)
+//         } else if self.match_modifiers(mods, word, seg_index)? {
+//             self.variables.borrow_mut().insert(var.unwrap(), word.get_seg_at(seg_index).unwrap());
+//             Ok(true)
+//         } else {
+//             Ok(false)
+//         } 
+//     }
+//
+//     fn match_modifiers(&self, mods: &Modifiers, word: &Word, seg_index: usize) -> Result<bool, RuleRuntimeError> {
+//         //loop through mods
+//         // if alpha, check alphaMap
+//             // if not there, insert and return true
+//             // else, match against Map
+//         // if binary
+//             // match
+//         //TODO: do mods.nodes and mods.supr
+//
+//         let seg = word.segments[seg_index];
+//
+//         for (i, m) in mods.feats.iter().enumerate() {
+//             if !self.match_feat_mod(m, i, seg)? {
+//                 return Ok(false);
+//             }
+//         }
+//         Ok(true)
+//     }
+//
+//     fn match_feat_mod(&self, md: &Option<SegMKind>, feat_index: usize, seg: Segment) -> Result<bool, RuleRuntimeError> {
+//         if let Some(kind) = md { 
+//             let (node, mask) = feature_to_node_mask(FType::from_usize(feat_index));
+//             return self.match_seg_kind(kind, seg, node, mask)
+//         }
+//         Ok(true)
+//     }
+//
+//     fn match_seg_kind(&self, kind: &SegMKind, seg: Segment, node: NodeKind, mask: u8) -> Result<bool, RuleRuntimeError> {
+//         match kind {
+//             SegMKind::Binary(bt) => match bt {
+//                 BinMod::Negative => Ok(seg.feat_match(node, mask, false)),
+//                 BinMod::Positive => Ok(seg.feat_match(node, mask, true)),
+//             },
+//             SegMKind::Alpha(am) => match am {
+//                 AlphaMod::Alpha(a) => {
+//                     let x = self.alphas.borrow().get(a);
+//                     if let Some(alph) = self.alphas.borrow().get(a) {
+//                         if let Some((n, m, pos)) = alph.as_feature() {
+//                             return Ok(seg.feat_match(*n, *m, *pos))
+//                         } else {
+//                             todo!("Err")
+//                         }
+//                     } 
+//                     self.alphas.borrow_mut().insert(*a, Alpha::Feature(node, mask, true)); 
+//                     Ok(true)             
+//                 },
+//                 AlphaMod::InversAlpha(ia) => {
+//                     if let Some(alph) = self.alphas.borrow().get(ia) {
+//                         if let Some((n, m, pos)) = alph.as_feature() {
+//                             Ok(seg.feat_match(*n, *m, !pos)) // TODO: test this
+//                         } else {
+//                             todo!("Err")
+//                         }
+//                     } else if let Some(f) = seg.get_feat(node, mask) {
+//                         self.alphas.borrow_mut().insert(*ia, Alpha::Feature(node, mask, f != 0));
+//                         Ok(true)
+//                     } else {
+//                         Err(todo!())
+//                         // return err
+//                     }            
+//                 },
+//             },
+//         }
+//     }
+// }
 
 pub struct Rule {
     pub input:     Vec<Vec<Item>>,    // to support multirules
@@ -485,16 +474,16 @@ impl Rule {
         Self { input: i, output: o, context: c, except: e , rule_type: r}
     }
 
-    pub fn split_into_subrules(&self) -> Result<Vec<SubRule>, RuntimeError> {
+    pub fn split_into_subrules(&self) -> Result<Vec<SubRule>, RuleRuntimeError> {
         // check that input, output, context, except are the same length
         // and if any are not, that they are length == 1
         // context and except can be length == 0
         let max = max(self.input.len(), max(self.output.len(), max(self.context.len(), self.except.len())));
 
-        if self.input.len()   != max && self.input.len()   != 1 { return Err(RuntimeError::UnbalancedRule) }
-        if self.output.len()  != max && self.output.len()  != 1 { return Err(RuntimeError::UnbalancedRule) }
-        if self.context.len() != max && self.context.len() != 1 && !self.context.is_empty() { return Err(RuntimeError::UnbalancedRule) }
-        if self.except.len()  != max && self.except.len()  != 1 && !self.except.is_empty() { return Err(RuntimeError::UnbalancedRule) }
+        if self.input.len()   != max && self.input.len()   != 1 { return Err(RuleRuntimeError::UnbalancedRule) }
+        if self.output.len()  != max && self.output.len()  != 1 { return Err(RuleRuntimeError::UnbalancedRule) }
+        if self.context.len() != max && self.context.len() != 1 && !self.context.is_empty() { return Err(RuleRuntimeError::UnbalancedRule) }
+        if self.except.len()  != max && self.except.len()  != 1 && !self.except.is_empty() { return Err(RuleRuntimeError::UnbalancedRule) }
 
         // populate subrules, if one if length==1 then it's value is duplicated to rest of subrules
         let mut sub_vec = Vec::new();
@@ -511,7 +500,7 @@ impl Rule {
         Ok(sub_vec)
     }
 
-    pub fn apply(&self, word: Word /*, trace: bool*/) -> Result<Word, RuntimeError> /* return Word */{
+    pub fn apply(&self, word: Word /*, trace: bool*/) -> Result<Word, RuleRuntimeError> /* return Word */{
         
         let sub_rules = self.split_into_subrules()?;
         
@@ -638,7 +627,6 @@ impl Rule {
 
 impl fmt::Debug for Rule {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-
         match self.rule_type {
             RuleType::Insertion     => writeln!(f, "Insertion Rule ->")?,
             // RuleType::Reduplication => writeln!(f, "Reduplication Rule ->")?,
@@ -646,31 +634,26 @@ impl fmt::Debug for Rule {
             RuleType::Metathesis    => writeln!(f, "Metathesis Rule ->")?,
             RuleType::Substitution  => writeln!(f, "Rule ->")?,
         }
-
         writeln!(f, "    Input = [")?;
         for i in self.input.iter() {
             writeln!(f, "        {i:?}")?;
         }
         writeln!(f, "    ]")?;
-
         writeln!(f, "    Output = [")?;
         for o in self.output.iter() {
             writeln!(f, "        {o:?}")?;
         }
         writeln!(f, "    ]")?;
-
         writeln!(f, "    Context = [")?;
         for c in self.context.iter() {
             writeln!(f, "        {c}")?;
         }
         writeln!(f, "    ]")?;
-
         writeln!(f, "    Exception = [")?;
         for e in self.except.iter() {
             writeln!(f, "        {e}")?;
         }
         writeln!(f, "    ]")?;
-
 
         Ok(())
     }
@@ -683,7 +666,7 @@ mod rule_tests {
     
     fn setup_rule(test_str: &str) -> Rule {
         use crate::{Lexer, Parser};
-        Parser:: new(Lexer::new(&test_str.chars().collect::<Vec<_>>(),0).get_all_tokens().unwrap(), 0).parse().unwrap()
+        Parser:: new(Lexer::new(&test_str.chars().collect::<Vec<_>>(),0).get_line().unwrap(), 0).parse().unwrap()
     }
 
     fn setup_word(test_str: &str) -> Word {
