@@ -233,7 +233,7 @@ impl Word {
     }
 
     #[allow(unused)]
-    pub fn is_syll_initial(&self, seg_index: usize) -> bool {
+    pub fn seg_is_syll_initial(&self, seg_index: usize) -> bool {
         let syll_index = self.get_syll_index_from_seg_index(seg_index);
         seg_index == self.syllables[syll_index].start
     }
