@@ -47,7 +47,7 @@ impl Supr {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub struct Supras { // TODO: does not work for [+stress, -secstress]
+pub struct Supras { // FIXME: does not work for [+stress, -secstress]
     pub stress: Option<Supr>,
     pub length: Option<Supr>,
     pub tone: Option<String>,
@@ -59,7 +59,7 @@ impl Supras {
     }
 }
 
-// TODO: Look into using IndexMap instead of arrays
+// TODO: Look into using IndexMap (or just a plain HashMap) instead of arrays
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Modifiers {
     pub nodes: [Option<SegMKind>; NodeType::count()],
@@ -91,7 +91,7 @@ pub enum ParseKind {
     Variable   (Token  , Option<Modifiers>),
     Ipa        (Segment, Option<Modifiers>),
     Matrix     (Modifiers, Option<usize>),
-    Syllable   (Option<Supr>, Option<String>), // (Stress, Tone)  TODO: does not work for [+stress, -secstress]
+    Syllable   (Option<Supr>, Option<String>), // (Stress, Tone)  FIXME: does not work for [+stress, -secstress]
     Set        (Vec<Item>),
     Optional   (Vec<Item>, usize, usize),
     Environment(Vec<Item>, Vec<Item>),
@@ -363,7 +363,7 @@ impl Parser {
             }
         }
 
-        if envs.is_empty() { return Err(RuleSyntaxError::EmptyEnv) }
+        if envs.is_empty() { return Err(RuleSyntaxError::EmptyEnv(self.line, self.token_list[self.pos].position.start)) }
 
         Ok(envs)
     }
@@ -385,7 +385,6 @@ impl Parser {
     fn join_group_with_params(&mut self, character: Item, parameters: Item) -> Item {
         let mut chr = character.kind.as_matrix().expect("\nCritical Error: 'Char' being joined with 'Parameters' is not a matrix!\nThis is a bug.").clone();
         let params = parameters.kind.as_matrix().expect("\nCritical Error: 'Parameters' being joined with 'Char' is not a matrix!\nThis is a bug.").clone(); 
-        // TODO: test this
         for (i, p) in params.nodes.iter().enumerate() {
             if p.is_none() {
                 continue
@@ -439,9 +438,9 @@ impl Parser {
 
         let mut args = Modifiers::new(); 
 
-        for (feature, value) in char_vals {
+        char_vals.into_iter().for_each(|(feature, value)| {
             args.feats[feature as usize] = Some(value)
-        }
+        });
 
 
         Ok(Item::new(ParseKind::Matrix(args, None), Position::new(self.line, chr.position.start, chr.position.end )))
@@ -477,27 +476,24 @@ impl Parser {
             if self.expect(TokenKind::RightSquare) {
                 break;
             }
-            
             if self.expect(TokenKind::Comma) {
                 continue;
             }
-            
             if self.is_feature() {
                 let (ft, mk) = self.curr_token_to_modifier();
-
                 if (
-                    ft != FeatType::Supr(SupraType::Tone) && ft != FeatType::Supr(SupraType::Stress)
+                        ft != FeatType::Supr(SupraType::Tone) 
+                     && ft != FeatType::Supr(SupraType::Stress)
                    ) && is_syll {
                     return Err(RuleSyntaxError::BadSyllableMatrix(self.curr_tkn.clone()))
                 }
-
                 match ft {
-                    FeatType::Node(t) => args.nodes[t as usize] = match mk {
+                    FeatType::Node(t)   => args.nodes[t as usize] = match mk {
                         Mods::Binary(b) => Some(SegMKind::Binary(b)),
                         Mods::Alpha(a)  => Some(SegMKind::Alpha(a)),
                         Mods::Number(_) => unreachable!(),
                     },
-                    FeatType::Feat(t) => args.feats[t as usize] = match mk {
+                    FeatType::Feat(t)   => args.feats[t as usize] = match mk {
                         Mods::Binary(b) => Some(SegMKind::Binary(b)),
                         Mods::Alpha(a)  => Some(SegMKind::Alpha(a)),
                         Mods::Number(_) => unreachable!(),
@@ -788,12 +784,13 @@ impl Parser {
         Ok(None)
     }
 
-    fn get_output_term(&mut self) -> Result<Vec<Item>, RuleSyntaxError>{ 
+    fn get_output_term(&mut self) -> Result<Vec<Item>, RuleSyntaxError> { 
         // returns list of sylls, sets, and/or segments
         let mut terms = Vec::new();
         while let Some(trm) = self.get_output_element()? {
             terms.push(trm);
         }
+
         Ok(terms)
     }
 
@@ -822,7 +819,7 @@ impl Parser {
             }
         }
         if inputs.is_empty() {
-            return Err(RuleSyntaxError::EmptyInput)
+            return Err(RuleSyntaxError::EmptyInput(self.line, self.token_list[self.pos].position.start))
         }
         Ok(inputs)
     }
@@ -844,6 +841,11 @@ impl Parser {
         // NOTE: need to add check for `+` (Duplication) if/when added
         loop {
             let x = self.get_output_term()?;
+
+            if x.is_empty() {
+                return Err(RuleSyntaxError::EmptyOutput(self.line, self.token_list[self.pos].position.start))
+            }
+
             outputs.push(x);
 
             if !self.expect(TokenKind::Comma) {
@@ -851,7 +853,7 @@ impl Parser {
             }
         }
         if outputs.is_empty() {
-            return Err(RuleSyntaxError::EmptyOutput)
+            return Err(RuleSyntaxError::EmptyOutput(self.line, self.token_list[self.pos].position.start))
         }
         Ok(outputs)
     }
@@ -939,7 +941,7 @@ mod parser_tests {
     use super::*;
     use crate::CARDINALS_MAP;
 
-    fn setup(test_str: &str) -> Vec<Token> { Lexer::new(&String::from(test_str).chars().collect::<Vec<_>>(),0).get_all_tokens().unwrap() }
+    fn setup(test_str: &str) -> Vec<Token> { Lexer::new(&String::from(test_str).chars().collect::<Vec<_>>(),0).get_line().unwrap() }
 
     #[test]
     fn test_multi_rule() {
@@ -1016,14 +1018,14 @@ mod parser_tests {
         let mut x = Modifiers::new();
         x.feats[FType::Syllabic as usize] = Some(SegMKind::Binary(BinMod::Negative));
         
-        let c = Item::new(ParseKind::Matrix(x, Some(1)), Position::new(0, 0, 1));
+        let _c = Item::new(ParseKind::Matrix(x, Some(1)), Position::new(0, 0, 1));
 
         let mut y = Modifiers::new();
         y.feats[FType::Consonantal as usize] = Some(SegMKind::Binary(BinMod::Negative));
         y.feats[FType::Sonorant as usize] = Some(SegMKind::Binary(BinMod::Positive));
         y.feats[FType::Syllabic as usize] = Some(SegMKind::Binary(BinMod::Positive));
 
-        let v = Item::new(ParseKind::Matrix(y, Some(2)), Position::new(0, 4, 5));
+        let _v = Item::new(ParseKind::Matrix(y, Some(2)), Position::new(0, 4, 5));
 
         let maybe_result = Parser:: new(setup("C=1 V=2 > 2 1 / _C"), 0).parse();
 

@@ -6,10 +6,10 @@ mod syll;
 mod seg;
 mod rule;
 mod error;
+mod subrule;
 
 use serde::Deserialize;
 use std::collections::HashMap;
-use colored::Colorize;
 use lazy_static::lazy_static;
 
 use lexer ::*;
@@ -19,6 +19,7 @@ use word  ::*;
 use seg   ::*;
 use rule  ::*;
 use error ::*;
+// use subrule::*;
 
 const CARDINALS_FILE: &str = include_str!("cardinals.json");
 const DIACRITIC_FILE: &str = include_str!("diacritics.json");
@@ -104,7 +105,10 @@ fn parse_rules(unparsed_rules: &[String]) -> Result<Vec<Rule>,RuleSyntaxError> {
     
     let mut rules: Vec<Rule> = vec![];
     for (l, r) in unparsed_rules.iter().enumerate() {
-        rules.push(Parser:: new(Lexer::new(&r.chars().collect::<Vec<_>>(), l).get_all_tokens()?, l).parse()?);
+        // FIXME(James): We are creating/dropping/reallocating the Lexer & Parser every loop
+        // unless this is optimised away by the compiler, it is a source of potential slowdown
+        // TODO(JAMES) Benchmark this
+        rules.push(Parser:: new(Lexer::new(&r.chars().collect::<Vec<_>>(), l).get_line()?, l).parse()?);
     }
 
     Ok(rules)
@@ -120,8 +124,10 @@ fn parse_words(unparsed_words: &[String]) -> Result<Vec<Word>,WordSyntaxError> {
     Ok(words)
 }
 
-fn apply_rules(rules: &[Rule], words: &[Word], is_traced: bool) -> Result<(Vec<Word>, Vec<Vec<String>>), RuntimeError> {
+fn apply_rules(rules: &[Rule], words: &[Word], is_traced: bool) -> Result<(Vec<Word>, Vec<Vec<String>>), RuleRuntimeError> {
     // TODO: work out tracing
+    // We should treat each "rule block" as one instead of treating each intermediate rule as separate
+    // This will help with tracing
     let mut transformed_words: Vec<Word> = vec![];
     let mut traced_words: Vec<Vec<String>> = vec![];
 
@@ -157,14 +163,14 @@ fn traced_word_to_string(word: Word, before: Option<&String>) -> String {
     }
 }
 
-fn words_to_string(words: &[Word]) -> Result<Vec<String>, RuntimeError> {
+fn words_to_string(words: &[Word]) -> Result<Vec<String>, WordRuntimeError> {
 
     let mut wrds_str: Vec<String> = vec![];
 
     for (i, w) in words.iter().enumerate() {
         match w.render() {
             Ok(r) => wrds_str.push(r),
-            Err((b, j)) => return Err(RuntimeError::UnknownSegment(b,i,j)),
+            Err((b, j)) => return Err(WordRuntimeError::UnknownSegment(b,i,j)),
         }
         
     }
@@ -176,6 +182,8 @@ fn run(unparsed_rules: &[String], unparsed_words: &[String], trace: bool) -> Res
     let words = parse_words(unparsed_words)?;
     let rules = parse_rules(unparsed_rules)?;
 
+    println!("{}", unparsed_rules[0]);
+
     let (res, trace_res) = apply_rules(&rules, &words, trace)?;
 
     Ok((words_to_string(&res)?, trace_res))
@@ -183,140 +191,36 @@ fn run(unparsed_rules: &[String], unparsed_words: &[String], trace: bool) -> Res
 }
 
 fn deal_with_result(res: Result<(Vec<String>, Vec<Vec<String>>), Error>, rules: &[String], words: &[String]) {
-
-    const MARG: &str = "\n    |     ";
     match res {
-        Ok(_) => todo!(),
+        Ok((output, _)) => {
+            debug_assert_eq!(output.len(), words.len());
+            for (w, o) in words.iter().zip(output.iter()) {
+                println!("{} => {}", w, o);
+            }
+        },
         Err(err) => match err {
-            // TODO: this should probably be a method of Error
-            Error::WordSyn(_) => todo!(),
-            Error::RuleSyn(rse) => {
-                use RuleSyntaxError::*;
-                print!("{}{}", "Syntax Error".bright_red().bold(), format!(": {rse}").bold());
-                match rse {
-                    OptMathError(t, _, _) | 
-                    UnknownIPA(t) | 
-                    UnknownGrouping(t) | 
-                    TooManyUnderlines(t) | 
-                    UnexpectedEol(t, _) | 
-                    ExpectedEndL(t) | 
-                    ExpectedArrow(t) | 
-                    ExpectedComma(t) | 
-                    ExpectedColon(t) | 
-                    ExpectedMatrix(t) | 
-                    ExpectedSegment(t) | 
-                    ExpectedTokenFeature(t) | 
-                    ExpectedVariable(t) | 
-                    ExpectedUnderline(t) | 
-                    ExpectedRightBracket(t) |
-                    BadSyllableMatrix(t)  => {
-                        let line = t.position.line;
-                        let start = t.position.start;
-                        let end = t.position.end;
-
-                        let arrows = " ".repeat(start) + &"^".repeat(end-start) + "\n";
-
-                        println!("{}{}{}{}",  
-                            MARG.bright_cyan().bold(), 
-                            rules[line], 
-                            MARG.bright_cyan().bold(), 
-                            arrows.bright_red().bold()
-                        )
-                    },
-                    UnknownFeature(_, line, start, end) => {
-                        let arrows = " ".repeat(start) + &"^".repeat(end-start) + "\n";
-
-                        println!("{}{}{}{}",  
-                            MARG.bright_cyan().bold(), 
-                            rules[line], 
-                            MARG.bright_cyan().bold(), 
-                            arrows.bright_red().bold()
-                        )
-
-                    },
-                    // AlreadyInitialisedVariable(_, _, _) |   
-                    InsertErr | DeleteErr | EmptyInput | 
-                    EmptyOutput | EmptyEnv => todo!(),
-
-                    UnknownCharacter  (_, line, pos) |
-                    ExpectedCharColon (_, line, pos) |
-                    ExpectedAlphabetic(_, line, pos) |
-                    ExpectedCharArrow (_, line, pos) |
-                    ExpectedCharDot   (_, line, pos) |
-                    ExpectedNumber    (_, line, pos) |
-                    OutsideBrackets   (_, line, pos) => {
-                        let arrows = " ".repeat(pos) + "^" + "\n";
-
-                        println!("{}{}{}{}",  
-                            MARG.bright_cyan().bold(), 
-                            rules[line], 
-                            MARG.bright_cyan().bold(), 
-                            arrows.bright_red().bold()
-                        )
-                    },
-                    WrongModNode  (line, pos) |
-                    WrongModTone  (line, pos) |
-                    NestedBrackets(line, pos) => {
-                        let arrows = " ".repeat(pos) + "^" + "\n";
-
-                        println!("{}{}{}{}",  
-                            MARG.bright_cyan().bold(), 
-                            rules[line], 
-                            MARG.bright_cyan().bold(), 
-                            arrows.bright_red().bold()
-                        )
-                    },
-                }
-            },
-            Error::Runtime(re) => {
-                use RuntimeError::*;
-                print!("{}{}", "Runtime Error".bright_red().bold(), format!(": {re}").bold());
-                match re.clone() {
-                    UnbalancedRule => todo!(),
-                    UnknownSegment(buffer, word, seg) => {
-                        let arrows = " ".repeat(words[word].len() + seg) + "^" + "\n";
-                        println!("{}{}{}{} => {}{}{}",  
-                                "Runtime Error".bright_red().bold(),
-                                format!(": {re}").bold(), 
-                                MARG.bright_cyan().bold(), 
-                                words[word], 
-                                buffer,
-                                MARG.bright_cyan().bold(), 
-                                arrows.bright_red().bold()
-                            )
-                    },
-                    UnknownVariable(t) => {
-                        let line = t.position.line;
-                            let start = t.position.start;
-                            let end = t.position.end;
-
-                            let arrows = " ".repeat(start) + &"^".repeat(end-start) + "\n";
-
-                            println!("{}{}{}{}",  
-                                MARG.bright_cyan().bold(), 
-                                rules[line], 
-                                MARG.bright_cyan().bold(), 
-                                arrows.bright_red().bold()
-                            )
-                    }
-                }
-        }
+            Error::WordSyn(e) => println!("{}", e.format_error(words)),
+            Error::WordRun(e)    => println!("{}", e.format_error(words)),
+            Error::RuleSyn(e) => println!("{}", e.format_error(rules)),
+            Error::RuleRun(e)    => println!("{}", e.format_error(rules)),
         },
     }
-
 }
 
 fn main() {
     let unparsed_rules: Vec<String> = vec![
         // String::from("C:[+d.r., -dr, -nas "),
-        String::from("ra$b => &"),
+        // String::from("ra$b => &"),
+        String::from("ra$bo$l > &") 
     ];
 
     let unparsed_words: Vec<String> = vec![
         String::from("pa'ra.bo.la"),
     ];
 
-    let res = run(&unparsed_rules, &unparsed_words, false);
+    let trace = false;
+
+    let res = run(&unparsed_rules, &unparsed_words, trace);
 
     deal_with_result(res, &unparsed_rules, &unparsed_words);
     
@@ -333,37 +237,37 @@ fn main() {
 //     // let test = String::from("V:[+syll]...l > & / _,C");
 //     // let test = String::from("C=1 V=2 > 2 1  / _C");
 //     // let test = String::from("%:[+stress], % > [-stress], [+stress] / _ , #_ ");
-    
+//     
 //     // let w = Word::new("ˌna.kiˈsa".to_owned()).unwrap();
 //     let w = Word::new("a.ki.ra".to_owned()).unwrap();
 //     // let mut w = Word::new("ˌna.kiˈ:a".to_owned()).unwrap();
 //     println!("{}", w);
-    
+//    
 //     let mut tokens;
 //     const ITERS: u32 = 1;
-    
+//    
 //     let start  = Instant::now();
 //     // let test= String::from("t͡ɕ...b͡β > &");
 //     // let test= String::from("r > l");
 //     let test = String::from("%:[+stress], % > [-stress], [+stress] / _ , #_ ");
 //     let test = String::from("%:[+setr]");
 //     let mut maybe_rule: Result<Rule, RuleSyntaxError> = Err(RuleSyntaxError::EmptyInput);
-
+//
 //     for _ in 0..ITERS {
-        
+//        
 //         let mut lex = Lexer::new(&test,0);
 //         tokens = lex.get_all_tokens().unwrap();
-    
+//    
 //         // tokens.clone().into_iter().for_each(|t| {
 //         //         println!("{}", t);
 //         //     });
 //         let mut parser = Parser:: new(tokens,0);
-
+//
 //         maybe_rule = parser.parse();
 //     }
-
+//
 //     let dur = start.elapsed();
 //     println!("\nTotal Time: {:?}", dur);
 //     println!("Average Time per Iteration: {:?}\n", dur/ITERS);
-
+//
 // }
