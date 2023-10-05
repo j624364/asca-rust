@@ -273,7 +273,7 @@ impl Token {
 impl fmt::Debug for Token {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         let mut spaces = " ".to_string();
-        if self.position.end <= 9 {spaces += " "}
+        if self.position.end   <= 9 {spaces += " "}
         if self.position.start <= 9 {spaces += " "}
         match self.kind {
             TokenKind::Feature(x) => write!(f, "{}{}`{}{}`",  self.position, spaces, self.value, x),
@@ -282,6 +282,7 @@ impl fmt::Debug for Token {
     }
 }
 
+#[derive(Default)]
 pub struct Lexer<'a> {
     source: &'a [char],
     line: usize,
@@ -328,7 +329,7 @@ impl<'a> Lexer<'a> {
     }
 
     pub fn next_char(&self) -> char {
-        if self.has_more_chars() {
+        if self.source.len() > 1 {
             self.source[1]
         } else {
             '\0'
@@ -566,13 +567,6 @@ impl<'a> Lexer<'a> {
 
         let start = self.pos;
 
-        // let mut buffer: String = String::new();
-
-        // while self.has_more_chars() && self.curr_char().is_ascii_alphabetic() {
-        //     buffer.push(self.curr_char());
-        //     self.advance();
-        // }
-
         let buffer = self.chop_while(|x| x.is_ascii_alphabetic());
 
         let tkn_kind: TokenKind = self.string_match(buffer, start)?;
@@ -685,7 +679,7 @@ impl<'a> Lexer<'a> {
         Err(RuleSyntaxError::UnknownCharacter(self.curr_char(), self.line, self.pos))
     }
 
-    pub fn get_all_tokens(&mut self) -> Result<Vec<Token>, RuleSyntaxError> {
+    pub fn get_line(&mut self) -> Result<Vec<Token>, RuleSyntaxError> {
         let mut token_list: Vec<Token> =  Vec::new();
         loop {
             let next_token = self.get_next_token()?;
@@ -699,6 +693,10 @@ impl<'a> Lexer<'a> {
         }
         Ok(token_list)
     }
+
+    // pub fn get_all_lines(&mut self) -> Result<Vec<Vec<Token>>, RuleSyntaxError> {
+    //     todo!()
+    // }
 }
 
 #[cfg(test)]
@@ -731,7 +729,7 @@ mod lexer_tests {
             Token::new(TokenKind::Eol,        String::new(), 0, 11, 12),
         ];
 
-        let result = Lexer::new(&test_input.chars().collect::<Vec<_>>(), 0).get_all_tokens().unwrap();        
+        let result = Lexer::new(&test_input.chars().collect::<Vec<_>>(), 0).get_line().unwrap();        
 
         assert_eq!(result.len(), expected_result.len());
 
@@ -752,7 +750,7 @@ mod lexer_tests {
             Token::new(TokenKind::Eol,        String::new(), 0, 8, 9),
         ];
 
-        let result = Lexer::new(&test_input.chars().collect::<Vec<_>>(), 0).get_all_tokens().unwrap();  
+        let result = Lexer::new(&test_input.chars().collect::<Vec<_>>(), 0).get_line().unwrap();  
 
         assert_eq!(result.len(), expected_result.len());
 
@@ -772,7 +770,7 @@ mod lexer_tests {
             Token::new(TokenKind::Eol,          String::new(), 0, 9, 10),
         ];
 
-        let result = Lexer::new(&test_input.chars().collect::<Vec<_>>(), 0).get_all_tokens().unwrap();  
+        let result = Lexer::new(&test_input.chars().collect::<Vec<_>>(), 0).get_line().unwrap();  
 
         assert_eq!(result.len(), expected_result.len());
 
@@ -794,7 +792,7 @@ mod lexer_tests {
             Token::new(TokenKind::Eol,          String::new(), 0, 13, 14),
         ];
 
-        let result = Lexer::new(&test_input.chars().collect::<Vec<_>>(), 0).get_all_tokens().unwrap();        
+        let result = Lexer::new(&test_input.chars().collect::<Vec<_>>(), 0).get_line().unwrap();        
 
         assert_eq!(result.len(), expected_result.len());
 
@@ -818,7 +816,7 @@ mod lexer_tests {
             Token::new(TokenKind::Eol,                                  String::new(), 0, 19, 20),
         ];
 
-        let result = Lexer::new(&test_input.chars().collect::<Vec<_>>(), 0).get_all_tokens().unwrap();        
+        let result = Lexer::new(&test_input.chars().collect::<Vec<_>>(), 0).get_line().unwrap();        
 
         assert_eq!(result.len(), expected_result.len());
 
@@ -848,7 +846,7 @@ mod lexer_tests {
             Token::new(TokenKind::Eol,          String::new(), 0, 18, 19),
         ];
 
-        let result = Lexer::new(&test_input.chars().collect::<Vec<_>>(), 0).get_all_tokens().unwrap();        
+        let result = Lexer::new(&test_input.chars().collect::<Vec<_>>(), 0).get_line().unwrap();        
 
         assert_eq!(result.len(), expected_result.len());
 
