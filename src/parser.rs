@@ -416,16 +416,18 @@ impl Parser {
         use FType::*;
         use SegMKind::*;
 
-        const SYLL_M: (FType, SegMKind) = (Syllabic,    Binary(BinMod::Negative));
-        const SYLL_P: (FType, SegMKind) = (Syllabic,    Binary(BinMod::Positive));
-        const CONS_M: (FType, SegMKind) = (Consonantal, Binary(BinMod::Negative));
-        const CONS_P: (FType, SegMKind) = (Consonantal, Binary(BinMod::Positive));
-        const SONR_M: (FType, SegMKind) = (Sonorant,    Binary(BinMod::Negative));
-        const SONR_P: (FType, SegMKind) = (Sonorant,    Binary(BinMod::Positive));
-        const APPR_M: (FType, SegMKind) = (Approximant, Binary(BinMod::Negative));
-        const APPR_P: (FType, SegMKind) = (Approximant, Binary(BinMod::Positive));
+        const SYLL_M: (FType, SegMKind) = (Syllabic,    Binary(BinMod::Negative));  // -syllabic
+        const SYLL_P: (FType, SegMKind) = (Syllabic,    Binary(BinMod::Positive));  // +syllabic
+        const CONS_M: (FType, SegMKind) = (Consonantal, Binary(BinMod::Negative));  // -consonantal
+        const CONS_P: (FType, SegMKind) = (Consonantal, Binary(BinMod::Positive));  // +consonantal
+        const SONR_M: (FType, SegMKind) = (Sonorant,    Binary(BinMod::Negative));  // -sonorant
+        const SONR_P: (FType, SegMKind) = (Sonorant,    Binary(BinMod::Positive));  // +sonorant
+        const APPR_M: (FType, SegMKind) = (Approximant, Binary(BinMod::Negative));  // -approximant
+        const APPR_P: (FType, SegMKind) = (Approximant, Binary(BinMod::Positive));  // +approximant
 
-        let char_vals = match chr.value.as_str() {
+        let mut args = Modifiers::new(); 
+
+        (match chr.value.as_str() {
             "C" => vec![SYLL_M],                         // -syll                     // Consonant
             "O" => vec![CONS_P, SONR_M, SYLL_M],         // +cons, -son, -syll        // Obstruent
             "S" => vec![CONS_P, SONR_P, SYLL_M],         // +cons, +son, -syll        // Sonorant
@@ -433,15 +435,16 @@ impl Parser {
             "N" => vec![CONS_P, SONR_P, SYLL_M, APPR_M], // +cons, +son, -syll, -appr // Nasal
             "G" => vec![CONS_M, SONR_P, SYLL_M],         // -cons, +son, -syll        // Glide
             "V" => vec![CONS_M, SONR_P, SYLL_P],         // -cons, +son, +syll        // Vowel
+
+            // TODO(girv): possible other groups
+            // "B"  // Bilabial
+            // "P"  // Palatal
+            // "K"  // Velar
+            // "Q"  // Uvular
             _ => return Err(RuleSyntaxError::UnknownGrouping(chr)),
-        };
-
-        let mut args = Modifiers::new(); 
-
-        char_vals.into_iter().for_each(|(feature, value)| {
+        }).into_iter().for_each(|(feature, value)| {
             args.feats[feature as usize] = Some(value)
         });
-
 
         Ok(Item::new(ParseKind::Matrix(args, None), Position::new(self.line, chr.position.start, chr.position.end )))
     }
