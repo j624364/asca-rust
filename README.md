@@ -8,6 +8,7 @@ This repo homes the logic for the applier which will interop with a web front-en
 - [x] Parsing Words
 - [x] Parsing Rules
 - [ ] Matching Input
-- [ ] Matching Environment
 - [ ] Applying Output
+- [ ] Matching Environment
+- [ ] Applying Exceptions
 - [ ] WASM Bindgen
