@@ -210,12 +210,14 @@ fn deal_with_result(res: Result<(Vec<String>, Vec<Vec<String>>), Error>, rules: 
 fn main() {
     let unparsed_rules: Vec<String> = vec![
         // String::from("C:[+d.r., -dr, -nas "),
-        // String::from("ra$b => &"),
-        String::from("ra$bo$l > &") 
+        // String::from("rabol => &"),
+        // String::from("r...l > &"),
+        String::from("sk > &"),
     ];
 
     let unparsed_words: Vec<String> = vec![
-        String::from("pa'ra.bo.la"),
+        // String::from("pa'ra.bo.la"),
+        String::from("ask"),
     ];
 
     let trace = false;

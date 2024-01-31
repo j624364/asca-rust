@@ -24,6 +24,17 @@ pub enum MatchElement {
     SyllBound(BndIndex)
 }
 
+impl MatchElement {
+    pub fn get_val(&self) -> usize {
+        match self {
+            Self::Segment(v)  |
+            Self::Syllable(v) |
+            Self::SyllBound(v) => *v,
+            
+        }
+    }
+}
+
 
 #[derive(Debug)]
 pub struct SubRule {
@@ -38,24 +49,68 @@ pub struct SubRule {
 
 impl SubRule {
     pub fn apply(&self, word: Word) -> Result<Word, RuleRuntimeError> {
-        match self.rule_type {
-            RuleType::Substitution  => {/* input>env>output */},
-            RuleType::Metathesis    => {/* skip calc output */},
-            RuleType::Deletion      => {/* skip calc output */},
-            RuleType::Insertion     => {/* skip match input */},
-        }
-        let result = self.match_input_at(&word, 0)?;
+        // match self.rule_type {
+        //     RuleType::Substitution  => {/* input>env>output */},
+        //     RuleType::Metathesis    => {/* skip calc output */},
+        //     RuleType::Deletion      => {/* skip calc output */},
+        //     RuleType::Insertion     => {/* skip match input */},
+        // }
 
-        if !result.is_empty() {
-            println!("{}", word.render().unwrap());
-            println!("Match! {:?}", result);
+        let input_result = if let RuleType::Insertion = self.rule_type {
+            vec![]
         } else {
-            println!("{}", word.render().unwrap());
-            println!("No match");
-        }
+            let result = self.match_input_at(&word, 0)?;
+            if result.is_empty() {
+                // println!("{}", word.render().unwrap());
+                // println!("No match");
+                return Ok(word)
+            }
+            result
+        };
 
-        todo!()
+
+        println!("{}", word.render().unwrap());
+        println!("Match! {:?}", input_result);
+
+        // Match context
         
+        // Match exceptions
+
+        // Apply Output
+        self.transform(&word, input_result)
+        
+    }
+
+    fn transform(&self, word: &Word, input: Vec<MatchElement>) -> Result<Word, RuleRuntimeError> {
+        match self.rule_type {
+            RuleType::Metathesis => {
+                let mut res_word = word.clone();
+
+                for z in 0..(input.len() / 2) {
+                    
+                    match (input[z], input[input.len()-1-z]) {
+                        (MatchElement::Segment(i), MatchElement::Segment(j)) => {
+                            res_word.segments[i] = word.segments[j];
+                            res_word.segments[j] = word.segments[i];
+                            
+                        },
+                        (MatchElement::Segment(_), MatchElement::Syllable(_)) => todo!(),
+                        (MatchElement::Segment(_), MatchElement::SyllBound(_)) => todo!(),
+                        (MatchElement::Syllable(_), MatchElement::Segment(_)) => todo!(),
+                        (MatchElement::Syllable(_), MatchElement::Syllable(_)) => todo!(),
+                        (MatchElement::Syllable(_), MatchElement::SyllBound(_)) => todo!(),
+                        (MatchElement::SyllBound(_), MatchElement::Segment(_)) => todo!(),
+                        (MatchElement::SyllBound(_), MatchElement::Syllable(_)) => todo!(),
+                        (MatchElement::SyllBound(_), MatchElement::SyllBound(_)) => todo!(),
+                    }
+                }
+
+                return Ok(res_word)
+            },
+            RuleType::Deletion => todo!(),
+            RuleType::Insertion => todo!(),
+            RuleType::Substitution => todo!(),
+        }
     }
 
     fn match_input_at(&self, word: &Word, start_index: usize) -> Result<Vec<MatchElement>, RuleRuntimeError> {
@@ -162,7 +217,7 @@ impl SubRule {
         let mut i = 0;
         while i < match_min {
             if inner_states.is_empty() {
-                // TODO: test for OB1
+                // TODO(girv): test for OB1 error
                 if *seg_index >= word.seg_count() {
                     return Ok(false)
                 }
