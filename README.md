@@ -9,6 +9,10 @@ This repo homes the logic for the applier which will interop with a web front-en
 - [x] Parsing Rules
 - [ ] Matching Input
 - [ ] Applying Output
+    - [ ] Simple Metathesis
+    - [ ] Simple Insertion
+    - [ ] Simple Deletion
+    - [ ] Simple Substitution 
 - [ ] Matching Environment
 - [ ] Applying Exceptions
 - [ ] WASM Bindgen

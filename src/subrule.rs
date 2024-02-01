@@ -90,14 +90,17 @@ impl SubRule {
                     
                     match (input[z], input[input.len()-1-z]) {
                         (MatchElement::Segment(i), MatchElement::Segment(j)) => {
-                            res_word.segments[i] = word.segments[j];
-                            res_word.segments[j] = word.segments[i];
+                            // res_word.segments[i] = word.segments[j];
+                            // res_word.segments[j] = word.segments[i];
+                            res_word.segments.swap(i, j);
                             
                         },
                         (MatchElement::Segment(_), MatchElement::Syllable(_)) => todo!(),
                         (MatchElement::Segment(_), MatchElement::SyllBound(_)) => todo!(),
                         (MatchElement::Syllable(_), MatchElement::Segment(_)) => todo!(),
-                        (MatchElement::Syllable(_), MatchElement::Syllable(_)) => todo!(),
+                        (MatchElement::Syllable(i), MatchElement::Syllable(j)) => {
+                            res_word.swap_syll(i, j);
+                        },
                         (MatchElement::Syllable(_), MatchElement::SyllBound(_)) => todo!(),
                         (MatchElement::SyllBound(_), MatchElement::Segment(_)) => todo!(),
                         (MatchElement::SyllBound(_), MatchElement::Syllable(_)) => todo!(),
@@ -105,7 +108,7 @@ impl SubRule {
                     }
                 }
 
-                return Ok(res_word)
+                Ok(res_word)
             },
             RuleType::Deletion => todo!(),
             RuleType::Insertion => todo!(),
@@ -183,7 +186,7 @@ impl SubRule {
                 *state_index += 1;
                 Ok(true)
             } else { Ok(false) },
-            ParseKind::Syllable(s, t) => self.match_syll(captures, s, t, word, seg_index),
+            ParseKind::Syllable(s, t) => self.match_syll(captures, state_index, s, t, word, seg_index),
             ParseKind::Ellipsis => self.match_ellipsis(captures, word, seg_index, states, state_index),
             ParseKind::Optional(opt_states, match_min, match_max) => self.match_optionals(captures, word, seg_index, states, opt_states, *match_min, *match_max),
             _ => unreachable!()
@@ -261,7 +264,7 @@ impl SubRule {
     }
 
 
-    fn match_syll(&self, captures: &mut Vec<MatchElement>, stress: &Option<Supr>, tone: &Option<String>, word: &Word, seg_index: &mut usize) -> Result<bool, RuleRuntimeError> {
+    fn match_syll(&self, captures: &mut Vec<MatchElement>, state_index: &mut usize, stress: &Option<Supr>, tone: &Option<String>, word: &Word, seg_index: &mut usize) -> Result<bool, RuleRuntimeError> {
         // checks current segment is at start of syll
         // matches stress and tone
         // jumps to end of syllable if match
@@ -280,8 +283,9 @@ impl SubRule {
                     return Ok(false)
                 }
             }
-            captures.push(MatchElement::Segment(cur_syll_index));
-
+            captures.push(MatchElement::Syllable(cur_syll_index));
+            
+            *state_index += 1;
             *seg_index = cur_syll.end + 1; // NOTE(girv): this is only correct if we DON'T advance seg_index after match in `match_input_at`
 
             Ok(true)
@@ -326,6 +330,7 @@ impl SubRule {
     }
 
     fn match_set(&self, captures: &mut Vec<MatchElement>, set: &[Item], word: &Word, seg_index: usize) -> Result<bool, RuleRuntimeError> {
+        // FIXME(girv): this only matches against the first element of the set
         for s in set {
             match &s.kind {
                 ParseKind::Variable(vt, m) => return self.match_var(captures, vt, m, word, seg_index),

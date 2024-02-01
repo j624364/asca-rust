@@ -182,7 +182,7 @@ fn run(unparsed_rules: &[String], unparsed_words: &[String], trace: bool) -> Res
     let words = parse_words(unparsed_words)?;
     let rules = parse_rules(unparsed_rules)?;
 
-    println!("{}", unparsed_rules[0]);
+    // println!("{}", unparsed_rules[0]);
 
     let (res, trace_res) = apply_rules(&rules, &words, trace)?;
 
@@ -212,12 +212,14 @@ fn main() {
         // String::from("C:[+d.r., -dr, -nas "),
         // String::from("rabol => &"),
         // String::from("r...l > &"),
-        String::from("sk > &"),
+        // String::from("sk > &"),
+        String::from("%% > &"),
     ];
 
     let unparsed_words: Vec<String> = vec![
         // String::from("pa'ra.bo.la"),
-        String::from("ask"),
+        // String::from("ask"),
+        String::from("pa.rad"),
     ];
 
     let trace = false;

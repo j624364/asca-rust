@@ -121,8 +121,7 @@ impl Word {
         Ok(buffer)
     }
 
-    #[allow(unused)]
-    pub fn get_segs_in_syll(&self, syll_index: usize) -> Vec<Segment> {
+    pub fn get_segs_in_syll(&self, syll_index: usize) -> &[Segment] {
 
         assert!(syll_index < self.syllables.len());
 
@@ -131,9 +130,70 @@ impl Word {
 
         assert!(end >= start);
 
-        self.segments[start..=end].to_owned()
-
+        &self.segments[start..=end]
     } 
+
+    pub fn get_segs_in_syll_mut(&mut self, syll_index: usize) -> &mut [Segment] {
+
+        assert!(syll_index < self.syllables.len());
+
+        let start = self.syllables[syll_index].start;
+        let end = self.syllables[syll_index].end;
+
+        assert!(end >= start);
+
+        &mut self.segments[start..=end]
+    } 
+
+    pub fn swap_syll(&mut self, a_index: usize, b_index: usize) {
+        // this works, but I hate it
+        let a_start = self.syllables[a_index].start;
+        let a_end = self.syllables[a_index].end;
+        let a_tone = &self.syllables[a_index].tone;
+        let a_stress = self.syllables[a_index].stress;
+        let b_start = self.syllables[b_index].start;
+        let b_end = self.syllables[b_index].end;
+        let b_tone = &self.syllables[b_index].tone;
+        let b_stress = self.syllables[b_index].stress;
+
+
+        let mut new_segs = vec![];
+        let mut new_syls = vec![];
+        for (syll_index, _) in self.syllables.iter().enumerate() {
+            let (sg, sy) = 
+            if syll_index == a_index { 
+                let mut sy = self.syllables[a_index].clone();
+                sy.end = a_start + b_end - b_start;
+                sy.tone = b_tone.clone();
+                sy.stress = b_stress;
+                (self.get_segs_in_syll(b_index), sy) 
+            } else if syll_index == b_index {
+                let mut sy = self.syllables[b_index].clone();
+                sy.start = b_end - a_end - a_start;
+                sy.tone = a_tone.clone();
+                sy.stress = a_stress;
+                (self.get_segs_in_syll(a_index), sy)
+            } else {
+                let (start, end) = if syll_index > 0 {
+                    (self.syllables[syll_index - 1].start, self.syllables[syll_index - 1].end)
+                } else {
+                    (self.syllables[syll_index].start, self.syllables[syll_index].end)
+                };
+                
+                let mut sy = self.syllables[syll_index].clone();
+                sy.start = start;
+                sy.end = end;
+                (self.get_segs_in_syll(syll_index), sy)
+            };
+            new_segs.extend_from_slice(sg);
+            new_syls.push(sy);
+        }
+
+        self.segments = new_segs;
+        self.syllables = new_syls;
+
+        println!("{:?}", self.syllables)
+    }
 
     /// Finds number of consecutive identical segments ***within a syllable*** starting from the given index.
     /// 

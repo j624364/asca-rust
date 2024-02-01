@@ -508,7 +508,7 @@ impl Rule {
         for i in sub_rules {
             res_word = i.apply(res_word)?;
 
-            println!("{i:#?} ---> {res_word:#?}");
+            // println!("{i:#?} ---> {res_word:#?}");
         }
 
         Ok(res_word) // TODO: return new word
