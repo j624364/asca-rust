@@ -213,15 +213,15 @@ fn main() {
         // String::from("rabol => &"),
         // String::from("r...l > &"),
         // String::from("sk > &"),
-        //String::from("%% > &"),
-        String::from("{t,r}a > &"),
+        String::from("%% > &"),
+        // String::from("rV > &"),
 
     ];
 
     let unparsed_words: Vec<String> = vec![
-        // String::from("pa'ra.bo.la"),
+        String::from("pa'ra.bo.la"),
         // String::from("ask"),
-        String::from("pa.rad"),
+        // String::from("hros"),
     ];
 
     let trace = false;

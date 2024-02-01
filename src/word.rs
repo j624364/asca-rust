@@ -174,10 +174,11 @@ impl Word {
                 sy.stress = a_stress;
                 (self.get_segs_in_syll(a_index), sy)
             } else {
-                let (start, end) = if syll_index > 0 {
-                    (self.syllables[syll_index - 1].start, self.syllables[syll_index - 1].end)
-                } else {
+                let (start, end) = if syll_index > b_index || syll_index < a_index {
                     (self.syllables[syll_index].start, self.syllables[syll_index].end)
+                } else {
+                    let len = self.syllables[syll_index].end - self.syllables[syll_index].start;
+                    (self.syllables[syll_index - 1].end + 1, len)
                 };
                 
                 let mut sy = self.syllables[syll_index].clone();
@@ -205,7 +206,7 @@ impl Word {
     /// assert_eq!(word.seg_length_at(1), 1);
     /// ```
     pub fn seg_length_in_syll(&self, seg_index: usize) -> usize {
-        if self.is_syll_final(seg_index) {
+        if self.seg_is_syll_final(seg_index) {
             return 1
         }
 
@@ -286,13 +287,11 @@ impl Word {
         unreachable!();
     }
 
-    #[allow(unused)]
-    pub fn is_syll_final(&self, seg_index: usize) -> bool {
+    pub fn seg_is_syll_final(&self, seg_index: usize) -> bool {
         let syll_index = self.get_syll_index_from_seg_index(seg_index);
         seg_index == self.syllables[syll_index].end
     }
 
-    #[allow(unused)]
     pub fn seg_is_syll_initial(&self, seg_index: usize) -> bool {
         let syll_index = self.get_syll_index_from_seg_index(seg_index);
         seg_index == self.syllables[syll_index].start
