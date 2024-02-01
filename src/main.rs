@@ -213,7 +213,9 @@ fn main() {
         // String::from("rabol => &"),
         // String::from("r...l > &"),
         // String::from("sk > &"),
-        String::from("%% > &"),
+        //String::from("%% > &"),
+        String::from("{t,r}a > &"),
+
     ];
 
     let unparsed_words: Vec<String> = vec![

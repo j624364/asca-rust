@@ -330,13 +330,17 @@ impl SubRule {
     }
 
     fn match_set(&self, captures: &mut Vec<MatchElement>, set: &[Item], word: &Word, seg_index: usize) -> Result<bool, RuleRuntimeError> {
-        // FIXME(girv): this only matches against the first element of the set
         for s in set {
-            match &s.kind {
-                ParseKind::Variable(vt, m) => return self.match_var(captures, vt, m, word, seg_index),
-                ParseKind::Ipa(s, m) => return self.match_ipa(captures, s, m, word, seg_index),
-                ParseKind::Matrix(m, v) => return self.match_matrix(captures, m, v, word, seg_index),
+            let res = match &s.kind {
+                ParseKind::Variable(vt, m) => self.match_var(captures, vt, m, word, seg_index),
+                ParseKind::Ipa(s, m)       => self.match_ipa(captures, s, m, word, seg_index),
+                ParseKind::Matrix(m, v)    => self.match_matrix(captures, m, v, word, seg_index),
                 _ => unreachable!(),
+            };
+            if res? {
+                return Ok(true)
+            } else { // NOTE(girv): not needed, but it's more explicit
+                continue;
             }
         }
         Ok(false)
