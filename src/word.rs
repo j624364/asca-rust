@@ -157,8 +157,8 @@ impl Word {
         let b_stress = self.syllables[b_index].stress;
 
 
-        let mut new_segs = vec![];
-        let mut new_syls = vec![];
+        let mut new_segs = Vec::with_capacity(self.segments.len());
+        let mut new_syls = Vec::with_capacity(self.syllables.len());
         for (syll_index, _) in self.syllables.iter().enumerate() {
             let (sg, sy) = 
             if syll_index == a_index { 
