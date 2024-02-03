@@ -95,16 +95,63 @@ impl SubRule {
                             res_word.segments.swap(i, j);
                             
                         },
-                        (MatchElement::Segment(_), MatchElement::Syllable(_)) => todo!(),
-                        (MatchElement::Segment(_), MatchElement::SyllBound(_)) => todo!(),
-                        (MatchElement::Syllable(_), MatchElement::Segment(_)) => todo!(),
                         (MatchElement::Syllable(i), MatchElement::Syllable(j)) => {
                             res_word.swap_syll(i, j);
                         },
+                        (MatchElement::SyllBound(_), MatchElement::SyllBound(_)) => {/* Do nothing */},
+                        (MatchElement::Segment(_), MatchElement::Syllable(_)) => todo!(),
+                        (MatchElement::Segment(i), MatchElement::SyllBound(j)) => {
+                            // TODO(girv): this won't work for rules with `...`, it may be necessary to disallow `$` in `...` rules
+                            // TODO(girv): test if it's possible to orphan a syllable doing this
+                            if j < word.segments.len() {
+                                let syll_index = word.get_syll_index_from_seg_index(j);
+                                if i > 0 { 
+                                    let sb_prev = &mut res_word.syllables[syll_index-1];
+                                    sb_prev.end = i-1;
+                                    let sb_post = &mut res_word.syllables[syll_index];
+                                    sb_post.start = i;
+                                } else { // delete first syllable
+                                    let sb = &mut res_word.syllables[syll_index];
+                                    sb.start = i;
+                                    res_word.syllables.remove(0);
+                                }
+                            } else {
+                                let sb = res_word.syllables.last_mut().expect("Word has no syllables");
+                                if sb.end - sb.start > 0 && i != 0 {
+                                    sb.end = i-1;
+                                    res_word.syllables.push(Syllable { start: i, end: res_word.seg_count(), stress: StressKind::Unstressed, tone: String::new() });
+                                }
+                            }                            
+                        },
+                        (MatchElement::SyllBound(j), MatchElement::Segment(i)) => {
+                            // TODO(girv): this won't work for rules with `...`, it may be necessary to disallow `$` in `...` rules
+                            // TODO(girv): test if it's possible to orphan a syllable doing this
+                            println!("{}", word.segments.len());
+                            println!("{:?}", word.syllables);
+                            if j > 0 {
+                                let syll_index = word.get_syll_index_from_seg_index(j);
+                                if i < word.segments.len()-1 {
+                                    let sb_prev = &mut res_word.syllables[syll_index-1];
+                                    sb_prev.end = i;
+                                    let sb_post = &mut res_word.syllables[syll_index];
+                                    sb_post.start = i+1;
+                                } else { // delete last syllable
+                                    let sb = &mut res_word.syllables[syll_index-1];
+                                    sb.end = word.segments.len();
+                                    res_word.syllables.pop();
+                                }
+                            } else {
+                                let sb = res_word.syllables.first_mut().expect("Word has no syllables");
+                                if sb.end - sb.start > 0 && i == 0 {
+                                    sb.start = i+1;
+                                    res_word.syllables.insert(0, Syllable { start: 0, end: i, stress: StressKind::Unstressed, tone: String::new() });
+                                }
+                            }
+                            println!("{:?}", res_word.syllables);
+                        },
+                        (MatchElement::Syllable(_), MatchElement::Segment(_)) => todo!(),
                         (MatchElement::Syllable(_), MatchElement::SyllBound(_)) => todo!(),
-                        (MatchElement::SyllBound(_), MatchElement::Segment(_)) => todo!(),
                         (MatchElement::SyllBound(_), MatchElement::Syllable(_)) => todo!(),
-                        (MatchElement::SyllBound(_), MatchElement::SyllBound(_)) => todo!(),
                     }
                 }
 
@@ -144,8 +191,9 @@ impl SubRule {
         if begin.is_none() {
             Ok(vec![])
         } else if let ParseKind::WordBound | ParseKind::SyllBound = self.input.last().expect("Input is empty").kind {
-            // Ok(Some(Match::new(begin.unwrap(), word.seg_count())))
-            todo!()
+            captures.push(MatchElement::SyllBound(word.segments.len()));
+            Ok(captures)
+            
         } else {
             Ok(vec![])
         }
