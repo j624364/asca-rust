@@ -81,13 +81,12 @@ impl SubRule {
         
     }
 
-    fn transform(&self, word: &Word, input: Vec<MatchElement>) -> Result<Word, RuleRuntimeError> {
+    fn transform(&self, word: &Word, input: Vec<MatchElement>/*, output: */) -> Result<Word, RuleRuntimeError> {
         match self.rule_type {
             RuleType::Metathesis => {
                 let mut res_word = word.clone();
 
                 for z in 0..(input.len() / 2) {
-                    
                     match (input[z], input[input.len()-1-z]) {
                         (MatchElement::Segment(i), MatchElement::Segment(j)) => {
                             // res_word.segments[i] = word.segments[j];
@@ -99,7 +98,6 @@ impl SubRule {
                             res_word.swap_syll(i, j);
                         },
                         (MatchElement::SyllBound(_), MatchElement::SyllBound(_)) => {/* Do nothing */},
-                        (MatchElement::Segment(_), MatchElement::Syllable(_)) => todo!(),
                         (MatchElement::Segment(i), MatchElement::SyllBound(j)) => {
                             // TODO(girv): this won't work for rules with `...`, it may be necessary to disallow `$` in `...` rules
                             // TODO(girv): test if it's possible to orphan a syllable doing this
@@ -123,32 +121,31 @@ impl SubRule {
                                 }
                             }                            
                         },
-                        (MatchElement::SyllBound(j), MatchElement::Segment(i)) => {
+                        (MatchElement::SyllBound(bi), MatchElement::Segment(si)) => {
                             // TODO(girv): this won't work for rules with `...`, it may be necessary to disallow `$` in `...` rules
                             // TODO(girv): test if it's possible to orphan a syllable doing this
-                            println!("{}", word.segments.len());
-                            println!("{:?}", word.syllables);
-                            if j > 0 {
-                                let syll_index = word.get_syll_index_from_seg_index(j);
-                                if i < word.segments.len()-1 {
+                            if bi > 0 {
+                                let syll_index = word.get_syll_index_from_seg_index(bi);
+                                if si < word.segments.len()-1 {
                                     let sb_prev = &mut res_word.syllables[syll_index-1];
-                                    sb_prev.end = i;
+                                    sb_prev.end = si;
                                     let sb_post = &mut res_word.syllables[syll_index];
-                                    sb_post.start = i+1;
+                                    sb_post.start = si+1;
                                 } else { // delete last syllable
                                     let sb = &mut res_word.syllables[syll_index-1];
                                     sb.end = word.segments.len();
                                     res_word.syllables.pop();
                                 }
                             } else {
-                                let sb = res_word.syllables.first_mut().expect("Word has no syllables");
-                                if sb.end - sb.start > 0 && i == 0 {
-                                    sb.start = i+1;
-                                    res_word.syllables.insert(0, Syllable { start: 0, end: i, stress: StressKind::Unstressed, tone: String::new() });
+                                let first_syll = res_word.syllables.first_mut().expect("Word has no syllables");
+                                if first_syll.end - first_syll.start > 0 && si == 0 {
+                                    first_syll.start = si+1;
+                                    res_word.syllables.insert(0, Syllable { start: 0, end: si, stress: StressKind::Unstressed, tone: String::new() });
                                 }
                             }
-                            println!("{:?}", res_word.syllables);
                         },
+                        // TODO(girv): I think we're just gonna disallow this, I can't think of a reason you'd possibly want to do these
+                        (MatchElement::Segment(_), MatchElement::Syllable(_)) => todo!(),
                         (MatchElement::Syllable(_), MatchElement::Segment(_)) => todo!(),
                         (MatchElement::Syllable(_), MatchElement::SyllBound(_)) => todo!(),
                         (MatchElement::SyllBound(_), MatchElement::Syllable(_)) => todo!(),
@@ -157,7 +154,62 @@ impl SubRule {
 
                 Ok(res_word)
             },
-            RuleType::Deletion => todo!(),
+            RuleType::Deletion => {
+                let mut res_word = word.clone();
+                for z in input {
+                    match z {
+                        MatchElement::Segment(i) => {
+                            // remove segment 
+                            // decrement start and end of all syllables after
+                            // I'm starting to think we need a better datastructure 🤔
+                        },
+                        MatchElement::Syllable(i) => {
+                            // remove all segments in syllable
+                            // remove syllable
+                            // decrement start and end of all syllables after
+                        },
+                        MatchElement::SyllBound(i) => {
+                            // join the two neighbouring syllables
+                            // if one has stress and/or tone, joined syll gets them
+                            // if they both have stress, highest wins
+                            // if they both have tone, join them i.e. ma5a1 > ma:51
+
+                            if i == 0 || i == word.segments.len() {
+                                // can't delete a word boundary
+                                continue;
+                            } 
+
+                            let syll_index = res_word.get_syll_index_from_seg_index(i);
+                            let next_syll = res_word.syllables.get(syll_index).expect("Word has no syllables");
+                            let next_end  = next_syll.end;
+                            let next_stress = next_syll.stress;
+                            let next_tone   = next_syll.tone.clone();
+
+                            let syll = res_word.syllables.get_mut(syll_index-1).expect("Word has no syllables");
+
+                            syll.end = next_end;
+                            match syll.stress {
+                                StressKind::Primary => {},
+                                StressKind::Secondary => {
+                                    match next_stress {
+                                        StressKind::Primary => syll.stress = next_stress,
+                                        StressKind::Secondary |
+                                        StressKind::Unstressed => {},
+                                    }
+                                },
+                                StressKind::Unstressed => syll.stress = next_stress,
+                            }
+                            
+                            syll.tone.extend(next_tone.chars());
+
+                            res_word.syllables.remove(syll_index);
+                        },
+                    }
+                }
+
+                Ok(res_word)
+
+            },
             RuleType::Insertion => todo!(),
             RuleType::Substitution => todo!(),
         }
