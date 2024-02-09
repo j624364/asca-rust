@@ -162,6 +162,13 @@ impl SubRule {
                             // remove segment 
                             // decrement start and end of all syllables after
                             // I'm starting to think we need a better datastructure 🤔
+                            let syll_index = res_word.get_syll_index_from_seg_index(i);
+                            res_word.segments.remove(i);
+                            res_word.syllables[syll_index].end -= 1;
+                            for si in (syll_index+1)..res_word.syllables.len() {
+                                res_word.syllables[si].start -= 1;
+                                res_word.syllables[si].end -= 1;
+                            }
                         },
                         MatchElement::Syllable(i) => {
                             // remove all segments in syllable
