@@ -181,6 +181,7 @@ impl SubRule {
                             // remove all segments in syllable
                             // remove syllable
                             // decrement start and end of all syllables after
+                            res_word.remove_syll(res_word.get_syll_index_from_seg_index(i));
                         },
                         MatchElement::SyllBound(i) => {
                             // join the two neighbouring syllables
@@ -214,7 +215,7 @@ impl SubRule {
                                 StressKind::Unstressed => syll.stress = next_stress,
                             }
                             
-                            syll.tone.extend(next_tone.chars());
+                            syll.tone.push_str(&next_tone);
 
                             res_word.syllables.remove(syll_index);
                         },

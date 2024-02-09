@@ -145,6 +145,22 @@ impl Word {
         &mut self.segments[start..=end]
     } 
 
+    pub fn remove_syll(&mut self, syll_index: usize) {
+        let start = self.syllables[syll_index].start;
+        let end = self.syllables[syll_index].end;
+        let length = end - start + 1;
+
+        for si in (syll_index+1)..self.syllables.len() {
+            self.syllables[si].start -= length;
+            self.syllables[si].end   -= length;
+        }
+
+        for i in start..=end {
+            self.segments.remove(i);
+        }
+        self.syllables.remove(syll_index);
+    }
+
     pub fn swap_syll(&mut self, a_index: usize, b_index: usize) {
         // this works, but I hate it
         let a_start = self.syllables[a_index].start;
