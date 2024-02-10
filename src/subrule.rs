@@ -1,39 +1,32 @@
 use std ::{
     cell::RefCell, 
-    collections::HashMap
+    collections::{HashMap, VecDeque}
 };
 
 use crate ::{
-    parser::{Item, ParseKind, Modifiers, Supr, SegMKind, BinMod, AlphaMod}, 
-    error :: RuleRuntimeError, 
-    word  :: Word, 
-    syll  ::{Syllable, StressKind},
-    seg   ::{Segment, NodeKind, feature_to_node_mask},
-    lexer ::{Token, SupraType, FType}, 
-    rule  ::{RuleType, Alpha}
+    error :: RuleRuntimeError, lexer ::{Token, SupraType, FType}, parser::{Item, ParseKind, Modifiers, Supr, SegMKind, BinMod, AlphaMod}, rule  ::{RuleType, Alpha}, seg   ::{Segment, NodeKind, feature_to_node_mask}, syll  ::{Syllable, StressKind}, word  :: Word, SegPos
 };
 
-type SegIndex = usize; // the index of the segment in the word.segments array
-type SylIndex = usize; // the index of the syllable in the word.syllables array
-type BndIndex = usize; // the index of the segment immediately after the boundary
+type SylPos = usize;  // the index of the syllable in the word.syllables array
+type BndPos = usize;  // the index of the syllable that has the boundary as it's start
 
 #[derive(Debug, Clone, Copy)]
 pub enum MatchElement {
-    Segment  (SegIndex),
-    Syllable (SylIndex),
-    SyllBound(BndIndex)
+    Segment  (SegPos),
+    Syllable (SylPos),
+    SyllBound(BndPos)
 }
 
-impl MatchElement {
-    pub fn get_val(&self) -> usize {
-        match self {
-            Self::Segment(v)  |
-            Self::Syllable(v) |
-            Self::SyllBound(v) => *v,
+// impl MatchElement {
+//     // pub fn get_val(&self) -> usize {
+//     //     match self {
+//     //         Self::Segment(v)  => {},
+//     //         Self::Syllable(v) |
+//     //         Self::SyllBound(v) => *v,
             
-        }
-    }
-}
+//     //     }
+//     // }
+// }
 
 
 #[derive(Debug)]
@@ -62,10 +55,10 @@ impl SubRule {
         } 
         
         let mut word = word;
-        let mut cur_index = 0;
+        let mut cur_index = SegPos::new(0, 0);
+        // FIXME(girv): a rule of `$ > &` gives an infinite loop
         loop {
             let (res, index) = self.match_input_at(&word, cur_index)?;
-            // println!("{res:?}");
             if !res.is_empty() {
                 println!("{}", word.render().unwrap());
                 println!("Match! {:?}", res);
@@ -94,60 +87,50 @@ impl SubRule {
                 for z in 0..(input.len() / 2) {
                     match (input[z], input[input.len()-1-z]) {
                         (MatchElement::Segment(i), MatchElement::Segment(j)) => {
-                            // res_word.segments[i] = word.segments[j];
-                            // res_word.segments[j] = word.segments[i];
-                            res_word.segments.swap(i, j);
-                            
+                            let si = res_word.get_seg_at(i).unwrap();
+                            let sj = res_word.get_seg_at(j).unwrap();
+                            let tmp = si;
+                            res_word.syllables[i.syll_index].segments[i.seg_index] = sj;
+                            res_word.syllables[j.syll_index].segments[j.seg_index] = tmp;
                         },
                         (MatchElement::Syllable(i), MatchElement::Syllable(j)) => {
                             res_word.swap_syll(i, j);
                         },
                         (MatchElement::SyllBound(_), MatchElement::SyllBound(_)) => {/* Do nothing */},
-                        (MatchElement::Segment(i), MatchElement::SyllBound(j)) => {
-                            // TODO(girv): this won't work for rules with `...`, it may be necessary to disallow `$` in `...` rules
-                            // TODO(girv): test if it's possible to orphan a syllable doing this
-                            if j < word.segments.len() {
-                                let syll_index = word.get_syll_index_from_seg_index(j);
-                                if i > 0 { 
-                                    let sb_prev = &mut res_word.syllables[syll_index-1];
-                                    sb_prev.end = i-1;
-                                    let sb_post = &mut res_word.syllables[syll_index];
-                                    sb_post.start = i;
-                                } else { // delete first syllable
-                                    let sb = &mut res_word.syllables[syll_index];
-                                    sb.start = i;
-                                    res_word.syllables.remove(0);
-                                }
+                        (MatchElement::Segment(si), MatchElement::SyllBound(bi)) => {
+                            // TODO(girv): this won't work for rules with `...`, it may be necessary to disallow `$` in `...` rules                            
+                            let seg = res_word.syllables[si.syll_index].segments[si.seg_index];
+                            if bi < res_word.syllables.len() {
+                                res_word.syllables[bi].segments.push_front(seg);
+                                res_word.syllables[si.syll_index].segments.remove(si.seg_index); // pop_back()                                
                             } else {
-                                let sb = res_word.syllables.last_mut().expect("Word has no syllables");
-                                if sb.end - sb.start > 0 && i != 0 {
-                                    sb.end = i-1;
-                                    res_word.syllables.push(Syllable { start: i, end: res_word.seg_count(), stress: StressKind::Unstressed, tone: String::new() });
-                                }
-                            }                            
+                                res_word.syllables.push(Syllable { segments: VecDeque::new(), stress: StressKind::Unstressed, tone: String::new() });
+                                res_word.syllables.last_mut().unwrap().segments.push_front(seg);
+                                res_word.syllables[si.syll_index].segments.remove(si.seg_index); // pop_back()
+                            }                 
+
+                            if res_word.syllables[si.syll_index].segments.is_empty() {
+                                res_word.syllables.remove(si.syll_index);
+                            }
                         },
                         (MatchElement::SyllBound(bi), MatchElement::Segment(si)) => {
                             // TODO(girv): this won't work for rules with `...`, it may be necessary to disallow `$` in `...` rules
-                            // TODO(girv): test if it's possible to orphan a syllable doing this
+                            let seg = res_word.syllables[si.syll_index].segments[si.seg_index];
                             if bi > 0 {
-                                let syll_index = word.get_syll_index_from_seg_index(bi);
-                                if si < word.segments.len()-1 {
-                                    let sb_prev = &mut res_word.syllables[syll_index-1];
-                                    sb_prev.end = si;
-                                    let sb_post = &mut res_word.syllables[syll_index];
-                                    sb_post.start = si+1;
-                                } else { // delete last syllable
-                                    let sb = &mut res_word.syllables[syll_index-1];
-                                    sb.end = word.segments.len();
-                                    res_word.syllables.pop();
-                                }
+                                res_word.syllables[bi-1].segments.push_back(seg);
+                                println!("{:?}", res_word.syllables);
+
+                                res_word.syllables[si.syll_index].segments.remove(si.seg_index); // pop_front()                                
+                                println!("{:?}", res_word.syllables);
                             } else {
-                                let first_syll = res_word.syllables.first_mut().expect("Word has no syllables");
-                                if first_syll.end - first_syll.start > 0 && si == 0 {
-                                    first_syll.start = si+1;
-                                    res_word.syllables.insert(0, Syllable { start: 0, end: si, stress: StressKind::Unstressed, tone: String::new() });
-                                }
+                                res_word.syllables[si.syll_index].segments.remove(si.seg_index); // pop_front()
+                                res_word.syllables.insert(0, Syllable { segments: VecDeque::new(), stress: StressKind::Unstressed, tone: String::new() });
+                                res_word.syllables.first_mut().unwrap().segments.push_front(seg);
                             }
+                            if res_word.syllables[si.syll_index].segments.is_empty() {
+                                res_word.syllables.remove(si.syll_index);
+                            }
+                            println!("{:?}", res_word.syllables);
                         },
                         // TODO(girv): I think we're just gonna disallow this, I can't think of a reason you'd possibly want to do these
                         (MatchElement::Segment(_), MatchElement::Syllable(_)) => todo!(),
@@ -164,73 +147,49 @@ impl SubRule {
                 for z in input {
                     match z {
                         MatchElement::Segment(i) => {
-                            // remove segment 
-                            // decrement start and end of all syllables after
-                            // I'm starting to think we need a better datastructure 🤔
-                            if word.segments.len() > 1 {
-                                let mut syll_index = res_word.get_syll_index_from_seg_index(i);
-                                res_word.segments.remove(i);
-    
-                                if res_word.syllables[syll_index].end == 0 {
-                                    res_word.syllables.remove(syll_index);
-                                } else {
-                                    res_word.syllables[syll_index].end -= 1;
-                                    syll_index += 1;
-                                }
-    
-                                for si in syll_index..res_word.syllables.len() {
-                                    res_word.syllables[si].start -= 1;
-                                    res_word.syllables[si].end -= 1;
-                                }
-                            } else {
+                            // remove segment                             
+                            if res_word.syllables.len() <= 1 && word.syllables[i.syll_index].segments.len() <= 1 {
                                 return Err(RuleRuntimeError::DeletionOnlySeg)
+                            }
+                            res_word.syllables[i.syll_index].segments.remove(i.seg_index);
+                            // if that was the only segment in that syllable, remove the syllable
+                            if res_word.syllables[i.syll_index].segments.is_empty() {
+                                res_word.syllables.remove(i.syll_index);
                             }
                         },
                         MatchElement::Syllable(i) => {
-                            // remove all segments in syllable
                             // remove syllable
-                            // decrement start and end of all syllables after
-                            if word.syllables.len() > 1 {
-                                res_word.remove_syll(res_word.get_syll_index_from_seg_index(i));
-                            } else {
+                            if res_word.syllables.len() <= 1 {
                                 return Err(RuleRuntimeError::DeletionOnlySyll)
                             }
+                            res_word.remove_syll(i);
                         },
                         MatchElement::SyllBound(i) => {
                             // join the two neighbouring syllables
                             // if one has stress and/or tone, joined syll gets them
                             // if they both have stress, highest wins
                             // if they both have tone, join them i.e. ma5a1 > ma:51
-
-                            if i == 0 || i == word.segments.len() {
-                                // can't delete a word boundary
-                                continue;
-                            } 
-
-                            let syll_index = res_word.get_syll_index_from_seg_index(i);
-                            let next_syll = res_word.syllables.get(syll_index).expect("Word has no syllables");
-                            let next_end  = next_syll.end;
-                            let next_stress = next_syll.stress;
-                            let next_tone   = next_syll.tone.clone();
-
-                            let syll = res_word.syllables.get_mut(syll_index-1).expect("Word has no syllables");
-
-                            syll.end = next_end;
-                            match syll.stress {
-                                StressKind::Primary => {},
-                                StressKind::Secondary => {
-                                    match next_stress {
-                                        StressKind::Primary => syll.stress = next_stress,
-                                        StressKind::Secondary |
-                                        StressKind::Unstressed => {},
-                                    }
-                                },
-                                StressKind::Unstressed => syll.stress = next_stress,
+                            if res_word.syllables.len() <= 1 {
+                                return Err(RuleRuntimeError::DeletionOnlySyll)
                             }
                             
-                            syll.tone.push_str(&next_tone);
+                            if i == 0 || i >= res_word.syllables.len() {
+                                // can't delete a word boundary
+                                continue;
+                            }
+                            let mut syll_segs = res_word.syllables[i].segments.clone();
+                            res_word.syllables[i-1].segments.append(&mut syll_segs);
 
-                            res_word.syllables.remove(syll_index);
+                            res_word.syllables[i-1].stress = match (res_word.syllables[i-1].stress, res_word.syllables[i].stress) {
+                                (StressKind::Primary, _) | (_, StressKind::Primary) => StressKind::Primary,
+                                (StressKind::Secondary, StressKind::Secondary)  | 
+                                (StressKind::Secondary, StressKind::Unstressed) | 
+                                (StressKind::Unstressed, StressKind::Secondary)  => StressKind::Secondary,
+                                (StressKind::Unstressed, StressKind::Unstressed) => StressKind::Unstressed,
+                            };
+                            let syll_tone = &res_word.syllables[i].tone.clone();
+                            res_word.syllables[i-1].tone.push_str(&syll_tone);
+                            res_word.syllables.remove(i);
                         },
                     }
                 }
@@ -243,40 +202,42 @@ impl SubRule {
         }
     }
 
-    fn match_input_at(&self, word: &Word, start_index: usize) -> Result<(Vec<MatchElement>, Option<usize>), RuleRuntimeError> {
+    fn match_input_at(&self, word: &Word, start_index: SegPos) -> Result<(Vec<MatchElement>, Option<SegPos>), RuleRuntimeError> {
         // TODO(girv): match context and exceptions
         let mut cur_index = start_index;
-        let mut begin = None;
+        let mut match_begin = None;
         let mut state_index = 0;
         let mut captures: Vec<_> = Vec::new();
 
-        while cur_index <= word.seg_count() {
+        while word.in_bounds(cur_index) {
             if self.match_input_item(&mut captures, &mut cur_index, &mut state_index, word, &self.input)? {
-                if state_index > self.input.len() - 1 {
-                    //TODO(girv): May need to be cur_index+1
+                if state_index > self.input.len() - 1 { // if we have a full match             
                     return Ok((captures, Some(cur_index)));
                 }
-
-                if begin.is_none() {
-                    begin = Some(cur_index); // TODO: This won't work if we jump i.e. if we match syllable
+                if match_begin.is_none() { // if we haven't started matching, we have now
+                    match_begin = Some(cur_index)
                 }
-            } else if begin.is_none() {
-                cur_index += 1;
-                captures = vec![]; // TODO(girv): Should be unnecessary, but safety first!: 
-            } else {
-                cur_index = begin.unwrap() + 1;
+                // else continue 
+            } else if match_begin.is_none() { // if we didn't partially match, move on
+                cur_index.increment(word);
+                // NOTE(girv): Should be unnecessary, but safety first!:
+                state_index = 0;
+                captures = vec![];  
+            } else { // if we partially matched, go back to When we started matching +1 and start again
+                cur_index = match_begin.unwrap();
+                cur_index.increment(word);
                 state_index = 0;
                 captures = vec![];
-                begin = None;
+                match_begin = None;
             }
         }
-        if begin.is_none() {
+
+        if match_begin.is_none() { // if we've got to the end of the word and we haven't began matching
             Ok((vec![], None))
         } else if let ParseKind::WordBound | ParseKind::SyllBound = self.input.last().expect("Input is empty").kind {
-            captures.push(MatchElement::SyllBound(word.segments.len()));
+            captures.push(MatchElement::SyllBound(word.syllables.len()));
             Ok((captures, None))
-            
-        } else {
+        } else { // No Match
             Ok((vec![], None))
         }
     }
@@ -285,29 +246,29 @@ impl SubRule {
     fn match_input_item(
         &self, 
         captures: &mut Vec<MatchElement>, 
-        seg_index: &mut usize, 
+        seg_index: &mut SegPos, 
         state_index: &mut usize,
         word: &Word, 
         states: &[Item], 
     ) -> Result<bool, RuleRuntimeError> {
         match &states[*state_index].kind {
             ParseKind::Variable(vt, m) => if self.match_var(captures, vt, m, word, *seg_index)? {
-                *seg_index += 1;
+                seg_index.increment(word);
                 *state_index += 1;
                 Ok(true)
             } else { Ok(false) },
             ParseKind::Ipa(s, m) => if self.match_ipa(captures, s, m, word, *seg_index)? {
-                *seg_index += 1;
+                seg_index.increment(word);
                 *state_index += 1;
                 Ok(true)
             } else { Ok(false) },
             ParseKind::Matrix(m, v) => if self.match_matrix(captures, m, v, word, *seg_index)? {
-                *seg_index += 1;
+                seg_index.increment(word);
                 *state_index += 1;
                 Ok(true) 
             } else { Ok(false) },
             ParseKind::Set(s) => if self.match_set(captures, s, word, *seg_index)? {
-                *seg_index += 1; // TODO(girv): when we allow boundaries within sets, this will have to be incremented within the match_set function
+                seg_index.increment(word); // TODO(girv): when we allow boundaries within sets, this will have to be incremented within the match_set function
                 *state_index += 1;
                 Ok(true)
             } else { Ok(false) },
@@ -323,13 +284,13 @@ impl SubRule {
         }
     }
 
-    fn match_optionals(&self, captures: &mut [MatchElement], word: &Word, seg_index: &mut usize, states: &[Item], opt_states: &[Item], match_min: usize, match_max: usize) -> Result<bool, RuleRuntimeError> {
+    fn match_optionals(&self, captures: &mut [MatchElement], word: &Word, seg_index: &mut SegPos, states: &[Item], opt_states: &[Item], match_min: usize, match_max: usize) -> Result<bool, RuleRuntimeError> {
         // should work like regex (...){min, max}? 
         let max = if match_max == 0 {None} else{ Some(match_max)};
         self.match_multiple(captures, word, seg_index,  states, &mut 0, match_min, max, opt_states, true)
     }
     
-    fn match_ellipsis(&self, captures: &mut [MatchElement], word: &Word, seg_index: &mut usize, states: &[Item], state_index: &mut usize) -> Result<bool, RuleRuntimeError> {
+    fn match_ellipsis(&self, captures: &mut [MatchElement], word: &Word, seg_index: &mut SegPos, states: &[Item], state_index: &mut usize) -> Result<bool, RuleRuntimeError> {
         // should work akin to '.+?' in Regex, that is, a lazy-match of one-or-more elements
         // this should not capture, however
         self.match_multiple(captures, word, seg_index, states, state_index, 1, None, &[], false)
@@ -337,7 +298,7 @@ impl SubRule {
 
     fn match_multiple(
         &self, captures: &mut [MatchElement], 
-        word: &Word, seg_index: &mut usize, 
+        word: &Word, seg_index: &mut SegPos, 
         states: &[Item], state_index: &mut usize, 
         match_min: usize, match_max: Option<usize>,
         inner_states: &[Item], capture_wanted: bool    
@@ -351,7 +312,9 @@ impl SubRule {
         while i < match_min {
             if inner_states.is_empty() {
                 // TODO(girv): test for OB1 error
-                if *seg_index >= word.seg_count() {
+
+                if word.out_of_bounds(*seg_index) {
+                // if *seg_index >= word.seg_count() {
                     return Ok(false)
                 }
                 
@@ -360,19 +323,22 @@ impl SubRule {
                     caps.push(MatchElement::Segment(*seg_index))
                 }
 
-                *seg_index += 1;
+                seg_index.increment(word);
                 i += 1;
             } else {
                 // NOTE: segs are captured regardless of the `capture_wanted` check
                 let mut inner_state_index = 0;
-                while *seg_index <= word.seg_count() && inner_state_index < inner_states.len(){
+
+                while word.in_bounds(*seg_index) && inner_state_index < inner_states.len() {
+                // while *seg_index <= word.seg_count() && inner_state_index < inner_states.len(){
                     if !self.match_input_item(&mut caps, seg_index, &mut inner_state_index, word, inner_states)? {
                         *seg_index = back_seg;
                         *state_index = back_state;
                         return Ok(false)
                     }
                 }
-                if *seg_index >= word.seg_count() {
+                if word.out_of_bounds(*seg_index) {
+                // if *seg_index >= word.seg_count() {
                     return Ok(false)
                 }
                 i += 1;
@@ -394,13 +360,14 @@ impl SubRule {
     }
 
 
-    fn match_syll(&self, captures: &mut Vec<MatchElement>, state_index: &mut usize, stress: &Option<Supr>, tone: &Option<String>, word: &Word, seg_index: &mut usize) -> Result<bool, RuleRuntimeError> {
+    fn match_syll(&self, captures: &mut Vec<MatchElement>, state_index: &mut usize, stress: &Option<Supr>, tone: &Option<String>, word: &Word, seg_index: &mut SegPos) -> Result<bool, RuleRuntimeError> {
         // checks current segment is at start of syll
         // matches stress and tone
         // jumps to end of syllable if match
-        if word.seg_is_syll_initial(*seg_index) {
-            let cur_syll_index = word.get_syll_index_from_seg_index(*seg_index);
-            let cur_syll = word.get_syll_at(cur_syll_index).unwrap();
+        if seg_index.seg_index == 0 {
+        // if word.seg_is_syll_initial(*seg_index) {
+            let cur_syll_index = seg_index.syll_index; //word.get_syll_index_from_seg_index(*seg_index);
+            let cur_syll = word.syllables[cur_syll_index].clone();
 
             if let Some(s) = stress.as_ref() {
                 if !self.match_stress(s, &cur_syll) {
@@ -416,7 +383,9 @@ impl SubRule {
             captures.push(MatchElement::Syllable(cur_syll_index));
             
             *state_index += 1;
-            *seg_index = cur_syll.end + 1; // NOTE(girv): this is only correct if we DON'T advance seg_index after match in `match_input_at`
+            // NOTE(girv): this is only correct if we DON'T advance seg_index after match in `match_input_at`
+            seg_index.syll_index += 1;
+            seg_index.seg_index = 0;
 
             Ok(true)
         } else {
@@ -450,16 +419,17 @@ impl SubRule {
         tone == syll.tone
     }
 
-    fn match_syll_bound(&self, captures: &mut Vec<MatchElement>, word: &Word, seg_index: usize) -> bool {
-        if word.seg_is_syll_initial(seg_index) {
-            captures.push(MatchElement::SyllBound(seg_index));
+    fn match_syll_bound(&self, captures: &mut Vec<MatchElement>, word: &Word, seg_index: SegPos) -> bool {
+        if seg_index.seg_index == 0 {
+        // if word.seg_is_syll_initial(seg_index) {
+            captures.push(MatchElement::SyllBound(seg_index.syll_index));
             true
         } else {
             false
         }
     }
 
-    fn match_set(&self, captures: &mut Vec<MatchElement>, set: &[Item], word: &Word, seg_index: usize) -> Result<bool, RuleRuntimeError> {
+    fn match_set(&self, captures: &mut Vec<MatchElement>, set: &[Item], word: &Word, seg_index: SegPos) -> Result<bool, RuleRuntimeError> {
         for s in set {
             let res = match &s.kind {
                 ParseKind::Variable(vt, m) => self.match_var(captures, vt, m, word, seg_index),
@@ -476,7 +446,7 @@ impl SubRule {
         Ok(false)
     }
 
-    fn match_ipa(&self, captures: &mut Vec<MatchElement>, s: &Segment, mods: &Option<Modifiers>, word: &Word, seg_index: usize) -> Result<bool, RuleRuntimeError> {
+    fn match_ipa(&self, captures: &mut Vec<MatchElement>, s: &Segment, mods: &Option<Modifiers>, word: &Word, seg_index: SegPos) -> Result<bool, RuleRuntimeError> {
         let seg = word.get_seg_at(seg_index).unwrap();
         if mods.is_none() {
             if *s == seg {
@@ -490,7 +460,7 @@ impl SubRule {
         }
     }
 
-    fn match_var(&self, captures: &mut Vec<MatchElement>, vt: &Token, mods: &Option<Modifiers>, word: &Word, seg_index: usize) -> Result<bool, RuleRuntimeError> {
+    fn match_var(&self, captures: &mut Vec<MatchElement>, vt: &Token, mods: &Option<Modifiers>, word: &Word, seg_index: SegPos) -> Result<bool, RuleRuntimeError> {
         if let Some(var) = self.variables.borrow_mut().get(&vt.value.parse::<usize>().expect("TODO ERROR MESSAGE")) {
             self.match_ipa(captures, var, mods, word, seg_index)
             // NOTE(girv): we should not push here
@@ -499,7 +469,7 @@ impl SubRule {
         }
     }
 
-    fn match_matrix(&self, captures: &mut Vec<MatchElement>, mods: &Modifiers, var: &Option<usize>, word: &Word, seg_index: usize) -> Result<bool, RuleRuntimeError> { 
+    fn match_matrix(&self, captures: &mut Vec<MatchElement>, mods: &Modifiers, var: &Option<usize>, word: &Word, seg_index: SegPos) -> Result<bool, RuleRuntimeError> { 
         if self.match_modifiers(mods, word, seg_index)? {
             if let Some(v) = var {
                 self.variables.borrow_mut().insert(*v, word.get_seg_at(seg_index).unwrap());
@@ -511,8 +481,8 @@ impl SubRule {
         }
     }
 
-    fn match_modifiers(&self, mods: &Modifiers, word: &Word, seg_index: usize) -> Result<bool, RuleRuntimeError> {
-        let seg = word.segments[seg_index];
+    fn match_modifiers(&self, mods: &Modifiers, word: &Word, seg_index: SegPos) -> Result<bool, RuleRuntimeError> {
+        let seg = word.get_seg_at(seg_index).expect("Segment Position Out of Bounds");
 
         for (i, m) in mods.feats.iter().enumerate() {
             if !self.match_feat_mod(m, i, seg)? {

@@ -2,9 +2,7 @@ use std::fmt;
 
 use colored::Colorize;
 
-use crate ::{
-    lexer ::Token, 
-};
+use crate::lexer::Token;
 
 
 pub trait ASCAError: Clone {

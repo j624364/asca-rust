@@ -1,4 +1,6 @@
-use std::fmt;
+use std::{collections::VecDeque, fmt};
+
+use crate::Segment;
 
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -27,20 +29,19 @@ impl fmt::Display for StressKind {
 
 #[derive(Debug, Clone)]
 pub struct Syllable {
-    pub start: usize,
-    pub end: usize,
+    pub segments: VecDeque<Segment>,
     pub stress: StressKind,
     pub tone: String
 }
 
 impl Syllable {
     pub fn new() -> Self {
-        Self {start: 0, end: 0, stress: StressKind::default(), tone: String::new()}
+        Self {segments: VecDeque::new(), stress: StressKind::default(), tone: String::new()}
     }
 }
 
 impl fmt::Display for Syllable {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "({}:{},{},'{}')", self.start, self.end, self.stress, self.tone)
+        write!(f, "({},{},'{}')", self.segments.len(), self.stress, self.tone)
     }
 }

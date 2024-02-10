@@ -163,6 +163,11 @@ pub struct Segment {
 
 impl fmt::Debug for Segment {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+
+        if let Some(grapheme) = self.get_as_grapheme(){
+            return write!(f, "{}", grapheme)
+        }
+
         write!(f, "RUT: {:b} ", self.root)?;
         write!(f, "MAN: {:b} ", self.manner)?;
         write!(f, "LAR: {:b} ", self.laryngeal)?;
