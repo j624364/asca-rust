@@ -1,17 +1,24 @@
 # Logic for ASCA
 
-ASCA is a Sound Change Applier that allows the use of Distinctive Features and Alpha Notation out of the box and a syntax that attempts to stay true to standard notation.
+ASCA is a Sound Change Applier written in Rust.
+This repo contains the logic for the applier which will be connected to a web front-end.
 
-This repo homes the logic for the applier which will interop with a web front-end.
+## Notable Features
+- Out of the box Distinctive Features and Alpha Notation
+- Manipulation of Syllables, Stress, and Tone
+- Metathesis and Hyperthesis
+- Syntax which adheres to conventional standard notation
+- Digraph and Diacritic Support
+
 
 ## Progress
 - [x] Parsing Words
 - [x] Parsing Rules
-- [ ] Matching Input
+- [ ] Matching Input (~90% complete)
 - [ ] Applying Output
-    - [ ] Simple Metathesis
+    - [x] Simple Metathesis
+    - [x] Simple Deletion
     - [ ] Simple Insertion
-    - [ ] Simple Deletion
     - [ ] Simple Substitution 
 - [ ] Matching Environment
 - [ ] Applying Exceptions
