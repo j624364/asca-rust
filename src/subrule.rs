@@ -56,28 +56,33 @@ impl SubRule {
         //     RuleType::Insertion     => {/* skip match input */},
         // }
 
-        let input_result = if let RuleType::Insertion = self.rule_type {
-            vec![]
-        } else {
-            let result = self.match_input_at(&word, 0)?;
-            if result.is_empty() {
-                // println!("{}", word.render().unwrap());
-                // println!("No match");
-                return Ok(word)
-            }
-            result
-        };
-
-
-        println!("{}", word.render().unwrap());
-        println!("Match! {:?}", input_result);
-
-        // Match context
+        if let RuleType::Insertion = self.rule_type {
+            // TODO(girv): match context and exceptions
+            return self.transform(&word, vec![])
+        } 
         
-        // Match exceptions
+        let mut word = word;
+        let mut cur_index = 0;
+        loop {
+            let (res, index) = self.match_input_at(&word, cur_index)?;
+            // println!("{res:?}");
+            if !res.is_empty() {
+                println!("{}", word.render().unwrap());
+                println!("Match! {:?}", res);
+                word = self.transform(&word, res)?;
+                if let Some(ci) = index { 
+                    cur_index = ci;
+                } else {
+                    // end of word
+                    break;
+                }
+            } else {
+                // no match
+                break
+            }
+        }
 
-        // Apply Output
-        self.transform(&word, input_result)
+        Ok(word)
         
     }
 
@@ -162,26 +167,34 @@ impl SubRule {
                             // remove segment 
                             // decrement start and end of all syllables after
                             // I'm starting to think we need a better datastructure 🤔
-                            let mut syll_index = res_word.get_syll_index_from_seg_index(i);
-                            res_word.segments.remove(i);
-
-                            if res_word.syllables[syll_index].end == 0 {
-                                res_word.syllables.remove(syll_index);
+                            if word.segments.len() > 1 {
+                                let mut syll_index = res_word.get_syll_index_from_seg_index(i);
+                                res_word.segments.remove(i);
+    
+                                if res_word.syllables[syll_index].end == 0 {
+                                    res_word.syllables.remove(syll_index);
+                                } else {
+                                    res_word.syllables[syll_index].end -= 1;
+                                    syll_index += 1;
+                                }
+    
+                                for si in syll_index..res_word.syllables.len() {
+                                    res_word.syllables[si].start -= 1;
+                                    res_word.syllables[si].end -= 1;
+                                }
                             } else {
-                                res_word.syllables[syll_index].end -= 1;
-                                syll_index += 1;
-                            }
-
-                            for si in syll_index..res_word.syllables.len() {
-                                res_word.syllables[si].start -= 1;
-                                res_word.syllables[si].end -= 1;
+                                return Err(RuleRuntimeError::DeletionOnlySeg)
                             }
                         },
                         MatchElement::Syllable(i) => {
                             // remove all segments in syllable
                             // remove syllable
                             // decrement start and end of all syllables after
-                            res_word.remove_syll(res_word.get_syll_index_from_seg_index(i));
+                            if word.syllables.len() > 1 {
+                                res_word.remove_syll(res_word.get_syll_index_from_seg_index(i));
+                            } else {
+                                return Err(RuleRuntimeError::DeletionOnlySyll)
+                            }
                         },
                         MatchElement::SyllBound(i) => {
                             // join the two neighbouring syllables
@@ -230,7 +243,8 @@ impl SubRule {
         }
     }
 
-    fn match_input_at(&self, word: &Word, start_index: usize) -> Result<Vec<MatchElement>, RuleRuntimeError> {
+    fn match_input_at(&self, word: &Word, start_index: usize) -> Result<(Vec<MatchElement>, Option<usize>), RuleRuntimeError> {
+        // TODO(girv): match context and exceptions
         let mut cur_index = start_index;
         let mut begin = None;
         let mut state_index = 0;
@@ -239,7 +253,8 @@ impl SubRule {
         while cur_index <= word.seg_count() {
             if self.match_input_item(&mut captures, &mut cur_index, &mut state_index, word, &self.input)? {
                 if state_index > self.input.len() - 1 {
-                    return Ok(captures);
+                    //TODO(girv): May need to be cur_index+1
+                    return Ok((captures, Some(cur_index)));
                 }
 
                 if begin.is_none() {
@@ -256,13 +271,13 @@ impl SubRule {
             }
         }
         if begin.is_none() {
-            Ok(vec![])
+            Ok((vec![], None))
         } else if let ParseKind::WordBound | ParseKind::SyllBound = self.input.last().expect("Input is empty").kind {
             captures.push(MatchElement::SyllBound(word.segments.len()));
-            Ok(captures)
+            Ok((captures, None))
             
         } else {
-            Ok(vec![])
+            Ok((vec![], None))
         }
     }
 
