@@ -1,8 +1,7 @@
 ``` peg
-RULE    ←   SUB_RUL / RED_RUL / MET_RUL / DEL_RUL / INS_RUL
+RULE    ←   SUB_RUL / MET_RUL / DEL_RUL / INS_RUL
 
 SUB_RUL ←   INP ARR OUT ('/' ENV)? ('|' ENV)? EOL           // [x]
-RED_RUL ←   INP ARR '+' ('/' ENV)? ('|' ENV)? EOL           // [ ] :: NOTE: no plans to supported this
 MET_RUL ←   INP ARR '&' ('/' ENV)? ('|' ENV)? EOL           // [x] :: FIXME: 'INP' here is currently actually INP_TRM
 DEL_RUL ←   INP ARR EMP ('/' ENV)? ('|' ENV)? EOL           // [x] :: FIXME: 'INP' here is currently actually INP_TRM
 INS_RUL ←   EMP ARR OUT ('/' ENV)? ('|' ENV)? EOL           // [x] :: FIXME: 'OUT' here is currently actually OUT_TRM
