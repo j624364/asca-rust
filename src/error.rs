@@ -134,6 +134,8 @@ impl ASCAError for WordRuntimeError {
 #[derive(Debug, Clone)]
 pub enum RuleRuntimeError { 
     UnbalancedRule,
+    DeletionOnlySeg,
+    DeletionOnlySyll,
     UnknownVariable(Token),
 }
 
@@ -141,6 +143,8 @@ impl ASCAError for RuleRuntimeError {
     fn get_error_message(&self) -> String {
         match self {
             Self::UnbalancedRule => todo!(),
+            Self::DeletionOnlySeg => format!("Can't delete a word's only segment"),
+            Self::DeletionOnlySyll => format!("Can't delete a word's only syllable"),
             Self::UnknownVariable(token) => format!("Unknown variable '{}' at {}", token.value, token.position.start),
         }
     }
@@ -150,6 +154,7 @@ impl ASCAError for RuleRuntimeError {
         let mut result = format!("{} {}", "Runtime Error".bright_red().bold(), self.get_error_message().bold());
         
         match self {
+            Self::DeletionOnlySyll | Self::DeletionOnlySeg => {},
             Self::UnbalancedRule => todo!(),
             Self::UnknownVariable(t) => {
                 let line = t.position.line;
