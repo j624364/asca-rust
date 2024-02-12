@@ -5,7 +5,7 @@
 [Suprasegmental Features](#Suprasegmental-Features) |
 ## Defining Sound Changes
 
-### Basica
+### Basics
 
 ### Groupings
 ```
