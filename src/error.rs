@@ -1,9 +1,9 @@
 use std::fmt;
-
 use colored::Colorize;
-
-use crate::lexer::Token;
-
+use crate :: {
+    lexer :: Token, 
+    Position
+};
 
 pub trait ASCAError: Clone {
     fn get_error_message(&self) -> String;
@@ -21,11 +21,21 @@ pub enum Error {
 
 impl ASCAError for Error {
     fn get_error_message(&self) -> String {
-        todo!()
+        match self {
+            Error::WordSyn(e) => e.get_error_message(),
+            Error::RuleSyn(e) => e.get_error_message(),
+            Error::WordRun(e) => e.get_error_message(),
+            Error::RuleRun(e) => e.get_error_message(),
+        }
     }
 
-    fn format_error(&self, _: &[String]) -> String {
-        todo!()
+    fn format_error(&self, s: &[String]) -> String {
+        match self {
+            Error::WordSyn(e) => e.format_error(s),
+            Error::RuleSyn(e) => e.format_error(s),
+            Error::WordRun(e) => e.format_error(s),
+            Error::RuleRun(e) => e.format_error(s),
+        }
     }
 }
 
@@ -74,24 +84,27 @@ impl ASCAError for WordSyntaxError {
         }
     }
 
-    fn format_error(&self, rules: &[String]) -> String {
-        let _ = rules;
-        todo!()
+    fn format_error(&self, _rules: &[String]) -> String {
+        const MARG: &str = "\n    |     ";
+        let mut result = format!("{} {}", "Word Syntax Error".bright_red().bold(), self.get_error_message().bold());
+        match self {
+            Self::UnknownChar(s, u) => {
+                let arrows = " ".repeat(*u) + "^" + "\n";
+                result.push_str(&format!("{}{}{}{}",  
+                    MARG.bright_cyan().bold(), 
+                    s, 
+                    MARG.bright_cyan().bold(), 
+                    arrows.bright_red().bold()
+                ));
+            },
+            WordSyntaxError::NoSegmentBeforeColon(_, _) => todo!(),
+            WordSyntaxError::DiacriticBeforeSegment(_, _) => todo!(),
+            WordSyntaxError::DiacriticDoesNotMeetPreReqs(_, _) => todo!(),
+            WordSyntaxError::CouldNotParse(_) => todo!(),
+        }        
+        result
     }
 }
-
-
-// impl fmt::Display for WordSyntaxError {
-//     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-//         match self {
-//             WordSyntaxError::UnknownChar(_, _)                 => writeln!(f,"Unknown Char"),
-//             WordSyntaxError::NoSegmentBeforeColon(_, _)        => writeln!(f,"NoSegmentBeforeColon"),
-//             WordSyntaxError::DiacriticBeforeSegment(_, _)      => writeln!(f,"DiacriticBeforeSegment"),
-//             WordSyntaxError::DiacriticDoesNotMeetPreReqs(_, _) => writeln!(f,"DiacriticDoesNotMeetPreReqs"),
-//             WordSyntaxError::CouldNotParse(_)                  => writeln!(f,"CouldNotParse"),
-//         }
-//     }
-// }
 
 #[derive(Debug, Clone)]
 pub enum WordRuntimeError {
@@ -134,15 +147,17 @@ pub enum RuleRuntimeError {
     UnbalancedRule,
     DeletionOnlySeg,
     DeletionOnlySyll,
+    LonelySet(Position),
     UnknownVariable(Token),
 }
 
 impl ASCAError for RuleRuntimeError {
     fn get_error_message(&self) -> String {
         match self {
+            Self::LonelySet(_) => "A Set in output must have a matching Set in input".to_string(),
             Self::UnbalancedRule => todo!(),
-            Self::DeletionOnlySeg => format!("Can't delete a word's only segment"),
-            Self::DeletionOnlySyll => format!("Can't delete a word's only syllable"),
+            Self::DeletionOnlySeg => "Can't delete a word's only segment".to_string(),
+            Self::DeletionOnlySyll => "Can't delete a word's only syllable".to_string(),
             Self::UnknownVariable(token) => format!("Unknown variable '{}' at {}", token.value, token.position.start),
         }
     }
@@ -160,7 +175,6 @@ impl ASCAError for RuleRuntimeError {
                 let end = t.position.end;
 
                 let arrows = " ".repeat(start) + &"^".repeat(end-start) + "\n";
-
                 result.push_str(&format!("{}{}{}{}",  
                     MARG.bright_cyan().bold(), 
                     rules[line], 
@@ -168,9 +182,16 @@ impl ASCAError for RuleRuntimeError {
                     arrows.bright_red().bold()
                 ));
             },
+            Self::LonelySet(pos) => {
+                let arrows = " ".repeat(pos.start) + &"^".repeat(pos.end-pos.start) + "\n";
+                result.push_str(&format!("{}{}{}{}",  
+                    MARG.bright_cyan().bold(), 
+                    rules[pos.line], 
+                    MARG.bright_cyan().bold(), 
+                    arrows.bright_red().bold()
+                ));
+            }
         }
-        
-        
         result
     }
 }
