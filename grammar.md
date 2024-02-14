@@ -14,15 +14,15 @@ OUT     ←   OUT_TRM  ( ',' OUT_TRM )*                       // [x]
 OUT_TRM ←   OUT_EL+                                         // [x]
 OUT_EL  ←   SYL / SET / SEG / VAR                           // [x] :: NOTE: 'SET' here only makes sense if it corresponds to a SET in INP
 
-ENV     ←   '_' ',' ENV_EL / ENV_TRM  (',' ENV_TRM)*        // [x] :: _,# ==> #_ , _#
+ENV     ←   '_' ',' ENV_EL / ENV_TRM  (',' ENV_TRM)*        // [x] :: I.e. _,# ==> #_ , _#
 ENV_TRM ←   ENV_EL?  '_' ENV_EL?                            // [x]
 ENV_EL  ←   ( BOUND / ELLIPSS / TERM )+                     // [x]
 
 TERM    ←   SYL / SET / SEG / OPT / VAR                     // [x]
-SYL     ←   '%' (':' PARAMS)?                               // [x]
+SYL     ←   '%' (':' PARAMS)? VAR_ASN?                      // [x]
 SET     ←   '{' SEG (',' SEG)* '}'                          // [x] :: NOTE: At the moment, we can't have multi-segment sets i.e. "{nd}" is not allowed 
 OPT     ←   '(' OPT_TRM+ (',' [0-9]+ (':' [1-9]+)?)? ')'    // [x] :: NOTE: (C) === (C,1) === (C, 0:1)
-OPT_TRM ←   BOUND / SYL / SET / SEG / VAR                   // [x] :: NOTE: WBOUND in Input shouldn't be allowed
+OPT_TRM ←   BOUND / SYL / SET / SEG / VAR                   // [x] :: FIXME: WBOUND in Input shouldn't be allowed
 SEG     ←   IPA (':' PARAMS)? / MATRIX VAR_ASN?             // [x]
 MATRIX  ←   (GROUP (':' PARAMS)? / PARAMS                   // [x]
 VAR     ←   [0-9]+ (':' PARAMS)?                            // [x]
