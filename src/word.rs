@@ -1,4 +1,7 @@
-use   std::{collections::VecDeque, fmt};
+use std::{
+    fmt,
+    collections::VecDeque, 
+};
 
 use crate :: {
     error ::WordSyntaxError, 
@@ -32,7 +35,7 @@ use crate :: {
 // }
 
 
-#[derive(Clone, Copy)]
+#[derive(Clone, Copy, PartialEq, Eq)]
 pub struct SegPos {
     pub syll_index: usize,
     pub seg_index: usize
@@ -273,6 +276,38 @@ impl Word {
             None
         }
     }
+
+    // pub fn first_diff(before: &Word, after: &Word) -> Option<(usize, isize)> {
+
+    //     let mut first_diff = None;
+    //     for (i,( bfr, aft)) in before.syllables.iter().zip(after.syllables.iter()).enumerate() {
+    //         print!("{}, ", bfr.segments.len());
+    //         println!("{}", aft.segments.len());
+    //         let diff = aft.segments.len() as isize - bfr.segments.len() as isize;
+    //         if diff != 0 {
+    //             first_diff = Some((i, diff));
+    //             break;
+    //         } 
+    //     }
+
+    //     match first_diff {
+    //         Some(_) => first_diff,
+    //         None => {
+    //             if before.syllables.len() > after.syllables.len() {
+    //                 let i = after.syllables.len() - 1;
+    //                 let diff = -(before.syllables[i].segments.len() as isize);
+    //                 Some((i, diff))
+    //             } else if before.syllables.len() < after.syllables.len() {
+    //                 let i = before.syllables.len() - 1;
+    //                 let diff = after.syllables[i].segments.len() as isize;
+    //                 Some((i, diff))
+    //             } else {
+    //                 None
+    //             } 
+
+    //         },
+    //     }
+    // }
 
     // pub fn get_syll_at(&self, syll_index: usize) -> Option<Syllable> {
     //     if syll_index < self.syllables.len() {
