@@ -149,6 +149,7 @@ pub enum RuleRuntimeError {
     DeletionOnlySyll,
     LonelySet(Position),
     UnknownVariable(Token),
+    InsertionNoContextOrException(Position),
 }
 
 impl ASCAError for RuleRuntimeError {
@@ -159,6 +160,7 @@ impl ASCAError for RuleRuntimeError {
             Self::DeletionOnlySeg => "Can't delete a word's only segment".to_string(),
             Self::DeletionOnlySyll => "Can't delete a word's only syllable".to_string(),
             Self::UnknownVariable(token) => format!("Unknown variable '{}' at {}", token.value, token.position.start),
+            Self::InsertionNoContextOrException(pos) => "Insertion rules must have a context".to_string(),
         }
     }
 
@@ -173,11 +175,20 @@ impl ASCAError for RuleRuntimeError {
                 let line = t.position.line;
                 let start = t.position.start;
                 let end = t.position.end;
-
+                
                 let arrows = " ".repeat(start) + &"^".repeat(end-start) + "\n";
                 result.push_str(&format!("{}{}{}{}",  
+                MARG.bright_cyan().bold(), 
+                rules[line], 
+                MARG.bright_cyan().bold(), 
+                arrows.bright_red().bold()
+                ));
+            },
+            Self::InsertionNoContextOrException(pos) => {
+                let arrows = " ".repeat(pos.end) + &"^" + "\n";
+                result.push_str(&format!("{}{}{}{}",  
                     MARG.bright_cyan().bold(), 
-                    rules[line], 
+                    rules[pos.line], 
                     MARG.bright_cyan().bold(), 
                     arrows.bright_red().bold()
                 ));
