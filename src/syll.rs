@@ -40,6 +40,12 @@ impl Syllable {
     }
 }
 
+impl PartialEq for Syllable {
+    fn eq(&self, other: &Self) -> bool {
+        self.segments == other.segments && self.stress == other.stress && self.tone == other.tone
+    }
+}
+
 impl fmt::Display for Syllable {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(f, "({},{},'{}')", self.segments.len(), self.stress, self.tone)
