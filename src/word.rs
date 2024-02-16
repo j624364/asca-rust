@@ -194,34 +194,33 @@ impl Word {
         self.syllables.swap(a_index, b_index)
     }
 
-    // /// Finds number of consecutive identical segments ***within a syllable*** starting from the given index.
-    // /// 
-    // /// Does not take into account if said index is in the middle of the repetition
-    // /// # Examples
-    // /// ``` 
-    // /// let word = Word::new("aa.a").unwrap();
-    // /// assert_eq!(word.seg_length_at(0), 2);
-    // /// assert_eq!(word.seg_length_at(1), 1);
-    // /// ```
-    // pub fn seg_length_in_syll(&self, seg_index: usize) -> usize {
-    //     if self.seg_is_syll_final(seg_index) {
-    //         return 1
-    //     }
+    /// Finds number of consecutive identical segments ***within a syllable*** starting from the given index.
+    /// 
+    /// Does not take into account if said index is in the middle of the repetition
+    /// # Examples
+    /// ``` 
+    /// let word = Word::new("aa.a").unwrap();
+    /// assert_eq!(word.seg_length_at(0), 2);
+    /// assert_eq!(word.seg_length_at(1), 1);
+    /// ```
+    pub fn seg_length_in_syll(&self, seg_index: SegPos) -> usize {
 
-    //     let syll_index = self.get_syll_index_from_seg_index(seg_index);
-    //     let mut seg_index = seg_index + 1;
-    //     let mut len = 1;
+        let syll = &self.syllables[seg_index.syll_index];
 
-    //     // FIXME: Out of Bounds is possible
-    //     while seg_index < self.segments.len()
-    //     && self.get_syll_index_from_seg_index(seg_index) == syll_index 
-    //     && self.get_seg_at(seg_index).unwrap() == self.get_seg_at(seg_index).unwrap() {
-    //         len +=1;
-    //         seg_index += 1;
-    //     }
+        if seg_index.seg_index > syll.segments.len() {
+            return 1
+        }
 
-    //     len
-    // }
+        let mut s_i = seg_index.seg_index + 1;
+        let mut len = 1;
+
+        while s_i < syll.segments.len() && syll.segments[seg_index.seg_index] == syll.segments[s_i] {
+            len +=1;
+            s_i += 1;
+        }
+
+        len
+    }
 
     
     // /// Finds number of consecutive identical segments starting from the given index.
@@ -397,8 +396,8 @@ impl Word {
                         tone_buffer.push(txt[i]);
                         i+=1;
                     }
-                    sy.tone = tone_buffer;
-                    
+                    i-=1;
+                    sy.tone = tone_buffer;                    
                 }
                 self.syllables.push(sy.clone());
                 // Reset syllable for next pass
@@ -485,7 +484,9 @@ impl Word {
             }
         }
         if sy.segments.is_empty() {
-            return Err(WordSyntaxError::CouldNotParse(input_txt));
+            if !sy.tone.is_empty() || sy.stress != StressKind::Unstressed {
+                return Err(WordSyntaxError::CouldNotParse(input_txt));
+            } 
         } else {
             self.syllables.push(sy);
         }
