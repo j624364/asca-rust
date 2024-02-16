@@ -5,12 +5,12 @@ use std ::{
 
 use crate ::{
     error :: RuleRuntimeError, 
-    lexer ::{Token, SupraType, FType}, 
-    parser::{Item, ParseKind, Modifiers, Supr, SegModKind, BinMod, AlphaMod}, 
+    lexer ::{Token, FType}, 
+    parser::{Item, ParseKind, Modifiers, ModKind, BinMod, AlphaMod, SupraSegs}, 
     rule  ::{RuleType, Alpha}, 
     seg   ::{Segment, NodeKind, feature_to_node_mask}, 
     syll  ::{Syllable, StressKind}, 
-    word  ::{Word, SegPos},
+    word  ::{Word, SegPos}
 };
 
 type SylPos = usize;  // the index of the syllable in the word.syllables array
@@ -50,7 +50,6 @@ impl SubRule {
         // }
 
         if let RuleType::Insertion = self.rule_type {
-            // TODO(girv): match context and exceptions
             return self.transform(&word, vec![], &mut None)
         } 
         
@@ -256,7 +255,7 @@ impl SubRule {
             },
         }.kind else { unreachable!() };
 
-        println!("{:?} : {:?}", before_states, after_states);
+        // println!("{:?} : {:?}", before_states, after_states);
 
         while word.in_bounds(cur_pos) {
             if self.context_match_item(&mut cur_pos, &mut state_index, word, &before_states)? {
@@ -476,7 +475,7 @@ impl SubRule {
                 *state_index += 1;
                 Ok(true)
             } else { Ok(false) },
-            ParseKind::Matrix(m, v) => if self.input_match_matrix(captures, m, v, word, *seg_index)? {
+            ParseKind::Matrix(m, v) => if self.input_match_matrix(captures, m, v, word, seg_index)? {
                 seg_index.increment(word);
                 *state_index += 1;
                 Ok(true) 
@@ -573,7 +572,7 @@ impl SubRule {
         // return Ok(true)
     }
 
-    fn input_match_syll(&self, captures: &mut Vec<MatchElement>, state_index: &mut usize, stress: &Option<Supr>, tone: &Option<String>, var: &Option<usize>, word: &Word, seg_index: &mut SegPos) -> Result<bool, RuleRuntimeError> {
+    fn input_match_syll(&self, captures: &mut Vec<MatchElement>, state_index: &mut usize, stress: &[Option<ModKind>;2], tone: &Option<String>, var: &Option<usize>, word: &Word, seg_index: &mut SegPos) -> Result<bool, RuleRuntimeError> {
         // checks current segment is at start of syll
         // matches stress and tone
         // jumps to end of syllable if match
@@ -582,11 +581,11 @@ impl SubRule {
             let cur_syll_index = seg_index.syll_index; //word.get_syll_index_from_seg_index(*seg_index);
             let cur_syll = &word.syllables[cur_syll_index];
 
-            if let Some(s) = stress.as_ref() {
-                if !self.match_stress(s, cur_syll) {
-                    return Ok(false)
-                }
+            
+            if !self.match_stress(stress, cur_syll) {
+                return Ok(false)
             }
+            
 
             if let Some(t) = tone.as_ref() {
                 if !self.match_tone(t, cur_syll) {
@@ -610,26 +609,32 @@ impl SubRule {
         }
     }
 
-    fn match_stress(&self, stress: &Supr, syll: &Syllable) -> bool {
-        match stress.kind {
+    fn match_stress(&self, stress: &[Option<ModKind>; 2], syll: &Syllable) -> bool {
+
+        match stress[0] {
             // ±stress (+ matches prim and sec, - matches unstressed)
-            SupraType::Stress => match stress.modifier {
-                SegModKind::Binary(b) => match b {
-                    BinMod::Negative => syll.stress == StressKind::Unstressed,
-                    BinMod::Positive => syll.stress != StressKind::Unstressed,
+            Some(str) => match str {
+                ModKind::Binary(b) => match b{
+                    BinMod::Negative => if syll.stress != StressKind::Unstressed { return false },
+                    BinMod::Positive => if syll.stress == StressKind::Unstressed { return false },
                 },
-                SegModKind::Alpha(_) => todo!(),
+                ModKind::Alpha(_) => todo!(),
             },
-            // ±secstress (+ matches sec, - matches prim and unstressed)
-            SupraType::SecStress => match stress.modifier {
-                SegModKind::Binary(b) => match b {
-                    BinMod::Negative => syll.stress != StressKind::Secondary,
-                    BinMod::Positive => syll.stress == StressKind::Secondary,
-                },
-                SegModKind::Alpha(_) => todo!(),
-            },
-            _ => unreachable!(),
+            None => {},
         }
+        // ±secstress (+ matches sec, - matches prim and unstressed)
+        match stress[1] {
+            Some(str) => match str {
+                ModKind::Binary(b) => match b{
+                    BinMod::Negative => if syll.stress == StressKind::Secondary { return false },
+                    BinMod::Positive => if syll.stress != StressKind::Secondary { return false },
+                },
+                ModKind::Alpha(_) => todo!(),
+            },
+            None => {},
+        }
+
+        true
     }
 
     fn match_tone(&self, tone: &str, syll: &Syllable) -> bool {        
@@ -651,7 +656,7 @@ impl SubRule {
             let res = match &s.kind {
                 ParseKind::Variable(vt, m) => self.input_match_var(captures, state_index, vt, m, word, seg_index),
                 ParseKind::Ipa(s, m)       => self.input_match_ipa(captures, s, m, word, *seg_index),
-                ParseKind::Matrix(m, v)    => self.input_match_matrix(captures, m, v, word, *seg_index),
+                ParseKind::Matrix(m, v)    => self.input_match_matrix(captures, m, v, word, seg_index),
                 ParseKind::Syllable(..) => todo!(),
                 _ => unimplemented!(),
             };
@@ -717,30 +722,86 @@ impl SubRule {
         }
     }
 
-    fn input_match_matrix(&self, captures: &mut Vec<MatchElement>, mods: &Modifiers, var: &Option<usize>, word: &Word, seg_index: SegPos) -> Result<bool, RuleRuntimeError> { 
+    fn input_match_matrix(&self, captures: &mut Vec<MatchElement>, mods: &Modifiers, var: &Option<usize>, word: &Word, seg_index: &mut SegPos) -> Result<bool, RuleRuntimeError> { 
         if self.match_modifiers(mods, word, seg_index)? {
             if let Some(v) = var {
-                self.variables.borrow_mut().insert(*v, VarKind::Segment(word.get_seg_at(seg_index).unwrap()));
+                self.variables.borrow_mut().insert(*v, VarKind::Segment(word.get_seg_at(*seg_index).unwrap()));
             }
-            captures.push(MatchElement::Segment(seg_index));
+            captures.push(MatchElement::Segment(*seg_index));
+            // // the way we implement `long` vowels means we need to do this
+            // let mut seg_length = word.seg_length_in_syll(*seg_index);            
+            // while seg_length > 1 {
+            //     seg_index.increment(word);
+            //     println!("si: {:?} ",seg_index);
+            //     seg_length -= 1;
+            // }
             Ok(true)
         } else {
+            // the way we implement `long` vowels means we need to do this
+            let mut seg_length = word.seg_length_in_syll(*seg_index);            
+            while seg_length > 1 {
+                seg_index.increment(word);
+                seg_length -= 1;
+            }
             Ok(false)
         }
     }
 
-    fn match_modifiers(&self, mods: &Modifiers, word: &Word, seg_index: SegPos) -> Result<bool, RuleRuntimeError> {
-        let seg = word.get_seg_at(seg_index).expect("Segment Position Out of Bounds");
-
+    fn match_modifiers(&self, mods: &Modifiers, word: &Word, seg_index: &mut SegPos) -> Result<bool, RuleRuntimeError> {
+        let seg = word.get_seg_at(*seg_index).expect("Segment Position Out of Bounds");
+        
         for (i, m) in mods.feats.iter().enumerate() {
             if !self.match_feat_mod(m, i, seg)? {
                 return Ok(false);
             }
         }
+
+        // TODO(girv): Match Nods
+        
+        self.match_supr_mod_seg(word, seg, &mods.suprs, seg_index)
+    }
+
+    fn match_supr_mod_seg(&self, word: &Word, seg: Segment, mods: &SupraSegs, seg_index: &mut SegPos) -> Result<bool, RuleRuntimeError> {
+
+        let syll = &word.syllables[seg_index.syll_index];
+
+        if !self.match_stress(&mods.stress, syll) { return Ok(false) }
+        if !self.match_seg_length(word, &mods.length, seg_index) { return Ok(false) }
+
+        if let Some(t) = mods.tone.as_ref() {
+            return Ok(self.match_tone(t, syll))
+        }
+
         Ok(true)
     }
 
-    fn match_feat_mod(&self, md: &Option<SegModKind>, feat_index: usize, seg: Segment) -> Result<bool, RuleRuntimeError> {
+    fn match_seg_length(&self, word: &Word, length: &[Option<ModKind>; 2], seg_index: &mut SegPos) -> bool {
+        let seg_length = word.seg_length_in_syll(*seg_index);
+
+        match length[0] { // +/- long
+            Some(len) => match len {
+                ModKind::Binary(b) => match b {
+                    BinMod::Negative => if seg_length > 1 { return false },
+                    BinMod::Positive => if seg_length < 2 { return false },
+                },
+                ModKind::Alpha(_) => todo!(),
+            },
+            None => {},
+        }
+        match length[1] { // +/- overlong
+            Some(len) => match len {
+                ModKind::Binary(b) => match b {
+                    BinMod::Negative => if seg_length > 2 { return false },
+                    BinMod::Positive => if seg_length < 3 { return false },
+                },
+                ModKind::Alpha(_) => todo!(),
+            },
+            None => {},
+        }
+        true
+    }
+
+    fn match_feat_mod(&self, md: &Option<ModKind>, feat_index: usize, seg: Segment) -> Result<bool, RuleRuntimeError> {
         if let Some(kind) = md { 
             let (node, mask) = feature_to_node_mask(FType::from_usize(feat_index));
             return self.match_seg_kind(kind, seg, node, mask)
@@ -749,13 +810,13 @@ impl SubRule {
         Ok(true)
     }
 
-    fn match_seg_kind(&self, kind: &SegModKind, seg: Segment, node: NodeKind, mask: u8) -> Result<bool, RuleRuntimeError> {
+    fn match_seg_kind(&self, kind: &ModKind, seg: Segment, node: NodeKind, mask: u8) -> Result<bool, RuleRuntimeError> {
         match kind {
-            SegModKind::Binary(bt) => match bt {
+            ModKind::Binary(bt) => match bt {
                 BinMod::Negative => Ok(seg.feat_match(node, mask, false)),
                 BinMod::Positive => Ok(seg.feat_match(node, mask, true)),
             },
-            SegModKind::Alpha(am) => match am {
+            ModKind::Alpha(am) => match am {
                 AlphaMod::Alpha(a) => {
                     // let x = self.alphas.borrow().get(a);
                     if let Some(alph) = self.alphas.borrow().get(a) {
@@ -780,8 +841,7 @@ impl SubRule {
                         self.alphas.borrow_mut().insert(*ia, Alpha::Feature(node, mask, f != 0));
                         Ok(true)
                     } else {
-                        // Err(todo!())
-                        todo!() // return err
+                        todo!("Err") 
                     }
                     
                 },

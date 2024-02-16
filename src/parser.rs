@@ -22,7 +22,7 @@ pub enum AlphaMod {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum SegModKind{
+pub enum ModKind{
     Binary(BinMod),
     Alpha(AlphaMod),
 }
@@ -37,24 +37,24 @@ pub enum Mods {
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct Supr {
     pub kind: SupraType,
-    pub modifier: SegModKind
+    pub modifier: ModKind
 }
 
 impl Supr {
-    pub fn new(kind: SupraType, modifier:SegModKind) -> Self {
+    pub fn new(kind: SupraType, modifier:ModKind) -> Self {
         Self {kind, modifier}
     }
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub struct SyllSupr { // FIXME: does not work for [+stress, -secstress]
-    pub stress: Option<Supr>,
-    pub length: Option<Supr>,
+pub struct SupraSegs {
+    pub stress: [Option<ModKind>; 2], // [Stress, SecStress]
+    pub length: [Option<ModKind>; 2], // [Long, Overlong]
     pub tone: Option<String>,
 }
 
-impl SyllSupr {
-    pub fn new(stress: Option<Supr>, length: Option<Supr>, tone: Option<String>) -> Self {
+impl SupraSegs {
+    pub fn new(stress: [Option<ModKind>; 2], length: [Option<ModKind>; 2], tone: Option<String>) -> Self {
         Self { stress, length, tone }
     }
 }
@@ -62,9 +62,9 @@ impl SyllSupr {
 // TODO: Look into using IndexMap (or just a plain HashMap) instead of arrays
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Modifiers {
-    pub nodes: [Option<SegModKind>; NodeType::count()],
-    pub feats: [Option<SegModKind>; FType::count()],
-    pub suprs: SyllSupr, 
+    pub nodes: [Option<ModKind>; NodeType::count()],
+    pub feats: [Option<ModKind>; FType::count()],
+    pub suprs: SupraSegs, 
 }
 
 impl Modifiers {
@@ -75,7 +75,7 @@ impl Modifiers {
         Self { 
             nodes: [();NodeType::count()].map(|_| None), 
             feats: [();FType::count()].map(|_| None), 
-            suprs: SyllSupr::new(None, None, None)
+            suprs: SupraSegs::new([None, None], [None, None], None)
         }
     }
 }
@@ -91,7 +91,7 @@ pub enum ParseKind {
     Set         (Vec<Item>),
     Ipa         (Segment, Option<Modifiers>),
     Matrix      (Modifiers, Option<usize>),
-    Syllable    (Option<Supr>, Option<String>, Option<usize>), // (Stress, Tone, Var)  FIXME: does not work for [+stress, -secstress]
+    Syllable    ([Option<ModKind>; 2], Option<String>, Option<usize>), // (Stress, Tone, Var)  FIXME: does not work for [+stress, -secstress]
     Optional    (Vec<Item>, usize, usize),
     Environment (Vec<Item>, Vec<Item>),
     Variable (Token, Option<Modifiers>),
@@ -143,11 +143,22 @@ impl fmt::Display for ParseKind {
             ParseKind::Syllable(str, tone, var) => {
                 write!(f, "{str:#?}:{tone:#?}={var:#?}")
             },
-
-            ParseKind::Set(_) => todo!(),
-
-            ParseKind::Optional(..) => todo!(),
-
+            ParseKind::Set(s) => {
+                write!(f, "{{")?;
+                for i in s {
+                    write!(f, "{}", i)?;
+                    write!(f, ", ")?;
+                }
+                write!(f, "}}")
+            },
+            ParseKind::Optional(s, min, max) => {
+                write!(f, "(")?;
+                for i in s {
+                    write!(f, "{}", i)?;
+                    write!(f, ", ")?;
+                }
+                write!(f, " {}:{})", min, max)
+            },
             ParseKind::Environment(bef, aft) => {
                 let xb = bef.iter()
                 .fold(String::new(), |acc, i| acc + &i.to_string() + ", ");
@@ -397,8 +408,10 @@ impl Parser {
             }
             chr.feats[i] = *p
         }
-        chr.suprs.stress = if params.suprs.stress.is_none() {chr.suprs.stress} else {params.suprs.stress};
-        chr.suprs.length = if params.suprs.length.is_none() {chr.suprs.length} else {params.suprs.length};
+        chr.suprs.stress[0] = if params.suprs.stress[0].is_none() {chr.suprs.stress[0]} else {params.suprs.stress[0]};
+        chr.suprs.stress[1] = if params.suprs.stress[1].is_none() {chr.suprs.stress[1]} else {params.suprs.stress[1]};
+        chr.suprs.length[0] = if params.suprs.length[0].is_none() {chr.suprs.length[0]} else {params.suprs.length[0]};
+        chr.suprs.length[1] = if params.suprs.length[1].is_none() {chr.suprs.length[1]} else {params.suprs.length[1]};
         chr.suprs.tone   = if params.suprs.tone.is_none()   {chr.suprs.tone}   else {params.suprs.tone};
 
         Item::new(ParseKind::Matrix(chr, None), Position::new(self.line, character.position.start, parameters.position.end ))
@@ -414,16 +427,16 @@ impl Parser {
     fn group_to_matrix(&self, chr: Token) -> Result<Item, RuleSyntaxError> {
         // returns matrix or None
         use FType::*;
-        use SegModKind::*;
+        use ModKind::*;
 
-        const SYLL_M: (FType, SegModKind) = (Syllabic,    Binary(BinMod::Negative));  // -syllabic
-        const SYLL_P: (FType, SegModKind) = (Syllabic,    Binary(BinMod::Positive));  // +syllabic
-        const CONS_M: (FType, SegModKind) = (Consonantal, Binary(BinMod::Negative));  // -consonantal
-        const CONS_P: (FType, SegModKind) = (Consonantal, Binary(BinMod::Positive));  // +consonantal
-        const SONR_M: (FType, SegModKind) = (Sonorant,    Binary(BinMod::Negative));  // -sonorant
-        const SONR_P: (FType, SegModKind) = (Sonorant,    Binary(BinMod::Positive));  // +sonorant
-        const APPR_M: (FType, SegModKind) = (Approximant, Binary(BinMod::Negative));  // -approximant
-        const APPR_P: (FType, SegModKind) = (Approximant, Binary(BinMod::Positive));  // +approximant
+        const SYLL_M: (FType, ModKind) = (Syllabic,    Binary(BinMod::Negative));  // -syllabic
+        const SYLL_P: (FType, ModKind) = (Syllabic,    Binary(BinMod::Positive));  // +syllabic
+        const CONS_M: (FType, ModKind) = (Consonantal, Binary(BinMod::Negative));  // -consonantal
+        const CONS_P: (FType, ModKind) = (Consonantal, Binary(BinMod::Positive));  // +consonantal
+        const SONR_M: (FType, ModKind) = (Sonorant,    Binary(BinMod::Negative));  // -sonorant
+        const SONR_P: (FType, ModKind) = (Sonorant,    Binary(BinMod::Positive));  // +sonorant
+        const APPR_M: (FType, ModKind) = (Approximant, Binary(BinMod::Negative));  // -approximant
+        const APPR_P: (FType, ModKind) = (Approximant, Binary(BinMod::Positive));  // +approximant
 
         let mut args = Modifiers::new(); 
 
@@ -492,30 +505,30 @@ impl Parser {
                 }
                 match ft {
                     FeatType::Node(t)   => args.nodes[t as usize] = match mk {
-                        Mods::Binary(b) => Some(SegModKind::Binary(b)),
-                        Mods::Alpha(a)  => Some(SegModKind::Alpha(a)),
+                        Mods::Binary(b) => Some(ModKind::Binary(b)),
+                        Mods::Alpha(a)  => Some(ModKind::Alpha(a)),
                         Mods::Number(_) => unreachable!(),
                     },
                     FeatType::Feat(t)   => args.feats[t as usize] = match mk {
-                        Mods::Binary(b) => Some(SegModKind::Binary(b)),
-                        Mods::Alpha(a)  => Some(SegModKind::Alpha(a)),
+                        Mods::Binary(b) => Some(ModKind::Binary(b)),
+                        Mods::Alpha(a)  => Some(ModKind::Alpha(a)),
                         Mods::Number(_) => unreachable!(),
                     },
                     // FIXME: This is horrible
                     FeatType::Supr(t) => match mk {
                         Mods::Number(n) => args.suprs.tone = Some(n),
                         Mods::Alpha(a) => match t {
-                            SupraType::Long => args.suprs.length = Some(Supr::new(SupraType::Long, SegModKind::Alpha(a))),
-                            SupraType::Overlong => args.suprs.length = Some(Supr::new(SupraType::Overlong, SegModKind::Alpha(a))),
-                            SupraType::Stress => args.suprs.stress = Some(Supr::new(SupraType::Stress, SegModKind::Alpha(a))),
-                            SupraType::SecStress => args.suprs.stress = Some(Supr::new(SupraType::Stress, SegModKind::Alpha(a))),
+                            SupraType::Long => args.suprs.length[0] = Some( ModKind::Alpha(a)),
+                            SupraType::Overlong => args.suprs.length[1] = Some(ModKind::Alpha(a)),
+                            SupraType::Stress => args.suprs.stress[0] = Some(ModKind::Alpha(a)),
+                            SupraType::SecStress => args.suprs.stress[1] = Some(ModKind::Alpha(a)),
                             SupraType::Tone => unreachable!("Tone cannot be `Alpha'd` (yet anyway)"),
                         },
                         Mods::Binary(b) => match t {
-                            SupraType::Long => args.suprs.length = Some(Supr::new(SupraType::Long, SegModKind::Binary(b))),
-                            SupraType::Overlong => args.suprs.length = Some(Supr::new(SupraType::Overlong, SegModKind::Binary(b))),
-                            SupraType::Stress => args.suprs.stress = Some(Supr::new(SupraType::Stress, SegModKind::Binary(b))),
-                            SupraType::SecStress => args.suprs.stress = Some(Supr::new(SupraType::Stress, SegModKind::Binary(b))),
+                            SupraType::Long => args.suprs.length[0] = Some(ModKind::Binary(b)),
+                            SupraType::Overlong => args.suprs.length[1] = Some(ModKind::Binary(b)),
+                            SupraType::Stress => args.suprs.stress[0] = Some(ModKind::Binary(b)),
+                            SupraType::SecStress => args.suprs.stress[1] = Some(ModKind::Binary(b)),
                             SupraType::Tone => unreachable!("Tone cannot be `+/-`"),
                         },
                     }
@@ -721,6 +734,7 @@ impl Parser {
             return Err(RuleSyntaxError::ExpectedSegment(self.curr_tkn.clone()))
         }
         let end_pos = self.token_list[self.pos-1].position.end;
+
         Ok(Some(Item::new(ParseKind::Set(segs.clone()), Position::new(self.line, start_pos, end_pos))))
 
     }
@@ -739,9 +753,9 @@ impl Parser {
                     return Err(RuleSyntaxError::ExpectedVariable(self.curr_tkn.clone()))
                 };
                 let num = n.value.parse::<usize>().expect("Couldn't parse VAR to number");
-                return Ok(Some(Item::new(ParseKind::Syllable(None, None, Some(num)), Position::new(self.line, start_pos, end_pos))))
+                return Ok(Some(Item::new(ParseKind::Syllable([None, None], None, Some(num)), Position::new(self.line, start_pos, end_pos))))
             }
-            return Ok(Some(Item::new(ParseKind::Syllable(None, None, None), Position::new(self.line, start_pos, end_pos))))
+            return Ok(Some(Item::new(ParseKind::Syllable([None, None], None, None), Position::new(self.line, start_pos, end_pos))))
         }
         if !self.expect(TokenKind::LeftSquare) {
             return Err(RuleSyntaxError::ExpectedMatrix(self.curr_tkn.clone()))
@@ -795,7 +809,7 @@ impl Parser {
         // returns syllable / segment / variable / set
         if let Some(x) = self.get_syll()? { return Ok(Some(x)) }
         // NOTE: a set in the output only makes sense when matched to a set in the input w/ the same # of elements
-        // TODO: This could be validated at end of parsing
+        // This will be validated when applying
         if let Some(x) = self.get_set()? { return Ok(Some(x)) }
         if let Some(x) = self.get_seg()? { return Ok(Some(x)) }
         if let Some(x) = self.get_var()? { return Ok(Some(x)) }
@@ -831,6 +845,10 @@ impl Parser {
         }
         loop {
             let x = self.get_input_term()?;
+            
+            if x.is_empty() {
+                return Err(RuleSyntaxError::UnknownCharacter(self.curr_tkn.value.chars().next().unwrap(), self.line, self.pos))
+            }
             inputs.push(x);
 
             if !self.expect(TokenKind::Comma) {
@@ -900,18 +918,18 @@ impl Parser {
 
         match output[0][0].kind {
             ParseKind::Metathesis => match rule_type {
-                Some(_) => todo!("Syntax Error: Insertion + Metathesis"),
+                Some(_) => return Err(RuleSyntaxError::InsertMetath(self.line, input[0][0].position.start, output[0][0].position.start)),
                 None => rule_type = Some(RuleType::Metathesis),
             },
             ParseKind::EmptySet   => match rule_type {
-                Some(_) => todo!("Syntax Error: Insertion + Deletion"),
+                Some(_) => return Err(RuleSyntaxError::InsertDelete(self.line, input[0][0].position.start, output[0][0].position.start)),
                 None => rule_type = Some(RuleType::Deletion)
             },
             _ => {}
         }
 
         let rule_type= rule_type.unwrap_or(RuleType::Substitution);
-        
+
         if self.expect(TokenKind::Eol) {
             return Ok(Rule::new(input, output, Vec::new(), Vec::new(), rule_type))
         }
@@ -977,14 +995,14 @@ mod parser_tests {
 
 
         let exp_input = vec![ 
-            Item::new(ParseKind::Syllable(Some(Supr::new(SupraType::Stress, SegModKind::Binary(BinMod::Positive))), None, None), Position::new(0, 0, 11)),
-            Item::new(ParseKind::Syllable(None, None, None), Position::new(0, 13, 14)),
+            Item::new(ParseKind::Syllable([Some(ModKind::Binary(BinMod::Positive)), None], None, None), Position::new(0, 0, 11)),
+            Item::new(ParseKind::Syllable([None, None], None, None), Position::new(0, 13, 14)),
         ];
 
         let mut x = Modifiers::new();
         let mut y = Modifiers::new();
-        x.suprs.stress = Some(Supr::new(SupraType::Stress, SegModKind::Binary(BinMod::Negative)));
-        y.suprs.stress = Some(Supr::new(SupraType::Stress, SegModKind::Binary(BinMod::Positive)));
+        x.suprs.stress = [Some(ModKind::Binary(BinMod::Negative)), None];
+        y.suprs.stress = [Some(ModKind::Binary(BinMod::Positive)), None];
         let exp_output = vec![
             Item::new(ParseKind::Matrix(x, None), Position::new(0, 17, 26)),
             Item::new(ParseKind::Matrix(y, None), Position::new(0, 28, 37)),
@@ -1034,14 +1052,14 @@ mod parser_tests {
     fn test_variables_plain() {
 
         let mut x = Modifiers::new();
-        x.feats[FType::Syllabic as usize] = Some(SegModKind::Binary(BinMod::Negative));
+        x.feats[FType::Syllabic as usize] = Some(ModKind::Binary(BinMod::Negative));
         
         let _c = Item::new(ParseKind::Matrix(x, Some(1)), Position::new(0, 0, 1));
 
         let mut y = Modifiers::new();
-        y.feats[FType::Consonantal as usize] = Some(SegModKind::Binary(BinMod::Negative));
-        y.feats[FType::Sonorant as usize] = Some(SegModKind::Binary(BinMod::Positive));
-        y.feats[FType::Syllabic as usize] = Some(SegModKind::Binary(BinMod::Positive));
+        y.feats[FType::Consonantal as usize] = Some(ModKind::Binary(BinMod::Negative));
+        y.feats[FType::Sonorant as usize] = Some(ModKind::Binary(BinMod::Positive));
+        y.feats[FType::Syllabic as usize] = Some(ModKind::Binary(BinMod::Positive));
 
         let _v = Item::new(ParseKind::Matrix(y, Some(2)), Position::new(0, 4, 5));
 
@@ -1074,7 +1092,7 @@ mod parser_tests {
         let result = maybe_result.unwrap();
 
 
-        let exp_input = Item::new(ParseKind::Syllable(None, Some("123".to_string()), None), Position::new(0, 0, 13));
+        let exp_input = Item::new(ParseKind::Syllable([None, None], Some("123".to_string()), None), Position::new(0, 0, 13));
 
         let mut out = Modifiers::new();
 

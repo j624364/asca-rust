@@ -3,7 +3,7 @@ use serde::Deserialize;
 
 use crate ::{
     lexer ::{FType, NodeType}, 
-    parser::{SegModKind, BinMod, Modifiers}, 
+    parser::{ModKind, BinMod, Modifiers}, 
     CARDINALS_VEC, CARDINALS_MAP, DIACRITS
 };
 
@@ -61,8 +61,8 @@ pub struct Diacritic {
 
 #[derive(Clone, PartialEq, Eq)]
 pub struct DiaMods {
-    pub nodes: [Option<SegModKind>; NodeType::Pharyngeal as usize + 1],
-    pub feats: [Option<SegModKind>; FType::RetractedTongueRoot as usize + 1],
+    pub nodes: [Option<ModKind>; NodeType::Pharyngeal as usize + 1],
+    pub feats: [Option<ModKind>; FType::RetractedTongueRoot as usize + 1],
 }
 
 impl DiaMods {
@@ -81,11 +81,11 @@ impl fmt::Debug for DiaMods {
         for val in self.nodes.iter() {
             match val {
                 Some(v) => match v {
-                    SegModKind::Binary(b) => match b {
+                    ModKind::Binary(b) => match b {
                         BinMod::Negative => nodes.push('-'),
                         BinMod::Positive => nodes.push('+'),
                     },
-                    SegModKind::Alpha(am) => match am {
+                    ModKind::Alpha(am) => match am {
                         crate::parser::AlphaMod::Alpha(a) => nodes.push(*a),
                         crate::parser::AlphaMod::InvAlpha(ia) => nodes.push_str(&ia.to_uppercase().to_string()),
                     },
@@ -98,11 +98,11 @@ impl fmt::Debug for DiaMods {
         for val in self.feats.iter() {
             match val {
                 Some(v) => match v {
-                    SegModKind::Binary(b) => match b {
+                    ModKind::Binary(b) => match b {
                         BinMod::Negative => feats.push('-'),
                         BinMod::Positive => feats.push('+'),
                     },
-                    SegModKind::Alpha(am) => match am {
+                    ModKind::Alpha(am) => match am {
                         crate::parser::AlphaMod::Alpha(a) => feats.push(*a),
                         crate::parser::AlphaMod::InvAlpha(ia) => feats.push_str(&ia.to_uppercase().to_string()),
                     },
@@ -351,7 +351,7 @@ impl Segment {
         true
     }
 
-    pub fn match_node_mod(&self, md: &Option<SegModKind>, node_index: usize) -> bool {
+    pub fn match_node_mod(&self, md: &Option<ModKind>, node_index: usize) -> bool {
         if let Some(kind) = md {
             let node = NodeKind::from_usize(node_index);
             return self.match_node_mod_kind(kind, node)
@@ -359,19 +359,19 @@ impl Segment {
         true
     }
 
-    pub fn match_node_mod_kind(&self, kind: &SegModKind, node: NodeKind) -> bool {
+    pub fn match_node_mod_kind(&self, kind: &ModKind, node: NodeKind) -> bool {
         match kind {
-            SegModKind::Binary(bt) => match bt {
+            ModKind::Binary(bt) => match bt {
                 BinMod::Negative => self.is_node_none(node),
                 BinMod::Positive => self.is_node_some(node),
             },
             // NOTE: Alpha's don't make sense here
             // this is a consequence of using SegMKind for everything
-            SegModKind::Alpha(_) => unreachable!(),
+            ModKind::Alpha(_) => unreachable!(),
         }
     }
 
-    pub fn match_feat_mod(&self, md: &Option<SegModKind>, feat_index: usize) -> bool {
+    pub fn match_feat_mod(&self, md: &Option<ModKind>, feat_index: usize) -> bool {
         if let Some(kind) = md {
             let (node, mask) = feature_to_node_mask(FType::from_usize(feat_index));
             return self.match_feat_mod_kind(kind, node, mask)
@@ -380,15 +380,15 @@ impl Segment {
         true
     }
 
-    pub fn match_feat_mod_kind(&self, kind: &SegModKind, node: NodeKind, mask: u8) -> bool {
+    pub fn match_feat_mod_kind(&self, kind: &ModKind, node: NodeKind, mask: u8) -> bool {
         match kind {
-            SegModKind::Binary(bt) => match bt {
+            ModKind::Binary(bt) => match bt {
                 BinMod::Negative => self.feat_match(node, mask, false),
                 BinMod::Positive => self.feat_match(node, mask, true),
             },
             // NOTE: Alpha's don't make sense here
             // this is a consequence of using SegMKind for everything
-            SegModKind::Alpha(_) => unreachable!(),
+            ModKind::Alpha(_) => unreachable!(),
         }
     }
 
@@ -508,11 +508,11 @@ impl Segment {
             if let Some(kind) = m {
                 let node = NodeKind::from_usize(i);
                 match kind {
-                    SegModKind::Binary(b) => match b {
+                    ModKind::Binary(b) => match b {
                         BinMod::Negative => self.set_node(node, None),
                         BinMod::Positive => self.set_node(node, Some(0))
                     },
-                    SegModKind::Alpha(_) => unreachable!(),
+                    ModKind::Alpha(_) => unreachable!(),
                 }
             }
         }
@@ -521,11 +521,11 @@ impl Segment {
             if let Some(kind) = m {
                 let (n,f) = feature_to_node_mask(FType::from_usize(i));
                 match kind {
-                    SegModKind::Binary(b) => match b {
+                    ModKind::Binary(b) => match b {
                         BinMod::Negative => self.set_feat(n, f, false),
                         BinMod::Positive => self.set_feat(n, f, true),
                     },
-                    SegModKind::Alpha(_) => unreachable!(),
+                    ModKind::Alpha(_) => unreachable!(),
                 }
             }
         }
@@ -548,11 +548,11 @@ impl Segment {
             if let Some(kind) = m { 
                 let (n, f) = feature_to_node_mask(FType::from_usize(i));
                 match kind {
-                    SegModKind::Binary(b) => match b {
+                    ModKind::Binary(b) => match b {
                         BinMod::Negative => self.set_feat(n, f, false),
                         BinMod::Positive => self.set_feat(n, f, true),
                     },
-                    SegModKind::Alpha(_) => unreachable!(),
+                    ModKind::Alpha(_) => unreachable!(),
                 }
             }
         }
