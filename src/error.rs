@@ -248,6 +248,8 @@ pub enum RuleSyntaxError {
     EmptyInput(LineNum, Pos),
     EmptyOutput(LineNum, Pos),
     EmptyEnv(LineNum, Pos),
+    InsertMetath(LineNum, Pos, Pos),
+    InsertDelete(LineNum, Pos, Pos),
 }
 
 impl ASCAError for RuleSyntaxError {
@@ -287,6 +289,8 @@ impl ASCAError for RuleSyntaxError {
             Self::EmptyInput(..)                => "Input cannot be empty. Use `*` or '∅' to indicate insertion".to_string(),
             Self::EmptyOutput(..)               => "Output cannot be empty. Use `*` or '∅' to indicate deletion".to_string(),
             Self::EmptyEnv(..)                  => "Environment cannot be empty following a seperator.".to_string(),
+            Self::InsertMetath(..)              => "A rule cannot be both an Insertion rule and a Metathesis rule".to_string(),
+            Self::InsertDelete(..)              => "A rule cannot be both an Insertion rule and a Deletion rule".to_string(),
         }
     }
 
@@ -361,7 +365,6 @@ impl ASCAError for RuleSyntaxError {
             Self::EmptyEnv      (line, pos) |
             Self::EmptyOutput   (line, pos) => {
                 let arrows = " ".repeat(*pos) + "^" + "\n";
-
                 result.push_str(&format!("{}{}{}{}",
                     MARG.bright_cyan().bold(), 
                     rules[*line], 
@@ -369,49 +372,18 @@ impl ASCAError for RuleSyntaxError {
                     arrows.bright_red().bold()
                 ))
             },
+            Self::InsertDelete(line, pos1, pos2) | 
+            Self::InsertMetath(line, pos1, pos2) => {
+                let arrows = " ".repeat(*pos1) + "^" + " ".repeat(pos2 - pos1 - 1).as_str() + "^" + "\n";
+                result.push_str(&format!("{}{}{}{}",
+                    MARG.bright_cyan().bold(), 
+                    rules[*line], 
+                    MARG.bright_cyan().bold(), 
+                    arrows.bright_red().bold()
+                ))
+            }
         }
 
         result
-    }
-}
-
-impl fmt::Display for RuleSyntaxError {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match self {
-            Self::OptMathError(_, l, h)         => write!(f, "An Option's second argument '{h}' must be greater than or equal to it's first argument '{l}'"),
-            Self::UnknownIPA(token)             => write!(f, "Could not get value of IPA '{}'.", token.value),
-            Self::UnknownGrouping(token)        => write!(f, "Unknown grouping '{}'. Known groupings are (C)onsonant, (O)bstruent, (S)onorant, (L)iquid, (N)asal, (G)lide, and (V)owel", token.value),
-            Self::UnknownFeature(feat, l, s, e) => write!(f, "Unknown feature '{feat} at {l}:{s}-{e}'."),
-            Self::ExpectedAlphabetic(c, l, pos) => write!(f, "Expected ASCII character, but received '{c}' at {l}:{pos}'."),
-            Self::ExpectedCharColon(c, l, pos)  => write!(f, "Expected ':', but received '{c}' at {l}:{pos}"),
-            Self::ExpectedCharArrow(c, l, pos)  => write!(f, "Expected '->', but received -'{c}' at {l}:{pos}"),
-            Self::ExpectedCharDot(c, l, pos)    => write!(f, "Expected '..', but received .'{c}' at {l}:{pos}"),
-            Self::ExpectedNumber(c, l, pos)     => write!(f, "Expected a number, but received '{c}' at {l}:{pos}"),
-            Self::UnknownCharacter(c, l, pos)   => write!(f, "Unknown character {c} at '{l}:{pos}'."),
-            Self::TooManyUnderlines(_)          => write!(f, "Cannot have multiple underlines in an environment"),
-            Self::UnexpectedEol(_, c)           => write!(f, "Expected `{c}`, but received End of Line"),
-            Self::ExpectedEndL(token)           => write!(f, "Expected end of line, received '{}'. Did you forget a '/' between the output and environment?", token.value),
-            Self::ExpectedArrow(token)          => write!(f, "Expected '>', '->' or '=>', but received '{}'", token.value),
-            Self::ExpectedComma(token)          => write!(f, "Expected ',', but received '{}'", token.value),
-            Self::ExpectedColon(token)          => write!(f, "Expected ':', but received '{}'", token.value),
-            Self::ExpectedUnderline(token)      => write!(f, "Expected '_', but received '{}'", token.value),
-            Self::ExpectedRightBracket(token)   => write!(f, "Expected ')', but received '{}'", token.value),
-            Self::OutsideBrackets(..)           => write!(f, "Features must be inside square brackets"),
-            Self::ExpectedMatrix(token)         => write!(f, "Expected '[', but received '{}'", token.value),
-            Self::ExpectedSegment(token)        => write!(f, "Expected an IPA character, Primative or Matrix, but received '{}'", token.value),
-            Self::ExpectedTokenFeature(token)   => write!(f, "{} cannot be placed inside a matrix. An element inside `[]` must a distinctive feature", token.value),
-            Self::ExpectedVariable(token)       => write!(f, "Expected number, but received {} ", token.value),
-            Self::BadSyllableMatrix(_)          => write!(f, "A syllable can only have parameters stress and tone"),
-            // Self::BadVariableAssignment(_)      => write!(f, "A variable can only be assigned to a primative (C, V, etc.) or a matrix"),
-            // Self::AlreadyInitialisedVariable(set_item, _, num) => write!(f, "Variable '{}' is already initialised as {}", num, set_item.kind),
-            Self::WrongModNode(..)              => write!(f, "Nodes cannot be ±; they can only be used in Alpha Notation expressions."),
-            Self::WrongModTone(..)              => write!(f, "Tones cannot be ±; they can only be used with numeric values."),
-            Self::NestedBrackets(..)            => write!(f, "Cannot have nested brackets of the same type"),
-            Self::InsertErr                     => write!(f, "The input of an insertion rule must only contain `*` or `∅`"),
-            Self::DeleteErr                     => write!(f, "The output of a deletion rule must only contain `*` or `∅`"),
-            Self::EmptyInput(..)                => write!(f, "Input cannot be empty. Use `*` or '∅' to indicate insertion"),
-            Self::EmptyOutput(..)               => write!(f, "Output cannot be empty. Use `*` or '∅' to indicate deletion"),
-            Self::EmptyEnv(..)                  => write!(f, "Environment cannot be empty following a seperator."),
-        }
     }
 }
