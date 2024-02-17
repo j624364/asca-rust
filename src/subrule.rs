@@ -219,10 +219,13 @@ impl SubRule {
 
                 let mut res_word = word.clone();
                 let mut start_index = SegPos::new(0, 0);
+                let mut after = false;
 
                 loop {
-                    if let Some(insert_position) = self.context_match_insertion(word, &mut start_index)? {
-                        res_word = self.insertion(&word, insert_position)?;
+                    if let Some(insert_position) = self.context_match_insertion(&res_word, &mut start_index, &mut after)? {
+                        println!("Match! {} at {:?}", word.render().unwrap(),insert_position);
+                        res_word = self.insertion(&res_word, insert_position, after)?;
+                        after = false;
                     } else {
                         break
                     }
@@ -238,91 +241,152 @@ impl SubRule {
         }
     }
 
-    fn context_match_insertion(&self, word: &Word, start_pos: &mut SegPos) -> Result<Option<SegPos>, RuleRuntimeError> {
+    fn context_match_insertion(&self, word: &Word, start_pos: &mut SegPos, after: &mut bool) -> Result<Option<SegPos>, RuleRuntimeError> {
         // match before
         // match after
         // return the index after before 
 
-        let mut match_begin = None;
-        let mut state_index = 0;
         let mut cur_pos = *start_pos;
+        let mut state_index = 0;
+        let mut match_begin = None;
+
+        let empty_env = Item::new(ParseKind::Environment(vec![], vec![]), crate::Position { line: 0, start: 0, end: 0 });
 
         let ParseKind::Environment(before_states, after_states) = &match &self.context {
             Some(s) => s,
             None => match &self.except {
-                Some(s) => s,
+                Some(_) => &empty_env,
                 None => return  Err(RuleRuntimeError::InsertionNoContextOrException(self.output.last().unwrap().position)),
             },
         }.kind else { unreachable!() };
 
-        // println!("{:?} : {:?}", before_states, after_states);
+        let ParseKind::Environment(before_except_states, after_except_states) = &match &self.except {
+            Some(ex) => ex,
+            None => match &self.context {
+                Some(_) => &empty_env,
+                None => todo!(),
+            },
+        }.kind else { unreachable!() };
 
-        while word.in_bounds(cur_pos) {
-            if self.context_match_item(&mut cur_pos, &mut state_index, word, &before_states)? {
-                if match_begin.is_none() { 
-                    // if we haven't started matching, we have now
-                    match_begin = Some(cur_pos)
+        if before_states.is_empty() && after_states.is_empty() && before_except_states.is_empty() && after_except_states.is_empty() {
+            return Err(RuleRuntimeError::InsertionNoContextOrException(self.output.last().unwrap().position))
+        }
+
+        if !before_states.is_empty() {
+            while word.in_bounds(cur_pos) {
+                if self.context_match_item(&mut cur_pos, &mut state_index, word, &before_states, false)? {
+                    if match_begin.is_none() { 
+                        // if we haven't started matching, we have now
+                        match_begin = Some(cur_pos)
+                    }
+                    if state_index > before_states.len() - 1 { 
+                        break; // match
+                    }
+                    // else continue 
+                } else if match_begin.is_none() { 
+                    // if we weren't in the middle of matching and didn't no match, move on
+                    cur_pos.increment(word);
+                    // NOTE(girv): Should be unnecessary, but safety first!:
+                    state_index = 0;
+                } else { 
+                    // if we were in the middle of matching but now don't match, go back to when we started matching +1 and start again
+                    cur_pos = match_begin.unwrap();
+                    cur_pos.increment(word);
+                    state_index = 0;
+                    match_begin = None;
                 }
-                if state_index > before_states.len() - 1 { 
-                    break; // match
-                }
-                // else continue 
-            } else if match_begin.is_none() { 
-                // if we weren't in the middle of matching and didn't no match, move on
-                cur_pos.increment(word);
-                // NOTE(girv): Should be unnecessary, but safety first!:
-                state_index = 0;
-            } else { 
-                // if we were in the middle of matching but now don't match, go back to when we started matching +1 and start again
-                cur_pos = match_begin.unwrap();
-                cur_pos.increment(word);
-                state_index = 0;
-                match_begin = None;
+            }
+            // if we've got to the end of the word and we haven't began matching
+            if match_begin.is_none() { 
+                return Ok(None)
+            }
+            match before_states.last().expect("Input is empty").kind {
+                // if we've reached the end of the word and the last state is a word boundary
+                ParseKind::WordBound | ParseKind::SyllBound => {},
+                // No Match
+                _ => { return Ok(None) }
             }
         }
-        // if we've got to the end of the word and we haven't began matching
-        if match_begin.is_none() { 
-            return Ok(None)
-        }
-        match before_states.last().expect("Input is empty").kind {
-            // if we've reached the end of the word and the last state is a word boundary
-            ParseKind::WordBound | ParseKind::SyllBound => {},
-            // No Match
-            _ => { return Ok(None) }
-        }
 
-        //TODO(girv): match before exceptions
-
-        let insertion_position = cur_pos;
+        let mut insertion_position = cur_pos;
 
         // To avoid an infinite loop
-        if let ParseKind::WordBound | ParseKind::SyllBound = before_states.last().unwrap().kind {
-            start_pos.increment(word);
+        if let Some(st) = before_states.last() {
+            if let ParseKind::WordBound | ParseKind::SyllBound = st.kind {
+                start_pos.increment(word)
+            }
         }
 
-        // while word.in_bounds(cur_pos) {
-        //     if self.context_match_item(&mut cur_pos, &mut state_index, word, &after_states)? {
-        //         todo!()
-        //     }
-        //     todo!()
-        // }
+        state_index = 0;
+        match_begin = None;
 
+        if !after_states.is_empty() {
+            if before_states.is_empty() {
+                while word.in_bounds(cur_pos) {
+                    if self.context_match_item(&mut cur_pos, &mut state_index, word, &after_states, true)? {
+                        if match_begin.is_none() {
+                            match_begin = Some(cur_pos)
+                        }
+                        if state_index > after_states.len() - 1 {
+                            break;
+                        }
+                    } else if match_begin.is_none() {
+                        cur_pos.increment(word);
+                        state_index = 0;
+                    } else {
+                        cur_pos = match_begin.unwrap();
+                        cur_pos.increment(word);
+                        state_index = 0;
+                        match_begin = None;
+                    }
+                }
+                if match_begin.is_none() { 
+                    return Ok(None)
+                }
+                match after_states.last().expect("Input is empty").kind {
+                    ParseKind::WordBound | ParseKind::SyllBound => {*start_pos = cur_pos},
+                    _ => { return Ok(None) }
+                }
+                insertion_position = cur_pos;
+                *after = true;
+            } else {
+                while word.in_bounds(cur_pos) {
+                    if self.context_match_item(&mut cur_pos, &mut state_index, word, &after_states, true)? {
+                        continue;
+                    } else {
+                        return Ok(None)
+                    }
+                }
+            } 
+        }
 
-        //TODO(girv): match after exceptions
+        
+
+        // To avoid an infinite loop
+        if let Some(st) = after_states.last() {
+            if let ParseKind::WordBound | ParseKind::SyllBound = st.kind {
+                start_pos.increment(word)
+            }
+        }
+        
+        //TODO(girv): match before and after exceptions
 
         Ok(Some(insertion_position))
     }
 
-    fn context_match_item(&self, cur_pos: &mut SegPos, state_index: &mut usize, word: &Word, states: &[Item]) -> Result<bool, RuleRuntimeError> {
+    fn context_match_item(&self, cur_pos: &mut SegPos, state_index: &mut usize, word: &Word, states: &[Item], is_context_after: bool) -> Result<bool, RuleRuntimeError> {
         match &states[*state_index].kind {
-            ParseKind::WordBound => if cur_pos.syll_index == 0 && cur_pos.seg_index == 0 {
+            ParseKind::WordBound => if !is_context_after && cur_pos.syll_index == 0 && cur_pos.seg_index == 0 {
                 *state_index += 1;
                 Ok(true)
-            } else if cur_pos.syll_index >= word.syllables.len() || cur_pos.seg_index >= word.syllables[cur_pos.syll_index].segments.len() {
+            } else if is_context_after && cur_pos.syll_index == word.syllables.len() - 1 && cur_pos.seg_index >= word.syllables[cur_pos.syll_index].segments.len() -1 {
                 // TODO: Check for off-by-one here
                 *state_index += 1; // This SHOULD be the last state, we may have to check this
                 Ok(true)
-            } else { Ok(false) },
+            } else { 
+                // cur_pos.increment(word);
+                Ok(false) 
+            },
             ParseKind::Ipa(s, m) => if self.context_match_ipa(s, m, word, *cur_pos)? {
                 todo!()
             } else { Ok(false) },
@@ -344,7 +408,7 @@ impl SubRule {
         todo!()
     }
 
-    fn insertion(&self, word: &Word, insert_pos: SegPos) -> Result<Word, RuleRuntimeError> {
+    fn insertion(&self, word: &Word, insert_pos: SegPos, after: bool) -> Result<Word, RuleRuntimeError> {
         let mut res_word = word.clone();
         let mut insert_pos = insert_pos;
         
@@ -355,7 +419,11 @@ impl SubRule {
                     debug_assert_eq!(insert_pos.seg_index, 0);
                 },
                 ParseKind::Ipa(seg, mods) => {
-                    res_word.syllables[insert_pos.syll_index].segments.insert(insert_pos.seg_index, *seg);
+                    if after {
+                        res_word.syllables[insert_pos.syll_index].segments.insert(insert_pos.seg_index+1, *seg)
+                    } else {
+                        res_word.syllables[insert_pos.syll_index].segments.insert(insert_pos.seg_index, *seg)
+                    }
                     if let Some(_m) = mods {
                         todo!("Apply mods");
                     } else {
@@ -581,25 +649,19 @@ impl SubRule {
             let cur_syll_index = seg_index.syll_index; //word.get_syll_index_from_seg_index(*seg_index);
             let cur_syll = &word.syllables[cur_syll_index];
 
-            
             if !self.match_stress(stress, cur_syll) {
                 return Ok(false)
             }
-            
-
             if let Some(t) = tone.as_ref() {
                 if !self.match_tone(t, cur_syll) {
                     return Ok(false)
                 }
             }
-
             if let Some(v) = var {
                 self.variables.borrow_mut().insert(*v, VarKind::Syllable(word.syllables[seg_index.syll_index].clone()));
             }
             captures.push(MatchElement::Syllable(cur_syll_index));
-            
             *state_index += 1;
-            // NOTE(girv): this is only correct if we DON'T advance seg_index after match in `match_input_at`
             seg_index.syll_index += 1;
             seg_index.seg_index = 0;
 
@@ -610,9 +672,8 @@ impl SubRule {
     }
 
     fn match_stress(&self, stress: &[Option<ModKind>; 2], syll: &Syllable) -> bool {
-
+        // ±stress (+ matches prim and sec, - matches unstressed)
         match stress[0] {
-            // ±stress (+ matches prim and sec, - matches unstressed)
             Some(str) => match str {
                 ModKind::Binary(b) => match b{
                     BinMod::Negative => if syll.stress != StressKind::Unstressed { return false },
@@ -633,7 +694,6 @@ impl SubRule {
             },
             None => {},
         }
-
         true
     }
 
@@ -643,7 +703,6 @@ impl SubRule {
 
     fn input_match_syll_bound(&self, captures: &mut Vec<MatchElement>, word: &Word, seg_index: SegPos) -> bool {
         if seg_index.seg_index == 0 {
-        // if word.seg_is_syll_initial(seg_index) {
             captures.push(MatchElement::SyllBound(seg_index.syll_index));
             true
         } else {
@@ -707,7 +766,6 @@ impl SubRule {
         }
 
     }
-
 
     fn input_match_var(&self, captures: &mut Vec<MatchElement>, state_index: &mut usize, vt: &Token, mods: &Option<Modifiers>, word: &Word, seg_index: &mut SegPos) -> Result<bool, RuleRuntimeError> {
         if let Some(var) = self.variables.borrow_mut().get(&vt.value.parse::<usize>().unwrap()) {

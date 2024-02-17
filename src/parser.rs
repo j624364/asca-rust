@@ -731,6 +731,7 @@ impl Parser {
                 segs.push(x);
                 continue;
             }
+            // TODO(girv): allow more than just segments 
             return Err(RuleSyntaxError::ExpectedSegment(self.curr_tkn.clone()))
         }
         let end_pos = self.token_list[self.pos-1].position.end;
