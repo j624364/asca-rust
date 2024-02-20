@@ -1,8 +1,6 @@
-use std::fmt;
 use colored::Colorize;
 use crate :: {
-    lexer :: Token, 
-    Position
+    lexer :: Token, Item, Position
 };
 
 pub trait ASCAError: Clone {
@@ -76,11 +74,11 @@ pub enum WordSyntaxError {
 impl ASCAError for WordSyntaxError {
     fn get_error_message(&self) -> String {
         match self {
-            WordSyntaxError::UnknownChar(_, _)                 => "Unknown Char".to_owned(),
-            WordSyntaxError::NoSegmentBeforeColon(_, _)        => "NoSegmentBeforeColon".to_owned(),
-            WordSyntaxError::DiacriticBeforeSegment(_, _)      => "DiacriticBeforeSegment".to_owned(),
-            WordSyntaxError::DiacriticDoesNotMeetPreReqs(_, _) => "DiacriticDoesNotMeetPreReqs".to_owned(),
-            WordSyntaxError::CouldNotParse(_)                  => "CouldNotParse".to_owned(),
+            WordSyntaxError::UnknownChar(_, _)                      => "Unknown Char".to_string(),
+            WordSyntaxError::NoSegmentBeforeColon(_, _)             => "No Segment Before Colon".to_string(),
+            WordSyntaxError::DiacriticBeforeSegment(_, _)           => "Diacritic Before Segment".to_string(),
+            WordSyntaxError::DiacriticDoesNotMeetPreReqs(txt, i) => format!("Segment does not have prerequisite properties to have diacritic `{}`", txt.chars().nth(*i).unwrap_or_default()),
+            WordSyntaxError::CouldNotParse(_)                       => "Unable to parse word".to_string(),
         }
     }
 
@@ -88,6 +86,9 @@ impl ASCAError for WordSyntaxError {
         const MARG: &str = "\n    |     ";
         let mut result = format!("{} {}", "Word Syntax Error".bright_red().bold(), self.get_error_message().bold());
         match self {
+            Self::NoSegmentBeforeColon(s, u)        |
+            Self::DiacriticBeforeSegment(s, u)      |
+            Self::DiacriticDoesNotMeetPreReqs(s, u) |
             Self::UnknownChar(s, u) => {
                 let arrows = " ".repeat(*u) + "^" + "\n";
                 result.push_str(&format!("{}{}{}{}",  
@@ -97,10 +98,15 @@ impl ASCAError for WordSyntaxError {
                     arrows.bright_red().bold()
                 ));
             },
-            WordSyntaxError::NoSegmentBeforeColon(_, _) => todo!(),
-            WordSyntaxError::DiacriticBeforeSegment(_, _) => todo!(),
-            WordSyntaxError::DiacriticDoesNotMeetPreReqs(_, _) => todo!(),
-            WordSyntaxError::CouldNotParse(_) => todo!(),
+            WordSyntaxError::CouldNotParse(s) => {
+                let arrows = "^".repeat(s.chars().count()) + "\n";
+                result.push_str(&format!("{}{}{}{}",  
+                    MARG.bright_cyan().bold(), 
+                    s, 
+                    MARG.bright_cyan().bold(), 
+                    arrows.bright_red().bold()
+                ));
+            },
         }        
         result
     }
@@ -114,7 +120,7 @@ pub enum WordRuntimeError {
 impl ASCAError for WordRuntimeError {
     fn get_error_message(&self) -> String {
         match self {
-            Self::UnknownSegment(..) => todo!()
+            Self::UnknownSegment(buf, ..) => format!("Unknown Segment `{}`", buf)
         }
     }
 
@@ -144,23 +150,29 @@ impl ASCAError for WordRuntimeError {
 
 #[derive(Debug, Clone)]
 pub enum RuleRuntimeError { 
-    UnbalancedRule,
+    UnbalancedRuleIO(Vec<Vec<Item>>),
+    UnbalancedRuleEnv(Vec<Item>),
     DeletionOnlySeg,
     DeletionOnlySyll,
     LonelySet(Position),
     UnknownVariable(Token),
+    StuffAfterWordBound(Position),
+    StuffBeforeWordBound(Position),
     InsertionNoContextOrException(Position),
 }
 
 impl ASCAError for RuleRuntimeError {
     fn get_error_message(&self) -> String {
         match self {
-            Self::LonelySet(_) => "A Set in output must have a matching Set in input".to_string(),
-            Self::UnbalancedRule => todo!(),
-            Self::DeletionOnlySeg => "Can't delete a word's only segment".to_string(),
-            Self::DeletionOnlySyll => "Can't delete a word's only syllable".to_string(),
-            Self::UnknownVariable(token) => format!("Unknown variable '{}' at {}", token.value, token.position.start),
-            Self::InsertionNoContextOrException(pos) => "Insertion rules must have a context".to_string(),
+            Self::LonelySet(_)                     => "A Set in output must have a matching Set in input".to_string(),
+            Self::UnbalancedRuleIO(_)              => "Input or Output has too few elements".to_string(),
+            Self::UnbalancedRuleEnv(_)             => "Environment has too few elements".to_string(),
+            Self::DeletionOnlySeg                  => "Can't delete a word's only segment".to_string(),
+            Self::DeletionOnlySyll                 => "Can't delete a word's only syllable".to_string(),
+            Self::UnknownVariable(token)           => format!("Unknown variable '{}' at {}", token.value, token.position.start),
+            Self::StuffAfterWordBound(_)           => "Can't have segments after the end of a word".to_string(),
+            Self::StuffBeforeWordBound(_)          => "Can't have segments before the beginning of a word".to_string(),
+            Self::InsertionNoContextOrException(_) => "Insertion rules must have a context".to_string(),
         }
     }
 
@@ -170,7 +182,36 @@ impl ASCAError for RuleRuntimeError {
         
         match self {
             Self::DeletionOnlySyll | Self::DeletionOnlySeg => {},
-            Self::UnbalancedRule => todo!(),
+            Self::UnbalancedRuleEnv(items) => {
+                let first_item = items.first().expect("Env should not be empty");
+                let last_item = items.last().expect("Env should not be empty");
+                let line = first_item.position.line;
+                let start = first_item.position.start;
+                let end = last_item.position.end;
+
+                let arrows = " ".repeat(start) + &"^".repeat(end-start) + "\n";
+                result.push_str(&format!("{}{}{}{}",  
+                MARG.bright_cyan().bold(), 
+                rules[line], 
+                MARG.bright_cyan().bold(), 
+                arrows.bright_red().bold()
+                ));
+            },
+            Self::UnbalancedRuleIO(items) => {
+                let first_item = items.first().expect("IO should not be empty").first().expect("IO should not be empty");
+                let last_item = items.last().expect("IO should not be empty").last().expect("IO should not be empty");
+                let line = first_item.position.line;
+                let start = first_item.position.start;
+                let end = last_item.position.end;
+
+                let arrows = " ".repeat(start) + &"^".repeat(end-start) + "\n";
+                result.push_str(&format!("{}{}{}{}",  
+                MARG.bright_cyan().bold(), 
+                rules[line], 
+                MARG.bright_cyan().bold(), 
+                arrows.bright_red().bold()
+                ));
+            }
             Self::UnknownVariable(t) => {
                 let line = t.position.line;
                 let start = t.position.start;
@@ -184,8 +225,17 @@ impl ASCAError for RuleRuntimeError {
                 arrows.bright_red().bold()
                 ));
             },
+            Self::StuffBeforeWordBound(pos) | Self::StuffAfterWordBound(pos) => {
+                let arrows = " ".repeat(pos.start) + "^" + "\n";
+                result.push_str(&format!("{}{}{}{}",  
+                    MARG.bright_cyan().bold(), 
+                    rules[pos.line], 
+                    MARG.bright_cyan().bold(), 
+                    arrows.bright_red().bold()
+                ));
+            },
             Self::InsertionNoContextOrException(pos) => {
-                let arrows = " ".repeat(pos.end) + &"^" + "\n";
+                let arrows = " ".repeat(pos.end) + "^" + "\n";
                 result.push_str(&format!("{}{}{}{}",  
                     MARG.bright_cyan().bold(), 
                     rules[pos.line], 
@@ -243,8 +293,8 @@ pub enum RuleSyntaxError {
     WrongModNode(LineNum, Pos),
     WrongModTone(LineNum, Pos),
     NestedBrackets(LineNum, Pos),
-    InsertErr,
-    DeleteErr,
+    InsertErr(Token),
+    DeleteErr(Token),
     EmptyInput(LineNum, Pos),
     EmptyOutput(LineNum, Pos),
     EmptyEnv(LineNum, Pos),
@@ -255,7 +305,7 @@ pub enum RuleSyntaxError {
 impl ASCAError for RuleSyntaxError {
     fn get_error_message(&self) -> String {
         match self {
-            Self::OptMathError(_, low, high)         => format!("An Option's second argument '{high}' must be greater than or equal to it's first argument '{low}'"),
+            Self::OptMathError(_, low, high)    => format!("An Option's second argument '{high}' must be greater than or equal to it's first argument '{low}'"),
             Self::UnknownIPA(token)             => format!("Could not get value of IPA '{}'.", token.value),
             Self::UnknownGrouping(token)        => format!("Unknown grouping '{}'. Known groupings are (C)onsonant, (O)bstruent, (S)onorant, (L)iquid, (N)asal, (G)lide, and (V)owel", token.value),
             Self::UnknownFeature(feat, l, s, e) => format!("Unknown feature '{feat} at {l}:{s}-{e}'."),
@@ -279,13 +329,11 @@ impl ASCAError for RuleSyntaxError {
             Self::ExpectedTokenFeature(token)   => format!("{} cannot be placed inside a matrix. An element inside `[]` must a distinctive feature", token.value),
             Self::ExpectedVariable(token)       => format!("Expected number, but received {} ", token.value),
             Self::BadSyllableMatrix(_)          => "A syllable can only have parameters stress and tone".to_string(),
-            // Self::BadVariableAssignment(_)      => format!("A variable can only be assigned to a primative (C, V, etc.) or a matrix"),
-            // Self::AlreadyInitialisedVariable(set_item, _, num) => format!("Variable '{}' is already initialised as {}", num, set_item.kind),
             Self::WrongModNode(..)              => "Nodes cannot be ±; they can only be used in Alpha Notation expressions.".to_string(),
             Self::WrongModTone(..)              => "Tones cannot be ±; they can only be used with numeric values.".to_string(),
             Self::NestedBrackets(..)            => "Cannot have nested brackets of the same type".to_string(),
-            Self::InsertErr                     => "The input of an insertion rule must only contain `*` or `∅`".to_string(),
-            Self::DeleteErr                     => "The output of a deletion rule must only contain `*` or `∅`".to_string(),
+            Self::InsertErr(_)                  => "The input of an insertion rule must only contain `*` or `∅`".to_string(),
+            Self::DeleteErr(_)                  => "The output of a deletion rule must only contain `*` or `∅`".to_string(),
             Self::EmptyInput(..)                => "Input cannot be empty. Use `*` or '∅' to indicate insertion".to_string(),
             Self::EmptyOutput(..)               => "Output cannot be empty. Use `*` or '∅' to indicate deletion".to_string(),
             Self::EmptyEnv(..)                  => "Environment cannot be empty following a seperator.".to_string(),
@@ -299,21 +347,23 @@ impl ASCAError for RuleSyntaxError {
         let mut result = format!("{} {}", "Syntax Error".bright_red().bold(), self.get_error_message().bold()); 
 
         match self {
-            Self::OptMathError(t, _, _) | 
-            Self::UnknownIPA(t) | 
-            Self::UnknownGrouping(t) | 
-            Self::TooManyUnderlines(t) | 
-            Self::UnexpectedEol(t, _) | 
-            Self::ExpectedEndL(t) | 
-            Self::ExpectedArrow(t) | 
-            Self::ExpectedComma(t) | 
-            Self::ExpectedColon(t) | 
-            Self::ExpectedMatrix(t) | 
-            Self::ExpectedSegment(t) | 
+            Self::OptMathError(t, _, _)   | 
+            Self::UnknownGrouping(t)      | 
+            Self::TooManyUnderlines(t)    | 
+            Self::UnexpectedEol(t, _)     | 
+            Self::ExpectedEndL(t)         | 
+            Self::ExpectedArrow(t)        | 
+            Self::ExpectedComma(t)        | 
+            Self::ExpectedColon(t)        | 
+            Self::ExpectedMatrix(t)       | 
+            Self::ExpectedSegment(t)      | 
             Self::ExpectedTokenFeature(t) | 
-            Self::ExpectedVariable(t) | 
-            Self::ExpectedUnderline(t) | 
+            Self::ExpectedVariable(t)     | 
+            Self::ExpectedUnderline(t)    | 
             Self::ExpectedRightBracket(t) |
+            Self::UnknownIPA(t)           | 
+            Self::InsertErr(t)            | 
+            Self::DeleteErr(t)            |
             Self::BadSyllableMatrix(t)  => {
                 let line = t.position.line;
                 let start = t.position.start;
@@ -340,8 +390,6 @@ impl ASCAError for RuleSyntaxError {
 
             },
             // AlreadyInitialisedVariable(_, _, _) |   
-            Self::InsertErr | Self::DeleteErr  => todo!(),
-
             Self::UnknownCharacter  (_, line, pos) |
             Self::ExpectedCharColon (_, line, pos) |
             Self::ExpectedAlphabetic(_, line, pos) |

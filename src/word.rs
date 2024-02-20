@@ -95,23 +95,20 @@ impl Word {
 
         Ok(w)
     }
+    
+    // pub fn render_only_segments(&self) -> Option<String> {
+    //     let mut buffer = String::new();
+    //     for syll in self.syllables.clone() {
+    //         for seg in syll.segments {
+    //             buffer.push_str(&seg.get_as_grapheme()?);
+    //         }
+    //     }
+    //     Some(buffer)
+    // }
+
     // TODO: `render` probably isn't the right verb here
-    #[allow(unused)]
-    pub fn render_only_segments(&self) -> Option<String> {
-        let mut buffer = String::new();
-        for syll in self.syllables.clone() {
-            for seg in syll.segments {
-                buffer.push_str(&seg.get_as_grapheme()?);
-            }
-        }
-        Some(buffer)
-    }
-
-    // TODO: This works, but could be improved
     pub fn render(&self) -> Result<String, (String, usize)> {
-
         let mut buffer = String::new();
-
         for (i, syll) in self.syllables.iter().enumerate() {
             match syll.stress {
                 StressKind::Primary => buffer.push('ˈ'), 
@@ -128,47 +125,6 @@ impl Word {
             }
             buffer.push_str(&syll.tone);
         }
-        
-        // 'outer: for (i, seg) in self.segments.iter().enumerate() {
-            
-        //     for (y, syll) in self.syllables.iter().enumerate() {
-
-        //         if i == syll.end + 1 {
-        //             buffer.push_str(&syll.tone);
-        //             continue;
-        //         }
-
-        //         if i == syll.start {
-        //             match syll.stress {
-        //                 StressKind::Primary => buffer.push('ˈ'), 
-        //                 StressKind::Secondary => buffer.push('ˌ'),
-        //                 StressKind::Unstressed =>  if y > 0 { buffer.push('.') },
-        //             }
-        //             break;
-        //         }
-
-        //         if i == self.segments.len()-1 && syll.end == i {
-        //             if i != 0 && *seg == self.segments[i-1] && !buffer.ends_with('.') && !buffer.ends_with('ˈ') && !buffer.ends_with('ˌ') {
-        //                 buffer.push('ː');
-        //             } else {
-        //                 let Some(x) = &seg.get_as_grapheme() else { return Err((buffer, i)) };
-        //                 buffer.push_str(x);
-        //             }
-        //             buffer.push_str(&syll.tone);
-        //             break 'outer;
-        //         }
-        //     }
-
-        //     if i != 0 && *seg == self.segments[i-1] && !buffer.ends_with('.') && !buffer.ends_with('ˈ') && !buffer.ends_with('ˌ') {
-        //         buffer.push('ː');
-        //         continue;
-        //     }
-            
-        //     let Some(x) = &seg.get_as_grapheme() else { return Err((buffer, i)) };
-        //     buffer.push_str(x);
-            
-        // }
-
         Ok(buffer)
     }
 

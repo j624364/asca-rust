@@ -480,10 +480,10 @@ impl Rule {
         // context and except can be length == 0
         let max = max(self.input.len(), max(self.output.len(), max(self.context.len(), self.except.len())));
 
-        if self.input.len()   != max && self.input.len()   != 1 { return Err(RuleRuntimeError::UnbalancedRule) }
-        if self.output.len()  != max && self.output.len()  != 1 { return Err(RuleRuntimeError::UnbalancedRule) }
-        if self.context.len() != max && self.context.len() != 1 && !self.context.is_empty() { return Err(RuleRuntimeError::UnbalancedRule) }
-        if self.except.len()  != max && self.except.len()  != 1 && !self.except.is_empty() { return Err(RuleRuntimeError::UnbalancedRule) }
+        if self.input.len()   != max && self.input.len()   != 1 { return Err(RuleRuntimeError::UnbalancedRuleIO(self.input.clone()))  }
+        if self.output.len()  != max && self.output.len()  != 1 { return Err(RuleRuntimeError::UnbalancedRuleIO(self.output.clone())) }
+        if self.context.len() != max && self.context.len() != 1 && !self.context.is_empty() { return Err(RuleRuntimeError::UnbalancedRuleEnv(self.context.clone())) }
+        if self.except.len()  != max && self.except.len()  != 1 && !self.except.is_empty()  { return Err(RuleRuntimeError::UnbalancedRuleEnv(self.except.clone()))  }
 
         // populate subrules, if one if length==1 then it's value is duplicated to rest of subrules
         let mut sub_vec = Vec::new();

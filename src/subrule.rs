@@ -221,17 +221,13 @@ impl SubRule {
                 let mut start_index = SegPos::new(0, 0);
                 let mut after = false;
 
-                loop {
-                    if let Some(insert_position) = self.context_match_insertion(&res_word, &mut start_index, &mut after)? {
-                        println!("Match! {} at {:?}", word.render().unwrap(),insert_position);
-                        res_word = self.insertion(&res_word, insert_position, after)?;
-                        after = false;
-                    } else {
-                        break
-                    }
+                while let Some(insert_position) = self.context_match_insertion(&res_word, &mut start_index, &mut after)? {
+                    println!("Match! {} at {:?}", word.render().unwrap(),insert_position);
+                    res_word = self.insertion(&res_word, insert_position, after)?;
+                    after = false;
                 }
 
-                return Ok(res_word)
+                Ok(res_word)
 
             },
             RuleType::Substitution => {
@@ -274,7 +270,7 @@ impl SubRule {
 
         if !before_states.is_empty() {
             while word.in_bounds(cur_pos) {
-                if self.context_match_item(&mut cur_pos, &mut state_index, word, &before_states, false)? {
+                if self.context_match_item(&mut cur_pos, &mut state_index, word, before_states, false)? {
                     if match_begin.is_none() { 
                         // if we haven't started matching, we have now
                         match_begin = Some(cur_pos)
@@ -323,7 +319,7 @@ impl SubRule {
         if !after_states.is_empty() {
             if before_states.is_empty() {
                 while word.in_bounds(cur_pos) {
-                    if self.context_match_item(&mut cur_pos, &mut state_index, word, &after_states, true)? {
+                    if self.context_match_item(&mut cur_pos, &mut state_index, word, after_states, true)? {
                         if match_begin.is_none() {
                             match_begin = Some(cur_pos)
                         }
@@ -351,7 +347,7 @@ impl SubRule {
                 *after = true;
             } else {
                 while word.in_bounds(cur_pos) {
-                    if self.context_match_item(&mut cur_pos, &mut state_index, word, &after_states, true)? {
+                    if self.context_match_item(&mut cur_pos, &mut state_index, word, after_states, true)? {
                         continue;
                     } else {
                         return Ok(None)
@@ -377,10 +373,15 @@ impl SubRule {
     fn context_match_item(&self, cur_pos: &mut SegPos, state_index: &mut usize, word: &Word, states: &[Item], is_context_after: bool) -> Result<bool, RuleRuntimeError> {
         match &states[*state_index].kind {
             ParseKind::WordBound => if !is_context_after && cur_pos.syll_index == 0 && cur_pos.seg_index == 0 {
+                if *state_index != 0 {
+                    return Err(RuleRuntimeError::StuffBeforeWordBound(states[*state_index-1].position)) // This should really be a syntax error
+                }
                 *state_index += 1;
                 Ok(true)
             } else if is_context_after && cur_pos.syll_index == word.syllables.len() - 1 && cur_pos.seg_index >= word.syllables[cur_pos.syll_index].segments.len() -1 {
-                // TODO: Check for off-by-one here
+                if *state_index < states.len() - 1 {
+                    return Err(RuleRuntimeError::StuffAfterWordBound(states[*state_index+1].position)) // This should really be a syntax error
+                }
                 *state_index += 1; // This SHOULD be the last state, we may have to check this
                 Ok(true)
             } else { 
@@ -417,6 +418,7 @@ impl SubRule {
                 ParseKind::Syllable(_stress, _tone, _var) => {
                     // This may not be assertable, we may have to error
                     debug_assert_eq!(insert_pos.seg_index, 0);
+                    todo!()
                 },
                 ParseKind::Ipa(seg, mods) => {
                     if after {
@@ -426,8 +428,6 @@ impl SubRule {
                     }
                     if let Some(_m) = mods {
                         todo!("Apply mods");
-                    } else {
-
                     }
                     insert_pos.increment(&res_word);
                 },
@@ -446,17 +446,25 @@ impl SubRule {
         Ok(res_word)
     }
     
-    fn analyse_output_substitution(&self, word: &Word, input: Vec<MatchElement>) -> Result<Vec<Segment>, RuleRuntimeError> {
-        //                                                                                    ^ This will definitely not output Vec<Segment>, but this is a stand-in until we understand out datastructure
+    fn analyse_output_substitution(&self, _word: &Word, input: Vec<MatchElement>) -> Result<Word, RuleRuntimeError> {
         for (si, state) in self.output.iter().enumerate() {
             match &state.kind {
                 ParseKind::Syllable(_, _, _) => todo!(),
                 ParseKind::Matrix(_m, _v) => {
                     // get match at index and check it's a segment/or syllable and not a boundary
-                    // if a syllable, make sure only do SyllSuprs
+                    // if a syllable, make sure only do Syllable Suprs
                     // apply changes
+                    match input[si] {
+                        MatchElement::Segment(_) => todo!("Apply Matrix"),
+                        MatchElement::Syllable(_) => todo!("Apply Syllable Suprs"),
+                        MatchElement::SyllBound(_) => todo!("Err"),
+                    }
                 },
-                ParseKind::Ipa(_, _) => todo!(),
+                ParseKind::Ipa(_, _) => match input[si] {
+                    MatchElement::Segment(_) => todo!("Replace with output IPA. This won't work if matching multiple segments (i.e. ske > ʃi)."),
+                    MatchElement::Syllable(_) => todo!("Probably Err"),
+                    MatchElement::SyllBound(_) => todo!("Err"),
+                },
                 ParseKind::Variable(_, _) => todo!(),
                 ParseKind::Set(_) => {
                     // Check that self.input[si] is a set, if not throw RuleRuntimeError::LonelySet(state.position)
@@ -553,7 +561,7 @@ impl SubRule {
                 *state_index += 1;
                 Ok(true)
             } else { Ok(false) },
-            ParseKind::SyllBound => if self.input_match_syll_bound(captures, word, *seg_index) {
+            ParseKind::SyllBound => if self.input_match_syll_bound(captures, *seg_index) {
                 // NOTE(girv): Boundaries do not advance seg_index 
                 *state_index += 1;
                 Ok(true)
@@ -673,26 +681,24 @@ impl SubRule {
 
     fn match_stress(&self, stress: &[Option<ModKind>; 2], syll: &Syllable) -> bool {
         // ±stress (+ matches prim and sec, - matches unstressed)
-        match stress[0] {
-            Some(str) => match str {
-                ModKind::Binary(b) => match b{
+        if let Some(str) = stress[0] {
+            match str {
+                ModKind::Binary(b) => match b {
                     BinMod::Negative => if syll.stress != StressKind::Unstressed { return false },
                     BinMod::Positive => if syll.stress == StressKind::Unstressed { return false },
                 },
                 ModKind::Alpha(_) => todo!(),
-            },
-            None => {},
+            }
         }
         // ±secstress (+ matches sec, - matches prim and unstressed)
-        match stress[1] {
-            Some(str) => match str {
-                ModKind::Binary(b) => match b{
+        if let Some(str) = stress[1] {
+            match str {
+                ModKind::Binary(b) => match b {
                     BinMod::Negative => if syll.stress == StressKind::Secondary { return false },
                     BinMod::Positive => if syll.stress != StressKind::Secondary { return false },
                 },
                 ModKind::Alpha(_) => todo!(),
-            },
-            None => {},
+            }
         }
         true
     }
@@ -701,7 +707,7 @@ impl SubRule {
         tone == syll.tone
     }
 
-    fn input_match_syll_bound(&self, captures: &mut Vec<MatchElement>, word: &Word, seg_index: SegPos) -> bool {
+    fn input_match_syll_bound(&self, captures: &mut Vec<MatchElement>, seg_index: SegPos) -> bool {
         if seg_index.seg_index == 0 {
             captures.push(MatchElement::SyllBound(seg_index.syll_index));
             true
@@ -816,10 +822,10 @@ impl SubRule {
 
         // TODO(girv): Match Nods
         
-        self.match_supr_mod_seg(word, seg, &mods.suprs, seg_index)
+        self.match_supr_mod_seg(word, &mods.suprs, seg_index)
     }
 
-    fn match_supr_mod_seg(&self, word: &Word, seg: Segment, mods: &SupraSegs, seg_index: &mut SegPos) -> Result<bool, RuleRuntimeError> {
+    fn match_supr_mod_seg(&self, word: &Word, mods: &SupraSegs, seg_index: &mut SegPos) -> Result<bool, RuleRuntimeError> {
 
         let syll = &word.syllables[seg_index.syll_index];
 
@@ -835,26 +841,25 @@ impl SubRule {
 
     fn match_seg_length(&self, word: &Word, length: &[Option<ModKind>; 2], seg_index: &mut SegPos) -> bool {
         let seg_length = word.seg_length_in_syll(*seg_index);
-
-        match length[0] { // +/- long
-            Some(len) => match len {
+        // +/- long
+        if let Some(len) = length[0] {
+            match len {
                 ModKind::Binary(b) => match b {
                     BinMod::Negative => if seg_length > 1 { return false },
                     BinMod::Positive => if seg_length < 2 { return false },
                 },
                 ModKind::Alpha(_) => todo!(),
-            },
-            None => {},
+            }
         }
-        match length[1] { // +/- overlong
-            Some(len) => match len {
+        // +/- overlong
+        if let Some(len) = length[1] {
+            match len {
                 ModKind::Binary(b) => match b {
                     BinMod::Negative => if seg_length > 2 { return false },
                     BinMod::Positive => if seg_length < 3 { return false },
                 },
                 ModKind::Alpha(_) => todo!(),
-            },
-            None => {},
+            }
         }
         true
     }

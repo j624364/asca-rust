@@ -908,7 +908,7 @@ impl Parser {
         if !self.expect(TokenKind::Arrow) && !self.expect(TokenKind::GreaterThan) {
             if rule_type.is_some() { 
                 if self.peek_expect(TokenKind::Comma) {
-                    return Err(RuleSyntaxError::InsertErr)
+                    return Err(RuleSyntaxError::InsertErr(self.curr_tkn.clone()))
                 }
                 return Err(RuleSyntaxError::ExpectedArrow(self.curr_tkn.clone()))
             }
@@ -940,7 +940,7 @@ impl Parser {
                 return Err(RuleSyntaxError::ExpectedEndL(self.curr_tkn.clone()))
             }
             if self.peek_expect(TokenKind::Comma) {
-                return Err(RuleSyntaxError::DeleteErr)
+                return Err(RuleSyntaxError::DeleteErr(self.curr_tkn.clone()))
             }
             return Err(RuleSyntaxError::ExpectedEndL(self.curr_tkn.clone()))
         }
