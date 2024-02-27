@@ -24,7 +24,7 @@ pub enum RuleType {
 
 #[derive(Debug)]
 pub enum Alpha {
-    Node(NodeKind, u8),
+    Node(NodeKind, Option<u8>),
     Feature(NodeKind, u8, bool),
     Supra(Supr), // TODO: Replace Supr with something else
 }
@@ -33,6 +33,14 @@ impl Alpha {
     /// Returns `true` if the alpha is `Feature`.
     pub fn is_feature(&self) -> bool {
         matches!(self, Self::Feature(..))
+    }
+
+    pub fn as_node(&self) -> Option<(&NodeKind, &Option<u8>)> {
+        if let Self::Node(n, m) = self {
+            Some((n, m))
+        } else {
+            None
+        }
     }
 
     pub fn as_feature(&self) -> Option<(&NodeKind, &u8, &bool)> {

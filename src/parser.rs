@@ -266,12 +266,12 @@ impl Parser {
         None
     }
 
-    // fn get_word_bound(&mut self) -> Option<Item> {
-    //     if let Some(token) = self.eat_expect(TokenKind::WordBoundary) {
-    //         return Some(Item::new(ParseKind::WordBound, token.position))
-    //     }
-    //     None
-    // }
+    fn get_word_bound(&mut self) -> Option<Item> {
+        if let Some(token) = self.eat_expect(TokenKind::WordBoundary) {
+            return Some(Item::new(ParseKind::WordBound, token.position))
+        }
+        None
+    }
 
     fn get_syll_bound(&mut self) -> Option<Item> {
         if let Some(token) = self.eat_expect(TokenKind::SyllBoundary) {
@@ -280,12 +280,23 @@ impl Parser {
         None
     }
 
-    fn get_env_elements(&mut self) -> Result<Vec<Item>, RuleSyntaxError> {
+    fn get_env_elements(&mut self, is_after: bool) -> Result<Vec<Item>, RuleSyntaxError> {
         // returns list of boundaries, ellipses and terms
         let mut els = Vec::new();
+        let mut contains_word_bound = false;
+        let mut word_bound_pos = Position::new(0, 0, 0);
 
         loop {
-            if let Some(x) = self.get_bound() {
+            if let Some(x) = self.get_word_bound() {
+                word_bound_pos = x.position;
+                if contains_word_bound {
+                    return Err(RuleSyntaxError::TooManyWordBoundaries(word_bound_pos))
+                }
+                els.push(x);
+                contains_word_bound = true;
+                continue;
+            }
+            if let Some(x) = self.get_syll_bound() {
                 els.push(x);
                 continue;
             }
@@ -300,7 +311,14 @@ impl Parser {
 
             break;
         }
-
+        // We can safely unwrap here as if `contains_word_bound` is true , els can't be empty
+        if contains_word_bound && els.first().unwrap().kind != ParseKind::WordBound && els.last().unwrap().kind != ParseKind::WordBound {
+            if is_after {
+                return Err(RuleSyntaxError::StuffAfterWordBound(word_bound_pos))
+            }
+            return Err(RuleSyntaxError::StuffBeforeWordBound(word_bound_pos))
+        }
+        
         Ok(els)
     }
 
@@ -308,12 +326,12 @@ impl Parser {
         // returns env elements
         let start = self.curr_tkn.position.start;
 
-        let before  = self.get_env_elements()?;
+        let before  = self.get_env_elements(false)?;
 
         if !self.expect(TokenKind::Underline) {
             return Err(RuleSyntaxError::ExpectedUnderline(self.curr_tkn.clone()))
         }
-        let after = self.get_env_elements()?;
+        let after = self.get_env_elements(true)?;
 
         if self.peek_expect(TokenKind::Underline) {
             return Err(RuleSyntaxError::TooManyUnderlines(self.curr_tkn.clone()))
@@ -341,7 +359,7 @@ impl Parser {
             return Ok(None)
         }
 
-        let x = self.get_env_elements()?;
+        let x = self.get_env_elements(false)?;
 
         if self.expect(TokenKind::Underline) {
             self.pos = pstn-1;

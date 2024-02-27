@@ -42,12 +42,10 @@ pub struct SubRule {
 
 impl SubRule {
     pub fn apply(&self, word: Word) -> Result<Word, RuleRuntimeError> {
-        // match self.rule_type {
-        //     RuleType::Substitution  => {/* input>env>output */},
-        //     RuleType::Metathesis    => {/* skip calc output */},
-        //     RuleType::Deletion      => {/* skip calc output */},
-        //     RuleType::Insertion     => {/* skip match input */},
-        // }
+        // RuleType::Substitution  => {/* input>env>output */},
+        // RuleType::Metathesis    => {/* skip calc output */},
+        // RuleType::Deletion      => {/* skip calc output */},
+        // RuleType::Insertion     => {/* skip match input */},
 
         if let RuleType::Insertion = self.rule_type {
             return self.transform(&word, vec![], &mut None)
@@ -59,10 +57,22 @@ impl SubRule {
         loop {
             let (res, mut next_index) = self.input_match_at(&word, cur_index)?;
             if !res.is_empty() {
+                let start = match res[0] {
+                    MatchElement::Segment(sp)  => sp,
+                    MatchElement::Syllable(s)  |
+                    MatchElement::SyllBound(s) => SegPos::new(s, 0),
+                };
+                let end = match *res.last().unwrap() {
+                    MatchElement::Segment(sp)  => sp,
+                    MatchElement::Syllable(s)  => SegPos::new(s+1, 0),
+                    MatchElement::SyllBound(s) => SegPos::new(s, 0),
+                };
+                if !self.match_before_context_and_exception(&word, start)? || !self.match_after_context_and_exception(&word, end)? {
+                    break;
+                }
                 println!("{}", word.render().unwrap());
                 println!("Match! {:?}", res);
                 word = self.transform(&word, res, &mut next_index)?;
-
                 if let Some(ci) = next_index { 
                     cur_index = ci;
                 } else {
@@ -74,19 +84,149 @@ impl SubRule {
                 break
             }
         }
-
         Ok(word)
-        
+    }
+
+    fn match_before_context_and_exception(&self, word: &Word, pos: SegPos) -> Result<bool, RuleRuntimeError> {
+        let empty_env = Item::new(ParseKind::Environment(vec![], vec![]), crate::Position { line: 0, start: 0, end: 0 });
+        let ParseKind::Environment(states, _) = &match &self.context {
+            Some(s) => s,
+            None => match &self.except {
+                Some(_) => &empty_env,
+                None => return Ok(true),
+            },
+        }.kind else { unreachable!() };
+        let ParseKind::Environment(except_states, _) = &match &self.except {
+            Some(ex) => ex,
+            None => match &self.context {
+                Some(_) => &empty_env,
+                None => unreachable!(),
+            },
+        }.kind else { unreachable!() };
+
+        let mut start_pos = pos;
+        let mut is_context_match = true;
+        for state in states {
+            if !self.context_match(word, state, &mut start_pos, false)? {
+                is_context_match = false;
+                break;
+            }
+        }
+        let mut start_pos = pos;
+        let mut is_not_excepted = true;
+        for state in except_states {
+            if !self.context_match(word, state, &mut start_pos, false)? {
+                is_not_excepted = false;
+                break;
+            }
+        }
+        Ok(is_not_excepted && is_context_match)
+    }
+
+    fn match_after_context_and_exception(&self, word: &Word, pos: SegPos) -> Result<bool, RuleRuntimeError> {
+        let empty_env = Item::new(ParseKind::Environment(vec![], vec![]), crate::Position { line: 0, start: 0, end: 0 });
+        let ParseKind::Environment(_, states) = &match &self.context {
+            Some(s) => s,
+            None => match &self.except {
+                Some(_) => &empty_env,
+                None => return Ok(true),
+            },
+        }.kind else { unreachable!() };
+        let ParseKind::Environment(_, except_states) = &match &self.except {
+            Some(ex) => ex,
+            None => match &self.context {
+                Some(_) => &empty_env,
+                None => unreachable!(),
+            },
+        }.kind else { unreachable!() };
+
+        let mut start_pos = pos;
+        let mut is_context_match = true;
+        for state in states {
+            if !self.context_match(word, state, &mut start_pos, true)? {
+                is_context_match = false;
+                break;
+            }
+        }
+        let mut start_pos = pos;
+        let mut is_not_excepted = true;
+        for state in except_states {
+            if !self.context_match(word, state, &mut start_pos, true)? {
+                is_not_excepted = false;
+                break;
+            }
+        }
+        Ok(is_not_excepted && is_context_match)
+    }
+
+    
+
+    fn context_match(&self, word: &Word, state: &Item, pos: &mut SegPos, forwards: bool) -> Result<bool, RuleRuntimeError> {
+        if !forwards {
+            // So that things like V:[+long]_ will work 
+            while pos.seg_index > 0 && word.syllables[pos.syll_index].segments[pos.seg_index] == word.syllables[pos.syll_index].segments[pos.seg_index - 1] {
+                pos.decrement(word);
+            } 
+        }
+        match &state.kind {
+            ParseKind::WordBound => if (!forwards && pos.at_word_start()) || (forwards && pos.at_word_end(word)) {
+                Ok(true)
+            } else {
+                Ok(false)
+            },
+            ParseKind::SyllBound => if pos.seg_index == 0 {
+                if forwards { pos.increment(word); }
+                else { pos.decrement(word); }
+                Ok(true)
+            } else { Ok(false) },
+            ParseKind::Ipa(s, m) => if self.context_match_ipa(s, m, word, *pos)? {
+                if forwards { pos.increment(word); }
+                else { pos.decrement(word); }
+                Ok(true)
+            } else { Ok(false) },
+            ParseKind::Matrix(m, v) => self.context_match_matrix(m, v, word, pos, forwards),
+            ParseKind::Syllable(_, _, _) => todo!(),
+            ParseKind::Variable(_, _) => todo!(),
+            ParseKind::Set(_) => todo!(),
+            ParseKind::Optional(_, _, _) => todo!(),
+            ParseKind::Ellipsis => todo!(),
+            
+            
+            ParseKind::EmptySet | ParseKind::Metathesis |
+            ParseKind::Environment(_, _) => unreachable!(),
+        }
+    }
+
+    fn context_match_matrix(&self, mods: &Modifiers, var: &Option<usize>, word: &Word, pos: &mut SegPos, forwards: bool) -> Result<bool, RuleRuntimeError> {
+        if self.match_modifiers(mods, word, pos)? {
+            if let Some(v) = var {
+                self.variables.borrow_mut().insert(*v, VarKind::Segment(word.get_seg_at(*pos).unwrap()));
+            }
+            if forwards {
+                // the way we implement `long` vowels means we need to do this
+                let mut seg_length = word.seg_length_in_syll(*pos);            
+                while seg_length > 1 {
+                    pos.increment(word);
+                    println!("si: {:?} ",pos);
+                    seg_length -= 1;
+                }
+            } else {
+                pos.decrement(word);
+            }
+            Ok(true)
+        } else {
+            Ok(false)
+        }
     }
 
     fn transform(&self, word: &Word, input: Vec<MatchElement>, current_pos: &mut Option<SegPos>) -> Result<Word, RuleRuntimeError> {
         match self.rule_type {
             RuleType::Metathesis => {
                 let mut res_word = word.clone();
-
                 for z in 0..(input.len() / 2) {
                     match (input[z], input[input.len()-1-z]) {
                         (MatchElement::Segment(i), MatchElement::Segment(j)) => {
+                            // FIXME: If we swap syllables or boundaries then do this, these SegPos may not be correct
                             let si = res_word.get_seg_at(i).unwrap();
                             let sj = res_word.get_seg_at(j).unwrap();
                             let tmp = si;
@@ -216,28 +356,24 @@ impl SubRule {
                 // find insertion position/range using context
                 // if inserting syllable, assert a range not a position
                 // "Parse" and insert output
-
                 let mut res_word = word.clone();
                 let mut start_index = SegPos::new(0, 0);
                 let mut after = false;
 
-                while let Some(insert_position) = self.context_match_insertion(&res_word, &mut start_index, &mut after)? {
+                while let Some(insert_position) = self.insertion_context_match(&res_word, &mut start_index, &mut after)? {
                     println!("Match! {} at {:?}", word.render().unwrap(),insert_position);
                     res_word = self.insertion(&res_word, insert_position, after)?;
                     after = false;
                 }
-
                 Ok(res_word)
-
             },
             RuleType::Substitution => {
-                let _ = self.analyse_output_substitution(word, input)?;
-                todo!();
+                self.substitution(word, input)
             },
         }
     }
 
-    fn context_match_insertion(&self, word: &Word, start_pos: &mut SegPos, after: &mut bool) -> Result<Option<SegPos>, RuleRuntimeError> {
+    fn insertion_context_match(&self, word: &Word, start_pos: &mut SegPos, after: &mut bool) -> Result<Option<SegPos>, RuleRuntimeError> {
         // match before
         // match after
         // return the index after before 
@@ -270,7 +406,7 @@ impl SubRule {
 
         if !before_states.is_empty() {
             while word.in_bounds(cur_pos) {
-                if self.context_match_item(&mut cur_pos, &mut state_index, word, before_states, false)? {
+                if self.insertion_context_match_item(&mut cur_pos, &mut state_index, word, before_states, false)? {
                     if match_begin.is_none() { 
                         // if we haven't started matching, we have now
                         match_begin = Some(cur_pos)
@@ -319,7 +455,7 @@ impl SubRule {
         if !after_states.is_empty() {
             if before_states.is_empty() {
                 while word.in_bounds(cur_pos) {
-                    if self.context_match_item(&mut cur_pos, &mut state_index, word, after_states, true)? {
+                    if self.insertion_context_match_item(&mut cur_pos, &mut state_index, word, after_states, true)? {
                         if match_begin.is_none() {
                             match_begin = Some(cur_pos)
                         }
@@ -347,16 +483,12 @@ impl SubRule {
                 *after = true;
             } else {
                 while word.in_bounds(cur_pos) {
-                    if self.context_match_item(&mut cur_pos, &mut state_index, word, after_states, true)? {
-                        continue;
-                    } else {
+                    if !self.insertion_context_match_item(&mut cur_pos, &mut state_index, word, after_states, true)? {
                         return Ok(None)
                     }
                 }
             } 
         }
-
-        
 
         // To avoid an infinite loop
         if let Some(st) = after_states.last() {
@@ -370,26 +502,16 @@ impl SubRule {
         Ok(Some(insertion_position))
     }
 
-    fn context_match_item(&self, cur_pos: &mut SegPos, state_index: &mut usize, word: &Word, states: &[Item], is_context_after: bool) -> Result<bool, RuleRuntimeError> {
+    fn insertion_context_match_item(&self, cur_pos: &mut SegPos, state_index: &mut usize, word: &Word, states: &[Item], is_context_after: bool) -> Result<bool, RuleRuntimeError> {
         match &states[*state_index].kind {
-            ParseKind::WordBound => if !is_context_after && cur_pos.syll_index == 0 && cur_pos.seg_index == 0 {
-                if *state_index != 0 {
-                    return Err(RuleRuntimeError::StuffBeforeWordBound(states[*state_index-1].position)) // This should really be a syntax error
-                }
+            ParseKind::WordBound => if (!is_context_after && cur_pos.at_word_start()) || (is_context_after && cur_pos.at_word_end(word)) {
                 *state_index += 1;
                 Ok(true)
-            } else if is_context_after && cur_pos.syll_index == word.syllables.len() - 1 && cur_pos.seg_index >= word.syllables[cur_pos.syll_index].segments.len() -1 {
-                if *state_index < states.len() - 1 {
-                    return Err(RuleRuntimeError::StuffAfterWordBound(states[*state_index+1].position)) // This should really be a syntax error
-                }
-                *state_index += 1; // This SHOULD be the last state, we may have to check this
-                Ok(true)
-            } else { 
-                // cur_pos.increment(word);
-                Ok(false) 
-            },
+            } else { Ok(false) },
             ParseKind::Ipa(s, m) => if self.context_match_ipa(s, m, word, *cur_pos)? {
-                todo!()
+                    cur_pos.increment(word);
+                    *state_index += 1;
+                    Ok(true)
             } else { Ok(false) },
             ParseKind::SyllBound => todo!(),
             ParseKind::Ellipsis => todo!(),
@@ -399,14 +521,19 @@ impl SubRule {
             ParseKind::Optional(_, _, _) => todo!(),
             ParseKind::Variable(_, _) => todo!(),
 
-            
+
             ParseKind::EmptySet | ParseKind::Metathesis |
             ParseKind::Environment(_, _) => unreachable!(),
         }
     }
 
     fn context_match_ipa(&self, s: &Segment, mods: &Option<Modifiers>, word: &Word, seg_index: SegPos) -> Result<bool, RuleRuntimeError> {
-        todo!()
+        let seg = word.get_seg_at(seg_index).unwrap();
+        if mods.is_none() {
+            Ok(*s == seg)
+        } else {
+            todo!("Need to Compare Modifiers")
+        }
     }
 
     fn insertion(&self, word: &Word, insert_pos: SegPos, after: bool) -> Result<Word, RuleRuntimeError> {
@@ -416,9 +543,13 @@ impl SubRule {
         for (state_index, state) in self.output.iter().enumerate() {
             match &state.kind {
                 ParseKind::Syllable(_stress, _tone, _var) => {
-                    // This may not be assertable, we may have to error
-                    debug_assert_eq!(insert_pos.seg_index, 0);
-                    todo!()
+                    if insert_pos.seg_index == 0 {
+                        // Will have to error as a syllable must have segments
+                        todo!("ERR")
+                    } else {
+                        // split current syll into two at insert_pos
+                        todo!("Split")
+                    }
                 },
                 ParseKind::Ipa(seg, mods) => {
                     if after {
@@ -434,7 +565,7 @@ impl SubRule {
                 ParseKind::Variable(_num, _mods) => todo!(),
                 
                 
-                ParseKind::Matrix(..) => return Err(todo!()), //FIXME(girv): An incomplete matrix cannot be inserted
+                ParseKind::Matrix(..) => return Err(RuleRuntimeError::InsertionMatrix(state.position)),
                 ParseKind::Set(_) => return Err(RuleRuntimeError::LonelySet(state.position)),
                 ParseKind::EmptySet      | ParseKind::Metathesis | 
                 ParseKind::SyllBound     | ParseKind::Ellipsis   | 
@@ -446,9 +577,10 @@ impl SubRule {
         Ok(res_word)
     }
     
-    fn analyse_output_substitution(&self, _word: &Word, input: Vec<MatchElement>) -> Result<Word, RuleRuntimeError> {
-        for (si, state) in self.output.iter().enumerate() {
-            match &state.kind {
+    fn substitution(&self, word: &Word, input: Vec<MatchElement>) -> Result<Word, RuleRuntimeError> {
+        let mut res_word = word.clone();
+        for (si, (in_state, out_state)) in self.input.iter().zip(&self.output).enumerate() {
+            match &out_state.kind {
                 ParseKind::Syllable(_, _, _) => todo!(),
                 ParseKind::Matrix(_m, _v) => {
                     // get match at index and check it's a segment/or syllable and not a boundary
@@ -460,8 +592,15 @@ impl SubRule {
                         MatchElement::SyllBound(_) => todo!("Err"),
                     }
                 },
-                ParseKind::Ipa(_, _) => match input[si] {
-                    MatchElement::Segment(_) => todo!("Replace with output IPA. This won't work if matching multiple segments (i.e. ske > ʃi)."),
+                ParseKind::Ipa(seg, mods) => match input[si] {
+                    MatchElement::Segment(sp) => {
+                        // "Replace with output IPA.
+                        res_word.syllables[sp.syll_index].segments[sp.seg_index] = *seg;
+                        // Apply Mods
+                        if let Some(m) = mods {
+                            res_word.apply_mods(m, sp);
+                        }
+                    },    
                     MatchElement::Syllable(_) => todo!("Probably Err"),
                     MatchElement::SyllBound(_) => todo!("Err"),
                 },
@@ -478,7 +617,15 @@ impl SubRule {
                 ParseKind::Environment(..) => unreachable!(),
             }
         }
-        todo!()
+
+        if self.output.len() > self.input.len() {
+            todo!("insert remaining outputs");
+        } else if self.input.len() > self.output.len() {
+            todo!("remove remaining inputs");
+        }
+
+
+        Ok(res_word)
     }
 
     fn input_match_at(&self, word: &Word, start_index: SegPos) -> Result<(Vec<MatchElement>, Option<SegPos>), RuleRuntimeError> {
@@ -819,9 +966,11 @@ impl SubRule {
                 return Ok(false);
             }
         }
-
-        // TODO(girv): Match Nods
-        
+        for (i, m) in mods.nodes.iter().enumerate() {
+            if !self.match_node_mod(m, i, seg)? {
+                return Ok(false);
+            }
+        }
         self.match_supr_mod_seg(word, &mods.suprs, seg_index)
     }
 
@@ -864,6 +1013,14 @@ impl SubRule {
         true
     }
 
+    fn match_node_mod(&self, md:&Option<ModKind>, node_index: usize, seg: Segment) -> Result<bool, RuleRuntimeError> {
+        if let Some(kind) = md {
+            let node = NodeKind::from_usize(node_index);
+            return self.match_node(seg, node, kind)
+        }
+        Ok(true)
+    }
+
     fn match_feat_mod(&self, md: &Option<ModKind>, feat_index: usize, seg: Segment) -> Result<bool, RuleRuntimeError> {
         if let Some(kind) = md { 
             let (node, mask) = feature_to_node_mask(FType::from_usize(feat_index));
@@ -871,6 +1028,39 @@ impl SubRule {
 
         }
         Ok(true)
+    }
+
+    fn match_node(&self, seg: Segment, node: NodeKind, val: &ModKind) -> Result<bool, RuleRuntimeError> {
+        match val {
+            ModKind::Binary(bt) => match bt {
+                BinMod::Negative => Ok(seg.get_node(node).is_none()),
+                BinMod::Positive => Ok(seg.get_node(node).is_some()),
+            },
+            ModKind::Alpha(am) => match am {
+                AlphaMod::Alpha(a) => {
+                    if let Some(alph) = self.alphas.borrow().get(a) {
+                        if let Some((n, m)) = alph.as_node() {
+                            return Ok(seg.node_match(*n, *m))
+                        } else {
+                            todo!("err: Alpha is not node");
+                        }
+                    }
+                    self.alphas.borrow_mut().insert(*a, Alpha::Node(node, seg.get_node(node))); 
+                    Ok(true)
+                },
+                AlphaMod::InvAlpha(ia) => {
+                    if let Some(alph) = self.alphas.borrow().get(ia) {
+                        if let Some((n, m)) = alph.as_node() {
+                            return Ok(!seg.node_match(*n, *m))
+                        } else {
+                            todo!("err: Alpha is not node");
+                        }
+                    }
+                    self.alphas.borrow_mut().insert(*ia, Alpha::Node(node, seg.get_node(node)));
+                    Ok(true)
+                },
+            },
+        }
     }
 
     fn match_seg_kind(&self, kind: &ModKind, seg: Segment, node: NodeKind, mask: u8) -> Result<bool, RuleRuntimeError> {
@@ -886,7 +1076,7 @@ impl SubRule {
                         if let Some((n, m, pos)) = alph.as_feature() {
                             return Ok(seg.feat_match(*n, *m, *pos))
                         } else {
-                            todo!("Err")
+                            todo!("Err: Alpha is not feature")
                         }
                     } 
                     self.alphas.borrow_mut().insert(*a, Alpha::Feature(node, mask, true)); 
@@ -898,13 +1088,14 @@ impl SubRule {
                         if let Some((n, m, pos)) = alph.as_feature() {
                             Ok(seg.feat_match(*n, *m, !pos)) // TODO: test this
                         } else {
-                            todo!("Err")
+                            todo!("Err: Alpha is not feature")
                         }
                     } else if let Some(f) = seg.get_feat(node, mask) {
                         self.alphas.borrow_mut().insert(*ia, Alpha::Feature(node, mask, f != 0));
                         Ok(true)
                     } else {
-                        todo!("Err") 
+                        // Maybe err?
+                        Ok(false)
                     }
                     
                 },

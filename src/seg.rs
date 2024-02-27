@@ -492,7 +492,6 @@ impl Segment {
         self.get_node(node).is_none()
     }
 
-    #[allow(unused)]
     pub fn node_match(&self, node: NodeKind, match_value: Option<u8>) -> bool {
         let Some(n) = self.get_node(node) else {
             return match_value.is_none()

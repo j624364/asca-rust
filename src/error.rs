@@ -156,9 +156,8 @@ pub enum RuleRuntimeError {
     DeletionOnlySyll,
     LonelySet(Position),
     UnknownVariable(Token),
-    StuffAfterWordBound(Position),
-    StuffBeforeWordBound(Position),
     InsertionNoContextOrException(Position),
+    InsertionMatrix(Position),
 }
 
 impl ASCAError for RuleRuntimeError {
@@ -170,9 +169,8 @@ impl ASCAError for RuleRuntimeError {
             Self::DeletionOnlySeg                  => "Can't delete a word's only segment".to_string(),
             Self::DeletionOnlySyll                 => "Can't delete a word's only syllable".to_string(),
             Self::UnknownVariable(token)           => format!("Unknown variable '{}' at {}", token.value, token.position.start),
-            Self::StuffAfterWordBound(_)           => "Can't have segments after the end of a word".to_string(),
-            Self::StuffBeforeWordBound(_)          => "Can't have segments before the beginning of a word".to_string(),
             Self::InsertionNoContextOrException(_) => "Insertion rules must have a context".to_string(),
+            Self::InsertionMatrix(_)               => "An incomplete matrix cannot be inserted".to_string(),
         }
     }
 
@@ -225,15 +223,6 @@ impl ASCAError for RuleRuntimeError {
                 arrows.bright_red().bold()
                 ));
             },
-            Self::StuffBeforeWordBound(pos) | Self::StuffAfterWordBound(pos) => {
-                let arrows = " ".repeat(pos.start) + "^" + "\n";
-                result.push_str(&format!("{}{}{}{}",  
-                    MARG.bright_cyan().bold(), 
-                    rules[pos.line], 
-                    MARG.bright_cyan().bold(), 
-                    arrows.bright_red().bold()
-                ));
-            },
             Self::InsertionNoContextOrException(pos) => {
                 let arrows = " ".repeat(pos.end) + "^" + "\n";
                 result.push_str(&format!("{}{}{}{}",  
@@ -243,7 +232,7 @@ impl ASCAError for RuleRuntimeError {
                     arrows.bright_red().bold()
                 ));
             },
-            Self::LonelySet(pos) => {
+            Self::LonelySet(pos) | Self::InsertionMatrix(pos) => {
                 let arrows = " ".repeat(pos.start) + &"^".repeat(pos.end-pos.start) + "\n";
                 result.push_str(&format!("{}{}{}{}",  
                     MARG.bright_cyan().bold(), 
@@ -300,6 +289,9 @@ pub enum RuleSyntaxError {
     EmptyEnv(LineNum, Pos),
     InsertMetath(LineNum, Pos, Pos),
     InsertDelete(LineNum, Pos, Pos),
+    StuffAfterWordBound(Position),
+    StuffBeforeWordBound(Position),
+    TooManyWordBoundaries(Position),
 }
 
 impl ASCAError for RuleSyntaxError {
@@ -316,6 +308,9 @@ impl ASCAError for RuleSyntaxError {
             Self::ExpectedNumber(c, l, pos)     => format!("Expected a number, but received '{c}' at {l}:{pos}"),
             Self::UnknownCharacter(c, l, pos)   => format!("Unknown character {c} at '{l}:{pos}'."),
             Self::TooManyUnderlines(_)          => "Cannot have multiple underlines in an environment".to_string(),
+            Self::StuffAfterWordBound(_)        => "Can't have segments after the end of a word".to_string(),
+            Self::StuffBeforeWordBound(_)       => "Can't have segments before the beginning of a word".to_string(),
+            Self::TooManyWordBoundaries(_)      => "Cannot have multiple word boundaries on each side of an environment".to_string(),
             Self::UnexpectedEol(_, c)           => format!("Expected `{c}`, but received End of Line"),
             Self::ExpectedEndL(token)           => format!("Expected end of line, received '{}'. Did you forget a '/' between the output and environment?", token.value),
             Self::ExpectedArrow(token)          => format!("Expected '>', '->' or '=>', but received '{}'", token.value),
@@ -429,7 +424,17 @@ impl ASCAError for RuleSyntaxError {
                     MARG.bright_cyan().bold(), 
                     arrows.bright_red().bold()
                 ))
-            }
+            },
+            Self::TooManyWordBoundaries(pos) |
+            Self::StuffBeforeWordBound(pos)  | Self::StuffAfterWordBound(pos) => {
+                let arrows = " ".repeat(pos.start) + "^" + "\n";
+                result.push_str(&format!("{}{}{}{}",  
+                    MARG.bright_cyan().bold(), 
+                    rules[pos.line], 
+                    MARG.bright_cyan().bold(), 
+                    arrows.bright_red().bold()
+                ));
+            },
         }
 
         result

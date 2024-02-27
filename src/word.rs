@@ -5,10 +5,12 @@ use std::{
 
 use crate :: {
     error ::WordSyntaxError, 
-    // parser::{SegMKind, Modifiers, Supr}, 
-    syll  ::{Syllable, StressKind},
-    seg   ::Segment,
-    CARDINALS_MAP, CARDINALS_TRIE, DIACRITS
+    seg   ::Segment, 
+    syll  ::{StressKind, Syllable}, 
+    parser::Modifiers, 
+    CARDINALS_MAP, 
+    CARDINALS_TRIE, 
+    DIACRITS,
 };
 
 // #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -23,17 +25,6 @@ use crate :: {
 //         Self::Short
 //     }
 // }
-//
-// impl fmt::Display for LengthKind {
-//     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-//         match self {
-//             LengthKind::Short    => write!(f, "-"),
-//             LengthKind::Long     => write!(f, ":"),
-//             LengthKind::Overlong => write!(f, "::"),
-//         }
-//     }
-// }
-
 
 #[derive(Clone, Copy, PartialEq, Eq)]
 pub struct SegPos {
@@ -62,6 +53,26 @@ impl SegPos {
             self.seg_index = 0;
             self.syll_index += 1;
         }
+    }
+
+    pub fn decrement(&mut self, word: &Word) {
+        debug_assert!(self.syll_index < word.syllables.len());
+        
+        if self.seg_index > 0 {
+            self.seg_index -= 1;
+        } else {
+            debug_assert!(self.syll_index > 0);
+            self.syll_index -= 1;
+            self.seg_index = word.syllables[self.syll_index].segments.len() - 1;
+        }
+    }
+
+    pub fn at_word_start(&self) -> bool {
+        self.syll_index == 0 && self.seg_index == 0
+    }
+
+    pub fn at_word_end(&self, word: &Word) -> bool {
+        self.syll_index == word.syllables.len() - 1 && self.seg_index >= word.syllables[self.syll_index].segments.len() - 1
     }
 }
 
@@ -448,6 +459,10 @@ impl Word {
         }
         Ok(())
 
+    }
+
+    pub fn apply_mods(&self, mods: &Modifiers, s: SegPos) {
+        todo!()
     }
 }
 

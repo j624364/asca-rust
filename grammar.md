@@ -1,53 +1,46 @@
 ``` peg
 RULE    ←   SUB_RUL / MET_RUL / DEL_RUL / INS_RUL
 
-SUB_RUL ←   INP ARR OUT ('/' ENV)? ('|' ENV)? EOL           // [x]
-MET_RUL ←   INP ARR '&' ('/' ENV)? ('|' ENV)? EOL           // [x] :: FIXME: 'INP' here is currently actually INP_TRM
-DEL_RUL ←   INP ARR EMP ('/' ENV)? ('|' ENV)? EOL           // [x] :: FIXME: 'INP' here is currently actually INP_TRM
-INS_RUL ←   EMP ARR OUT ('/' ENV)? ('|' ENV)? EOL           // [x] :: FIXME: 'OUT' here is currently actually OUT_TRM
+SUB_RUL ←   INP ARR OUT ('/' ENV)? ('|' ENV)? EOL           //
+MET_RUL ←   INP ARR '&' ('/' ENV)? ('|' ENV)? EOL           // FIXME: 'INP' here is currently actually INP_TRM
+DEL_RUL ←   INP ARR EMP ('/' ENV)? ('|' ENV)? EOL           // FIXME: 'INP' here is currently actually INP_TRM
+INS_RUL ←   EMP ARR OUT ('/' ENV)? ('|' ENV)? EOL           // FIXME: 'OUT' here is currently actually OUT_TRM
 
-INP     ←   INP_TRM  ( ',' INP_TRM )*                       // [x]
-INP_TRM ←   INP_EL+                                         // [x]
-INP_EL  ←   ELLIPSS / SBOUND / TERM                         // [p]
+INP     ←   INP_TRM  ( ',' INP_TRM )*                       // 
+INP_TRM ←   INP_EL+                                         // 
+INP_EL  ←   ELLIPSS / SBOUND / TERM                         // 
 
-OUT     ←   OUT_TRM  ( ',' OUT_TRM )*                       // [x]
-OUT_TRM ←   OUT_EL+                                         // [x]
-OUT_EL  ←   SYL / SET / SEG / VAR                           // [x] :: NOTE: 'SET' here only makes sense if it corresponds to a SET in INP
+OUT     ←   OUT_TRM  ( ',' OUT_TRM )*                       //
+OUT_TRM ←   OUT_EL+                                         //
+OUT_EL  ←   SYL / SET / SEG / VAR                           // NOTE: 'SET' here only makes sense if it corresponds to a SET in INP
 
-ENV     ←   '_' ',' ENV_EL / ENV_TRM  (',' ENV_TRM)*        // [x] :: I.e. _,# ==> #_ , _#
-ENV_TRM ←   ENV_EL?  '_' ENV_EL?                            // [x]
-ENV_EL  ←   ( BOUND / ELLIPSS / TERM )+                     // [x]
+ENV     ←   '_' ',' ENV_EL / ENV_TRM  (',' ENV_TRM)*        // e.g. _,# ==> #_ , _#
+ENV_TRM ←   ('WBOUND')? ENV_EL?  '_' ENV_EL? ('WBOUND')?    //
+ENV_EL  ←   ( SBOUND / ELLIPSS / TERM )+                    //
 
-TERM    ←   SYL / SET / SEG / OPT / VAR                     // [x]
-SYL     ←   '%' (':' PARAMS)? VAR_ASN?                      // [x]
-SET     ←   '{' SEG (',' SEG)* '}'                          // [x] :: NOTE: At the moment, we can't have multi-segment sets i.e. "{nd}" is not allowed 
-OPT     ←   '(' OPT_TRM+ (',' [0-9]+ (':' [1-9]+)?)? ')'    // [x] :: NOTE: (C) === (C,1) === (C, 0:1)
-OPT_TRM ←   BOUND / SYL / SET / SEG / VAR                   // [x] :: FIXME: WBOUND in Input shouldn't be allowed
-SEG     ←   IPA (':' PARAMS)? / MATRIX VAR_ASN?             // [x]
-MATRIX  ←   (GROUP (':' PARAMS)? / PARAMS                   // [x]
-VAR     ←   [0-9]+ (':' PARAMS)?                            // [x]
-VAR_ASN ←   '=' [0-9]+                                      // [x]
+TERM    ←   SYL / SET / SEG / OPT / VAR                     //
+SYL     ←   '%' (':' PARAMS)? VAR_ASN?                      //
+SET     ←   '{' SEG (',' SEG)* '}'                          // NOTE: At the moment, we can't have multi-segment sets i.e. "{nd}" is not allowed 
+OPT     ←   '(' OPT_TRM+ (',' [0-9]+ (':' [1-9]+)?)? ')'    // NOTE: (C) === (C,1) === (C, 0:1)
+OPT_TRM ←   BOUND / SYL / SET / SEG / VAR                   // FIXME: WBOUND in Input/Output shouldn't be allowed
+SEG     ←   IPA (':' PARAMS)? / MATRIX VAR_ASN?             //
+MATRIX  ←   GROUP (':' PARAMS)? / PARAMS                    //
+VAR     ←   [0-9]+ (':' PARAMS)?                            //
+VAR_ASN ←   '=' [0-9]+                                      //
 
-GROUP	←   [A-Z]                                           // [x]
-PARAMS  ←   '[' ARG (',' ARG)* ']'                          // [x]
-ARG     ←   ARG_VAL [a-zA-Z]+ / TONE                        // [x]
-TONE    ←   [a-zA-Z]+ ':' [0-9]+                            // [x]
-ARG_VAL ←   '+' / '-' / [α-ω] / '-'[α-ω]                    // [x]
+GROUP	←   [A-Z]                                           //
+PARAMS  ←   '[' ARG (',' ARG)* ']'                          //
+ARG     ←   ARG_VAL [a-zA-Z]+ / TONE                        //
+TONE    ←   [a-zA-Z]+ ':' [0-9]+                            //
+ARG_VAL ←   '+' / '-' / [α-ω] / '-'[α-ω]                    //
 
-EMP     ←   '*' / '∅'                                       // [x]
-BOUND	←   WBOUND / SBOUND                                 // [x]
-WBOUND  ←   '#'                                             // [x]
-SBOUND  ←   '$'                                             // [x]
-ELLIPSS ←   '...' / '..' / …                                // [x]
-IPA     ←   IPA_CAR (^ IPA_CAR)? IPA_DIA*                   // [x]
-IPA_CAR ←   [Unicode-IPA-character]                         // [x] :: NOTE: As defined in `cardinals.json`
-IPA_DIA ←   [Unicode-DIACRITIC-character]                   // [p] :: NOTE: As defined in `diacritics.json`
-ARR     ←   ('='/'-')? '>'                                  // [x]
+EMP     ←   '*' / '∅'                                       //
+BOUND	←   WBOUND / SBOUND                                 //
+WBOUND  ←   '#'                                             //
+SBOUND  ←   '$'                                             //
+ELLIPSS ←   '...' / '..' / …                                //
+IPA     ←   IPA_CAR (^ IPA_CAR)? IPA_DIA*                   //
+IPA_CAR ←   [Unicode-IPA-character]                         // NOTE: As defined in `cardinals.json`
+IPA_DIA ←   [Unicode-DIACRITIC-character]                   // NOTE: As defined in `diacritics.json`
+ARR     ←   ('='/'-')? '>'                                  //
 ```
-
-
-\[x] = implemented
-\[p] = partially implemented
-[ ]  = todo
-
-
