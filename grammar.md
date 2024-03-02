@@ -1,10 +1,10 @@
 ``` peg
 RULE    ←   SUB_RUL / MET_RUL / DEL_RUL / INS_RUL
 
-SUB_RUL ←   INP ARR OUT ('/' ENV)? ('|' ENV)? EOL           //
-MET_RUL ←   INP ARR '&' ('/' ENV)? ('|' ENV)? EOL           // FIXME: 'INP' here is currently actually INP_TRM
-DEL_RUL ←   INP ARR EMP ('/' ENV)? ('|' ENV)? EOL           // FIXME: 'INP' here is currently actually INP_TRM
-INS_RUL ←   EMP ARR OUT ('/' ENV)? ('|' ENV)? EOL           // FIXME: 'OUT' here is currently actually OUT_TRM
+SUB_RUL ←   INP ARR OUT ('/' ENV)? (PIPE ENV)? EOL          //
+MET_RUL ←   INP ARR '&' ('/' ENV)? (PIPE ENV)? EOL          // FIXME: 'INP' here is currently actually INP_TRM
+DEL_RUL ←   INP ARR EMP ('/' ENV)? (PIPE ENV)? EOL          // FIXME: 'INP' here is currently actually INP_TRM
+INS_RUL ←   EMP ARR OUT ('/' ENV)? (PIPE ENV)? EOL          // FIXME: 'OUT' here is currently actually OUT_TRM
 
 INP     ←   INP_TRM  ( ',' INP_TRM )*                       // 
 INP_TRM ←   INP_EL+                                         // 
@@ -43,4 +43,5 @@ IPA     ←   IPA_CAR (^ IPA_CAR)? IPA_DIA*                   //
 IPA_CAR ←   [Unicode-IPA-character]                         // NOTE: As defined in `cardinals.json`
 IPA_DIA ←   [Unicode-DIACRITIC-character]                   // NOTE: As defined in `diacritics.json`
 ARR     ←   ('='/'-')? '>'                                  //
+PIPE    ←   '|' / '//'                                      //
 ```

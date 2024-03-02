@@ -192,6 +192,7 @@ pub enum TokenKind {
     Group,        // Primitive Category i.e. C for Cons, V for Vowel
     Number,       // Number
     Slash,        // /
+    DubSlash,  // //
     Pipe,         // | 
     Cardinal,     // IPA character
     Star,         // *
@@ -227,6 +228,7 @@ impl Display for TokenKind {
             Group        => write!(f, "Prim"),
             Number       => write!(f, "Num"),
             Slash        => write!(f, "Slash"),
+            DubSlash  => write!(f, "DoubleSlash"),
             Pipe         => write!(f, "Pipe"),
             Cardinal     => write!(f, "Cardinal"),
             Star         => write!(f, "Star"),
@@ -466,8 +468,11 @@ impl<'a> Lexer<'a> {
             '_' => { tokenkind = TokenKind::Underline;    value = self.chop(1) },
             '<' => { tokenkind = TokenKind::LessThan;     value = self.chop(1) },
             '>' => { tokenkind = TokenKind::GreaterThan;  value = self.chop(1) },
-            '/' => { tokenkind = TokenKind::Slash;        value = self.chop(1) },
             '|' => { tokenkind = TokenKind::Pipe;         value = self.chop(1) },
+            '/' => match self.next_char() {
+                '/' => { tokenkind = TokenKind::DubSlash; value = self.chop(2) },
+                 _  => { tokenkind = TokenKind::Slash;    value = self.chop(1) }
+            },
             '=' => match self.next_char() { 
                 '>' => { tokenkind = TokenKind::Arrow;    value = self.chop(2); },
                  _  => { tokenkind = TokenKind::Equals;   value = self.chop(1); },
@@ -483,7 +488,6 @@ impl<'a> Lexer<'a> {
             },
             _ => return Ok(None)
         }
-
         Ok(Some(Token::new(tokenkind, value, self.line, start, self.pos)))
     }
 
@@ -829,7 +833,7 @@ mod lexer_tests {
     #[test]
     fn test_variables() {
         
-        let test_input= String::from("C=1 V=2 > 2 1 / _C");
+        let test_input= String::from("C=1 V=2 > 2 1 / _C // _");
         let expected_result = vec![
             Token::new(TokenKind::Group,       "C".to_owned(), 0,  0,  1),
             Token::new(TokenKind::Equals,      "=".to_owned(), 0,  1,  2),
@@ -843,7 +847,9 @@ mod lexer_tests {
             Token::new(TokenKind::Slash,       "/".to_owned(), 0, 14, 15),
             Token::new(TokenKind::Underline,   "_".to_owned(), 0, 16, 17),
             Token::new(TokenKind::Group,       "C".to_owned(), 0, 17, 18),
-            Token::new(TokenKind::Eol,          String::new(), 0, 18, 19),
+            Token::new(TokenKind::DubSlash,   "//".to_owned(), 0, 19, 21),
+            Token::new(TokenKind::Underline,   "_".to_owned(), 0, 22, 23),
+            Token::new(TokenKind::Eol,          String::new(), 0, 23, 24),
         ];
 
         let result = Lexer::new(&test_input.chars().collect::<Vec<_>>(), 0).get_line().unwrap();        

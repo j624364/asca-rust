@@ -398,7 +398,7 @@ impl Parser {
     }
 
     fn get_except_block(&mut self) -> Result<Vec<Item>, RuleSyntaxError> {
-        if !self.expect(TokenKind::Pipe) {
+        if !self.expect(TokenKind::Pipe) && !self.expect(TokenKind::DubSlash) {
             return Ok(Vec::new())
         }
         self.get_env()
@@ -532,7 +532,6 @@ impl Parser {
                         Mods::Alpha(a)  => Some(ModKind::Alpha(a)),
                         Mods::Number(_) => unreachable!(),
                     },
-                    // FIXME: This is horrible
                     FeatType::Supr(t) => match mk {
                         Mods::Number(n) => args.suprs.tone = Some(n),
                         Mods::Alpha(a) => match t {
@@ -555,17 +554,12 @@ impl Parser {
                 self.advance();
                 continue;
             }
-            
             if self.curr_tkn.kind == TokenKind::Eol {
                 return Err(RuleSyntaxError::UnexpectedEol(self.curr_tkn.clone(), ']'))
             }
             return Err(RuleSyntaxError::ExpectedTokenFeature(self.curr_tkn.clone()))
         }
-
-
-        
         Ok(args)
-
     }
 
     fn get_params(&mut self) -> Result<Item, RuleSyntaxError> { 
@@ -609,10 +603,9 @@ impl Parser {
             return Err(RuleSyntaxError::ExpectedMatrix(self.curr_tkn.clone()))
         }
         let params = self.get_params()?;
-
-        let joined = ParseKind::Ipa(ipa, Some(params.kind.as_matrix().expect("'Parameters' being joined with IPA Segment is not a matrix! This is a bug").clone()));
-
-        Ok(Item::new(joined, Position::new(self.line, pos.start, params.position.end )))
+        let joined_kind = ParseKind::Ipa(ipa, Some(params.kind.as_matrix().expect("'Parameters' being joined with IPA Segment is not a matrix! This is a bug").clone()));
+        
+        Ok(Item::new(joined_kind, Position::new(self.line, pos.start, params.position.end )))
     }
     
     fn get_var_assign(&mut self, n: Token, chr: &Item) -> Item {
@@ -640,27 +633,21 @@ impl Parser {
         }
         if self.expect(TokenKind::LeftSquare) {
             let params = self.get_params()?;
-
             if self.expect(TokenKind::Equals) {
-
                 let Some(n) = self.eat_expect(TokenKind::Number) else {
                     return Err(RuleSyntaxError::ExpectedVariable(self.curr_tkn.clone()))
                 };
-
                 let res = self.get_var_assign(n, &params);
                 return Ok(Some(res))
-                
             }
             return Ok(Some(params))
         }
-
         Ok(None)
     }
 
     fn get_var(&mut self) -> Result<Option<Item>, RuleSyntaxError> {
         let Some(t) = self.eat_expect(TokenKind::Number) else { return Ok(None) };     
         let mut pos = t.position;
-
         if !self.expect(TokenKind::Colon) {
             let var = Item::new(ParseKind::Variable(t, None), pos);
             return Ok(Some(var))
@@ -668,11 +655,10 @@ impl Parser {
         if !self.expect(TokenKind::LeftSquare) {
             return Err(RuleSyntaxError::ExpectedMatrix(self.curr_tkn.clone()))
         }
-
         let params = self.get_params()?;
         let matrix = params.kind.as_matrix().expect("\nCritical Error: 'Parameters' being joined with 'variable' is not a matrix!\nThis is a bug.").clone();
-        
         pos.end = params.position.end;
+
         Ok(Some(Item::new(ParseKind::Variable(t, Some(matrix)), pos)))    
     }
 
@@ -723,7 +709,6 @@ impl Parser {
             let end_pos = self.token_list[self.pos-1].position.end;
             return Ok(Some(Item::new(ParseKind::Optional(segs, first_bound, second_bound), Position::new(self.line, start_pos, end_pos))))
         }
-
         Err(RuleSyntaxError::ExpectedRightBracket(self.curr_tkn.clone()))
     }
 
@@ -731,20 +716,14 @@ impl Parser {
         // returns set of segs
         let start_pos = self.curr_tkn.position.start;
 
-        if !self.expect(TokenKind::LeftCurly) {
-            return Ok(None)
-        }
+        if !self.expect(TokenKind::LeftCurly) { return Ok(None) }
         let mut segs = Vec::new();
         // NOTE: this while condition may allow  "/ _{A, B, C <eol>" as valid input
         // should probably return SyntaxError::ExpectedRightBracketAtEol
         // bug or feature? ¯\_(ツ)_/¯
         while self.has_more_tokens() {
-            if self.expect(TokenKind::RightCurly) {
-                break;
-            }
-            if self.expect(TokenKind::Comma) {
-                continue;
-            }
+            if self.expect(TokenKind::RightCurly) { break; }
+            if self.expect(TokenKind::Comma)      { continue; }
             if let Some(x) = self.get_seg()? {
                 segs.push(x);
                 continue;
@@ -755,16 +734,13 @@ impl Parser {
         let end_pos = self.token_list[self.pos-1].position.end;
 
         Ok(Some(Item::new(ParseKind::Set(segs.clone()), Position::new(self.line, start_pos, end_pos))))
-
     }
 
     fn get_syll(&mut self) -> Result<Option<Item>, RuleSyntaxError> {
         // returns Syll or None
         let start_pos = self.curr_tkn.position.start;
 
-        if !self.expect(TokenKind::Syllable) {
-            return Ok(None)
-        }
+        if !self.expect(TokenKind::Syllable) { return Ok(None) }
         if !self.expect(TokenKind::Colon) {
             let end_pos = self.curr_tkn.position.start - 1;
             if self.expect(TokenKind::Equals) {
@@ -790,7 +766,6 @@ impl Parser {
             let num = n.value.parse::<usize>().expect("Couldn't parse VAR to number");
             return Ok(Some(Item::new(ParseKind::Syllable(mods.suprs.stress, mods.suprs.tone, Some(num)), Position::new(self.line, start_pos, end_pos))))
         }
-
         Ok(Some(Item::new(ParseKind::Syllable(mods.suprs.stress, mods.suprs.tone, None), Position::new(self.line, start_pos, end_pos))))
     }
 
@@ -813,8 +788,8 @@ impl Parser {
                 terms.push(Item::new(ParseKind::Ellipsis, el.position));
             } else if let Some(s_bound) = self.get_syll_bound() {
                 terms.push(s_bound);
-            } else if self.peek_expect(TokenKind::GreaterThan) {   // So we can try simple rules that don't call functions we are yet to implement
-                break                                       // We can probably remove this after parser logic is done, though it wouldn't hurt performance to leave it in
+            } else if self.peek_expect(TokenKind::GreaterThan) { // So we can try simple rules that don't call functions we are yet to implement
+                break                                            // We can probably remove this after parser logic is done, though it wouldn't hurt performance to leave it in
             } else if let Some(trm) = self.get_term()? {
                 terms.push(trm)
             } else {
@@ -842,7 +817,6 @@ impl Parser {
         while let Some(trm) = self.get_output_element()? {
             terms.push(trm);
         }
-
         Ok(terms)
     }
 
@@ -863,13 +837,11 @@ impl Parser {
             return Ok(inputs)
         }
         loop {
-            let x = self.get_input_term()?;
-            
-            if x.is_empty() {
+            let maybe_inp_trm = self.get_input_term()?;
+            if maybe_inp_trm.is_empty() {
                 return Err(RuleSyntaxError::UnknownCharacter(self.curr_tkn.value.chars().next().unwrap(), self.line, self.pos))
             }
-            inputs.push(x);
-
+            inputs.push(maybe_inp_trm);
             if !self.expect(TokenKind::Comma) {
                 break
             }
@@ -897,13 +869,10 @@ impl Parser {
         // NOTE: need to add check for `+` (Duplication) if/when added
         loop {
             let x = self.get_output_term()?;
-
             if x.is_empty() {
                 return Err(RuleSyntaxError::EmptyOutput(self.line, self.token_list[self.pos].position.start))
             }
-
             outputs.push(x);
-
             if !self.expect(TokenKind::Comma) {
                 break
             }
@@ -980,9 +949,6 @@ impl Parser {
     }
 
 }
-
-
-// let test = String::from("%:[+stress], % > [-stress], [+stress] / _ , #_ ");
 
 #[cfg(test)]
 mod parser_tests {
@@ -1105,11 +1071,9 @@ mod parser_tests {
     #[test] 
     fn test_tone() {
 
-        let maybe_result = Parser:: new(setup("%:[tone: 123] > [tone: 321]"),0).parse();
+        let maybe_result = Parser::new(setup("%:[tone: 123] > [tone: 321]"),0).parse();
         assert!(maybe_result.is_ok());
-
         let result = maybe_result.unwrap();
-
 
         let exp_input = Item::new(ParseKind::Syllable([None, None], Some("123".to_string()), None), Position::new(0, 0, 13));
 
@@ -1120,5 +1084,43 @@ mod parser_tests {
 
         assert_eq!(result.input[0][0], exp_input);
         assert_eq!(result.output[0][0], exp_output);
+    }
+
+    #[test]
+    fn test_exceptions(){
+
+        // Double Slash
+        let maybe_res = Parser::new(setup("a > e / _ // _u"), 0).parse();
+        assert!(maybe_res.is_ok());
+        let result = maybe_res.unwrap();
+
+        let itm = Item::new(ParseKind::Ipa(CARDINALS_MAP.get("u").unwrap().clone(), None),Position::new(0, 14, 15));
+        let exp_cont = Item::new(ParseKind::Environment(vec![], vec![]), Position::new(0, 8, 9));
+        let exp_expt = Item::new(ParseKind::Environment(vec![], vec![itm]), Position::new(0, 13, 15));
+
+        assert_eq!(result.context[0], exp_cont);
+        assert_eq!(result.except[0] , exp_expt);
+
+        // Pipe
+        let maybe_res = Parser::new(setup("a > e / _ | _u"), 0).parse();
+        assert!(maybe_res.is_ok());
+        let result = maybe_res.unwrap();
+
+        let itm = Item::new(ParseKind::Ipa(CARDINALS_MAP.get("u").unwrap().clone(), None),Position::new(0, 13, 14));
+        let exp_cont = Item::new(ParseKind::Environment(vec![], vec![]), Position::new(0, 8, 9));
+        let exp_expt = Item::new(ParseKind::Environment(vec![], vec![itm]), Position::new(0, 12, 14));
+
+        assert_eq!(result.context[0], exp_cont);
+        assert_eq!(result.except[0] , exp_expt);
+
+        // No Context
+        let maybe_res = Parser::new(setup("a > e | _u"), 0).parse();
+        assert!(maybe_res.is_ok());
+        let result = maybe_res.unwrap();
+
+        let itm = Item::new(ParseKind::Ipa(CARDINALS_MAP.get("u").unwrap().clone(), None),Position::new(0, 9, 10));
+        let exp_expt = Item::new(ParseKind::Environment(vec![], vec![itm]), Position::new(0, 8, 10));
+
+        assert_eq!(result.except[0] , exp_expt);
     }
 }
