@@ -141,7 +141,7 @@ impl fmt::Display for ParseKind {
                 write!(f, "{tokens:#?}={var:#?}")
             },
             ParseKind::Syllable(str, tone, var) => {
-                write!(f, "{str:#?}:{tone:#?}={var:#?}")
+                write!(f, "SYLL=>{str:?}:{tone:#?}={var:#?}")
             },
             ParseKind::Set(s) => {
                 write!(f, "{{")?;

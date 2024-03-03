@@ -61,9 +61,10 @@ impl SegPos {
         if self.seg_index > 0 {
             self.seg_index -= 1;
         } else {
-            debug_assert!(self.syll_index > 0);
-            self.syll_index -= 1;
-            self.seg_index = word.syllables[self.syll_index].segments.len() - 1;
+            if self.syll_index > 0 {
+                self.syll_index -= 1;
+                self.seg_index = word.syllables[self.syll_index].segments.len() - 1;
+            }
         }
     }
 
@@ -73,6 +74,17 @@ impl SegPos {
 
     pub fn at_word_end(&self, word: &Word) -> bool {
         self.syll_index == word.syllables.len() - 1 && self.seg_index >= word.syllables[self.syll_index].segments.len() - 1
+    }
+
+    pub fn at_syll_start(&self) -> bool {
+        // NOTE: does not account for out_of_bounds
+        self.seg_index == 0
+    }
+
+    pub fn at_syll_end(&self, word: &Word) -> bool {
+        // NOTE: returns false if out_of_bounds
+        self.syll_index < word.syllables.len() && self.seg_index >= word.syllables[self.syll_index].segments.len() - 1
+
     }
 }
 
