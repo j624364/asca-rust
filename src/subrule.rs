@@ -475,7 +475,7 @@ impl SubRule {
             if match_begin.is_none() { 
                 return Ok(None)
             }
-            match before_states.last().expect("Input is empty").kind {
+            match before_states.last().unwrap().kind {
                 // if we've reached the end of the word and the last state is a word boundary
                 ParseKind::WordBound | ParseKind::SyllBound => {},
                 // No Match
@@ -518,7 +518,7 @@ impl SubRule {
                 if match_begin.is_none() { 
                     return Ok(None)
                 }
-                match after_states.last().expect("Input is empty").kind {
+                match after_states.last().unwrap().kind {
                     ParseKind::WordBound | ParseKind::SyllBound => {*start_pos = cur_pos},
                     _ => { return Ok(None) }
                 }
@@ -721,7 +721,7 @@ impl SubRule {
 
         if match_begin.is_none() { // if we've got to the end of the word and we haven't began matching
             Ok((vec![], None))
-        } else if let ParseKind::WordBound | ParseKind::SyllBound = self.input.last().expect("Input is empty").kind {
+        } else if let ParseKind::WordBound | ParseKind::SyllBound = self.input.last().unwrap().kind {
             // if we've reached the end of the word and the last state is a word boundary
             captures.push(MatchElement::SyllBound(word.syllables.len()));
             Ok((captures, None))
@@ -1011,7 +1011,7 @@ impl SubRule {
     }
 
     fn match_modifiers(&self, mods: &Modifiers, word: &Word, seg_index: &mut SegPos) -> Result<bool, RuleRuntimeError> {
-        let seg = word.get_seg_at(*seg_index).expect("Segment Position Out of Bounds");
+        let seg = word.get_seg_at(*seg_index).expect("Segment Position should be within bounds");
         
         for (i, m) in mods.feats.iter().enumerate() {
             if !self.match_feat_mod(m, i, seg)? {

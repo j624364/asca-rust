@@ -433,7 +433,7 @@ impl Word {
                     let last_buffer = buffer;
 
                     let maybe_seg = if last_buffer.is_empty() {
-                        CARDINALS_MAP.get(&last_char.expect("buffer is empty").to_string())
+                        CARDINALS_MAP.get(&last_char.expect("buffer should not be empty").to_string())
                     } else {
                         CARDINALS_MAP.get(&last_buffer)
                     };
@@ -474,6 +474,7 @@ impl Word {
     }
 
     pub fn apply_mods(&self, mods: &Modifiers, s: SegPos) {
+        // check seg length, if long then we must apply mods to all occurences (we assume that we are at the start)
         todo!()
     }
 }

@@ -311,7 +311,7 @@ impl Parser {
 
             break;
         }
-        // We can safely unwrap here as if `contains_word_bound` is true , els can't be empty
+        // We can safely unwrap here as if `contains_word_bound` is true, els can't be empty
         if contains_word_bound && els.first().unwrap().kind != ParseKind::WordBound && els.last().unwrap().kind != ParseKind::WordBound {
             if is_after {
                 return Err(RuleSyntaxError::StuffAfterWordBound(word_bound_pos))
@@ -412,8 +412,8 @@ impl Parser {
     }
 
     fn join_group_with_params(&mut self, character: Item, parameters: Item) -> Item {
-        let mut chr = character.kind.as_matrix().expect("\nCritical Error: 'Char' being joined with 'Parameters' is not a matrix!\nThis is a bug.").clone();
-        let params = parameters.kind.as_matrix().expect("\nCritical Error: 'Parameters' being joined with 'Char' is not a matrix!\nThis is a bug.").clone(); 
+        let mut chr = character.kind.as_matrix().expect("Caller asserts `character` is a matrix").clone();
+        let params = parameters.kind.as_matrix().expect("Caller asserts `parameters` is a matrix").clone(); 
         for (i, p) in params.nodes.iter().enumerate() {
             if p.is_none() {
                 continue
@@ -490,9 +490,9 @@ impl Parser {
                     "+" => (feature, Mods::Binary(BinMod::Positive)),
                     "-" => (feature, Mods::Binary(BinMod::Negative)),
                     "α"|"β"|"γ"|"δ"|"ε"|"ζ"|"η"|"θ"|"ι"|"κ"|"λ"|"μ"|"ν"|"ξ"|"ο"|"π"|"ρ"|"σ"|"ς"|"τ"|"υ"|"φ"|"χ"|"ψ"|"ω" => 
-                        (feature, Mods::Alpha(AlphaMod::Alpha(value.chars().next().expect("Unable to index 'alpha' string")))),
+                        (feature, Mods::Alpha(AlphaMod::Alpha(value.chars().next().unwrap()))),
                     "-α"|"-β"|"-γ"|"-δ"|"-ε"|"-ζ"|"-η"|"-θ"|"-ι"|"-κ"|"-λ"|"-μ"|"-ν"|"-ξ"|"-ο"|"-π"|"-ρ"|"-σ"|"-ς"|"-τ"|"-υ"|"-φ"|"-χ"|"-ψ"|"-ω" =>
-                        (feature, Mods::Alpha(AlphaMod::InvAlpha(value.chars().nth(1).expect("Unable to index 'inv-alpha' string")))),
+                        (feature, Mods::Alpha(AlphaMod::InvAlpha(value.chars().nth(1).unwrap()))),
                     _ if feature == FeatType::Supr(SupraType::Tone) => (feature, Mods::Number(value.to_owned())),
                     _ => {
                         unreachable!();
@@ -603,15 +603,15 @@ impl Parser {
             return Err(RuleSyntaxError::ExpectedMatrix(self.curr_tkn.clone()))
         }
         let params = self.get_params()?;
-        let joined_kind = ParseKind::Ipa(ipa, Some(params.kind.as_matrix().expect("'Parameters' being joined with IPA Segment is not a matrix! This is a bug").clone()));
+        let joined_kind = ParseKind::Ipa(ipa, Some(params.kind.as_matrix().unwrap().clone()));
         
         Ok(Item::new(joined_kind, Position::new(self.line, pos.start, params.position.end )))
     }
     
-    fn get_var_assign(&mut self, n: Token, chr: &Item) -> Item {
-        let num = n.value.parse::<usize>().expect("Couldn't parse VAR to number");
-        let x = chr.kind.as_matrix().expect("\nCritical Error: 'Matrix' being joined with 'Variable' is not a matrix!\nThis is a bug.").clone();
-        Item::new(ParseKind::Matrix(x, Some(num)), Position::new(self.line, chr.position.start, chr.position.end ))
+    fn get_var_assign(&mut self, number: Token, char: &Item) -> Item {
+        let num = number.value.parse::<usize>().expect("number should be a number as set in `self.get_seg`");
+        let mods = char.kind.as_matrix().expect("char should be matrix as set in `self.get_group`").clone();
+        Item::new(ParseKind::Matrix(mods, Some(num)), Position::new(self.line, char.position.start, char.position.end ))
     }
 
     fn get_seg(&mut self) -> Result<Option<Item>, RuleSyntaxError> {
@@ -656,7 +656,7 @@ impl Parser {
             return Err(RuleSyntaxError::ExpectedMatrix(self.curr_tkn.clone()))
         }
         let params = self.get_params()?;
-        let matrix = params.kind.as_matrix().expect("\nCritical Error: 'Parameters' being joined with 'variable' is not a matrix!\nThis is a bug.").clone();
+        let matrix = params.kind.as_matrix().expect("params should be matrix as set in `self.get_params`").clone();
         pos.end = params.position.end;
 
         Ok(Some(Item::new(ParseKind::Variable(t, Some(matrix)), pos)))    
@@ -682,6 +682,7 @@ impl Parser {
 
             return Err(RuleSyntaxError::ExpectedSegment(self.curr_tkn.clone()))
         }
+        // FIXME(girv): with this, (C,) and (C,:) are legal alternatives to (C,0) (bug or feature!)
         if self.expect(TokenKind::RightBracket) {
             let end_pos = self.token_list[self.pos-1].position.end;
             return Ok(Some(Item::new(ParseKind::Optional(segs, 0, 1), Position::new(self.line, start_pos, end_pos))))
@@ -689,8 +690,8 @@ impl Parser {
         if !self.expect(TokenKind::Comma) {
             return Err(RuleSyntaxError::ExpectedComma(self.curr_tkn.clone()))
         }
-        if let Some(x) = self.eat_expect(TokenKind::Number) {
-            first_bound = x.value.parse().expect("Could not parse string to number. This is a bug!");
+        if let Some(number) = self.eat_expect(TokenKind::Number) {
+            first_bound = number.value.parse().unwrap();
         }
         if self.expect(TokenKind::RightBracket) {
             let end_pos = self.token_list[self.pos-1].position.end;
@@ -699,10 +700,10 @@ impl Parser {
         if !self.expect(TokenKind::Colon) {
             return Err(RuleSyntaxError::ExpectedColon(self.curr_tkn.clone()))
         }
-        if let Some(x) = self.eat_expect(TokenKind::Number) {
-            second_bound = x.value.parse().expect("Could not parse string to number. This is a bug!");
+        if let Some(number) = self.eat_expect(TokenKind::Number) {
+            second_bound = number.value.parse().unwrap();
             if second_bound < first_bound { 
-                return Err(RuleSyntaxError::OptMathError(x, first_bound, second_bound))
+                return Err(RuleSyntaxError::OptMathError(number, first_bound, second_bound))
             }
         }
         if self.expect(TokenKind::RightBracket) {
@@ -744,10 +745,10 @@ impl Parser {
         if !self.expect(TokenKind::Colon) {
             let end_pos = self.curr_tkn.position.start - 1;
             if self.expect(TokenKind::Equals) {
-                let Some(n) = self.eat_expect(TokenKind::Number) else {
+                let Some(number) = self.eat_expect(TokenKind::Number) else {
                     return Err(RuleSyntaxError::ExpectedVariable(self.curr_tkn.clone()))
                 };
-                let num = n.value.parse::<usize>().expect("Couldn't parse VAR to number");
+                let num = number.value.parse::<usize>().unwrap();
                 return Ok(Some(Item::new(ParseKind::Syllable([None, None], None, Some(num)), Position::new(self.line, start_pos, end_pos))))
             }
             return Ok(Some(Item::new(ParseKind::Syllable([None, None], None, None), Position::new(self.line, start_pos, end_pos))))
@@ -760,10 +761,10 @@ impl Parser {
         let end_pos = self.token_list[self.pos-1].position.end;
                     
         if self.expect(TokenKind::Equals) {
-            let Some(n) = self.eat_expect(TokenKind::Number) else {
+            let Some(number) = self.eat_expect(TokenKind::Number) else {
                 return Err(RuleSyntaxError::ExpectedVariable(self.curr_tkn.clone()))
             };
-            let num = n.value.parse::<usize>().expect("Couldn't parse VAR to number");
+            let num = number.value.parse::<usize>().unwrap();
             return Ok(Some(Item::new(ParseKind::Syllable(mods.suprs.stress, mods.suprs.tone, Some(num)), Position::new(self.line, start_pos, end_pos))))
         }
         Ok(Some(Item::new(ParseKind::Syllable(mods.suprs.stress, mods.suprs.tone, None), Position::new(self.line, start_pos, end_pos))))

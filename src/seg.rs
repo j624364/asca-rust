@@ -444,9 +444,9 @@ impl Segment {
     #[allow(unused)]
     pub fn set_node(&mut self, node: NodeKind, val: Option<u8>) {
         match node {
-            NodeKind::Root       => self.root = val.expect("\nRootNode cannot be null\nThis is a bug"),
-            NodeKind::Manner     => self.manner = val.expect("\nMannerNode cannot be null\nThis is a bug"),
-            NodeKind::Laryngeal  => self.laryngeal = val.expect("\nLaryngealNode cannot be null\nThis is a bug"),
+            NodeKind::Root       => self.root = val.expect("RootNode cannot be null"),
+            NodeKind::Manner     => self.manner = val.expect("MannerNode cannot be null"),
+            NodeKind::Laryngeal  => self.laryngeal = val.expect("LaryngealNode cannot be null"),
             NodeKind::Labial     => self.labial = val,
             NodeKind::Coronal    => self.coronal = val,
             NodeKind::Dorsal     => self.dorsal = val,
@@ -455,16 +455,12 @@ impl Segment {
         }
     }
 
-    #[allow(unused)]
     pub fn get_feat(&self, node: NodeKind, feat: u8) -> Option<u8> {
         Some(self.get_node(node)? & feat)
     }
 
-    #[allow(unused)]
     pub fn set_feat(&mut self, node: NodeKind, feat: u8, to_positive: bool) {
-
         let n = self.get_node(node).unwrap_or(0u8);
-
         if to_positive {
             self.set_node(node, Some(n | feat)) 
         } else {
@@ -476,7 +472,6 @@ impl Segment {
         let Some(n) = self.get_node(node) else {
             return false
         };
-
         if positive {
             n & mask == mask
         } else {
@@ -536,12 +531,11 @@ impl Segment {
             self.apply_diacritic_payload(&d.payload);
             return Some(())
         }
-        
         None
     }
 
     #[allow(unused)]
-    pub fn apply_feat_mods(&mut self, mods: &Modifiers) {
+    pub fn apply_seg_mods(&mut self, mods: &Modifiers) {
         // NOTE: This ignores any Supra Mods as the Segment does not control them
         for (i, m) in mods.feats.iter().enumerate() {
             if let Some(kind) = m { 
