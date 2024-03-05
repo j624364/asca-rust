@@ -1,11 +1,53 @@
 # ASCA Documentation and User Guide
 [Defining Sound Changes](#Defining-Sound-Changes) | 
-[Basics](#Basics) | [Groupings](#Groupings) | [Metathesis](#Metathesis) | [Gemination](#Gemination) | [Optional Segments](#Optional-Segments) | [Alpha Notation](#Alpha-Notation) | [Variables](#Variables) | [Propagation](#Propagation) |
+[Basics](#Basics) | [Examples](#Examples) | [Groupings](#Groupings) | [Metathesis](#Metathesis) | [Gemination](#Gemination) | [Optional Segments](#Optional-Segments) | [Alpha Notation](#Alpha-Notation) | [Variables](#Variables) | [Propagation](#Propagation) |
 [Distinctive Features](#Distinctive-Features) | 
-[Suprasegmental Features](#Suprasegmental-Features) |
+[Suprasegmental Features](#Suprasegmental-Features) | [Saving and Loading Files](#saving-and-loading-files)
 ## Defining Sound Changes
 
-### Basics
+### The Basics
+
+```
+input (=)> output / context (| or //) exception
+i.e. ei > & | c
+```
+
+```
+a > e             (sai > sei)
+a > e / _         (this is equivalent to the above) 
+
+```
+
+### Examples
+
+Grimm's Law
+```
+Simple
+p, t, k, kʷ > ɸ, θ, x, xʷ 
+b, d, g, gʷ > p, t, k, kʷ
+bʰ, dʰ, gʰ, gʷʰ > b, d, g, gʷ
+
+Using Distinctive Features
+[+cons, -son, -voice, -cont] > [+cont]
+[+cons, -son, +voice, -cont] > [-voice]
+[+cons, +voice, +sg] > [-sg]
+```
+
+Latin Stress
+```
+Standard Version
+V:[+long] > [+stress] / _%# (A penult syll ending with a long vowel is stressed)
+V > [+stress] / _C%#        (A penult syll ending with a consonant is stressed)
+% > [+stress] / %:[-str]%#  (If the penult is unstressed, the antepenult is stressed)
+
+Condensed Version
+V:[+lng], V, % => [+stress] / _%#, _C%#, %:[-str]%#
+```
+
+Nasal Assimilation
+```
+[+nasal] > [α PLACE] / _[+cons, αPLACE]
+```
 
 ### Groupings
 ```
@@ -35,6 +77,12 @@ r...l > &
 ```
 
 ### Gemination
+Geminating a consonant is as simple as making a vowel long.
+
+```
+C > [+long] / V:[-long]_#
+(A consonant is geminated at the end of a word, before a short vowel)
+```
 
 ### Optional Segments
 Optional Segments are declared as ```(S, M:N)``` where: 
@@ -43,15 +91,19 @@ S = the segment(s) to be repeated
 M = the minimum number of iterations (optional, default = 0)
 N = the maximum number of iterations (inclusive). N must be greater than or equal to M.
 ```
-For example, ```(C,5)_```  matches up to 5 consonants preceding the target. This will target environments of CCCCC_, CCCC_,  CCC_, CC_, C_, and  _.
+For example, ```(C,5)_```  matches up to 5 consonants preceding the target. This will lazily target environments of `_`, `C_`, `CC_`, `CCC_`, `CCCC_`, and `CCCCC_`.
 
-```(C,3:5)``` matches CCC_, CCCC_, CCCCC_.
+```(C,3:5)``` matches `CCC_`, `CCCC_`, and `CCCCC_`.
 
-```(C,0)_``` matches any number of consonants preceding the target. This is equal to regex’s Zero-Or-More operator (*)
+```(C,0)_``` matches any number of consonants preceding the target. This is equal to regex’s Lazy Zero-Or-More operator (*?)
 
 ```(C)_``` matches zero or one consonant preceding the target, this is the same as (C,1)_ or (C,0:1)
 
 ### Alpha Notation
+
+```
+[+nasal] > [α PLACE] / _[+cons, αPLACE]
+```
 
 ### Variables
 Variables are
@@ -97,12 +149,113 @@ For left-to-right propagation, it may be stylistically justified to do the same,
 
 
 ## Distinctive Features
+ASCA allows for 24 segmental features.  
+A full table of segments and there values can be found here: `TODO`.
+
+```
+┌────────┬─────────┬─────────┬─────────────────────────────┬────────────────────────────┐
+│  Node  │ SubNode │ Feature │              +              │             -              │
+├────────┼─────────┴─────────┼─────────────────────────────┼────────────────────────────┤
+│        │    consonantal    │ obstruents, nasals, liquids │ vowels, glides, laryngeals │
+│  ROOT  │      sonorant     │      vowels, sonorants      │         obstruents         │
+│        │      syllabic     │ vowels, syllabic consonants │     glides, consonants     │
+├────────┼───────────────────┼─────────────────────────────┼────────────────────────────┤
+│        │    continuant     │  fricatives, approximants,  │    Plosives, affricates,   │
+│        │                   │       vowels, trills        │        nasals, flaps       │
+│        │    approximant    │   vowels, glides, liquids   │     nasals, obstruents     │
+│        │      lateral      │  lat. and lateralised cons. │             -              │
+│ MANNER │       nasal       │  nasals, nasalised vowels,  │ oral consonants and vowels │
+│        │                   │      prenasalised stops     │                            │
+│        │  delayed release  │     affricate consonants    │       Plosives, etc.       │
+│        │     strident      │    f, v, s, z, ʃ, ʒ etc.    │   ɸ, β, θ, ð, ç, ʝ, etc.   │
+│        │      rhotic       │        trills, flaps,       │             -              │
+│        │                   │ rhoticised vowels and cons. │             -              │
+│        │       click       │       click consonants      │             -              │
+├────────┼───────────────────┼─────────────────────────────┼────────────────────────────┤
+│        │       voice       │       voiced segments       │     voiceless segments     │
+│ LARYNG │   spread glottis  │      aspirates, breathy     │             -              │
+│        │   const glottis   │    ejectives, implosives    │             -              │
+├────────┼─────────┼─────────┼─────────────────────────────┼────────────────────────────┤
+│        │ LABIAL  │  bilab  │       p, b, f, v, etc.      │             -              │
+│        │         │  round  │       rounded segments      │      p, b, f, v, etc.      │
+│        ├─────────┼─────────┼─────────────────────────────┼────────────────────────────┤
+│        │ CORONAL │ ant     │      dentals, alveolars     │ post-palatals, retroflexes │
+│        │         │ distrib │    palatals, post-palatals  │   alveolars, retroflexes   │
+│        ├─────────┼─────────┼─────────────────────────────┼────────────────────────────┤
+│        │         │  front  │    palatals, front vowels   │             -              │
+│ PLACE  │         │  back   │ velars/uluvars, back vowels │             -              │
+│        │ DORSAL  │  high   │     velars, high vowels     │             -              │
+│        │         │   low   │   pharyngeals, low vowels   │             -              │
+│        │         │  tense  │     tense vowels & cons.    │         lax vowels         │
+│        │         │ reduced │            schwa            │             -              │
+│        ├─────────┼─────────┼─────────────────────────────┼────────────────────────────┤
+│        │ PHARYNG │   atr   │                             │                            │
+│        │         │   rtr   │         pharyngeals         │        Epiglottals         │
+└────────┴─────────┴─────────┴─────────────────────────────┴────────────────────────────┘
+```
+
+```
+┌────────┬─────────────┬─────────────┬─────────────┬─────────────┐
+│        │ -s.g. -c.g. │ -s.g. +c.g. │ +s.g. -c.g. │ +s.g. +c.g. │
+├────────┼─────────────┼─────────────┼─────────────┼─────────────┤
+│        │             │ ejectives,  │             │             │
+│ -voice │  voiceless  │ glottalised │  aspirated  │     n/a     │
+│        │             │  sonorants  │             │             │
+├────────┼─────────────┼─────────────┼─────────────┼─────────────┤
+│        │             │ implosives, │             │             │
+│ +voice │   voiced    │   creaky    │   breathy   │     n/a     │
+│        │             │  sonorants  │             │             │
+└────────┴─────────────┴─────────────┴─────────────┴─────────────┘
+```
 
 ## Suprasegmental Features
 
 ### Stress
+ASCA allows for a 3-way distinction between primary, secondary, and unstressed syllables
+
+```
+┌──────────────────┬────────────────────────────────┐
+│    Stress Type   │            Modifier            │
+├──────────────────┼──────────────┬─────────────────┤
+│    Unstressed    │  [- stress]  │                 │
+├──────────────────┼──────────────┤ [- sec. stress] │
+│  Primary Stress  │              │                 │
+├──────────────────┤  [+ stress]  ├─────────────────┤
+│ Secondary Stress │              │ [+ sec. stress] │
+└──────────────────┴──────────────┴─────────────────┘
+```
+
+For example, if one wants to match for syllables with primary stress but exclude secondary stress, `[+stress, -sec. stress]`.
+
+```
+
+```
+
+Example: Inital Syllable Stress Shift
+```
+%:[+stress] > [-stress] (All stressed syllables become unstressed)
+% > [=stress] / #_      (The syllable at the beginning of the word becomes stressed)
+```
 
 ### Length
+
+```
+┌──────────────┬────────────────────────────────┐
+│    Length    │            Modifier            │
+├──────────────┼──────────────┬─────────────────┤
+│     Short    │   [- long]   │                 │
+├──────────────┼──────────────┤   [-overlong]   │
+│     Long     │   [+ long]   │                 │
+├──────────────┼──────────────┼─────────────────┤
+│   Overlong   │          [+ overlong]          │
+└──────────────┴──────────────┴─────────────────┘
+```
+
+Example: Compensatory Lengthening
+```
+V > [+long] / _C#   (A vowel becomes long before a consonant at the end of a word)
+C > * / V:[+long]_# (A consonant at the end of a word before the long vowel elides)
+```
 
 ### Tone
 
