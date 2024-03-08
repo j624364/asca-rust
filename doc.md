@@ -18,6 +18,11 @@ a > e / _         (this is equivalent to the above)
 
 ```
 
+```
+V > * / #_ "Apheresis: a vowel elides at the beginning of a word"
+V > * / _# "Apocope: a vowel elides at the end of a word"
+```
+
 ### Examples
 
 Grimm's Law
@@ -36,9 +41,9 @@ Using Distinctive Features
 Latin Stress
 ```
 Standard Version
-V:[+long] > [+stress] / _%# (A penult syll ending with a long vowel is stressed)
-V > [+stress] / _C%#        (A penult syll ending with a consonant is stressed)
-% > [+stress] / %:[-str]%#  (If the penult is unstressed, the antepenult is stressed)
+V:[+long] > [+stress] / _%# "A penult syll ending with a long vowel becomes stressed"
+V > [+stress] / _C%#        "A penult syll ending with a consonant becomes stressed"
+% > [+stress] / %:[-str]%#  "If the penult is unstressed, the antepenult becomes stressed"
 
 Condensed Version
 V:[+lng], V, % => [+stress] / _%#, _C%#, %:[-str]%#
@@ -46,32 +51,35 @@ V:[+lng], V, % => [+stress] / _%#, _C%#, %:[-str]%#
 
 Nasal Assimilation
 ```
-[+nasal] > [α PLACE] / _[+cons, αPLACE]
+[+cons, +nasal] > [α PLACE] / _[+cons, αPLACE] 
+"A nasal consonant takes the place of following consonant i.e. [nk] > [ŋk]"
 ```
 
 ### Groupings
+
+Groupings can be used as shorthand to match often used parts of speech
 ```
-C -> Consonants
-O -> Obstruents
-S -> Sonorants
-L -> Liquids
-N -> Nasals
-G -> Glides
-V -> Vowels
+C -> Consonants (equiv. to [-syll])
+O -> Obstruents (equiv. to [+cons, -son, -syll])
+S -> Sonorants  (equiv. to [+cons, +son, -syll])
+L -> Liquids    (equiv. to [+cons, +sin, -syll, +approx])
+N -> Nasals     (equiv. to [+cons, +sin, -syll, -approx])
+G -> Glides     (equiv. to [-cons, +son, -syll ])
+V -> Vowels     (equiv. to [-cons, +son, +syll ])
 ```
 
 ### Metathesis
-The ampersand operator ```&``` states that the order of the matched input is reversed. So that, for example, a sequence of matched segments ```ABC``` becomes ```CBA```. The operator can be used to flip an arbitrary number of segments.
-The output of a metathesis rule must contain *only* ```&``` and nothing else. 
+The ampersand operator ```&``` states that the order of the matched input is reversed. So that, for example, a sequence of matched segments `ABC` becomes `CBA`. The operator can be used to flip an arbitrary number of segments.
+The output of a metathesis rule must contain *only* `&` and nothing else. 
 
-``` asca
+```
 Old English R Metathesis (hros => hors)
 [+rhotic]V > & / _s
 ```
 
-An ellipsis ```…``` or double ```..``` or triple dot ```...``` can be used to implement long-range metathesis:
+An ellipsis `…` or double `..` or triple dot `...` can be used to implement long-range metathesis:
 
-``` asca
+```
 Spanish Hyperthesis (Old Spanish parabla => Spanish palabra)
 r...l > &       
 ```
@@ -93,37 +101,33 @@ N = the maximum number of iterations (inclusive). N must be greater than or equa
 ```
 For example, ```(C,5)_```  matches up to 5 consonants preceding the target. This will lazily target environments of `_`, `C_`, `CC_`, `CCC_`, `CCCC_`, and `CCCCC_`.
 
-```(C,3:5)``` matches `CCC_`, `CCCC_`, and `CCCCC_`.
+`(C,3:5)` matches `CCC_`, `CCCC_`, and `CCCCC_`.
 
-```(C,0)_``` matches any number of consonants preceding the target. This is equal to regex’s Lazy Zero-Or-More operator (*?)
+`(C,0)_` matches any number of consonants preceding the target. This is equal to regex’s Lazy Zero-Or-More operator (*?)
 
-```(C)_``` matches zero or one consonant preceding the target, this is the same as (C,1)_ or (C,0:1)
+`(C)_` matches zero or one consonant preceding the target, this is the same as (C,1)_ or (C,0:1)
 
 ### Alpha Notation
 
 ```
-[+nasal] > [α PLACE] / _[+cons, αPLACE]
+[+cons, +nasal] > [α PLACE] / _[+cons, αPLACE]
 ```
 
 ### Variables
 Variables are
 
-Variables are declared by using the ```=``` operator, followed by a number. This number can then be used later in the rule to invoke the variable.
+Variables are declared by using the `=` operator, followed by a number. This number can then be used later in the rule to invoke the variable.
+Currently, only matrices and groups can be assigned to a variable.
 
-Using variables, we can implement metathesis without need of the ```&``` operator.
+Using variables, we can implement metathesis without need of the `&` operator.
 ```
 Old English R metathesis (hros > hors)
 [+rho]=1 V=2 > 2 1  / _s
-
-Latin to Spanish Metathesis (parabola > palabra)
-r=1…l=2 > 2 1
 ```
 
 It can also be used to define a simple haplology rule.
 ```
-%=1 > * / 1_
-"A syllable is deleted if preceded by an identical syllable"
-
+%=1 > * / 1_ "A syllable is deleted if preceded by an identical syllable"
 ```
 
 ### Propagation 
@@ -179,7 +183,7 @@ A full table of segments and there values can be found here: `TODO`.
 │        │ LABIAL  │  bilab  │       p, b, f, v, etc.      │             -              │
 │        │         │  round  │       rounded segments      │      p, b, f, v, etc.      │
 │        ├─────────┼─────────┼─────────────────────────────┼────────────────────────────┤
-│        │ CORONAL │ ant     │      dentals, alveolars     │ post-palatals, retroflexes │
+│        │ CORONAL │ anterior│      dentals, alveolars     │ post-palatals, retroflexes │
 │        │         │ distrib │    palatals, post-palatals  │   alveolars, retroflexes   │
 │        ├─────────┼─────────┼─────────────────────────────┼────────────────────────────┤
 │        │         │  front  │    palatals, front vowels   │             -              │
@@ -233,8 +237,8 @@ For example, if one wants to match for syllables with primary stress but exclude
 
 Example: Inital Syllable Stress Shift
 ```
-%:[+stress] > [-stress] (All stressed syllables become unstressed)
-% > [=stress] / #_      (The syllable at the beginning of the word becomes stressed)
+%:[+stress] > [-stress] "All stressed syllables become unstressed"
+% > [=stress] / #_      "The syllable at the beginning of the word becomes stressed"
 ```
 
 ### Length
@@ -246,17 +250,39 @@ Example: Inital Syllable Stress Shift
 │     Short    │   [- long]   │                 │
 ├──────────────┼──────────────┤   [-overlong]   │
 │     Long     │   [+ long]   │                 │
-├──────────────┼──────────────┼─────────────────┤
+├──────────────┼──────────────┴─────────────────┤
 │   Overlong   │          [+ overlong]          │
-└──────────────┴──────────────┴─────────────────┘
+└──────────────┴────────────────────────────────┘
 ```
 
 Example: Compensatory Lengthening
 ```
-V > [+long] / _C#   (A vowel becomes long before a consonant at the end of a word)
-C > * / V:[+long]_# (A consonant at the end of a word before the long vowel elides)
+V > [+long] / _C#   "A vowel becomes long before a consonant at the end of a word"
+C > * / V:[+long]_# "A consonant at the end of a word before the long vowel elides"
 ```
 
 ### Tone
+ASCA does not currently support tone diacritics or tone letters.
+
+```
+mā => `ma55`
+má => `ma35`
+mǎ => `ma214`
+mà => `ma51`
+ma => `ma0` or just `ma`
+```
+
+Example: Mandarin 3rd Tone Sandhi
+```
+%:[tone: 214] > [tone:35] / _%[tone: 214]
+"3rd tone becomes 2nd tone before another 3rd tone"
+```
+
+Example: Middle Chinese Tonogenesis
+```
+% > [tone: 33]                       (平 and 入)
+V > [tone: 35], [tone: 51] / _ʔ, _s, (上 then 去)
+ʔ , s / _$                           (Phonemicisation)
+```
 
 ## Saving and Loading Files
