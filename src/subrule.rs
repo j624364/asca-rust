@@ -1,3 +1,6 @@
+// TODO(girv): lots of duplication here atm, focusing on getting things done before optimising
+
+
 use std ::{
     cell::RefCell, 
     collections::{HashMap, VecDeque}
@@ -65,12 +68,7 @@ impl SubRule {
                 let end = match *res.last().unwrap() {
                     MatchElement::Segment(sp)  => sp , // FIXME: Wont work when out_of_bounds _$ 
                     MatchElement::SyllBound(s) => SegPos::new(s, 0),
-                    MatchElement::Syllable(s)  => {
-                        let mut sp = SegPos::new(s+1, 0);
-                        sp.syll_index += 1;
-                        sp.decrement(&word);
-                        sp
-                    },
+                    MatchElement::Syllable(s)  => SegPos::new(s, word.syllables[s].segments.len()-1),
                 };
                 if !self.match_before_context_and_exception(&word, start)? || !self.match_after_context_and_exception(&word, end)? {
                     if let Some(ci) = next_index { 
@@ -170,7 +168,7 @@ impl SubRule {
     }
 
     fn context_match(&self, word: &Word, state: &Item, pos: &mut SegPos, forwards: bool, state_index: usize) -> Result<bool, RuleRuntimeError> {
-        // So that $_ and #_ words
+        // So that $_ and #_ works
         if state_index == 0 {
             if forwards {
                 pos.increment(word);
@@ -189,21 +187,18 @@ impl SubRule {
         match &state.kind {
             ParseKind::WordBound => if (!forwards && pos.at_word_start()) || (forwards && word.out_of_bounds(*pos)) {
                 Ok(true)
-            } else {
-                Ok(false)
-            },
+            } else { Ok(false) },
             ParseKind::SyllBound => if pos.at_syll_start() {
                 Ok(true)
             } else { Ok(false) },
             ParseKind::Ipa(s, m) => if self.context_match_ipa(s, m, word, *pos)? {
-                if forwards { pos.increment(word); }
-                else { pos.decrement(word); }
+                if forwards { pos.increment(word); } else { pos.decrement(word); }
                 Ok(true)
             } else { Ok(false) },
             ParseKind::Matrix(m, v) => self.context_match_matrix(m, v, word, pos, forwards),
             ParseKind::Syllable(s, t, v) => self.context_match_syll(s, t, v, word, pos, forwards),
-            ParseKind::Variable(_, _) => todo!(),
-            ParseKind::Set(_) => todo!(),
+            ParseKind::Variable(vt, mods) => self.context_match_var(vt, mods, word, pos, forwards),
+            ParseKind::Set(s) => self.context_match_set(s, word, pos, forwards),
             ParseKind::Optional(_, _, _) => todo!(),
             ParseKind::Ellipsis => todo!(),
             
@@ -211,6 +206,66 @@ impl SubRule {
             ParseKind::EmptySet | ParseKind::Metathesis |
             ParseKind::Environment(_, _) => unreachable!(),
         }
+    }
+
+    fn context_match_set(&self, set: &[Item], word: &Word, pos: &mut SegPos, forwards: bool) -> Result<bool, RuleRuntimeError> {
+
+        // for s in set {
+        //     let res = match &s.kind {
+        //         ParseKind::Variable(vt, m) => self.input_match_var(captures, state_index, vt, m, word, seg_index),
+        //         ParseKind::Ipa(s, m)       => self.input_match_ipa(captures, s, m, word, *seg_index),
+        //         ParseKind::Matrix(m, v)    => self.input_match_matrix(captures, m, v, word, seg_index),
+        //         ParseKind::Syllable(..) => todo!(),
+        //         _ => unimplemented!(),
+        //     };
+        //     if res? {
+        //         return Ok(true)
+        //     } else { // NOTE(girv): not needed, but it's more explicit
+        //         continue;
+        //     }
+        // }
+        // Ok(false)
+        todo!()
+    }
+
+    fn context_match_var(&self, vt: &Token, mods: &Option<Modifiers>, word: &Word, pos: &mut SegPos, forwards: bool) -> Result<bool, RuleRuntimeError> {
+        if let Some(var) = self.variables.borrow_mut().get(&vt.value.parse::<usize>().unwrap()) {
+            match var {
+                VarKind::Segment(s) => if self.context_match_ipa(s, mods, word, *pos)? {
+                    if forwards { pos.increment(word); } else { pos.decrement(word); }
+                    Ok(true)
+                } else { Ok(false) },
+                VarKind::Syllable(s) => self.context_match_syll_var(s, mods, word, pos, forwards),
+            }            
+        } else {
+            Err(RuleRuntimeError::UnknownVariable(vt.clone()))
+        }
+    }
+
+    fn context_match_syll_var(&self, syll_to_match: &Syllable, mods: &Option<Modifiers>, word: &Word, pos: &mut SegPos, forwards: bool) -> Result<bool, RuleRuntimeError> {
+        
+        if (forwards && !pos.at_syll_start()) || (!forwards && !pos.at_syll_end(word)) {
+            return Ok(false)
+        }
+        let cur_syll = &word.syllables[pos.syll_index]; // FIXME: Potential panic
+        
+        if mods.is_none() {
+            if *cur_syll != *syll_to_match {
+                return Ok(false)
+            }
+        } else {
+            todo!("Need to Compare Mods")
+        }
+
+        if forwards {
+            pos.syll_index += 1;
+            pos.seg_index = 0;
+        } else {
+            pos.seg_index = 0;
+            pos.decrement(word);
+        }
+        
+        Ok(true)
     }
 
     fn context_match_syll(&self, stress: &[Option<ModKind>; 2], tone: &Option<String>, var: &Option<usize>, word: &Word, pos: &mut SegPos, forwards: bool) -> Result<bool, RuleRuntimeError> {
@@ -352,7 +407,7 @@ impl SubRule {
                                 return Err(RuleRuntimeError::DeletionOnlySyll)
                             }
                             res_word.remove_syll(i);
-                            
+
                             if let Some(pos) = current_pos {
                                 debug_assert!(pos.syll_index > 0);
                                 pos.syll_index -= 1;
@@ -392,7 +447,6 @@ impl SubRule {
                         },
                     }
                 }
-
                 Ok(res_word)
             },
             RuleType::Insertion => {
@@ -964,6 +1018,12 @@ impl SubRule {
             *state_index += 1;
             seg_index.syll_index += 1;
             seg_index.seg_index = 0;
+
+            // Because we are incrementing in the parent function in the case of a match
+            // We must jump to the next syllable but not skip the segment at index 0
+            if seg_index.syll_index < word.syllables.len() {
+                seg_index.decrement(word);
+            }
             
             Ok(true)
         } else {
