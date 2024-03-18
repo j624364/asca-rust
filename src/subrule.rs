@@ -796,54 +796,54 @@ impl SubRule {
     fn input_match_item(
         &self, 
         captures: &mut Vec<MatchElement>, 
-        seg_index: &mut SegPos, 
+        seg_pos: &mut SegPos, 
         state_index: &mut usize,
         word: &Word, 
         states: &[Item], 
     ) -> Result<bool, RuleRuntimeError> {
         match &states[*state_index].kind {
-            ParseKind::Variable(vt, m) => if self.input_match_var(captures, state_index, vt, m, word, seg_index)? {
-                seg_index.increment(word);
+            ParseKind::Variable(vt, m) => if self.input_match_var(captures, state_index, vt, m, word, seg_pos)? {
+                seg_pos.increment(word);
                 *state_index += 1;
                 Ok(true)
             } else { Ok(false) },
-            ParseKind::Ipa(s, m) => if self.input_match_ipa(captures, s, m, word, *seg_index)? {
-                seg_index.increment(word);
+            ParseKind::Ipa(s, m) => if self.input_match_ipa(captures, s, m, word, *seg_pos)? {
+                seg_pos.increment(word);
                 *state_index += 1;
                 Ok(true)
             } else { Ok(false) },
-            ParseKind::Matrix(m, v) => if self.input_match_matrix(captures, m, v, word, seg_index)? {
-                seg_index.increment(word);
+            ParseKind::Matrix(m, v) => if self.input_match_matrix(captures, m, v, word, seg_pos)? {
+                seg_pos.increment(word);
                 *state_index += 1;
                 Ok(true) 
             } else { Ok(false) },
-            ParseKind::Set(s) => if self.input_match_set(captures, state_index, s, word, seg_index)? {
-                seg_index.increment(word); // TODO(girv): when we allow boundaries within sets, this will have to be incremented within the match_set function
+            ParseKind::Set(s) => if self.input_match_set(captures, state_index, s, word, seg_pos)? {
+                seg_pos.increment(word); // TODO(girv): when we allow boundaries within sets, this will have to be incremented within the match_set function
                 *state_index += 1;
                 Ok(true)
             } else { Ok(false) },
-            ParseKind::SyllBound => if self.input_match_syll_bound(captures, *seg_index) {
+            ParseKind::SyllBound => if self.input_match_syll_bound(captures, *seg_pos) {
                 // NOTE(girv): Boundaries do not advance seg_index 
                 *state_index += 1;
                 Ok(true)
             } else { Ok(false) },
-            ParseKind::Syllable(s, t, v) => self.input_match_syll(captures, state_index, s, t, v, word, seg_index),
-            ParseKind::Ellipsis => self.input_match_ellipsis(captures, word, seg_index, states, state_index),
-            ParseKind::Optional(opt_states, match_min, match_max) => self.input_match_optionals(captures, word, seg_index, states, opt_states, *match_min, *match_max),            
+            ParseKind::Syllable(s, t, v) => self.input_match_syll(captures, state_index, s, t, v, word, seg_pos),
+            ParseKind::Ellipsis => self.input_match_ellipsis(captures, word, seg_pos, states, state_index),
+            ParseKind::Optional(opt_states, match_min, match_max) => self.input_match_optionals(captures, word, seg_pos, states, opt_states, *match_min, *match_max),            
             ParseKind::EmptySet | ParseKind::WordBound | ParseKind::Metathesis | ParseKind::Environment(_, _) => unreachable!(),
         }
     }
 
-    fn input_match_optionals(&self, captures: &mut [MatchElement], word: &Word, seg_index: &mut SegPos, states: &[Item], opt_states: &[Item], match_min: usize, match_max: usize) -> Result<bool, RuleRuntimeError> {
+    fn input_match_optionals(&self, captures: &mut [MatchElement], word: &Word, pos: &mut SegPos, states: &[Item], opt_states: &[Item], match_min: usize, match_max: usize) -> Result<bool, RuleRuntimeError> {
         // should work like regex (...){min, max}? 
         let max = if match_max == 0 {None} else{ Some(match_max)};
-        self.input_match_multiple(captures, word, seg_index,  states, &mut 0, match_min, max, opt_states, true)
+        self.input_match_multiple(captures, word, pos,  states, &mut 0, match_min, max, opt_states, true)
     }
     
-    fn input_match_ellipsis(&self, captures: &mut [MatchElement], word: &Word, seg_index: &mut SegPos, states: &[Item], state_index: &mut usize) -> Result<bool, RuleRuntimeError> {
+    fn input_match_ellipsis(&self, captures: &mut [MatchElement], word: &Word, pos: &mut SegPos, states: &[Item], state_index: &mut usize) -> Result<bool, RuleRuntimeError> {
         // should work akin to '.+?' in Regex, that is, a lazy-match of one-or-more elements
         // this should not capture, however
-        self.input_match_multiple(captures, word, seg_index, states, state_index, 1, None, &[], false)
+        self.input_match_multiple(captures, word, pos, states, state_index, 1, None, &[], false)
     }
 
     fn input_match_multiple(
@@ -909,14 +909,14 @@ impl SubRule {
         // return Ok(true)
     }
 
-    fn input_match_syll(&self, captures: &mut Vec<MatchElement>, state_index: &mut usize, stress: &[Option<ModKind>;2], tone: &Option<String>, var: &Option<usize>, word: &Word, seg_index: &mut SegPos) -> Result<bool, RuleRuntimeError> {
+    fn input_match_syll(&self, captures: &mut Vec<MatchElement>, state_index: &mut usize, stress: &[Option<ModKind>;2], tone: &Option<String>, var: &Option<usize>, word: &Word, pos: &mut SegPos) -> Result<bool, RuleRuntimeError> {
         // checks current segment is at start of syll
         // matches stress and tone
         // jumps to end of syllable if match
-        if seg_index.seg_index == 0 {
+        if word.in_bounds(*pos) && pos.seg_index == 0 {
         // if word.seg_is_syll_initial(*seg_index) {
-            let cur_syll_index = seg_index.syll_index;
-            let cur_syll = &word.syllables[cur_syll_index]; // FIXME(girv): Potential OOB panic
+            let cur_syll_index = pos.syll_index;
+            let cur_syll = &word.syllables[cur_syll_index];
 
             if !self.match_stress(stress, cur_syll) {
                 return Ok(false)
@@ -927,12 +927,12 @@ impl SubRule {
                 }
             }
             if let Some(v) = var {
-                self.variables.borrow_mut().insert(*v, VarKind::Syllable(word.syllables[seg_index.syll_index].clone()));
+                self.variables.borrow_mut().insert(*v, VarKind::Syllable(word.syllables[pos.syll_index].clone()));
             }
             captures.push(MatchElement::Syllable(cur_syll_index));
             *state_index += 1;
-            seg_index.syll_index += 1;
-            seg_index.seg_index = 0;
+            pos.syll_index += 1;
+            pos.seg_index = 0;
 
             Ok(true)
         } else {
@@ -968,21 +968,21 @@ impl SubRule {
         tone == syll.tone
     }
 
-    fn input_match_syll_bound(&self, captures: &mut Vec<MatchElement>, seg_index: SegPos) -> bool {
-        if seg_index.seg_index == 0 {
-            captures.push(MatchElement::SyllBound(seg_index.syll_index));
+    fn input_match_syll_bound(&self, captures: &mut Vec<MatchElement>, pos: SegPos) -> bool {
+        if pos.seg_index == 0 {
+            captures.push(MatchElement::SyllBound(pos.syll_index));
             true
         } else {
             false
         }
     }
 
-    fn input_match_set(&self, captures: &mut Vec<MatchElement>, state_index: &mut usize, set: &[Item], word: &Word, seg_index: &mut SegPos) -> Result<bool, RuleRuntimeError> {
+    fn input_match_set(&self, captures: &mut Vec<MatchElement>, state_index: &mut usize, set: &[Item], word: &Word, pos: &mut SegPos) -> Result<bool, RuleRuntimeError> {
         for s in set {
             let res = match &s.kind {
-                ParseKind::Variable(vt, m) => self.input_match_var(captures, state_index, vt, m, word, seg_index),
-                ParseKind::Ipa(s, m)       => self.input_match_ipa(captures, s, m, word, *seg_index),
-                ParseKind::Matrix(m, v)    => self.input_match_matrix(captures, m, v, word, seg_index),
+                ParseKind::Variable(vt, m) => self.input_match_var(captures, state_index, vt, m, word, pos),
+                ParseKind::Ipa(s, m)       => self.input_match_ipa(captures, s, m, word, *pos),
+                ParseKind::Matrix(m, v)    => self.input_match_matrix(captures, m, v, word, pos),
                 ParseKind::Syllable(..) => todo!(),
                 _ => unimplemented!(),
             };
@@ -995,11 +995,11 @@ impl SubRule {
         Ok(false)
     }
 
-    fn input_match_ipa(&self, captures: &mut Vec<MatchElement>, s: &Segment, mods: &Option<Modifiers>, word: &Word, seg_index: SegPos) -> Result<bool, RuleRuntimeError> {
-        let seg = word.get_seg_at(seg_index).unwrap();
+    fn input_match_ipa(&self, captures: &mut Vec<MatchElement>, s: &Segment, mods: &Option<Modifiers>, word: &Word, pos: SegPos) -> Result<bool, RuleRuntimeError> {
+        let seg = word.get_seg_at(pos).unwrap();
         if mods.is_none() {
             if *s == seg {
-                captures.push(MatchElement::Segment(seg_index));
+                captures.push(MatchElement::Segment(pos));
                 Ok(true)
             } else {
                 Ok(false)
@@ -1009,13 +1009,13 @@ impl SubRule {
         }
     }
 
-    // fn match_syll_var(&self, captures: &mut Vec<MatchElement>, s: &Syllable, mods: &Option<Modifiers>, word: &Word, seg_index: SegPos) -> Result<bool, RuleRuntimeError> {
-    fn input_match_syll_var(&self, captures: &mut Vec<MatchElement>, state_index: &mut usize, syll_to_match: &Syllable, mods: &Option<Modifiers>, word: &Word, seg_index: &mut SegPos) -> Result<bool, RuleRuntimeError> {
-        if seg_index.seg_index != 0 {
+    // fn match_syll_var(&self, captures: &mut Vec<MatchElement>, s: &Syllable, mods: &Option<Modifiers>, word: &Word, pos: SegPos) -> Result<bool, RuleRuntimeError> {
+    fn input_match_syll_var(&self, captures: &mut Vec<MatchElement>, state_index: &mut usize, syll_to_match: &Syllable, mods: &Option<Modifiers>, word: &Word, pos: &mut SegPos) -> Result<bool, RuleRuntimeError> {
+        if pos.seg_index != 0 || word.out_of_bounds(*pos){
             return Ok(false)
         }
-        let csi = seg_index.syll_index;
-        let cur_syll = &word.syllables[csi];  // FIXME(girv): Potential OOB panic
+        let csi = pos.syll_index;
+        let cur_syll = &word.syllables[csi];
         
         if mods.is_none() {
             if *cur_syll != *syll_to_match {
@@ -1024,13 +1024,13 @@ impl SubRule {
             captures.push(MatchElement::Syllable(csi));
     
             *state_index += 1;
-            seg_index.syll_index += 1;
-            seg_index.seg_index = 0;
+            pos.syll_index += 1;
+            pos.seg_index = 0;
 
             // Because we are incrementing in the parent function in the case of a match
             // We must jump to the next syllable but not skip the segment at index 0
-            if seg_index.syll_index < word.syllables.len() {
-                seg_index.decrement(word);
+            if pos.syll_index < word.syllables.len() {
+                pos.decrement(word);
             }
             
             Ok(true)
@@ -1040,25 +1040,24 @@ impl SubRule {
 
     }
 
-    fn input_match_var(&self, captures: &mut Vec<MatchElement>, state_index: &mut usize, vt: &Token, mods: &Option<Modifiers>, word: &Word, seg_index: &mut SegPos) -> Result<bool, RuleRuntimeError> {
+    fn input_match_var(&self, captures: &mut Vec<MatchElement>, state_index: &mut usize, vt: &Token, mods: &Option<Modifiers>, word: &Word, pos: &mut SegPos) -> Result<bool, RuleRuntimeError> {
         if let Some(var) = self.variables.borrow_mut().get(&vt.value.parse::<usize>().unwrap()) {
             match var {
-                VarKind::Segment(s) => self.input_match_ipa(captures, s, mods, word, *seg_index),
-                VarKind::Syllable(s) => self.input_match_syll_var(captures, state_index , s, mods, word, seg_index),
+                VarKind::Segment(s)  => self.input_match_ipa(captures, s, mods, word, *pos),
+                VarKind::Syllable(s) => self.input_match_syll_var(captures, state_index , s, mods, word, pos),
             }
-            
             // NOTE(girv): we should not push here
         } else {
             Err(RuleRuntimeError::UnknownVariable(vt.clone()))
         }
     }
 
-    fn input_match_matrix(&self, captures: &mut Vec<MatchElement>, mods: &Modifiers, var: &Option<usize>, word: &Word, seg_index: &mut SegPos) -> Result<bool, RuleRuntimeError> { 
-        if self.match_modifiers(mods, word, seg_index)? {
+    fn input_match_matrix(&self, captures: &mut Vec<MatchElement>, mods: &Modifiers, var: &Option<usize>, word: &Word, pos: &mut SegPos) -> Result<bool, RuleRuntimeError> { 
+        if self.match_modifiers(mods, word, pos)? {
             if let Some(v) = var {
-                self.variables.borrow_mut().insert(*v, VarKind::Segment(word.get_seg_at(*seg_index).unwrap()));
+                self.variables.borrow_mut().insert(*v, VarKind::Segment(word.get_seg_at(*pos).unwrap()));
             }
-            captures.push(MatchElement::Segment(*seg_index));
+            captures.push(MatchElement::Segment(*pos));
             // // the way we implement `long` vowels means we need to do this
             // let mut seg_length = word.seg_length_in_syll(*seg_index);            
             // while seg_length > 1 {
@@ -1069,17 +1068,17 @@ impl SubRule {
             Ok(true)
         } else {
             // the way we implement `long` vowels means we need to do this
-            let mut seg_length = word.seg_length_in_syll(*seg_index);            
+            let mut seg_length = word.seg_length_in_syll(*pos);            
             while seg_length > 1 {
-                seg_index.increment(word);
+                pos.increment(word);
                 seg_length -= 1;
             }
             Ok(false)
         }
     }
 
-    fn match_modifiers(&self, mods: &Modifiers, word: &Word, seg_index: &mut SegPos) -> Result<bool, RuleRuntimeError> {
-        let seg = word.get_seg_at(*seg_index).expect("Segment Position should be within bounds");
+    fn match_modifiers(&self, mods: &Modifiers, word: &Word, pos: &mut SegPos) -> Result<bool, RuleRuntimeError> {
+        let seg = word.get_seg_at(*pos).expect("Segment Position should be within bounds");
         
         for (i, m) in mods.feats.iter().enumerate() {
             if !self.match_feat_mod(m, i, seg)? {
@@ -1091,15 +1090,15 @@ impl SubRule {
                 return Ok(false);
             }
         }
-        self.match_supr_mod_seg(word, &mods.suprs, seg_index)
+        self.match_supr_mod_seg(word, &mods.suprs, pos)
     }
 
-    fn match_supr_mod_seg(&self, word: &Word, mods: &SupraSegs, seg_index: &mut SegPos) -> Result<bool, RuleRuntimeError> {
+    fn match_supr_mod_seg(&self, word: &Word, mods: &SupraSegs, pos: &mut SegPos) -> Result<bool, RuleRuntimeError> {
 
-        let syll = &word.syllables[seg_index.syll_index];
+        let syll = &word.syllables[pos.syll_index];
 
         if !self.match_stress(&mods.stress, syll) { return Ok(false) }
-        if !self.match_seg_length(word, &mods.length, seg_index) { return Ok(false) }
+        if !self.match_seg_length(word, &mods.length, pos) { return Ok(false) }
 
         if let Some(t) = mods.tone.as_ref() {
             return Ok(self.match_tone(t, syll))
@@ -1108,8 +1107,8 @@ impl SubRule {
         Ok(true)
     }
 
-    fn match_seg_length(&self, word: &Word, length: &[Option<ModKind>; 2], seg_index: &mut SegPos) -> bool {
-        let seg_length = word.seg_length_in_syll(*seg_index);
+    fn match_seg_length(&self, word: &Word, length: &[Option<ModKind>; 2], pos: &mut SegPos) -> bool {
+        let seg_length = word.seg_length_in_syll(*pos);
         // +/- long
         if let Some(len) = length[0] {
             match len {
