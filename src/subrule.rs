@@ -247,7 +247,12 @@ impl SubRule {
         if (forwards && !pos.at_syll_start()) || (!forwards && !pos.at_syll_end(word)) {
             return Ok(false)
         }
-        let cur_syll = &word.syllables[pos.syll_index]; // FIXME: Potential panic
+
+        let cur_syll = if word.in_bounds(*pos) {
+             &word.syllables[pos.syll_index]
+        } else {
+            return Ok(false)
+        };
         
         if mods.is_none() {
             if *cur_syll != *syll_to_match {
@@ -270,8 +275,11 @@ impl SubRule {
 
     fn context_match_syll(&self, stress: &[Option<ModKind>; 2], tone: &Option<String>, var: &Option<usize>, word: &Word, pos: &mut SegPos, forwards: bool) -> Result<bool, RuleRuntimeError> {
         if (forwards && pos.at_syll_start()) || (!forwards && pos.at_syll_end(word)) {
-            let cur_syll_index = pos.syll_index;
-            let cur_syll = &word.syllables[cur_syll_index];
+            let cur_syll = if word.in_bounds(*pos){ 
+                &word.syllables[pos.syll_index] 
+            } else { 
+                return Ok(false)
+            };
 
             if !self.match_stress(stress, cur_syll) {
                 return Ok(false)
@@ -907,8 +915,8 @@ impl SubRule {
         // jumps to end of syllable if match
         if seg_index.seg_index == 0 {
         // if word.seg_is_syll_initial(*seg_index) {
-            let cur_syll_index = seg_index.syll_index; //word.get_syll_index_from_seg_index(*seg_index);
-            let cur_syll = &word.syllables[cur_syll_index];
+            let cur_syll_index = seg_index.syll_index;
+            let cur_syll = &word.syllables[cur_syll_index]; // FIXME(girv): Potential OOB panic
 
             if !self.match_stress(stress, cur_syll) {
                 return Ok(false)
@@ -1007,7 +1015,7 @@ impl SubRule {
             return Ok(false)
         }
         let csi = seg_index.syll_index;
-        let cur_syll = &word.syllables[csi];
+        let cur_syll = &word.syllables[csi];  // FIXME(girv): Potential OOB panic
         
         if mods.is_none() {
             if *cur_syll != *syll_to_match {
