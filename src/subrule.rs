@@ -689,19 +689,28 @@ impl SubRule {
 
         Ok(res_word)
     }
+
+    fn apply_syll_mods(&self, word: &mut Word, syll_index: usize, mods: &Modifiers, var: &Option<usize>) {
+        // NOTE(girv): Maybe we should error or give warnings if we have non-syllable features 
+        if let Some(_v) = var {
+            todo!("Deal with variable")
+        } else {
+            word.syllables.get_mut(syll_index).unwrap().apply_mods(&self.variables, &mods.suprs);
+        }
+    }
     
     fn substitution(&self, word: &Word, input: Vec<MatchElement>) -> Result<Word, RuleRuntimeError> {
         let mut res_word = word.clone();
         for (si, (in_state, out_state)) in self.input.iter().zip(&self.output).enumerate() {
             match &out_state.kind {
                 ParseKind::Syllable(_, _, _) => todo!(),
-                ParseKind::Matrix(_m, _v) => {
+                ParseKind::Matrix(m, v) => {
                     // get match at index and check it's a segment/or syllable and not a boundary
                     // if a syllable, make sure only do Syllable Suprs
                     // apply changes
                     match input[si] {
-                        MatchElement::Segment(_) => todo!("Apply Matrix"),
-                        MatchElement::Syllable(_) => todo!("Apply Syllable Suprs"),
+                        MatchElement::Segment(_)   => todo!("Apply Matrix"),
+                        MatchElement::Syllable(i)  => self.apply_syll_mods(&mut res_word, i, m, v),
                         MatchElement::SyllBound(_) => todo!("Err"),
                     }
                 },

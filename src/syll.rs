@@ -1,7 +1,9 @@
-use std::{collections::VecDeque, fmt};
-
-use crate::Segment;
-
+use std     :: { cell::RefCell, collections::{ HashMap, VecDeque }, fmt };
+use crate   :: {
+    seg     :: Segment,
+    parser  :: { BinMod, ModKind, SupraSegs }, 
+    subrule :: VarKind, 
+};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum StressKind {
@@ -26,7 +28,6 @@ impl fmt::Display for StressKind {
     }
 }
 
-
 #[derive(Debug, Clone)]
 pub struct Syllable {
     pub segments: VecDeque<Segment>,
@@ -37,6 +38,45 @@ pub struct Syllable {
 impl Syllable {
     pub fn new() -> Self {
         Self {segments: VecDeque::new(), stress: StressKind::default(), tone: String::new()}
+    }
+
+    pub fn apply_mods(&mut self, _vars: &RefCell<HashMap<usize, VarKind>>, mods: &SupraSegs) {
+        // NOTE: this function ignores mods.length 
+        match mods.stress {
+            // [stress, secstress]
+            [None, None] => {},
+            [None, Some(v)] => match v {
+                ModKind::Binary(b) => match b {
+                    BinMod::Negative => if let StressKind::Secondary = self.stress {
+                        self.stress = StressKind::Unstressed
+                    },
+                    BinMod::Positive => self.stress = StressKind::Secondary,
+                },
+                ModKind::Alpha(_) => todo!(),
+            },
+            [Some(v), None] => match v {
+                ModKind::Binary(b) => match b {
+                    BinMod::Negative => self.stress = StressKind::Unstressed,
+                    BinMod::Positive => self.stress = StressKind::Primary,
+                },
+                ModKind::Alpha(_) => todo!(),
+            },
+            [Some(p), Some(s)] => match (p,s) {
+                (ModKind::Binary(a), ModKind::Binary(b)) => match (a,b) {
+                    (BinMod::Negative, BinMod::Negative) => self.stress = StressKind::Unstressed,
+                    (BinMod::Negative, BinMod::Positive) => self.stress = StressKind::Secondary, //FIXME: This could be seen as an error? (+secstress is inherently +stress)
+                    (BinMod::Positive, BinMod::Negative) => self.stress = StressKind::Primary,
+                    (BinMod::Positive, BinMod::Positive) => self.stress = StressKind::Secondary,
+                },
+                (ModKind::Binary(_), ModKind::Alpha(_)) => todo!(),
+                (ModKind::Alpha(_), ModKind::Binary(_)) => todo!(),
+                (ModKind::Alpha(_), ModKind::Alpha(_)) => todo!(),
+            },
+        }
+
+        if let Some(t) = &mods.tone {
+            self.tone = t.clone();
+        }
     }
 }
 

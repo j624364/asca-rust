@@ -60,11 +60,9 @@ impl SegPos {
         
         if self.seg_index > 0 {
             self.seg_index -= 1;
-        } else {
-            if self.syll_index > 0 {
-                self.syll_index -= 1;
-                self.seg_index = word.syllables[self.syll_index].segments.len() - 1;
-            }
+        } else if self.syll_index > 0 {
+            self.syll_index -= 1;
+            self.seg_index = word.syllables[self.syll_index].segments.len() - 1;
         }
     }
 
