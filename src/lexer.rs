@@ -414,8 +414,8 @@ impl<'a> Lexer<'a> {
         self.advance();
         
         let mod_val = if val == '-' && matches!(self.curr_char(), 'α'..='ω') {
-            self.advance();
             let mut tmp = String::from('-'); tmp.push(self.curr_char());
+            self.advance();
             tmp
         } else {
             String::from(val)
@@ -816,6 +816,27 @@ mod lexer_tests {
             Token::new(TokenKind::Feature(Node(NodeType::Place)),      "α".to_owned(), 0, 12, 18),
             Token::new(TokenKind::RightSquare,                         "]".to_owned(), 0, 18, 19),
             Token::new(TokenKind::Eol,                                  String::new(), 0, 19, 20),
+        ];
+
+        let result = Lexer::new(&test_input.chars().collect::<Vec<_>>(), 0).get_line().unwrap();        
+
+        assert_eq!(result.len(), expected_result.len());
+
+        for i in 0..result.len() {
+            assert_eq!(result[i], expected_result[i]);
+
+        }
+    }
+
+    #[test]
+    fn test_negative_alpha() {
+        use FeatType::*;
+        let test_input= String::from("[-αPLACE]");
+        let expected_result = vec![
+            Token::new(TokenKind::LeftSquare,                          "[".to_owned(), 0,  0,  1),
+            Token::new(TokenKind::Feature(Node(NodeType::Place)),     "-α".to_owned(), 0,  1,  8),
+            Token::new(TokenKind::RightSquare,                         "]".to_owned(), 0,  8,  9),
+            Token::new(TokenKind::Eol,                                  String::new(), 0,  9, 10),
         ];
 
         let result = Lexer::new(&test_input.chars().collect::<Vec<_>>(), 0).get_line().unwrap();        
