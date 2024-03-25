@@ -18,8 +18,8 @@ This repo contains the logic for the applier which will be connected to a web fr
 - [ ] Applying Output
     - [x] Simple Metathesis
     - [x] Simple Deletion
-    - [ ] Simple Insertion
-    - [ ] Simple Substitution 
-- [ ] Matching Environment
-- [ ] Applying Exceptions
+    - [ ] Simple Insertion (in progress)
+    - [x] Simple Substitution 
+- [ ] Matching Environment (in progress)
+- [ ] Applying Exceptions  (in progress)
 - [ ] WASM Bindgen
