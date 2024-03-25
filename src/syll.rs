@@ -1,8 +1,9 @@
 use std     :: { cell::RefCell, collections::{ HashMap, VecDeque }, fmt };
 use crate   :: {
     seg     :: Segment,
-    parser  :: { BinMod, ModKind, SupraSegs }, 
-    subrule :: VarKind, 
+    error   :: RuleRuntimeError,
+    parser  :: { BinMod, ModKind, SupraSegs },
+    subrule :: VarKind,
 };
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -40,7 +41,7 @@ impl Syllable {
         Self {segments: VecDeque::new(), stress: StressKind::default(), tone: String::new()}
     }
 
-    pub fn apply_mods(&mut self, _vars: &RefCell<HashMap<usize, VarKind>>, mods: &SupraSegs) {
+    pub fn apply_mods(&mut self, _vars: &RefCell<HashMap<usize, VarKind>>, mods: &SupraSegs) -> Result<(), RuleRuntimeError>{
         // NOTE: this function ignores mods.length 
         match mods.stress {
             // [stress, secstress]
@@ -77,6 +78,8 @@ impl Syllable {
         if let Some(t) = &mods.tone {
             self.tone = t.clone();
         }
+
+        Ok(())
     }
 }
 

@@ -2,6 +2,7 @@ use std::{cell::RefCell, collections::HashMap, fmt};
 use serde::Deserialize;
 
 use crate ::{
+    error ::RuleRuntimeError, 
     lexer ::{FType, NodeType}, 
     parser::{BinMod, ModKind}, 
     CARDINALS_MAP, CARDINALS_VEC, DIACRITS,
@@ -489,7 +490,7 @@ impl Segment {
     }
 
     pub fn node_match(&self, node: NodeKind, match_value: Option<u8>) -> bool {
-        assert_ne!(node, NodeKind::Place);
+        debug_assert_ne!(node, NodeKind::Place);
         let Some(n) = self.get_node(node) else {
             return match_value.is_none()
         };
@@ -536,35 +537,34 @@ impl Segment {
         None
     }
 
-    pub fn apply_seg_mods(&mut self, alphas: &RefCell<HashMap<char, Alpha>> , nodes: [Option<ModKind>; NodeType::count()], feats: [Option<ModKind>; FType::count()]) {
-        
+    pub fn apply_seg_mods(&mut self, alphas: &RefCell<HashMap<char, Alpha>> , nodes: [Option<ModKind>; NodeType::count()], feats: [Option<ModKind>; FType::count()]) -> Result<(), RuleRuntimeError>{
         for (i, m) in nodes.iter().enumerate() { 
-            // FIXME: Root, Manner and laryngeal cannot be set to null, this needs to be enforced
             let node = NodeKind::from_usize(i);
             if let Some(kind) = m {
                 match kind {
                     // nodes in rules only really make sense with alphas, but i guess this may be useful ¯\_(ツ)_/¯
                     ModKind::Binary(bm) => match bm {
-                        BinMod::Negative => {
-                            if node != NodeKind::Place {
-                                self.set_node(node, None);
-                            }
+                        BinMod::Negative => match node {
+                            NodeKind::Root | NodeKind::Manner | NodeKind::Laryngeal => todo!("Err: Cannot be set to null"),
+                            NodeKind::Place => {},
+                            _ => self.set_node(node, None),
+                            
                         },
-                        BinMod::Positive => {
-                            if node != NodeKind::Place {
-                                self.set_node(node, Some(0))
-                            }
+                        BinMod::Positive => match node {
+                            NodeKind::Root | NodeKind::Manner | NodeKind::Laryngeal => todo!("Err: Cannot be set to null"),
+                            NodeKind::Place => {},
+                            _ => self.set_node(node, Some(0)),
                         },
                     },
                     ModKind::Alpha(am) => match am {
                         AlphaMod::Alpha(a) => {
                             if let Some(alpha) = alphas.borrow().get(a) {
                                 if let Some((n, m)) = alpha.as_node() {
-                                    assert_eq!(*n, node);
-                                    assert_ne!(*n, NodeKind::Place);
+                                    debug_assert_eq!(*n, node);
+                                    debug_assert_ne!(*n, NodeKind::Place);
                                     self.set_node(*n, *m);
                                 } else if let Some((n, l, c, d, p)) = alpha.as_place() {
-                                    assert_eq!(*n, node);
+                                    debug_assert_eq!(*n, node);
                                     self.set_node(NodeKind::Labial, *l);
                                     self.set_node(NodeKind::Coronal, *c);
                                     self.set_node(NodeKind::Dorsal, *d);
@@ -576,7 +576,7 @@ impl Segment {
                                 todo!("Err: no alpha set")
                             }
                         },
-                        AlphaMod::InvAlpha(_) => todo!(),
+                        AlphaMod::InvAlpha(_) => todo!("Err: Nodes cannot be inverse alpha"), // I don't think this makes sense for nodes 
                     },
                 }
             }
@@ -590,10 +590,34 @@ impl Segment {
                         BinMod::Negative => self.set_feat(n, f, false),
                         BinMod::Positive => self.set_feat(n, f, true),
                     },
-                    ModKind::Alpha(_) => todo!(),
+                    ModKind::Alpha(am) => match am {
+                        AlphaMod::Alpha(a) => {
+                            if let Some(alpha) = alphas.borrow().get(a) {
+                                if let Some((&nk, &ft, &tp)) = alpha.as_feature() {
+                                    debug_assert_eq!(n, nk);
+                                    debug_assert_ne!(nk, NodeKind::Place);
+                                    self.set_feat(nk, ft, tp);
+                                }
+                            } else {
+                                todo!("Err: no alpha set")
+                            }
+                        },
+                        AlphaMod::InvAlpha(ia) => {
+                            if let Some(alpha) = alphas.borrow().get(ia) {
+                                if let Some((&nk, &ft, &tp)) = alpha.as_feature() {
+                                    debug_assert_eq!(n, nk);
+                                    debug_assert_ne!(nk, NodeKind::Place);
+                                    self.set_feat(nk, ft, !tp);
+                                }
+                            } else {
+                                todo!("Err: no alpha set")
+                            }
+                        },
+                    },
                 }
             }
         }
+        Ok(())
     } 
 
     // pub fn inv_feat(&mut self, node: NodeKind, feat: u8) {

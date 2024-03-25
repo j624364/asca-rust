@@ -314,7 +314,7 @@ impl SubRule {
         }
     }
 
-    fn context_match_matrix(&self, mods: &Modifiers, var: &Option<usize>, word: &Word, pos: &mut SegPos, forwards: bool) -> Result<bool, RuleRuntimeError> {
+    fn context_match_matrix(&self, mods: &Modifiers, var: &Option<usize>, word: &Word, pos: &mut SegPos, forwards: bool) -> Result<bool, RuleRuntimeError> {        
         if word.out_of_bounds(*pos) {
             return Ok(false)
         }
@@ -698,16 +698,16 @@ impl SubRule {
         Ok(res_word)
     }
 
-    fn apply_syll_mods(&self, word: &mut Word, syll_index: usize, mods: &Modifiers, var: &Option<usize>) {
+    fn apply_syll_mods(&self, word: &mut Word, syll_index: usize, mods: &Modifiers, var: &Option<usize>) -> Result<(), RuleRuntimeError> {
         // NOTE(girv): Maybe we should error or give warnings if we have non-syllable features 
         if let Some(_v) = var {
             todo!("Deal with variable")
         } else {
-            word.syllables.get_mut(syll_index).unwrap().apply_mods(&self.variables, &mods.suprs);
+            word.syllables.get_mut(syll_index).unwrap().apply_mods(&self.variables, &mods.suprs)
         }
     }
     
-    fn apply_seg_mods(&self, word: &mut Word, pos: SegPos, mods: &Modifiers, var: &Option<usize>) {
+    fn apply_seg_mods(&self, word: &mut Word, pos: SegPos, mods: &Modifiers, var: &Option<usize>) -> Result<(), RuleRuntimeError>{
         if let Some(_v) = var {
             todo!("Deal with variable")
         } else {
@@ -725,8 +725,8 @@ impl SubRule {
                     // if a syllable, make sure only do Syllable Suprs
                     // apply changes
                     match input[si] {
-                        MatchElement::Segment(sp)   => self.apply_seg_mods(&mut res_word, sp, m, v),
-                        MatchElement::Syllable(sp)  => self.apply_syll_mods(&mut res_word, sp, m, v),
+                        MatchElement::Segment(sp)   => self.apply_seg_mods(&mut res_word, sp, m, v)?,
+                        MatchElement::Syllable(sp)  => self.apply_syll_mods(&mut res_word, sp, m, v)?,
                         MatchElement::SyllBound(_)  => todo!("Err: Can't apply matrix to syllable boundary"),
                     }
                 },
@@ -736,7 +736,7 @@ impl SubRule {
                         res_word.syllables[sp.syll_index].segments[sp.seg_index] = *seg;
                         // Apply Mods
                         if let Some(m) = mods {
-                            res_word.apply_mods(&self.alphas, m, sp);
+                            res_word.apply_mods(&self.alphas, m, sp)?;
                         }
                     },    
                     MatchElement::Syllable(_) => todo!("Probably Err"),
@@ -1168,7 +1168,6 @@ impl SubRule {
         if let Some(kind) = md { 
             let (node, mask) = feature_to_node_mask(FType::from_usize(feat_index));
             return self.match_seg_kind(kind, seg, node, mask)
-
         }
         Ok(true)
     }
@@ -1195,7 +1194,6 @@ impl SubRule {
                             todo!("err: Alpha is not node");
                         }
                     }
-
                     if node == NodeKind::Place {
                          let l = seg.get_node(NodeKind::Labial);
                          let c = seg.get_node(NodeKind::Coronal);
@@ -1206,7 +1204,6 @@ impl SubRule {
                     } else {
                         self.alphas.borrow_mut().insert(*a, Alpha::Node(node, seg.get_node(node))); 
                     }
-
                     Ok(true)
                 },
                 AlphaMod::InvAlpha(ia) => {
@@ -1224,7 +1221,6 @@ impl SubRule {
                             todo!("err: Alpha is not node");
                         }
                     }
-
                     if node == NodeKind::Place {
                         let l = seg.get_node(NodeKind::Labial);
                         let c = seg.get_node(NodeKind::Coronal);
@@ -1250,34 +1246,37 @@ impl SubRule {
             ModKind::Alpha(am) => match am {
                 AlphaMod::Alpha(a) => {
                     if let Some(alph) = self.alphas.borrow().get(a) {
-                        if let Some((n, m, pos)) = alph.as_feature() {
-                            return Ok(seg.feat_match(*n, *m, *pos))
+                        if let Some((&n, &m, &pos)) = alph.as_feature() {
+                            return Ok(seg.feat_match(n, m, pos))
                         } else {
                             todo!("Err: Alpha is not feature")
                         }
                     } 
-                    self.alphas.borrow_mut().insert(*a, Alpha::Feature(node, mask, true)); 
-                    Ok(true)
-                    
-                },
-                AlphaMod::InvAlpha(ia) => {
-                    if let Some(alph) = self.alphas.borrow().get(ia) {
-                        if let Some((n, m, pos)) = alph.as_feature() {
-                            Ok(seg.feat_match(*n, *m, !pos)) // TODO: test this
-                        } else {
-                            todo!("Err: Alpha is not feature")
-                        }
-                    } else if let Some(f) = seg.get_feat(node, mask) {
-                        self.alphas.borrow_mut().insert(*ia, Alpha::Feature(node, mask, f != 0));
+                    if let Some(f) = seg.get_feat(node, mask) {
+                        self.alphas.borrow_mut().insert(*a, Alpha::Feature(node, mask, f != 0)); 
                         Ok(true)
                     } else {
                         // Maybe err?
                         Ok(false)
                     }
-                    
+                },
+                AlphaMod::InvAlpha(ia) => {
+                    if let Some(alph) = self.alphas.borrow().get(ia) {
+                        if let Some((&n, &m, &pos)) = alph.as_feature() {
+                            return Ok(seg.feat_match(n, m, !pos))
+                        } else {
+                            todo!("Err: Alpha is not feature")
+                        }
+                    } 
+                    if let Some(f) = seg.get_feat(node, mask) {
+                        self.alphas.borrow_mut().insert(*ia, Alpha::Feature(node, mask, f == 0));
+                        Ok(true)
+                    } else {
+                        // Maybe err?
+                        Ok(false)
+                    } 
                 },
             },
         }
     }
-
 }
