@@ -66,7 +66,15 @@ impl SubRule {
                     MatchElement::SyllBound(s) => SegPos::new(s, 0),
                 };
                 let end = match *res.last().unwrap() {
-                    MatchElement::Segment(sp)  => sp , // FIXME: Wont work when out_of_bounds _$ 
+                    MatchElement::Segment(mut sp)  => {
+                        // So that long vowels work
+                        let mut seg_len = word.seg_length_in_syll(sp);
+                        while seg_len > 1 {
+                            sp.increment(&word);
+                            seg_len -= 1;
+                        }
+                        sp
+                    },
                     MatchElement::SyllBound(s) => SegPos::new(s, 0),
                     MatchElement::Syllable(s)  => SegPos::new(s, word.syllables[s].segments.len()-1),
                 };
@@ -699,6 +707,14 @@ impl SubRule {
         }
     }
     
+    fn apply_seg_mods(&self, word: &mut Word, pos: SegPos, mods: &Modifiers, var: &Option<usize>) {
+        if let Some(_v) = var {
+            todo!("Deal with variable")
+        } else {
+            word.apply_mods(mods, pos)
+        }
+    }
+    
     fn substitution(&self, word: &Word, input: Vec<MatchElement>) -> Result<Word, RuleRuntimeError> {
         let mut res_word = word.clone();
         for (si, (in_state, out_state)) in self.input.iter().zip(&self.output).enumerate() {
@@ -709,9 +725,9 @@ impl SubRule {
                     // if a syllable, make sure only do Syllable Suprs
                     // apply changes
                     match input[si] {
-                        MatchElement::Segment(_)   => todo!("Apply Matrix"),
-                        MatchElement::Syllable(i)  => self.apply_syll_mods(&mut res_word, i, m, v),
-                        MatchElement::SyllBound(_) => todo!("Err"),
+                        MatchElement::Segment(sp)   => self.apply_seg_mods(&mut res_word, sp, m, v),
+                        MatchElement::Syllable(sp)  => self.apply_syll_mods(&mut res_word, sp, m, v),
+                        MatchElement::SyllBound(_)  => todo!("Err: Can't apply matrix to syllable boundary"),
                     }
                 },
                 ParseKind::Ipa(seg, mods) => match input[si] {
@@ -1067,13 +1083,12 @@ impl SubRule {
                 self.variables.borrow_mut().insert(*v, VarKind::Segment(word.get_seg_at(*pos).unwrap()));
             }
             captures.push(MatchElement::Segment(*pos));
-            // // the way we implement `long` vowels means we need to do this
-            // let mut seg_length = word.seg_length_in_syll(*seg_index);            
-            // while seg_length > 1 {
-            //     seg_index.increment(word);
-            //     println!("si: {:?} ",seg_index);
-            //     seg_length -= 1;
-            // }
+            // the way we implement `long` vowels means we need to do this
+            let mut seg_length = word.seg_length_in_syll(*pos);            
+            while seg_length > 1 {
+                pos.increment(word);
+                seg_length -= 1;
+            }
             Ok(true)
         } else {
             // the way we implement `long` vowels means we need to do this

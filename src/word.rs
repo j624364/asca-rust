@@ -471,9 +471,24 @@ impl Word {
 
     }
 
-    pub fn apply_mods(&self, mods: &Modifiers, s: SegPos) {
+    pub fn apply_mods(&mut self, mods: &Modifiers, pos: SegPos) {
         // check seg length, if long then we must apply mods to all occurences (we assume that we are at the start)
-        todo!()
+        let mut pos = pos;
+
+        debug_assert!(self.in_bounds(pos));
+        
+        let mut seg_len = self.seg_length_in_syll(pos);
+        while seg_len > 0 {
+            // todo
+            let seg = self.syllables[pos.syll_index].segments.get_mut(pos.seg_index).expect("position is in bounds");
+
+            seg.apply_seg_mods(mods.nodes, mods.feats);
+
+            seg_len -= 1;
+            pos.increment(self);
+        }
+
+        // if mods = +/- long/overlong we need to add or remove the segments
     }
 }
 

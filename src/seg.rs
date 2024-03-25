@@ -534,10 +534,8 @@ impl Segment {
         None
     }
 
-    #[allow(unused)]
-    pub fn apply_seg_mods(&mut self, mods: &Modifiers) {
-        // NOTE: This ignores any Supra Mods as the Segment does not control them
-        for (i, m) in mods.feats.iter().enumerate() {
+    pub fn apply_seg_mods(&mut self, nodes: [Option<ModKind>; NodeType::count()], feats: [Option<ModKind>; FType::count()]) {
+        for (i, m) in feats.iter().enumerate() {
             if let Some(kind) = m { 
                 let (n, f) = feature_to_node_mask(FType::from_usize(i));
                 match kind {
@@ -545,13 +543,13 @@ impl Segment {
                         BinMod::Negative => self.set_feat(n, f, false),
                         BinMod::Positive => self.set_feat(n, f, true),
                     },
-                    ModKind::Alpha(_) => unreachable!(),
+                    ModKind::Alpha(_) => todo!(),
                 }
             }
         }
 
-        for (i, m) in mods.nodes.iter().enumerate() { 
-            todo!()
+        for (i, m) in nodes.iter().enumerate() { 
+            // todo!()
         }
 
     } 
