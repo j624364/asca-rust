@@ -1,10 +1,11 @@
-use std  ::fmt;
+use std::{cell::RefCell, collections::HashMap, fmt};
 use serde::Deserialize;
 
 use crate ::{
     lexer ::{FType, NodeType}, 
-    parser::{ModKind, BinMod, Modifiers}, 
-    CARDINALS_VEC, CARDINALS_MAP, DIACRITS
+    parser::{BinMod, ModKind}, 
+    CARDINALS_MAP, CARDINALS_VEC, DIACRITS,
+    Alpha, AlphaMod, 
 };
 
 pub const fn feature_to_node_mask(feat: FType) -> (NodeKind, u8) {
@@ -117,7 +118,7 @@ impl fmt::Debug for DiaMods {
 
 
 
-#[derive(Debug, Copy, Clone)]
+#[derive(Debug, Copy, Clone, PartialEq)]
 pub enum NodeKind {
     Root,
     Manner,
@@ -441,7 +442,6 @@ impl Segment {
         }
     }
 
-    #[allow(unused)]
     pub fn set_node(&mut self, node: NodeKind, val: Option<u8>) {
         match node {
             NodeKind::Root       => self.root = val.expect("RootNode cannot be null"),
@@ -460,6 +460,7 @@ impl Segment {
     }
 
     pub fn set_feat(&mut self, node: NodeKind, feat: u8, to_positive: bool) {
+        debug_assert_ne!(node, NodeKind::Place);
         let n = self.get_node(node).unwrap_or(0u8);
         if to_positive {
             self.set_node(node, Some(n | feat)) 
@@ -488,10 +489,10 @@ impl Segment {
     }
 
     pub fn node_match(&self, node: NodeKind, match_value: Option<u8>) -> bool {
+        assert_ne!(node, NodeKind::Place);
         let Some(n) = self.get_node(node) else {
             return match_value.is_none()
         };
-
         let Some(m) = match_value else {return false};
 
         n == m
@@ -501,6 +502,7 @@ impl Segment {
         for (i, m) in dm.nodes.iter().enumerate() {
             if let Some(kind) = m {
                 let node = NodeKind::from_usize(i);
+                debug_assert_ne!(node, NodeKind::Place);
                 match kind {
                     ModKind::Binary(b) => match b {
                         BinMod::Negative => self.set_node(node, None),
@@ -534,7 +536,52 @@ impl Segment {
         None
     }
 
-    pub fn apply_seg_mods(&mut self, nodes: [Option<ModKind>; NodeType::count()], feats: [Option<ModKind>; FType::count()]) {
+    pub fn apply_seg_mods(&mut self, alphas: &RefCell<HashMap<char, Alpha>> , nodes: [Option<ModKind>; NodeType::count()], feats: [Option<ModKind>; FType::count()]) {
+        
+        for (i, m) in nodes.iter().enumerate() { 
+            // FIXME: Root, Manner and laryngeal cannot be set to null, this needs to be enforced
+            let node = NodeKind::from_usize(i);
+            if let Some(kind) = m {
+                match kind {
+                    // nodes in rules only really make sense with alphas, but i guess this may be useful ¯\_(ツ)_/¯
+                    ModKind::Binary(bm) => match bm {
+                        BinMod::Negative => {
+                            if node != NodeKind::Place {
+                                self.set_node(node, None);
+                            }
+                        },
+                        BinMod::Positive => {
+                            if node != NodeKind::Place {
+                                self.set_node(node, Some(0))
+                            }
+                        },
+                    },
+                    ModKind::Alpha(am) => match am {
+                        AlphaMod::Alpha(a) => {
+                            if let Some(alpha) = alphas.borrow().get(a) {
+                                if let Some((n, m)) = alpha.as_node() {
+                                    assert_eq!(*n, node);
+                                    assert_ne!(*n, NodeKind::Place);
+                                    self.set_node(*n, *m);
+                                } else if let Some((n, l, c, d, p)) = alpha.as_place() {
+                                    assert_eq!(*n, node);
+                                    self.set_node(NodeKind::Labial, *l);
+                                    self.set_node(NodeKind::Coronal, *c);
+                                    self.set_node(NodeKind::Dorsal, *d);
+                                    self.set_node(NodeKind::Pharyngeal, *p);
+                                } else {
+                                    todo!("Err: alpha is not a node")
+                                }
+                            } else {
+                                todo!("Err: no alpha set")
+                            }
+                        },
+                        AlphaMod::InvAlpha(_) => todo!(),
+                    },
+                }
+            }
+        }
+        
         for (i, m) in feats.iter().enumerate() {
             if let Some(kind) = m { 
                 let (n, f) = feature_to_node_mask(FType::from_usize(i));
@@ -547,11 +594,6 @@ impl Segment {
                 }
             }
         }
-
-        for (i, m) in nodes.iter().enumerate() { 
-            // todo!()
-        }
-
     } 
 
     // pub fn inv_feat(&mut self, node: NodeKind, feat: u8) {

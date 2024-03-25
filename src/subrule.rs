@@ -711,7 +711,7 @@ impl SubRule {
         if let Some(_v) = var {
             todo!("Deal with variable")
         } else {
-            word.apply_mods(mods, pos)
+            word.apply_mods(&self.alphas, mods, pos)
         }
     }
     
@@ -736,7 +736,7 @@ impl SubRule {
                         res_word.syllables[sp.syll_index].segments[sp.seg_index] = *seg;
                         // Apply Mods
                         if let Some(m) = mods {
-                            res_word.apply_mods(m, sp);
+                            res_word.apply_mods(&self.alphas, m, sp);
                         }
                     },    
                     MatchElement::Syllable(_) => todo!("Probably Err"),
@@ -1184,22 +1184,57 @@ impl SubRule {
                     if let Some(alph) = self.alphas.borrow().get(a) {
                         if let Some((n, m)) = alph.as_node() {
                             return Ok(seg.node_match(*n, *m))
+                        } else if let Some((n, l, c, d, p)) = alph.as_place() {
+                            return Ok(
+                                seg.node_match(*n, *l) &&
+                                seg.node_match(*n, *c) &&
+                                seg.node_match(*n, *d) &&
+                                seg.node_match(*n, *p)
+                            )
                         } else {
                             todo!("err: Alpha is not node");
                         }
                     }
-                    self.alphas.borrow_mut().insert(*a, Alpha::Node(node, seg.get_node(node))); 
+
+                    if node == NodeKind::Place {
+                         let l = seg.get_node(NodeKind::Labial);
+                         let c = seg.get_node(NodeKind::Coronal);
+                         let d = seg.get_node(NodeKind::Dorsal);
+                         let p = seg.get_node(NodeKind::Pharyngeal);
+
+                        self.alphas.borrow_mut().insert(*a, Alpha::Place(node, (l, c, d, p))); 
+                    } else {
+                        self.alphas.borrow_mut().insert(*a, Alpha::Node(node, seg.get_node(node))); 
+                    }
+
                     Ok(true)
                 },
                 AlphaMod::InvAlpha(ia) => {
                     if let Some(alph) = self.alphas.borrow().get(ia) {
                         if let Some((n, m)) = alph.as_node() {
                             return Ok(!seg.node_match(*n, *m))
+                        } else if let Some((n, l, c, d, p)) = alph.as_place() {
+                            return Ok(
+                                !seg.node_match(*n, *l) &&
+                                !seg.node_match(*n, *c) &&
+                                !seg.node_match(*n, *d) &&
+                                !seg.node_match(*n, *p)
+                            )
                         } else {
                             todo!("err: Alpha is not node");
                         }
                     }
-                    self.alphas.borrow_mut().insert(*ia, Alpha::Node(node, seg.get_node(node)));
+
+                    if node == NodeKind::Place {
+                        let l = seg.get_node(NodeKind::Labial);
+                        let c = seg.get_node(NodeKind::Coronal);
+                        let d = seg.get_node(NodeKind::Dorsal);
+                        let p = seg.get_node(NodeKind::Pharyngeal);
+
+                        self.alphas.borrow_mut().insert(*ia, Alpha::Place(node, (l, c, d, p))); 
+                    } else {
+                        self.alphas.borrow_mut().insert(*ia, Alpha::Node(node, seg.get_node(node)));
+                    }
                     Ok(true)
                 },
             },
@@ -1214,7 +1249,6 @@ impl SubRule {
             },
             ModKind::Alpha(am) => match am {
                 AlphaMod::Alpha(a) => {
-                    // let x = self.alphas.borrow().get(a);
                     if let Some(alph) = self.alphas.borrow().get(a) {
                         if let Some((n, m, pos)) = alph.as_feature() {
                             return Ok(seg.feat_match(*n, *m, *pos))

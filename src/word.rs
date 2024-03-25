@@ -1,16 +1,16 @@
 use std::{
-    fmt,
-    collections::VecDeque, 
+    collections::{HashMap, VecDeque}, 
+    cell::RefCell, 
+    fmt, 
 };
 
 use crate :: {
     error ::WordSyntaxError, 
     seg   ::Segment, 
     syll  ::{StressKind, Syllable}, 
+    rule  ::Alpha,
     parser::Modifiers, 
-    CARDINALS_MAP, 
-    CARDINALS_TRIE, 
-    DIACRITS,
+    CARDINALS_MAP, CARDINALS_TRIE, DIACRITS, 
 };
 
 // #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -471,7 +471,7 @@ impl Word {
 
     }
 
-    pub fn apply_mods(&mut self, mods: &Modifiers, pos: SegPos) {
+    pub fn apply_mods(&mut self, alphas: &RefCell<HashMap<char, Alpha>>, mods: &Modifiers, pos: SegPos) {
         // check seg length, if long then we must apply mods to all occurences (we assume that we are at the start)
         let mut pos = pos;
 
@@ -482,7 +482,7 @@ impl Word {
             // todo
             let seg = self.syllables[pos.syll_index].segments.get_mut(pos.seg_index).expect("position is in bounds");
 
-            seg.apply_seg_mods(mods.nodes, mods.feats);
+            seg.apply_seg_mods(alphas, mods.nodes, mods.feats);
 
             seg_len -= 1;
             pos.increment(self);

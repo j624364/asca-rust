@@ -25,6 +25,7 @@ pub enum RuleType {
 #[derive(Debug)]
 pub enum Alpha {
     Node(NodeKind, Option<u8>),
+    Place(NodeKind, (Option<u8>,Option<u8>,Option<u8>,Option<u8>)),
     Feature(NodeKind, u8, bool),
     Supra(Supr), // TODO: Replace Supr with something else
 }
@@ -46,6 +47,14 @@ impl Alpha {
     pub fn as_feature(&self) -> Option<(&NodeKind, &u8, &bool)> {
         if let Self::Feature(nk, msk, pos) = self {
             Some((nk, msk, pos))
+        } else {
+            None
+        }
+    }
+
+    pub fn as_place(&self) -> Option<(&NodeKind, &Option<u8>, &Option<u8>, &Option<u8>, &Option<u8>)> {
+        if let Self::Place(nk, (l, c, d, p)) = self {
+            Some((nk, l, c, d, p))
         } else {
             None
         }
