@@ -525,7 +525,12 @@ impl<'a> Lexer<'a> {
         if self.inside_matrix { return None }
         let start = self.pos;
 
-        let mut buffer = self.curr_char().to_string();
+        let mut buffer = self.curr_char()
+            .to_string()
+            .replace('g',  "ɡ")
+            .replace('ǝ',  "ə");
+
+        
 
         if CARDINALS_TRIE.contains_prefix(buffer.as_str()) {
             self.advance();
