@@ -663,17 +663,19 @@ impl SubRule {
     fn insertion(&self, word: &Word, insert_pos: &mut SegPos, after: bool) -> Result<Word, RuleRuntimeError> {
         let mut res_word = word.clone();
         
-        for (state_index, state) in self.output.iter().enumerate() {
+        for state in &self.output {
             match &state.kind {
                 ParseKind::Syllable(stress, tone, var) => {
+                    // split current syll into two at insert_pos
+                    // Apply stress etc. to second syll
                     if insert_pos.at_syll_start() || insert_pos.at_syll_end(word) {
                         // Will have to error as one of the the resulting syllables would be empty
                         todo!("ERR")
                     } 
-                    // split current syll into two at insert_pos
-                    // Apply stress etc. to second syll
 
                     let mut new_syll = Syllable::new();
+
+
                     new_syll.apply_mods(&self.alphas, &self.variables, &SupraSegs { stress: *stress, length: [None, None], tone: tone.clone() })?;
 
                     let syll = res_word.syllables.get_mut(insert_pos.syll_index).unwrap();
@@ -685,7 +687,10 @@ impl SubRule {
 
                     insert_pos.syll_index += 2;
                     insert_pos.seg_index = 0;
-                    
+
+                    if let Some(v) = var {
+                        self.variables.borrow_mut().insert(*v, VarKind::Syllable(word.syllables[insert_pos.syll_index -1].clone()));
+                    }
                 },
                 ParseKind::Ipa(seg, mods) => {
                     if after {
