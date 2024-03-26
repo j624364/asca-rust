@@ -801,13 +801,14 @@ impl Parser {
     }
 
     fn get_output_element(&mut self) -> Result<Option<Item>, RuleSyntaxError> {
-        // returns syllable / segment / variable / set
-        if let Some(x) = self.get_syll()? { return Ok(Some(x)) }
+        // returns syllable / segment / variable / set / syllbound
         // NOTE: a set in the output only makes sense when matched to a set in the input w/ the same # of elements
         // This will be validated when applying
-        if let Some(x) = self.get_set()? { return Ok(Some(x)) }
-        if let Some(x) = self.get_seg()? { return Ok(Some(x)) }
-        if let Some(x) = self.get_var()? { return Ok(Some(x)) }
+        if let Some(x) = self.get_syll()?      { return Ok(Some(x)) }
+        if let Some(x) = self.get_set()?       { return Ok(Some(x)) }
+        if let Some(x) = self.get_seg()?       { return Ok(Some(x)) }
+        if let Some(x) = self.get_var()?       { return Ok(Some(x)) }
+        if let Some(x) = self.get_syll_bound() { return Ok(Some(x)) }
 
         Ok(None)
     }

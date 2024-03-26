@@ -12,7 +12,7 @@ INP_EL  ←   ELLIPSS / SBOUND / TERM                         //
 
 OUT     ←   OUT_TRM  ( ',' OUT_TRM )*                       //
 OUT_TRM ←   OUT_EL+                                         //
-OUT_EL  ←   SYL / SET / SEG / VAR                           // NOTE: 'SET' here only makes sense if it corresponds to a SET in INP
+OUT_EL  ←   SYL / SET / SEG / VAR / SBOUND                  // NOTE: 'SET' here only makes sense if it corresponds to a SET in INP
 
 ENV     ←   '_' ',' ENV_EL / ENV_TRM  (',' ENV_TRM)*        // e.g. _,# ==> #_ , _#
 ENV_TRM ←   ('WBOUND')? ENV_EL?  '_' ENV_EL? ('WBOUND')?    //

@@ -473,9 +473,10 @@ impl SubRule {
                 let mut start_index = SegPos::new(0, 0);
                 let mut after = false;
 
-                while let Some(insert_position) = self.insertion_context_match(&res_word, &mut start_index, &mut after)? {
+                while let Some(mut insert_position) = self.insertion_context_match(&res_word, &mut start_index, &mut after)? {
                     println!("Match! {} at {:?}", word.render().unwrap(),insert_position);
-                    res_word = self.insertion(&res_word, insert_position, after)?;
+                    res_word = self.insertion(&res_word, &mut insert_position, after)?;
+                    start_index = insert_position;
                     after = false;
                 }
                 Ok(res_word)
@@ -541,6 +542,7 @@ impl SubRule {
                     match_begin = None;
                 }
             }
+
             // if we've got to the end of the word and we haven't began matching
             if match_begin.is_none() { 
                 return Ok(None)
@@ -549,7 +551,8 @@ impl SubRule {
                 // if we've reached the end of the word and the last state is a word boundary
                 ParseKind::WordBound | ParseKind::SyllBound => {},
                 // No Match
-                _ => { return Ok(None) }
+                _ if match_begin.is_none() => { return Ok(None) },
+                _ => {}
             }
         }
 
@@ -595,7 +598,7 @@ impl SubRule {
                 insertion_position = cur_pos;
                 *after = true;
             } else {
-                while word.in_bounds(cur_pos) {
+                while word.in_bounds(cur_pos) && state_index < after_states.len() {
                     if !self.insertion_context_match_item(&mut cur_pos, &mut state_index, word, after_states, true)? {
                         return Ok(None)
                     }
@@ -657,19 +660,19 @@ impl SubRule {
         }
     }
 
-    fn insertion(&self, word: &Word, insert_pos: SegPos, after: bool) -> Result<Word, RuleRuntimeError> {
+    fn insertion(&self, word: &Word, insert_pos: &mut SegPos, after: bool) -> Result<Word, RuleRuntimeError> {
         let mut res_word = word.clone();
-        let mut insert_pos = insert_pos;
         
         for (state_index, state) in self.output.iter().enumerate() {
             match &state.kind {
                 ParseKind::Syllable(_stress, _tone, _var) => {
-                    if insert_pos.seg_index == 0 {
-                        // Will have to error as a syllable must have segments
+                    if !insert_pos.at_syll_start() && !insert_pos.at_syll_end(word) {
+                        // Will have to error as one of the the resulting syllables would be empty
                         todo!("ERR")
                     } else {
                         // split current syll into two at insert_pos
                         todo!("Split")
+                        // Apply stress etc. to second syll
                     }
                 },
                 ParseKind::Ipa(seg, mods) => {
@@ -684,14 +687,32 @@ impl SubRule {
                     insert_pos.increment(&res_word);
                 },
                 ParseKind::Variable(_num, _mods) => todo!(),
+                ParseKind::SyllBound => {
+                    if insert_pos.at_syll_start() || insert_pos.at_syll_end(&res_word) {
+                        continue; // do nothing
+                    }
+                    // split current syll into two at insert_pos
+                    // initialise stress & tone as default
+
+                    let mut new_syll = Syllable::new();
+                    let syll = res_word.syllables.get_mut(insert_pos.syll_index).unwrap();
+
+                    while syll.segments.len() > insert_pos.seg_index {
+                        new_syll.segments.push_front(syll.segments.pop_back().unwrap());
+                    }
+                    
+                    res_word.syllables.insert(insert_pos.syll_index+1, new_syll);
+
+                    insert_pos.syll_index += 1;
+                    insert_pos.seg_index = 0;
+                },
                 
                 
                 ParseKind::Matrix(..) => return Err(RuleRuntimeError::InsertionMatrix(state.position)),
                 ParseKind::Set(_) => return Err(RuleRuntimeError::LonelySet(state.position)),
-                ParseKind::EmptySet      | ParseKind::Metathesis | 
-                ParseKind::SyllBound     | ParseKind::Ellipsis   | 
-                ParseKind::Optional(..)  | ParseKind::WordBound  | 
-                ParseKind::Environment(..) => unreachable!(),
+                ParseKind::EmptySet  | ParseKind::Metathesis | 
+                ParseKind::Ellipsis  | ParseKind::Optional(..) | 
+                ParseKind::WordBound | ParseKind::Environment(..) => unreachable!(),
             }
         }
 
@@ -749,11 +770,18 @@ impl SubRule {
                     // See which one of the input set matched and use the corresponding in output to substitute
                     todo!()
                 },
+
+                ParseKind::SyllBound => {
+                    // if !pos.at_syll_start() && !pos.at_syll_end(word) {
+                    //     // split current syll into two at insert_pos
+                    //     todo!("Split")
+                    // }
+                    todo!()
+                },
                 
-                ParseKind::EmptySet      | ParseKind::Metathesis | 
-                ParseKind::SyllBound     | ParseKind::Ellipsis   | 
-                ParseKind::Optional(..)  | ParseKind::WordBound  | 
-                ParseKind::Environment(..) => unreachable!(),
+                ParseKind::EmptySet   | ParseKind::Metathesis    | 
+                ParseKind::Ellipsis   | ParseKind::Optional(..)  | 
+                ParseKind::WordBound  | ParseKind::Environment(..) => unreachable!(),
             }
         }
 
