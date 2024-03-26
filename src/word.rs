@@ -109,6 +109,7 @@ impl Word {
         let t = text.replace('\'', "ˈ")
                     .replace(',',  "ˌ")
                     .replace('g',  "ɡ")
+                    .replace('?',  "ʔ")
                     .replace(':',  "ː")
                     .replace(';',  "ː.")
                     .replace('ǝ',  "ə");

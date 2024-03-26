@@ -528,6 +528,7 @@ impl<'a> Lexer<'a> {
         let mut buffer = self.curr_char()
             .to_string()
             .replace('g',  "ɡ")
+            .replace('?',  "ʔ")
             .replace('ǝ',  "ə");
 
         
