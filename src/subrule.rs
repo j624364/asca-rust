@@ -665,15 +665,27 @@ impl SubRule {
         
         for (state_index, state) in self.output.iter().enumerate() {
             match &state.kind {
-                ParseKind::Syllable(_stress, _tone, _var) => {
-                    if !insert_pos.at_syll_start() && !insert_pos.at_syll_end(word) {
+                ParseKind::Syllable(stress, tone, var) => {
+                    if insert_pos.at_syll_start() || insert_pos.at_syll_end(word) {
                         // Will have to error as one of the the resulting syllables would be empty
                         todo!("ERR")
-                    } else {
-                        // split current syll into two at insert_pos
-                        todo!("Split")
-                        // Apply stress etc. to second syll
+                    } 
+                    // split current syll into two at insert_pos
+                    // Apply stress etc. to second syll
+
+                    let mut new_syll = Syllable::new();
+                    new_syll.apply_mods(&self.alphas, &self.variables, &SupraSegs { stress: *stress, length: [None, None], tone: tone.clone() })?;
+
+                    let syll = res_word.syllables.get_mut(insert_pos.syll_index).unwrap();
+
+                    while syll.segments.len() > insert_pos.seg_index {
+                        new_syll.segments.push_front(syll.segments.pop_back().unwrap());
                     }
+                    res_word.syllables.insert(insert_pos.syll_index+1, new_syll);
+
+                    insert_pos.syll_index += 2;
+                    insert_pos.seg_index = 0;
+                    
                 },
                 ParseKind::Ipa(seg, mods) => {
                     if after {
@@ -700,7 +712,6 @@ impl SubRule {
                     while syll.segments.len() > insert_pos.seg_index {
                         new_syll.segments.push_front(syll.segments.pop_back().unwrap());
                     }
-                    
                     res_word.syllables.insert(insert_pos.syll_index+1, new_syll);
 
                     insert_pos.syll_index += 1;
@@ -724,7 +735,7 @@ impl SubRule {
         if let Some(_v) = var {
             todo!("Deal with variable")
         } else {
-            word.syllables.get_mut(syll_index).unwrap().apply_mods(&self.variables, &mods.suprs)
+            word.syllables.get_mut(syll_index).unwrap().apply_mods(&self.alphas, &self.variables, &mods.suprs)
         }
     }
     
