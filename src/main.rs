@@ -57,12 +57,12 @@ lazy_static! {
                     let x = *key as usize;
                     match value {
                         true =>{
-                            if x > 7 { args.feats[x - 8] = Some(SegMKind::Binary(BinMod::Positive)) }
-                            else { args.nodes[x] = Some(SegMKind::Binary(BinMod::Positive)) };
+                            if x > 7 { args.feats[x - 8] = Some(ModKind::Binary(BinMod::Positive)) }
+                            else { args.nodes[x] = Some(ModKind::Binary(BinMod::Positive)) };
                         },
                         false => {
-                            if x > 7 { args.feats[x - 8] = Some(SegMKind::Binary(BinMod::Negative)) } 
-                            else { args.nodes[x] = Some(SegMKind::Binary(BinMod::Negative)) };
+                            if x > 7 { args.feats[x - 8] = Some(ModKind::Binary(BinMod::Negative)) } 
+                            else { args.nodes[x] = Some(ModKind::Binary(BinMod::Negative)) };
                         }
                     }
                 }
@@ -164,17 +164,13 @@ fn traced_word_to_string(word: Word, before: Option<&String>) -> String {
 }
 
 fn words_to_string(words: &[Word]) -> Result<Vec<String>, WordRuntimeError> {
-
     let mut wrds_str: Vec<String> = vec![];
-
     for (i, w) in words.iter().enumerate() {
         match w.render() {
             Ok(r) => wrds_str.push(r),
             Err((b, j)) => return Err(WordRuntimeError::UnknownSegment(b,i,j)),
         }
-        
     }
-
     Ok(wrds_str)
 }
 
@@ -182,12 +178,9 @@ fn run(unparsed_rules: &[String], unparsed_words: &[String], trace: bool) -> Res
     let words = parse_words(unparsed_words)?;
     let rules = parse_rules(unparsed_rules)?;
 
-    // println!("{}", unparsed_rules[0]);
-
     let (res, trace_res) = apply_rules(&rules, &words, trace)?;
-
+    
     Ok((words_to_string(&res)?, trace_res))
-
 }
 
 fn deal_with_result(res: Result<(Vec<String>, Vec<Vec<String>>), Error>, rules: &[String], words: &[String]) {
@@ -200,9 +193,9 @@ fn deal_with_result(res: Result<(Vec<String>, Vec<Vec<String>>), Error>, rules: 
         },
         Err(err) => match err {
             Error::WordSyn(e) => println!("{}", e.format_error(words)),
-            Error::WordRun(e)    => println!("{}", e.format_error(words)),
+            Error::WordRun(e) => println!("{}", e.format_error(words)),
             Error::RuleSyn(e) => println!("{}", e.format_error(rules)),
-            Error::RuleRun(e)    => println!("{}", e.format_error(rules)),
+            Error::RuleRun(e) => println!("{}", e.format_error(rules)),
         },
     }
 }
@@ -210,18 +203,85 @@ fn deal_with_result(res: Result<(Vec<String>, Vec<Vec<String>>), Error>, rules: 
 fn main() {
     let unparsed_rules: Vec<String> = vec![
         // String::from("C:[+d.r., -dr, -nas "),
-        // String::from("rabol => &"),
+        // String::from("rabol > &"),
+        // String::from("oba > &"),
+        // String::from("o > *"),
         // String::from("r...l > &"),
         // String::from("sk > &"),
-        String::from("%% > &"),
         // String::from("rV > &"),
+        // String::from("%% > &"),
+        // String::from("% > *"),
+        // String::from("* > {s, t}V"),
+        // String::from("[+rho]=1 V=2 > 2 1  / _s	"),
+        // String::from("%=1 > * / 1_"),
+        // String::from("u > *"),
+        // String::from("[-voice]$ > * / [-voice]_[-voice]"),
+        // String::from("$s > & / #_{p,t,k}"),
+
+        // String::from("t^ʃ > ʃ"),
+        // String::from("t > *  / _#"),
+        
+        // String::from("a > e  / _V:[+hi] | _u"),
+        // String::new(""),
+        // String::from("* > b / m_r"),
+        // String::from("$ > &"),
+        // String::from("lm > &"),
+        // String::from("V:[tone:32] > * / _#"),
+        // String::from("* > *"),
+
+        // String::from("%=1 > * / 1_"),
+        // String::from("% > * / _trix"),
+
+        // String::from("V > [+round] / _C[+round]"),
+
+        // String::from("C:[+nasal] > [αplace] / _C:[αplace]"),
+
+        // String::from("d > [αvoice] / _[αvoice]"),
+        // String::from("g > [αvoice] / _[-α voice]"),
+
+        // String::from("* > %:[+stress, tone: 213] / a_i"),
+
+        String::from("* > o / _#"),
+        String::from("V > [+frt, -back, -rnd] / _#"),
+        String::from("V > [-voi] / _#"),
+        // String::from("* > $ / _do#"),
+
+
 
     ];
 
     let unparsed_words: Vec<String> = vec![
-        String::from("pa'ra.bo.la"),
+        // String::from("pa'ra.bo.la"),
         // String::from("ask"),
         // String::from("hros"),
+        // String::from("a.su.ka"),
+        // String::from("om.re"),
+
+        // String::from("t^ʃi:.tu"),
+        // String::from("t^ʃat"),
+
+        // String::from("samk"),
+        // String::from("sang"),
+        // String::from("sanp"),
+        // String::from("sanf"),
+        // String::from("sanq"),
+
+        // String::from("sads"),
+        // String::from("sagz"),
+
+        String::from("sed"),
+
+        // String::from("sa˦.ne˦"),
+
+        // String::from("hap.lo.lo.gi"),
+        // String::from("nu.tri.tri"),
+        // String::from("tra.gi.co.co.mi.co"),
+        // String::from("nar.si.si.zm"),
+        // String::from("mor.fo.fo.no.lo.gi"),
+
+        // String::from("spa.nja"),
+        // String::from("'ga32,da32"),
+        // String::from("ganda.en"),
     ];
 
     let trace = false;
@@ -232,48 +292,3 @@ fn main() {
     
     
 }
-
-// fn main2() {
-//     // let test = String::from("[]...[] > &");
-//     // let test = String::from("[+voi, -sg, αPLACE]...C > &");
-//     // let test = String::from("V > [+long] / _C#");
-//     // let test = String::from("%:[tone:214] > [tone:35] / _%:[tone:214] ");
-//     // let test = String::from("t͡ɕ...b͡β > &");
-//     // let test = String::from("r...V > &");
-//     // let test = String::from("V:[+syll]...l > & / _,C");
-//     // let test = String::from("C=1 V=2 > 2 1  / _C");
-//     // let test = String::from("%:[+stress], % > [-stress], [+stress] / _ , #_ ");
-//     
-//     // let w = Word::new("ˌna.kiˈsa".to_owned()).unwrap();
-//     let w = Word::new("a.ki.ra".to_owned()).unwrap();
-//     // let mut w = Word::new("ˌna.kiˈ:a".to_owned()).unwrap();
-//     println!("{}", w);
-//    
-//     let mut tokens;
-//     const ITERS: u32 = 1;
-//    
-//     let start  = Instant::now();
-//     // let test= String::from("t͡ɕ...b͡β > &");
-//     // let test= String::from("r > l");
-//     let test = String::from("%:[+stress], % > [-stress], [+stress] / _ , #_ ");
-//     let test = String::from("%:[+setr]");
-//     let mut maybe_rule: Result<Rule, RuleSyntaxError> = Err(RuleSyntaxError::EmptyInput);
-//
-//     for _ in 0..ITERS {
-//        
-//         let mut lex = Lexer::new(&test,0);
-//         tokens = lex.get_all_tokens().unwrap();
-//    
-//         // tokens.clone().into_iter().for_each(|t| {
-//         //         println!("{}", t);
-//         //     });
-//         let mut parser = Parser:: new(tokens,0);
-//
-//         maybe_rule = parser.parse();
-//     }
-//
-//     let dur = start.elapsed();
-//     println!("\nTotal Time: {:?}", dur);
-//     println!("Average Time per Iteration: {:?}\n", dur/ITERS);
-//
-// }
