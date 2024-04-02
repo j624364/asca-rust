@@ -650,7 +650,7 @@ impl<'a> Lexer<'a> {
             "distributed" | "distrib" | "dist" | "dis" | "dst"   => Ok(Feature(Feat(Distributed))),
             // Dorsal Place Node Features
             "dorsal"  | "drsl"  | "dors" | "dor"                 => Ok(Feature(Node(Dorsal))),
-            "front"   | "frnt"  | "fnt"  | "fro" | "fr"          => Ok(Feature(Feat(Front))),
+            "front"   | "frnt"  | "fnt"  | "fro" | "frt" | "fr"  => Ok(Feature(Feat(Front))),
             "back"    | "bck"   | "bk"                           => Ok(Feature(Feat(Back))),
             "high"    | "hgh"   | "hi"                           => Ok(Feature(Feat(High))),
             "low"     | "lw"    | "lo"                           => Ok(Feature(Feat(Low))),
