@@ -603,7 +603,7 @@ impl<'a> Lexer<'a> {
         use SupraType::*;
         match buffer.to_lowercase().as_str() {
             "tone"   | "ton" | "tn"    => Ok(Feature(Supr(Tone))),
-            _ => Err(RuleSyntaxError::UnknownFeature(buffer.clone(), self.line, start, buffer.len()))
+            _ => Err(RuleSyntaxError::UnknownEnbyFeature(buffer.clone(), Position::new(self.line, start, start+buffer.len())))
         }
     }
 
@@ -668,7 +668,7 @@ impl<'a> Lexer<'a> {
             "secondarystress"| "sec.stress" | "secstress" |
             "sec.str."       | "secstr" | "sec"                  => Ok(Feature(Supr(SecStress))),
             
-            _ => Err(RuleSyntaxError::UnknownFeature(buffer, self.line, start, end))
+            _ => Err(RuleSyntaxError::UnknownFeature(buffer, Position::new(self.line, start, end)))
         }
     }
 

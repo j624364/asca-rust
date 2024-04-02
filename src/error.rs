@@ -247,8 +247,6 @@ impl ASCAError for RuleRuntimeError {
 }
 
 type LineNum = usize;
-type StartPos = usize;
-type EndPos = usize;
 type Pos = usize;
 
 #[derive(Debug, Clone)]
@@ -263,7 +261,6 @@ pub enum RuleSyntaxError {
     ExpectedCharDot(char, LineNum, Pos),
     ExpectedNumber(char, LineNum, Pos),
     OutsideBrackets(char, LineNum, Pos),
-    UnknownFeature(String, LineNum, StartPos, EndPos),
     TooManyUnderlines(Token),
     UnexpectedEol(Token, char),
     ExpectedEndL(Token),
@@ -292,6 +289,8 @@ pub enum RuleSyntaxError {
     StuffAfterWordBound(Position),
     StuffBeforeWordBound(Position),
     TooManyWordBoundaries(Position),
+    UnknownFeature(String, Position),
+    UnknownEnbyFeature(String, Position),
 }
 
 impl ASCAError for RuleSyntaxError {
@@ -300,7 +299,8 @@ impl ASCAError for RuleSyntaxError {
             Self::OptMathError(_, low, high)    => format!("An Option's second argument '{high}' must be greater than or equal to it's first argument '{low}'"),
             Self::UnknownIPA(token)             => format!("Could not get value of IPA '{}'.", token.value),
             Self::UnknownGrouping(token)        => format!("Unknown grouping '{}'. Known groupings are (C)onsonant, (O)bstruent, (S)onorant, (L)iquid, (N)asal, (G)lide, and (V)owel", token.value),
-            Self::UnknownFeature(feat, l, s, e) => format!("Unknown feature '{feat} at {l}:{s}-{e}'."),
+            Self::UnknownFeature(feat, Position{line: l,start: s, end: e}) => format!("Unknown feature '{feat}' at {l}:{s}-{e}'."),
+            Self::UnknownEnbyFeature(feat, ..)  => format!("Feature '{feat}' has no modifier."),
             Self::ExpectedAlphabetic(c, l, pos) => format!("Expected ASCII character, but received '{c}' at {l}:{pos}'."),
             Self::ExpectedCharColon(c, l, pos)  => format!("Expected ':', but received '{c}' at {l}:{pos}"),
             Self::ExpectedCharArrow(c, l, pos)  => format!("Expected '->', but received -'{c}' at {l}:{pos}"),
@@ -373,12 +373,12 @@ impl ASCAError for RuleSyntaxError {
                     arrows.bright_red().bold()
                 ));
             },
-            Self::UnknownFeature(_, line, start, end) => {
-                let arrows = " ".repeat(*start) + &"^".repeat(end-start) + "\n";
+            Self::UnknownFeature(_, pos) | Self::UnknownEnbyFeature(_, pos) => {
+                let arrows = " ".repeat(pos.start) + &"^".repeat(pos.end-pos.start) + "\n";
 
                 result.push_str(&format!("{}{}{}{}",  
                     MARG.bright_cyan().bold(), 
-                    rules[*line], 
+                    rules[pos.line], 
                     MARG.bright_cyan().bold(), 
                     arrows.bright_red().bold()
                 ));
@@ -426,7 +426,8 @@ impl ASCAError for RuleSyntaxError {
                 ))
             },
             Self::TooManyWordBoundaries(pos) |
-            Self::StuffBeforeWordBound(pos)  | Self::StuffAfterWordBound(pos) => {
+            Self::StuffBeforeWordBound(pos)  | 
+            Self::StuffAfterWordBound(pos) => {
                 let arrows = " ".repeat(pos.start) + "^" + "\n";
                 result.push_str(&format!("{}{}{}{}",  
                     MARG.bright_cyan().bold(), 
