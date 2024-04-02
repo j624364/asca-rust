@@ -46,10 +46,9 @@ impl SegPos {
     pub fn increment(&mut self, word: &Word) {
         // NOTE: Does not guarantee that the resulting position is within the bounds of the word
         debug_assert!(self.syll_index < word.syllables.len());
-        let syll = word.syllables[self.syll_index].clone();
-
+        
         self.seg_index += 1;
-        if self.seg_index > syll.segments.len() - 1 {
+        if self.seg_index > word.syllables[self.syll_index].segments.len() - 1 {
             self.seg_index = 0;
             self.syll_index += 1;
         }
@@ -64,6 +63,7 @@ impl SegPos {
             self.syll_index -= 1;
             self.seg_index = word.syllables[self.syll_index].segments.len() - 1;
         }
+        // if 0:0, do nothing
     }
 
     pub fn at_word_start(&self) -> bool {
