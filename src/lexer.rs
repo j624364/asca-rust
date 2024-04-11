@@ -625,8 +625,8 @@ impl<'a> Lexer<'a> {
             "approximant"    | "approx" | "appr" | "app"         => Ok(Feature(Feat(Approximant))),
             "lateral"        | "latrl"  | "ltrl" | "lat"         => Ok(Feature(Feat(Lateral))),
             "nasal"          | "nsl"    | "nas"                  => Ok(Feature(Feat(Nasal))),
-            "delayedrelease" | "delrel" | "d.r." | 
-            "del.rel."       | "dr"                              => Ok(Feature(Feat(DelayedRelease))),
+            "delayedrelease" | "delrel" | "d.r." | "del.rel." | 
+            "delayed" | "dl" | "dlrl"   | "dr"   | "delay"       => Ok(Feature(Feat(DelayedRelease))),
             "strident"       | "strid"  | "stri"                 => Ok(Feature(Feat(Strident))),
             "rhotic"         | "rhot"   | "rho"  | "rh"          => Ok(Feature(Feat(Rhotic))),
             "click"          | "clik"   | "clk"                  => Ok(Feature(Feat(Click))),
