@@ -36,11 +36,11 @@ pub enum VarKind {
 pub struct SubRule {
     pub input    : Vec<Item>,
     pub output   : Vec<Item>,
-    pub context  : Option<Item>,         
+    pub context  : Option<Item>,
     pub except   : Option<Item>,
     pub rule_type: RuleType,
     pub variables: RefCell<HashMap<usize, VarKind>>,
-    pub alphas   : RefCell<HashMap<char, Alpha>> 
+    pub alphas   : RefCell<HashMap<char, Alpha>>
 }
 
 impl SubRule {
@@ -50,7 +50,7 @@ impl SubRule {
         // RuleType::Deletion      => {/* skip calc output */},
         // RuleType::Insertion     => {/* skip match input */},
 
-        if let RuleType::Insertion = self.rule_type {
+        if self.rule_type == RuleType::Insertion {
             return self.transform(&word, vec![], &mut None)
         } 
         
@@ -858,7 +858,6 @@ impl SubRule {
     }
 
     fn input_match_at(&self, word: &Word, start_index: SegPos) -> Result<(Vec<MatchElement>, Option<SegPos>), RuleRuntimeError> {
-        // TODO(girv): match context and exceptions
         let mut cur_index = start_index;
         let mut match_begin = None;
         let mut state_index = 0;
@@ -867,9 +866,9 @@ impl SubRule {
         while word.in_bounds(cur_index) {
             if self.input_match_item(&mut captures, &mut cur_index, &mut state_index, word, &self.input)? {
                 if state_index > self.input.len() - 1 { 
-                    // if we have a full match             
+                    // if we have a full match
 
-                    // To avoid an infinite loop
+                    // As matching a syllbound doesn't increment, this is to avoid an infinite loop
                     if self.input.last().unwrap().kind == ParseKind::SyllBound {
                         cur_index.increment(word);
                     }
@@ -880,25 +879,25 @@ impl SubRule {
                     match_begin = Some(cur_index)
                 }
                 // else continue 
-            } else if match_begin.is_none() { 
-                // if we weren't in the middle of matching and didn't no match, move on
-                cur_index.increment(word);
-                // NOTE(girv): Should be unnecessary, but safety first!:
-                state_index = 0;
-                captures = vec![];  
-            } else { 
+            } else if let Some (x) = match_begin { 
                 // if we were in the middle of matching but now don't match, go back to when we started matching +1 and start again
-                cur_index = match_begin.unwrap();
+                cur_index = x;
                 cur_index.increment(word);
                 state_index = 0;
                 captures = vec![];
                 match_begin = None;
+            } else {
+                // if we weren't in the middle of matching, move on
+                cur_index.increment(word);
+                // NOTE(girv): Should be unnecessary, but safety first!
+                state_index = 0;
+                captures = vec![];  
             }
         }
 
         if match_begin.is_none() { // if we've got to the end of the word and we haven't began matching
             Ok((vec![], None))
-        } else if let ParseKind::WordBound | ParseKind::SyllBound = self.input.last().unwrap().kind {
+        } else if self.input.last().unwrap().kind == ParseKind::SyllBound {
             // if we've reached the end of the word and the last state is a word boundary
             captures.push(MatchElement::SyllBound(word.syllables.len()));
             Ok((captures, None))
@@ -1119,13 +1118,11 @@ impl SubRule {
             } else {
                 Ok(false)
             }
+        } else if self.match_ipa_with_modifiers(s, mods.as_ref().unwrap(), word, &pos)? {
+            captures.push(MatchElement::Segment(pos));
+            Ok(true)
         } else {
-            if self.match_ipa_with_modifiers(s, mods.as_ref().unwrap(), word, &pos)? {
-                captures.push(MatchElement::Segment(pos));
-                Ok(true)
-            } else {
-                Ok(false)
-            }
+            Ok(false)
         }
     }
 
