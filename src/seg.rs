@@ -151,6 +151,91 @@ impl NodeKind {
     }
 }
 
+// pub fn test_node_variants() {
+
+//     fn asdf(cache: HashMap<u8, u8>) -> Vec<String> {
+//         let mut v: Vec<_> = cache.into_iter().collect();
+//         v.sort_by(|x, y| x.0.cmp(&y.0));
+//         let width = 8 - v.last().unwrap().0.leading_zeros() as usize;
+//         v.iter().map(|(x, v)| format!("{:0width$b} : {}", x, v)).collect()
+//     }
+//     fn qwer(cache: HashMap<Option<u8>, u8>) -> Vec<String> {
+//         let mut v: Vec<_> = cache.into_iter().collect();
+//         v.sort_by(|x, y| x.0.cmp(&y.0));
+//         let width = 8 - v.last().unwrap().0.unwrap().leading_zeros() as usize;
+//         v.iter().map(|(x, v)| {
+//             if let Some(q) = x {
+//                 format!("{:0width$b} : {}", q, v)
+//             } else {
+//                 format!("- : {v}")
+//             }
+//         }).collect()
+//     }
+    
+//     let mut rut_cache = std::collections::HashMap::<u8, u8>::new();
+//     let mut man_cache = std::collections::HashMap::<u8, u8>::new();
+//     let mut lar_cache = std::collections::HashMap::<u8, u8>::new();
+//     let mut lab_cache = std::collections::HashMap::<Option<u8>, u8>::new();
+//     let mut cor_cache = std::collections::HashMap::<Option<u8>, u8>::new();
+//     let mut dor_cache = std::collections::HashMap::<Option<u8>, u8>::new();
+//     let mut phr_cache = std::collections::HashMap::<Option<u8>, u8>::new();
+
+//     let mut count = 0;
+    
+//     CARDINALS_VEC.iter().for_each(|s| {
+//         let seg = CARDINALS_MAP.get(s).unwrap();
+        
+//         *rut_cache.entry(seg.root).or_default() += 1;
+//         *man_cache.entry(seg.manner).or_default() += 1;
+//         *lar_cache.entry(seg.laryngeal).or_default() += 1;
+//         *lab_cache.entry(seg.labial).or_default() += 1;
+//         *cor_cache.entry(seg.coronal).or_default() += 1;
+//         *dor_cache.entry(seg.dorsal).or_default() += 1;
+//         *phr_cache.entry(seg.pharyngeal).or_default() += 1;
+//         count += 1;
+//     });
+
+//     println!("rut: {} of {count} - {:#?}", rut_cache.len(), asdf(rut_cache));
+//     println!("man: {} of {count} - {:#?}", man_cache.len(), asdf(man_cache));
+//     println!("lar: {} of {count} - {:#?}", lar_cache.len(), asdf(lar_cache));
+//     println!("lab: {} of {count} - {:#?}", lab_cache.len(), qwer(lab_cache));
+//     println!("cor: {} of {count} - {:#?}", cor_cache.len(), qwer(cor_cache));
+//     println!("dor: {} of {count} - {:#?}", dor_cache.len(), qwer(dor_cache));
+//     println!("phr: {} of {count} - {:#?}", phr_cache.len(), qwer(phr_cache));
+// }
+
+
+// More than 246172 legal variants
+// pub fn test_variants() {
+//     let mut errs = 0;
+//     let mut count = 0;
+//
+//     for root in 1..=0b111 {
+//         for manner in 0..=0b11111111 {
+//             for laryngeal in 0..=0b111 {
+//                 for l in 0..=0b11 {
+//                     for c in 0..=0b11 {
+//                         for d in 0..=0b111111 {
+//                             for p in 0..=0b11 {
+//                                 let seg = Segment { root, manner, laryngeal, labial: Some(l), coronal: Some(c), dorsal: Some(d), pharyngeal: Some(p) };
+//                                 count +=1;
+//                                 if let Some(g) = seg.get_as_grapheme() {
+//                                     if g == "�".to_string() {
+//                                         errs += 1;
+//                                     }
+//                                 } else {
+//                                     errs += 1;
+//                                 }
+//                             }
+//                         }
+//                     }
+//                 }
+//             }
+//         }
+//         println!("{root}/7: {errs} out of {count} ");
+//     } 
+//     println!("Total {errs} out of {count}");
+// }
 
 #[derive(Default, Clone, Copy, PartialEq, Eq, Deserialize)]
 pub struct Segment {
@@ -162,7 +247,7 @@ pub struct Segment {
     pub dorsal    : Option<u8>,
     pub pharyngeal: Option<u8>,
 }
-
+ 
 impl fmt::Debug for Segment {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
 
@@ -249,20 +334,18 @@ impl Segment {
         // }
         // eprintln!("{}", candidates.len());
         
-
         for (cand_seg , cand_graph, _) in candidates {
             let mut buf_seg = cand_seg;
             let mut buf_str = cand_graph.clone();
 
             for d in DIACRITS.iter() {
                 if self.match_modifiers(&d.prereqs) && self.match_modifiers(&d.payload) {
-                    // if c_grapheme == "r" {
-                    //     eprintln!("--------");
-                    //     eprintln!("{} {} {:?} {:?}", buf_str,  d.diacrit, d.payload, d.payload);
-                    //     eprintln!("--------");
-                    // }
-                    buf_seg.apply_diacritic_payload(&d.payload);
-
+                        let before = buf_seg;
+                        buf_seg.apply_diacritic_payload(&d.payload);
+                        if buf_seg == before {
+                            buf_seg = before;
+                            continue;
+                        }
                     if buf_seg == cand_seg {
                         continue;
                     } else {
@@ -275,7 +358,7 @@ impl Segment {
             }
         }
 
-        todo!()
+        Some("�".to_string())
 
         // for c_grapheme in CARDINALS_VEC.iter() {
         //     let x = CARDINALS_MAP.get(c_grapheme).unwrap();
@@ -563,12 +646,12 @@ impl Segment {
                                     debug_assert_eq!(*n, node);
                                     debug_assert_ne!(*n, NodeKind::Place);
                                     self.set_node(*n, *m);
-                                } else if let Some((n, l, c, d, p)) = alpha.as_place() {
+                                } else if let Some((n, place)) = alpha.as_place() {
                                     debug_assert_eq!(*n, node);
-                                    self.set_node(NodeKind::Labial, *l);
-                                    self.set_node(NodeKind::Coronal, *c);
-                                    self.set_node(NodeKind::Dorsal, *d);
-                                    self.set_node(NodeKind::Pharyngeal, *p);
+                                    self.set_node(NodeKind::Labial    , place.lab);
+                                    self.set_node(NodeKind::Coronal   , place.cor);
+                                    self.set_node(NodeKind::Dorsal    , place.dor);
+                                    self.set_node(NodeKind::Pharyngeal, place.phr);
                                 } else {
                                     todo!("Err: alpha is not a node")
                                 }

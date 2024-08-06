@@ -42,7 +42,7 @@ impl Syllable {
         Self {segments: VecDeque::new(), stress: StressKind::default(), tone: String::new()}
     }
 
-    pub fn apply_mods(&mut self, _alphas: &RefCell<HashMap<char, Alpha>> , _vars: &RefCell<HashMap<usize, VarKind>>, mods: &SupraSegs) -> Result<(), RuleRuntimeError>{
+    pub fn apply_mods(&mut self, _alphas: &RefCell<HashMap<char, Alpha>> , /*_vars: &RefCell<HashMap<usize, VarKind>>,*/ mods: &SupraSegs) -> Result<(), RuleRuntimeError>{
         // NOTE: this function ignores mods.length 
         match mods.stress {
             // [stress, secstress]

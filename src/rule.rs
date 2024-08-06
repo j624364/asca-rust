@@ -23,9 +23,23 @@ pub enum RuleType {
 }
 
 #[derive(Debug)]
+pub struct PlaceMod {
+    pub lab: Option<u8>,
+    pub cor: Option<u8>,
+    pub dor: Option<u8>,
+    pub phr: Option<u8>,
+}
+
+impl PlaceMod {
+    pub fn new(lab: Option<u8>, cor: Option<u8>, dor: Option<u8>, phr: Option<u8>) -> Self {
+        Self { lab, cor, dor, phr }
+    }
+}
+
+#[derive(Debug)]
 pub enum Alpha {
     Node(NodeKind, Option<u8>),
-    Place(NodeKind, (Option<u8>,Option<u8>,Option<u8>,Option<u8>)),
+    Place(NodeKind, PlaceMod),
     Feature(NodeKind, u8, bool),
     Supra(Supr), // TODO: Replace Supr with something else
 }
@@ -52,9 +66,9 @@ impl Alpha {
         }
     }
 
-    pub fn as_place(&self) -> Option<(&NodeKind, &Option<u8>, &Option<u8>, &Option<u8>, &Option<u8>)> {
-        if let Self::Place(nk, (l, c, d, p)) = self {
-            Some((nk, l, c, d, p))
+    pub fn as_place(&self) -> Option<(&NodeKind, &PlaceMod)> {
+        if let Self::Place(nk, place) = self {
+            Some((nk, place))
         } else {
             None
         }
@@ -65,7 +79,7 @@ impl Alpha {
 //     input: Vec<Item>,
 //     state: ,
 // }
-
+//
 // #[derive(Debug)]
 // pub struct SubRule {
 //     input    : Vec<Item>,
@@ -690,28 +704,101 @@ mod rule_tests {
         Word::new(String::from(test_str)).unwrap()
     }
 
-    // TODO: Uncomment these when implemented 
-    // #[test]
-    // fn test_sub_simple_ipa() {
-    //     let test_rule = setup_rule("r > l");
-    //     let test_word = setup_word("la.ri.sa");
-    //
-    //     assert_eq!(test_rule.apply(test_word).unwrap().render().unwrap(), "la.li.sa");
-    // }
+    #[test]
+    fn test_sub_simple_ipa() {
+        let test_rule = setup_rule("r > l");
+        let test_word = setup_word("la.ri.sa");
+    
+        assert_eq!(test_rule.apply(test_word).unwrap().render().unwrap(), "la.li.sa");
+    }
 
-    // #[test]
-    // fn test_del_group() {
-    //     let test_rule = setup_rule("V > * / V_");
-    //     let test_word = setup_word("kailu");
+    #[test]
+    fn test_del_vowel_after_vowel() {
+        let test_rule = setup_rule("V > * / V_");
+        let test_word = setup_word("kai.lua");
 
-    //     assert_eq!(test_rule.apply(test_word).unwrap().render().unwrap(), "kalu");
-    // }
+        assert_eq!(test_rule.apply(test_word).unwrap().render().unwrap(), "ka.lu");
+    }
 
-    // #[test]
-    // fn test_del_matrix() {
-    //     let test_rule = setup_rule("[+syll, -high] > * / [+syll, -high]_");
-    //     let test_word = setup_word("kailu");
-    //     // from Assamese, "a high vowel gets deleted following a non-high vowel"
-    //     assert_eq!(test_rule.apply(test_word).unwrap().render().unwrap(), "kalu");
-    // }
+    #[test]
+    fn test_del_matrix_after_matrix() {
+        let test_rule = setup_rule("[+syll, +high] > * / [+syll, -high]_");
+        let test_word = setup_word("kai.lua");
+        // from Assamese, "a high vowel gets deleted following a non-high vowel"
+        assert_eq!(test_rule.apply(test_word).unwrap().render().unwrap(), "ka.lua");
+    }
+
+    #[test]
+    fn sca_portuguese() {
+        let test_rules = [
+            setup_rule("[+rho] > [-cont] / C_, _$"),
+            setup_rule("s, m > * / _#"),
+            setup_rule("k > t^s / _[+front]"),
+            setup_rule("i > j / _V"),
+            setup_rule("V:[+long] > [-long]"),
+            setup_rule("e > * / Vr_#"),
+            setup_rule("$ > * / _r#"),
+            setup_rule("$w > * / V_V"),
+            setup_rule("u > o / _#"),
+            setup_rule("gn > nj"),  // ŋn > ɲ
+            setup_rule("p,t,k > [+voice] / V_V"),
+            setup_rule("k > i / i_t, e_t"), 
+            setup_rule("k > u / u_t, o_t"), 
+            setup_rule("p > t / V_t"), // C > 1 / V_C=1
+            setup_rule("i:[+long] > [-long]"),
+            setup_rule("e > * / C_rV"),
+            setup_rule("t^s > s"),
+            setup_rule("j > ʎ / l_"),
+            setup_rule("l > * / _ʎ"),
+            setup_rule("s > ʃ / i_"),
+            setup_rule("j > ʒ"),
+            setup_rule("a:[-str], e:[-str], o:[-str] > ɐ, ɨ, u | _CC"),
+            setup_rule("C=1 > * / _1"),
+            setup_rule("d, g > ð, ɣ | #_"),
+            setup_rule("C$ > & / $_"),
+            setup_rule("$C > & / _$"),
+            setup_rule("V:[+str] > [+nasal] / _[+cons, +nasal]C"),
+            setup_rule("[+cons, +nasal] > * / V:[+nasal]_"),
+        ];
+
+        let test_words = [
+            setup_word("'fo.kus"),
+            setup_word("'jo.kus"),
+            setup_word("dis'trik.tus"),
+            setup_word("ki:.wi'ta:.tem"),
+            setup_word("a.dop'ta.re"),
+            setup_word("'o.pe.ra"),
+            setup_word("se'kun.dus"),
+            setup_word("'fi:.liam"),
+            setup_word("'po:n.tem"),
+        ];
+
+        let output_matchs = [
+            setup_word("ˈfo.ɣu"),
+            setup_word("ˈʒo.ɣu"),
+            setup_word("diʃˈtɾi.tu"),
+            setup_word("siˈða.ðɨ"),
+            setup_word("ɐ.ðoˈtar"),
+            setup_word("ˈo.brɐ"),
+            setup_word("sɨˈɣũ.ðu"),
+            setup_word("ˈfi.ʎɐ"),
+            setup_word("ˈpõ.tɨ"),
+        ];
+
+        let mut output_words: Vec<Word> = vec![];
+
+        for word in &test_words {
+            let mut w = word.clone();
+
+            for rule in &test_rules {
+                w = rule.apply(w.clone()).unwrap();
+            }
+            output_words.push(w)
+        }
+
+        for (w, m) in output_words.iter().zip(output_matchs) {
+            assert_eq!(w.render().unwrap(), m.render().unwrap());
+        }
+
+    }
 }
