@@ -404,7 +404,7 @@ impl<'a> Lexer<'a> {
 
     fn get_feature(&mut self) -> Result<Option<Token>, RuleSyntaxError> {
         
-        if self.curr_char() != '+' && self.curr_char() != '-' && !matches!(self.curr_char(), 'α'..='ω') {
+        if !self.inside_matrix || self.curr_char() != '+' && self.curr_char() != '-' && !matches!(self.curr_char(), 'α'..='ω') {
             return Ok(None);
         }
         
