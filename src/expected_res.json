@@ -10,7 +10,7 @@
         "word_output": ["xun'θos","'xʷot","'me.du", "'ɡans", "'ɡʷels"]
     },
     {
-        "rule_input" : ["[-voice, +cont] > [+voice] / V:[-stress](C)($)_"],
+        "rule_input" : ["[-voice, +cont] > [+voice] / V:[-stress]([+son])_"],
         "word_input" : ["xun'θos","u'pe.ri","'me.du"],
         "word_output": ["xun'ðos","u'fe.ri","'me.du"]
     },
