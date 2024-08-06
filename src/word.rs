@@ -8,8 +8,8 @@ use crate :: {
     seg   ::Segment, 
     rule  ::Alpha, 
     syll  ::{StressKind, Syllable}, 
-    error ::{WordSyntaxError, RuleRuntimeError}, 
-    parser::Modifiers, 
+    error ::{RuleRuntimeError, WordSyntaxError}, 
+    parser::{Modifiers, SupraSegs}, 
     CARDINALS_MAP, CARDINALS_TRIE, DIACRITS 
 };
 
@@ -46,7 +46,7 @@ impl SegPos {
     pub fn increment(&mut self, word: &Word) {
         // NOTE: Does not guarantee that the resulting position is within the bounds of the word
         debug_assert!(self.syll_index < word.syllables.len());
-        
+
         self.seg_index += 1;
         if self.seg_index > word.syllables[self.syll_index].segments.len() - 1 {
             self.seg_index = 0;
@@ -472,9 +472,48 @@ impl Word {
 
     }
 
-    pub fn apply_mods(&mut self, alphas: &RefCell<HashMap<char, Alpha>>, mods: &Modifiers, pos: SegPos) -> Result<(), RuleRuntimeError> {
+    pub fn apply_supras(&mut self, alphas: &RefCell<HashMap<char, Alpha>>, mods: &SupraSegs, pos: SegPos) -> Result<(), RuleRuntimeError> {
+        let seg = self.get_seg_at(pos).expect("pos is in bounds");
+        let mut seg_len = self.seg_length_in_syll(pos);
+        match mods.length {
+            // [long, Overlong]
+            [None, None] => {},
+            [None, Some(v)] => match v {
+                crate::ModKind::Binary(b) => match b {
+                    crate::BinMod::Negative => while seg_len > 2 {
+                        self.syllables[pos.syll_index].segments.remove(pos.seg_index);
+                        seg_len -=1;
+                    },
+                    crate::BinMod::Positive => while seg_len < 3 {
+                        self.syllables[pos.syll_index].segments.insert(pos.seg_index, seg);
+                        seg_len +=1;
+                    },
+                },
+                crate::ModKind::Alpha(_) => todo!(),
+            },
+            [Some(v), None] => match v {
+                crate::ModKind::Binary(b) => match b {
+                    crate::BinMod::Negative => while seg_len > 1 {
+                        self.syllables[pos.syll_index].segments.remove(pos.seg_index);
+                        seg_len -= 1;
+                    },
+                    crate::BinMod::Positive => while seg_len < 2 {
+                        self.syllables[pos.syll_index].segments.insert(pos.seg_index, seg);
+                        seg_len += 1;
+                    },
+                },
+                crate::ModKind::Alpha(_) => todo!(),
+            },
+            [Some(_), Some(_)] => todo!(),
+        }
+
+
+        self.syllables[pos.syll_index].apply_mods(alphas, mods)
+    }
+
+    pub fn apply_mods(&mut self, alphas: &RefCell<HashMap<char, Alpha>>, mods: &Modifiers, start_pos: SegPos) -> Result<(), RuleRuntimeError> {
         // check seg length, if long then we must apply mods to all occurences (we assume that we are at the start)
-        let mut pos = pos;
+        let mut pos = start_pos;
 
         debug_assert!(self.in_bounds(pos));
         
@@ -489,9 +528,8 @@ impl Word {
             pos.increment(self);
         }
 
-        // if mods = +/- long/overlong we need to add or remove the segments
-
-        Ok(())
+        // Really, this should be first so that we don't have to needlessly apply mods if we apply -long
+        self.apply_supras(alphas, &mods.suprs, start_pos)
     }
 }
 
