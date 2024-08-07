@@ -8,9 +8,9 @@ use std::{
 use crate   :: {
     parser  ::{Item, Supr}, 
     error   :: RuleRuntimeError, 
-    word    :: Word, 
-    seg     :: NodeKind,
-    subrule :: SubRule
+    word    :: Word, SegPos,
+    seg     :: NodeKind, 
+    subrule :: SubRule, 
 };
 
 #[derive(Debug, Copy, Clone, PartialEq, Eq)]
@@ -525,7 +525,19 @@ impl Rule {
             let except  = if self.except.is_empty()  { None } else if self.except.len()  == 1 { Some(self.except[0].clone()) }  else { Some(self.except[i].clone()) };
             let rule_type = self.rule_type;  // TODO: calc rule_type here instead of in parser
 
-            sub_vec.push(SubRule {input, output, context, except, rule_type, variables: RefCell::new(HashMap::new()), alphas: RefCell::new(HashMap::new())});
+            sub_vec.push(
+                SubRule {
+                    input, 
+                    output, 
+                    context, 
+                    except, 
+                    rule_type, 
+                    variables: RefCell::new(HashMap::new()), 
+                    alphas: RefCell::new(HashMap::new()), 
+                    // pos: SegPos::new(0, 0),
+                    // state_index: SegPos::new(0, 0),
+                }
+            );
         }
 
         Ok(sub_vec)
@@ -708,15 +720,27 @@ mod rule_tests {
     fn test_sub_simple_ipa() {
         let test_rule = setup_rule("r > l");
         let test_word = setup_word("la.ri.sa");
-    
         assert_eq!(test_rule.apply(test_word).unwrap().render().unwrap(), "la.li.sa");
     }
 
     #[test]
+    fn test_met_simple_ipa() {
+        let test_rule = setup_rule("lVr > &");
+        let test_word = setup_word("la.ri");
+        assert_eq!(test_rule.apply(test_word).unwrap().render().unwrap(), "ra.li");
+    }
+
+    #[test]
+    fn test_del_ipa_before_bound() {
+        let test_rule = setup_rule("t > *  / _#");
+        let test_word = setup_word("kat.kat");
+        assert_eq!(test_rule.apply(test_word).unwrap().render().unwrap(), "kat.ka");
+    }
+    
+    #[test]
     fn test_del_vowel_after_vowel() {
         let test_rule = setup_rule("V > * / V_");
         let test_word = setup_word("kai.lua");
-
         assert_eq!(test_rule.apply(test_word).unwrap().render().unwrap(), "ka.lu");
     }
 
@@ -729,7 +753,63 @@ mod rule_tests {
     }
 
     #[test]
-    fn sca_portuguese() {
+    fn test_except_before_simple_ipa() {
+        let test_rule = setup_rule(" i > e | c_");
+        let test_word = setup_word("ki.ci");
+        assert_eq!(test_rule.apply(test_word).unwrap().render().unwrap(), "ke.ci");
+    }
+
+    #[test]
+    fn test_except_before_ipa() {
+        let test_rule = setup_rule(" i > e | cc _");
+        let test_word = setup_word("ki.cːi");
+        assert_eq!(test_rule.apply(test_word).unwrap().render().unwrap(), "ke.cːi");
+    }
+
+    #[test]
+    fn test_except_before_ipa_bound() {
+        let test_rule = setup_rule(" i > e | cc_");
+        let test_word = setup_word("kic.ci");
+        assert_eq!(test_rule.apply(test_word).unwrap().render().unwrap(), "kec.ci");
+    }
+
+    #[test]
+    fn test_except_after_simple_ipa() {
+        let test_rule = setup_rule(" i > e | _c");
+        let test_word = setup_word("ki.ci");
+        assert_eq!(test_rule.apply(test_word).unwrap().render().unwrap(), "ki.ce");
+    }
+
+    #[test]
+    fn test_except_after_ipa() {
+        let test_rule = setup_rule(" i > e | _cc");
+        let test_word = setup_word("ki.cːi");
+        assert_eq!(test_rule.apply(test_word).unwrap().render().unwrap(), "ki.cːe");
+    }
+
+    #[test]
+    fn test_except_after_ipa_bound() {
+        let test_rule = setup_rule(" i > e | _cc");
+        let test_word = setup_word("kic.ci");
+        assert_eq!(test_rule.apply(test_word).unwrap().render().unwrap(), "kic.ce");
+    }
+
+    #[test]
+    fn test_except_before_ipa_bound_false() {
+        let test_rule = setup_rule(" i > e | cc_");
+        let test_word = setup_word("ki.ci");
+        assert_eq!(test_rule.apply(test_word).unwrap().render().unwrap(), "ke.ce");
+    }
+
+    #[test]
+    fn test_except_after_ipa_bound_false() {
+        let test_rule = setup_rule(" i > e | _cc");
+        let test_word = setup_word("ki.ci");
+        assert_eq!(test_rule.apply(test_word).unwrap().render().unwrap(), "ke.ce");
+    }
+
+    #[test]
+    fn test_portuguese() {
         let test_rules = [
             setup_rule("[+rho] > [-cont] / C_, _$"),
             setup_rule("s, m > * / _#"),
@@ -754,13 +834,12 @@ mod rule_tests {
             setup_rule("j > ʒ"),
             setup_rule("a:[-str], e:[-str], o:[-str] > ɐ, ɨ, u | _CC"),
             setup_rule("C=1 > * / _1"),
-            setup_rule("d, g > ð, ɣ | #_"),
+            setup_rule("b, d, g > β, ð, ɣ | #_"),
             setup_rule("C$ > & / $_"),
             setup_rule("$C > & / _$"),
             setup_rule("V:[+str] > [+nasal] / _[+cons, +nasal]C"),
             setup_rule("[+cons, +nasal] > * / V:[+nasal]_"),
         ];
-
         let test_words = [
             setup_word("'fo.kus"),
             setup_word("'jo.kus"),
@@ -772,14 +851,13 @@ mod rule_tests {
             setup_word("'fi:.liam"),
             setup_word("'po:n.tem"),
         ];
-
         let output_matchs = [
             setup_word("ˈfo.ɣu"),
             setup_word("ˈʒo.ɣu"),
             setup_word("diʃˈtɾi.tu"),
             setup_word("siˈða.ðɨ"),
             setup_word("ɐ.ðoˈtar"),
-            setup_word("ˈo.brɐ"),
+            setup_word("ˈo.βrɐ"),   // ˈɔ.βɾɐ
             setup_word("sɨˈɣũ.ðu"),
             setup_word("ˈfi.ʎɐ"),
             setup_word("ˈpõ.tɨ"),
@@ -789,9 +867,8 @@ mod rule_tests {
 
         for word in &test_words {
             let mut w = word.clone();
-
             for rule in &test_rules {
-                w = rule.apply(w.clone()).unwrap();
+                w = rule.apply(w).unwrap();
             }
             output_words.push(w)
         }
