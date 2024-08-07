@@ -129,14 +129,14 @@ impl SubRule {
             }
         }
         let mut start_pos = pos;
-        let mut is_exception = false;
-        for (i, state) in except_states.iter().rev().enumerate() {
-            if self.context_match(word, state, &mut start_pos, false, i)? {
-                is_exception = true;
-                break;
+        let mut is_except_match = if except_states.is_empty() {false} else {true};
+        for (si, state) in except_states.iter().rev().enumerate() {
+            if !self.context_match(word, state, &mut start_pos, false, si)? {
+                println!("{} {}", word.render().unwrap(), state);
+                is_except_match = false;
             }
         }
-        Ok(is_context_match && !is_exception)
+        Ok(!is_except_match && is_context_match)
     }
 
     fn match_after_context_and_exception(&self, word: &Word, pos: SegPos) -> Result<bool, RuleRuntimeError> {
@@ -165,15 +165,15 @@ impl SubRule {
             }
         }
         let mut start_pos = pos;
-        let mut is_exception = false;
+        let mut is_except_match = if except_states.is_empty() {false} else {true};
         for (si, state) in except_states.iter().enumerate() {
-            if self.context_match(word, state, &mut start_pos, true, si)? {
-                println!("HERE");
-                is_exception = true;
-                break;
+            if !self.context_match(word, state, &mut start_pos, true, si)? {
+                println!("{} {}", word.render().unwrap(), state);
+                is_except_match = false;
             }
         }
-        Ok(is_context_match && !is_exception)
+
+        Ok(!is_except_match && is_context_match)
     }
 
     fn context_match(&self, word: &Word, state: &Item, pos: &mut SegPos, forwards: bool, state_index: usize) -> Result<bool, RuleRuntimeError> {
@@ -187,12 +187,12 @@ impl SubRule {
                 pos.decrement(word);
             }
         }
-        // So that things like V:[+long]_ will work 
-        if !forwards {
-            while pos.seg_index > 0 && word.syllables[pos.syll_index].segments[pos.seg_index] == word.syllables[pos.syll_index].segments[pos.seg_index - 1] {
-                pos.decrement(word);
-            } 
-        }
+        // // So that things like V:[+long]_ will work 
+        // if !forwards {
+        //     while pos.seg_index > 0 && word.syllables[pos.syll_index].segments[pos.seg_index] == word.syllables[pos.syll_index].segments[pos.seg_index - 1] {
+        //         pos.decrement(word);
+        //     } 
+        // }
         match &state.kind {
             ParseKind::WordBound => if (!forwards && pos.at_word_start()) || (forwards && word.out_of_bounds(*pos)) {
                 Ok(true)
