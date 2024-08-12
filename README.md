@@ -20,6 +20,7 @@ This repo contains the logic for the applier which will be connected to a web fr
     - [x] Simple Deletion
     - [ ] Simple Insertion (in progress)
     - [x] Simple Substitution 
-- [ ] Matching Environment (in progress)
-- [ ] Applying Exceptions  (in progress)
+- [ ] Matching Environment and Exceptions
+    - [x] Simple segments
+    - [ ] Ellipsis and Optional Segments
 - [ ] WASM Bindgen
