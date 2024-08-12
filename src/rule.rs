@@ -809,6 +809,19 @@ mod rule_tests {
     }
 
     #[test]
+    fn test_context_set() {
+        let test_rule = setup_rule("i > ɛ / _{r,h,ʍ}");
+        let test_word = setup_word("si.sir");
+        assert_eq!(test_rule.apply(test_word).unwrap().render().unwrap(), "si.sɛr");
+        
+        let test_word = setup_word("si.si.haz");
+        assert_eq!(test_rule.apply(test_word).unwrap().render().unwrap(), "si.sɛ.haz");
+
+        let test_word = setup_word("ri.hi.ʍaz");
+        assert_eq!(test_rule.apply(test_word).unwrap().render().unwrap(), "rɛ.hɛ.ʍaz");
+    } 
+
+    #[test]
     fn test_portuguese() {
         let test_rules = [
             setup_rule("[+rho] > [-cont] / C_, _$"),

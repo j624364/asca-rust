@@ -1,5 +1,5 @@
-// TODO(girv): lots of duplication here atm, focusing on getting things done before optimising
-
+// NOTE(girv): lots of duplication here atm, focusing on getting things done before optimising
+// TODO
 
 use std ::{
     cell::RefCell, 
@@ -140,18 +140,20 @@ impl SubRule {
     }
 
     fn match_after_context_and_exception(&self, word: &Word, pos: SegPos) -> Result<bool, RuleRuntimeError> {
-        let empty_env = Item::new(ParseKind::Environment(vec![], vec![]), crate::Position { line: 0, start: 0, end: 0 });
+        // TODO(girv): Don't know if this is actually better doing what I'm doing in before context match, so I'll leave them as different until I can bench them
+        const EMPTY_ENV: Item = Item{ kind: ParseKind::Environment(vec![], vec![]), position: crate::Position { line: 0, start: 0, end: 0 }};
+        let binding = EMPTY_ENV;
         let ParseKind::Environment(_, states) = &match &self.context {
             Some(s) => s,
             None => match &self.except {
-                Some(_) => &empty_env,
+                Some(_) => &binding,
                 None => return Ok(true),
             },
         }.kind else { unreachable!() };
         let ParseKind::Environment(_, except_states) = &match &self.except {
             Some(ex) => ex,
             None => match &self.context {
-                Some(_) => &empty_env,
+                Some(_) => &binding,
                 None => unreachable!(),
             },
         }.kind else { unreachable!() };
@@ -218,23 +220,19 @@ impl SubRule {
     }
 
     fn context_match_set(&self, set: &[Item], word: &Word, pos: &mut SegPos, forwards: bool) -> Result<bool, RuleRuntimeError> {
-
-        // for s in set {
-        //     let res = match &s.kind {
-        //         ParseKind::Variable(vt, m) => self.input_match_var(captures, state_index, vt, m, word, seg_index),
-        //         ParseKind::Ipa(s, m)       => self.input_match_ipa(captures, s, m, word, *seg_index),
-        //         ParseKind::Matrix(m, v)    => self.input_match_matrix(captures, m, v, word, seg_index),
-        //         ParseKind::Syllable(..) => todo!(),
-        //         _ => unimplemented!(),
-        //     };
-        //     if res? {
-        //         return Ok(true)
-        //     } else { // NOTE(girv): not needed, but it's more explicit
-        //         continue;
-        //     }
-        // }
-        // Ok(false)
-        todo!()
+        for s in set {
+            let res = match &s.kind {
+                ParseKind::Variable(vt, m) => self.context_match_var(vt, m, word, pos, forwards),
+                ParseKind::Ipa(s, m) => self.context_match_ipa(s, m, word, *pos),
+                ParseKind::Matrix(m, v) => self.context_match_matrix(m, v, word, pos, forwards),
+                ParseKind::Syllable(..) => todo!(),
+                _ => unimplemented!(),
+            };
+            if res? {
+                return Ok(true)
+            }
+        }
+        Ok(false)
     }
 
     fn context_match_var(&self, vt: &Token, mods: &Option<Modifiers>, word: &Word, pos: &mut SegPos, forwards: bool) -> Result<bool, RuleRuntimeError> {
@@ -349,7 +347,7 @@ impl SubRule {
                         },
                         (MatchElement::SyllBound(_), MatchElement::SyllBound(_)) => {/* Do nothing */},
                         (MatchElement::Segment(si), MatchElement::SyllBound(bi)) => {
-                            // TODO(girv): this won't work for rules with `...`, it may be necessary to disallow `$` in `...` rules                            
+                            // FIXME(girv): this won't work for rules with `...`, it may be necessary to disallow `$` in `...` rules                            
                             let seg = res_word.syllables[si.syll_index].segments[si.seg_index];
                             if bi < res_word.syllables.len() {
                                 res_word.syllables[bi].segments.push_front(seg);
@@ -365,7 +363,7 @@ impl SubRule {
                             }
                         },
                         (MatchElement::SyllBound(bi), MatchElement::Segment(si)) => {
-                            // TODO(girv): this won't work for rules with `...`, it may be necessary to disallow `$` in `...` rules
+                            // FIXME(girv): this won't work for rules with `...`, it may be necessary to disallow `$` in `...` rules
                             let seg = res_word.syllables[si.syll_index].segments[si.seg_index];
                             if bi > 0 {
                                 res_word.syllables[bi-1].segments.push_back(seg);
@@ -1102,8 +1100,6 @@ impl SubRule {
             };
             if res? {
                 return Ok(true)
-            } else { // NOTE(girv): not needed, but it's more explicit
-                continue;
             }
         }
         Ok(false)
@@ -1199,7 +1195,7 @@ impl SubRule {
         seg.apply_seg_mods(&self.alphas, mods.nodes, mods.feats)?;
 
         if *s == seg {
-            return self.match_supr_mod_seg(word, &mods.suprs, pos)
+            self.match_supr_mod_seg(word, &mods.suprs, pos)
         } else {
             Ok(false)
         }
