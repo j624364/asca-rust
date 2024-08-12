@@ -16,10 +16,12 @@ This repo contains the logic for the applier which will be connected to a web fr
 - [x] Parsing Rules
 - [ ] Matching Input (~90% complete)
 - [ ] Applying Output
-    - [x] Simple Metathesis
-    - [x] Simple Deletion
-    - [ ] Simple Insertion (in progress)
-    - [x] Simple Substitution 
+    - [x] Metathesis
+    - [x] Deletion
+    - [ ] Insertion (in progress)
+    - [ ] Substitution
+        - [x] Same length Substitution 
+        - [ ] Complex Substitution
 - [ ] Matching Environment and Exceptions
     - [x] Simple segments
     - [ ] Ellipsis and Optional Segments
