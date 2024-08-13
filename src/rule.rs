@@ -724,7 +724,25 @@ mod rule_tests {
     }
 
     #[test]
+    fn test_sub_set() {
+        let test_rule = setup_rule("{p, t, k} > {b, d, g}");
+        let test_word = setup_word("pa.ta.ka");
+        assert_eq!(test_rule.apply(test_word).unwrap().render().unwrap(), "ba.da.ɡa");
+    }
+
+    #[test]
     fn test_met_simple_ipa() {
+        let test_rule = setup_rule("sk > &");
+        let test_word = setup_word("ˈɑːs.ki.ɑn");
+        assert_eq!(test_rule.apply(test_word).unwrap().render().unwrap(), "ˈɑːk.si.ɑn");
+
+        let test_rule = setup_rule("[+rhotic]V > & / _s");
+        let test_word = setup_word("ˈhros");
+        assert_eq!(test_rule.apply(test_word).unwrap().render().unwrap(), "ˈhors");
+    }
+
+    #[test]
+    fn test_met_simple_mixed() {
         let test_rule = setup_rule("lVr > &");
         let test_word = setup_word("la.ri");
         assert_eq!(test_rule.apply(test_word).unwrap().render().unwrap(), "ra.li");
@@ -825,7 +843,7 @@ mod rule_tests {
     fn test_portuguese() {
         let test_rules = [
             setup_rule("[+rho] > [-cont] / C_, _$"),
-            setup_rule("s, m > * / _#"),
+            setup_rule("{s,m} > * / _#"),
             setup_rule("k > t^s / _[+front]"),
             setup_rule("i > j / _V"),
             setup_rule("V:[+long] > [-long]"),
@@ -833,25 +851,26 @@ mod rule_tests {
             setup_rule("$ > * / _r#"),
             setup_rule("$w > * / V_V"),
             setup_rule("u > o / _#"),
-            setup_rule("gn > nj"),  // ŋn > ɲ
-            setup_rule("p,t,k > [+voice] / V_V"),
+            setup_rule("ŋn > ɲɲ"),                          // ŋn > ɲ when substitution is finised
+            setup_rule("ɲ:[+long] > [-long]"),              // ŋn > ɲ
+            setup_rule("O:[-dr, -voice] > [+voice] / V_V"), // p,t,k > b,d,g / V_V
             setup_rule("k > i / i_t, e_t"), 
             setup_rule("k > u / u_t, o_t"), 
-            setup_rule("p > t / V_t"), // C > 1 / V_C=1
+            setup_rule("p > t / V_t"),                      // C > 1 / V_C=1
             setup_rule("i:[+long] > [-long]"),
             setup_rule("e > * / C_rV"),
             setup_rule("t^s > s"),
-            setup_rule("l > ʎ / _j"),
+            setup_rule("l > ʎ / _j"),                       // lj > ʎ
             setup_rule("j > * / ʎ_"),
             setup_rule("s > ʃ / i_"),
             setup_rule("j > ʒ"),
             setup_rule("a:[-str], e:[-str], o:[-str] > ɐ, ɨ, u | _CC"),
             setup_rule("C=1 > * / _1"),
-            setup_rule("b, d, g > β, ð, ɣ | #_"),
+            setup_rule("O:[+voice] > [+cont] | #_"),           // b, d, g > β, ð, ɣ | #_
             setup_rule("C$ > & / $_"),
             setup_rule("$C > & / _$"),
-            setup_rule("V:[+str] > [+nasal] / _[+cons, +nasal]C"),
-            setup_rule("[+cons, +nasal] > * / V:[+nasal]_"),
+            setup_rule("V:[+str] > [αnasal] / _[αnasal]C"),
+            setup_rule("N > * / V:[+nasal]_"),
         ];
         let test_words = [
             setup_word("'fo.kus"),
@@ -889,6 +908,39 @@ mod rule_tests {
         for (w, m) in output_words.iter().zip(output_matchs) {
             assert_eq!(w.render().unwrap(), m.render().unwrap());
         }
+    }
 
+    #[test]
+    fn test_proto_germanic_spirant_law() {
+        // (dʰt, dt, tt >) ts(t) > ss
+        // (dʰs, ds, ts >) ts > ss
+        // (bʰs, bs, ps >) ps > ɸs
+        // (ɡʰs, ɡs, ks >) ks > xs
+        // (bʰt, bt, pt >) pt > ɸt
+        // (ɡʰt, ɡt, kt >) kt > xt
+
+        // dʰt, dt, tt > tst
+        // tst > ts
+        // dʰs, ds > ts
+        // {p, t, k} > {ɸ, s, x} / _{t,s}
+
+
+        let test_rule = setup_rule("{p, t, k} > {ɸ, s, x} / _{t,s}");
+
+        assert_eq!(test_rule.apply(setup_word("ˈɑp.ter")).unwrap().render().unwrap(), "ˈɑɸ.ter");
+        assert_eq!(test_rule.apply(setup_word("ˈɑp.sɑn")).unwrap().render().unwrap(), "ˈɑɸ.sɑn");
+
+    }
+
+    #[test]
+    fn test_grimms_law() {
+        let test_rule = setup_rule("[+cons, -son, -voice, -cont], [+cons, -son, +voice, -cont, -sg], [+cons, +voice, +sg] > [+cont], [-voice], [-sg]");
+        
+        assert_eq!(test_rule.apply(setup_word("kun'tos")).unwrap().render().unwrap(), "xunˈθos");
+        assert_eq!(test_rule.apply(setup_word("dant")).unwrap().render().unwrap(), "tanθ");
+        assert_eq!(test_rule.apply(setup_word("'me.dʱu")).unwrap().render().unwrap(), "ˈme.du");
+        assert_eq!(test_rule.apply(setup_word("'kʷod")).unwrap().render().unwrap(), "ˈxʷot");
+        assert_eq!(test_rule.apply(setup_word("'ɡʱans")).unwrap().render().unwrap(), "ˈɡans");
+        assert_eq!(test_rule.apply(setup_word("'ɡʷʱels")).unwrap().render().unwrap(), "ˈɡʷels");
     }
 }
