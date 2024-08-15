@@ -756,14 +756,16 @@ impl SubRule {
                     if res_word.in_bounds(*insert_pos) {
                         res_word.syllables[insert_pos.syll_index].segments.insert(insert_pos.seg_index, *seg);
                     } else {
-                        res_word.syllables[insert_pos.syll_index].segments.push_back(*seg);
+                        res_word.syllables.last_mut().unwrap().segments.push_back(*seg);
                     }          
                     if let Some(m) = mods {
                         println!("{:?}", insert_pos);
                         res_word.apply_mods(&self.alphas, m, *insert_pos)?;
                     }          
                     
+                    if res_word.in_bounds(*insert_pos) {
                     insert_pos.increment(&res_word);
+                    }
                 },
                 ParseKind::Variable(num, mods) => self.insert_variable(&mut res_word, insert_pos, num, mods, after)?,
                 ParseKind::SyllBound => {
