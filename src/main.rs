@@ -207,6 +207,7 @@ fn main() {
         // String::from("oba > &"),
         // String::from("o > *"),
         // String::from("r...l > &"),
+        String::from("rVl > &"),
         // String::from("sk > &"),
         // String::from("rV > &"),
         // String::from("%% > &"),
@@ -241,9 +242,9 @@ fn main() {
 
         // String::from("* > %:[+stress, tone: 213] / a_i"),
 
-        String::from("* > o / _#"),
-        String::from("V > [+frt, -back, -rnd] / _#"),
-        String::from("V > [-voi] / _#"),
+        // String::from("* > o / _#"),
+        // String::from("V > [+frt, -back, -rnd] / _#"),
+        // String::from("V > [-voi] / _#"),
         // String::from("* > $ / _do#"),
 
 
@@ -257,6 +258,8 @@ fn main() {
         // String::from("a.su.ka"),
         // String::from("om.re"),
 
+        String::from("ra.le"),
+
         // String::from("t^ʃi:.tu"),
         // String::from("t^ʃat"),
 
@@ -269,7 +272,7 @@ fn main() {
         // String::from("sads"),
         // String::from("sagz"),
 
-        String::from("sed"),
+        // String::from("sed"),
 
         // String::from("sa˦.ne˦"),
 
