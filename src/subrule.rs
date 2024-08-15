@@ -479,8 +479,7 @@ impl SubRule {
                 Ok(res_word)
             },
             RuleType::Insertion => {
-                // find insertion position/range using context
-                // if inserting syllable, assert a range not a position
+                // find insertion position using context
                 // "Parse" and insert output
                 let mut res_word = word.clone();
                 let mut start_index = SegPos::new(0, 0);
@@ -490,8 +489,9 @@ impl SubRule {
                     print!("Match! {} at {:?}", word.render().unwrap(), insert_position);
                     res_word = self.insert(&res_word, &mut insert_position, after)?;
                     println!(" => {}", res_word.render().unwrap());
-                    start_index = insert_position;
                     if !word.in_bounds(insert_position) { break; }
+                    insert_position.increment(word);
+                    start_index = insert_position;
                     after = false;
                 }
                 Ok(res_word)
