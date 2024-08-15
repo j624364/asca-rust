@@ -837,7 +837,103 @@ mod rule_tests {
 
         let test_word = setup_word("ri.hi.ʍaz");
         assert_eq!(test_rule.apply(test_word).unwrap().render().unwrap(), "rɛ.hɛ.ʍaz");
-    } 
+    }
+
+    #[test]
+    fn test_insertion_context_ipa() {
+        let test_rule = setup_rule("* > e / _s");
+        let test_word = setup_word("ski");
+        assert_eq!(test_rule.apply(test_word).unwrap().render().unwrap(), "eski");
+
+        let test_rule = setup_rule("* > e / s_");
+        let test_word = setup_word("ski");
+        assert_eq!(test_rule.apply(test_word).unwrap().render().unwrap(), "seki");
+
+        let test_rule = setup_rule("* > e / s_");
+        let test_word = setup_word("kas");
+        assert_eq!(test_rule.apply(test_word).unwrap().render().unwrap(), "kase");
+        
+        let test_rule = setup_rule("* > e / _k");
+        let test_word = setup_word("ski");
+        assert_eq!(test_rule.apply(test_word).unwrap().render().unwrap(), "seki");
+
+        let test_rule = setup_rule("* > e / k_");
+        let test_word = setup_word("ski");
+        assert_eq!(test_rule.apply(test_word).unwrap().render().unwrap(), "skei");
+
+        // let test_rule = setup_rule("* > e / s_k");
+        // let test_word = setup_word("kskis");
+        // assert_eq!(test_rule.apply(test_word).unwrap().render().unwrap(), "ksekis");
+    }
+
+    #[test]
+    fn test_insertion_context_set() {
+        let test_rule = setup_rule("* > e / _{s,k}");
+        let test_word = setup_word("ski");
+        assert_eq!(test_rule.apply(test_word).unwrap().render().unwrap(), "eseki");
+
+        let test_rule = setup_rule("* > e / {s,k}_");
+        let test_word = setup_word("ski");
+        assert_eq!(test_rule.apply(test_word).unwrap().render().unwrap(), "sekei");
+    }
+
+    #[test]
+    fn test_insertion_context_matrix() {
+        let test_rule = setup_rule("* > e / _C");
+        let test_word = setup_word("ski");
+        println!("* > e / _C");
+        assert_eq!(test_rule.apply(test_word).unwrap().render().unwrap(), "eseki");
+    }
+
+    #[test]
+    fn test_insertion_context_syll() {
+        let test_rule = setup_rule("* > e / _%");
+        let test_word = setup_word("s.ki");
+        println!("* > e / _%");
+        assert_eq!(test_rule.apply(test_word).unwrap().render().unwrap(), "se.ki");
+    }
+
+    #[test]
+    fn test_insertion_context_syll_bound() {
+        let test_rule = setup_rule("* > e / _$ | _#");
+        let test_word = setup_word("s.ki");
+        println!("* > e / _$");
+        assert_eq!(test_rule.apply(test_word).unwrap().render().unwrap(), "se.ki");
+
+        let test_rule = setup_rule("* > e / $_ | #_");
+        let test_word = setup_word("as.k");
+        println!("* > e / $_");
+        assert_eq!(test_rule.apply(test_word).unwrap().render().unwrap(), "as.ek");
+    }
+
+
+    #[test]
+    fn test_match_alpha_feature() {
+        let test_rule = setup_rule("V > [αnasal] / _[αnasal]");
+        let test_word = setup_word("an.ti");
+        assert_eq!(test_rule.apply(test_word).unwrap().render().unwrap(), "ãn.ti");
+
+        let test_rule = setup_rule("V > [αnasal] / _[αnasal]");
+        let test_word = setup_word("na.ti");
+        assert_eq!(test_rule.apply(test_word).unwrap().render().unwrap(), "na.ti");
+
+        let test_rule = setup_rule("V > [αnasal] / _[αnasal]");
+        let test_word = setup_word("tan");
+        assert_eq!(test_rule.apply(test_word).unwrap().render().unwrap(), "tãn");
+    }
+
+    #[test]
+    fn test_nasal_assim() {
+        let test_rule = setup_rule("[+nasal] > [αPLACE] / _C:[αPLACE]");
+        let test_word = setup_word("ˈsɑm.dɑz");
+        assert_eq!(test_rule.apply(test_word).unwrap().render().unwrap(), "ˈsɑn.dɑz");
+
+        let test_word = setup_word("ˈhʊng");
+        assert_eq!(test_rule.apply(test_word).unwrap().render().unwrap(), "ˈhʊŋɡ");
+
+        let test_word = setup_word("ˈɪn.pʊt");
+        assert_eq!(test_rule.apply(test_word).unwrap().render().unwrap(), "ˈɪm.pʊt");
+    }
 
     #[test]
     fn test_portuguese() {
