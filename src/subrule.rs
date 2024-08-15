@@ -781,7 +781,7 @@ impl SubRule {
                     }          
                     
                     if res_word.in_bounds(*insert_pos) {
-                    insert_pos.increment(&res_word);
+                        insert_pos.increment(&res_word);
                     }
                 },
                 ParseKind::Variable(num, mods) => self.insert_variable(&mut res_word, insert_pos, num, mods, after)?,
