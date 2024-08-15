@@ -140,7 +140,7 @@ fn apply_rules(rules: &[Rule], words: &[Word], is_traced: bool) -> Result<(Vec<W
         }
 
         for r in rules.iter() {
-            wb = r.apply(wb.clone())?;
+            wb = r.apply(wb)?;
 
             if is_traced {
                 let asdf = traced_word_to_string(wb.clone(), traced_words[i].last());
