@@ -59,7 +59,7 @@ Nasal Assimilation
 
 Groupings can be used as shorthand to match often used parts of speech
 ```
-C -> Consonants (equiv. to [-syll])
+C -> Consonants (equiv. to [+cons, -syll])
 O -> Obstruents (equiv. to [+cons, -son, -syll])
 S -> Sonorants  (equiv. to [+cons, +son, -syll])
 L -> Liquids    (equiv. to [+cons, +sin, -syll, +approx])
