@@ -515,7 +515,7 @@ impl SubRule {
             Some(s) => s,
             None => match &self.except {
                 Some(_) => &empty_env,
-                None => return  Err(RuleRuntimeError::InsertionNoContextOrException(self.output.last().unwrap().position)),
+                None => return Err(RuleRuntimeError::InsertionNoContextOrException(self.output.last().unwrap().position)),
             },
         }.kind else { unreachable!() };
 
@@ -523,7 +523,7 @@ impl SubRule {
             Some(ex) => ex,
             None => match &self.context {
                 Some(_) => &empty_env,
-                None => todo!(),
+                None => unreachable!(),
             },
         }.kind else { unreachable!() };
 
@@ -644,17 +644,34 @@ impl SubRule {
                 cur_pos.increment(word);
                 Ok(Some(pos))
             } else { Ok(None) },
-            // ParseKind::SyllBound => if (!is_context_after && cur_pos.at_syll_start()) || (is_context_after && cur_pos.at_syll_end(word)) {
-            ParseKind::SyllBound => if cur_pos.at_syll_start() {
+            ParseKind::SyllBound => if (!is_context_after && cur_pos.at_syll_start()) || (is_context_after && cur_pos.at_syll_end(word)) {
+            // ParseKind::SyllBound => if cur_pos.at_syll_start() {
                 *state_index += 1;
                 Ok(Some(*cur_pos))
             } else { Ok(None) },
             ParseKind::Ellipsis => todo!(),
-            ParseKind::Syllable(_, _, _) => todo!(),
-            ParseKind::Set(_) => todo!(),
-            ParseKind::Matrix(_, _) => todo!(),
+            ParseKind::Syllable(s, t, v) => if self.context_match_syll(s, t, v, word, cur_pos, true)? {
+                *state_index += 1;
+                cur_pos.decrement(word);
+                Ok(Some(*cur_pos))
+            } else { Ok(None) },
+            ParseKind::Set(set) => if self.context_match_set(set, word, cur_pos, true)? {
+                *state_index += 1;
+                // I hate this, but it works for now
+                cur_pos.decrement(word);
+                Ok(Some(*cur_pos))
+            } else { Ok(None)},
+            ParseKind::Matrix(m, v) => if self.context_match_matrix(m, v, word, cur_pos, true)? {
+                *state_index += 1;
+                // I hate this, but it works for now
+                cur_pos.decrement(word);
+                Ok(Some(*cur_pos))
+            } else { Ok(None)},
+            ParseKind::Variable(vt, mods) => if self.context_match_var(vt, mods, word, cur_pos, true)? {
+                *state_index += 1;
+                Ok(Some(*cur_pos))
+            } else { Ok(None)},
             ParseKind::Optional(_, _, _) => todo!(),
-            ParseKind::Variable(_, _) => todo!(),
 
 
             ParseKind::EmptySet | ParseKind::Metathesis |
