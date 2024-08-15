@@ -135,15 +135,14 @@ fn apply_rules(rules: &[Rule], words: &[Word], is_traced: bool) -> Result<(Vec<W
         let mut wb = w.clone();
         if is_traced {
             traced_words.push(vec![]);
-            traced_words[i].push(traced_word_to_string(wb.clone(), None));
-
+            traced_words[i].push(traced_word_to_string(&wb, &w.render().unwrap()));
         }
 
         for r in rules.iter() {
             wb = r.apply(wb)?;
 
             if is_traced {
-                let asdf = traced_word_to_string(wb.clone(), traced_words[i].last());
+                let asdf = traced_word_to_string(&wb, traced_words[i].last().unwrap_or(&w.render().unwrap()));
                 traced_words[i].push(asdf);
             }
         }
@@ -153,13 +152,11 @@ fn apply_rules(rules: &[Rule], words: &[Word], is_traced: bool) -> Result<(Vec<W
     Ok((transformed_words, traced_words))
 }
 
-fn traced_word_to_string(word: Word, before: Option<&String>) -> String {
-
-    let word_before = before.unwrap_or(&"()".to_string()).clone();
-    
+fn traced_word_to_string(word: &Word, before: &String) -> String {
+    // let word_before = before.unwrap_or(&"()".to_string()).clone();
     match word.render() {
         Ok(res) => res,
-        Err((buffer, _)) => format!("Err: {word_before} => {buffer}")
+        Err((buffer, _)) => format!("Err: {before} => {buffer}")
     }
 }
 
@@ -201,6 +198,9 @@ fn deal_with_result(res: Result<(Vec<String>, Vec<Vec<String>>), Error>, rules: 
 }
 
 fn main() {
+
+    // seg::test_node_variants();
+
     let unparsed_rules: Vec<String> = vec![
         // String::from("C:[+d.r., -dr, -nas "),
         // String::from("rabol > &"),
@@ -246,9 +246,7 @@ fn main() {
         // String::from("V > [+frt, -back, -rnd] / _#"),
         // String::from("V > [-voi] / _#"),
         // String::from("* > $ / _do#"),
-
-
-
+        // String::from("[+syll, +hi] > * / [+syll, -hi] _"),
     ];
 
     let unparsed_words: Vec<String> = vec![
