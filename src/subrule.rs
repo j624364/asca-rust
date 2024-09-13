@@ -244,6 +244,8 @@ impl SubRule {
                 } else {Ok(false)},
                 ParseKind::Matrix(m, v) => self.context_match_matrix(m, v, word, pos, forwards),
                 ParseKind::Syllable(..) => todo!(),
+                ParseKind::WordBound => todo!(),
+                ParseKind::SyllBound => todo!(),
                 _ => unimplemented!(),
             };
             if res? {
@@ -1040,11 +1042,10 @@ impl SubRule {
                 seg_index.increment(word);
                 i += 1;
             } else {
-                // NOTE: segs are captured regardless of the `capture_wanted` check
+                // NOTE: segs are captured here regardless of the `capture_wanted` check
                 let mut inner_state_index = 0;
 
                 while word.in_bounds(*seg_index) && inner_state_index < inner_states.len() {
-                // while *seg_index <= word.seg_count() && inner_state_index < inner_states.len(){
                     if !self.input_match_item(&mut caps, seg_index, &mut inner_state_index, word, inner_states)? {
                         *seg_index = back_seg;
                         *state_index = back_state;
@@ -1148,6 +1149,8 @@ impl SubRule {
                 ParseKind::Ipa(s, m)       => self.input_match_ipa(captures, s, m, word, *pos),
                 ParseKind::Matrix(m, v)    => self.input_match_matrix(captures, m, v, word, pos),
                 ParseKind::Syllable(..) => todo!(),
+                ParseKind::WordBound => todo!(),
+                ParseKind::SyllBound => todo!(),
                 _ => unimplemented!(),
             };
             if res? {

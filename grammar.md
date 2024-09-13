@@ -20,7 +20,8 @@ ENV_EL  ←   ( SBOUND / ELLIPSS / TERM )+                    //
 
 TERM    ←   SYL / SET / SEG / OPT / VAR                     //
 SYL     ←   '%' (':' PARAMS)? VAR_ASN?                      //
-SET     ←   '{' SEG (',' SEG)* '}'                          // NOTE: At the moment, we can't have multi-segment sets i.e. "{nd}" is not allowed 
+SET     ←   '{' SET_TRM (',' SET_TRM)* '}'                  // NOTE: At the moment, we can't have multi-segment sets i.e. "{nd}" is not allowed 
+SET_TRM ←   SEG / BOUND                                     // NOTE: To be expanded
 OPT     ←   '(' OPT_TRM+ (',' [0-9]+ (':' [1-9]+)?)? ')'    // NOTE: (C) === (C,1) === (C, 0:1)
 OPT_TRM ←   BOUND / SYL / SET / SEG / VAR                   // FIXME: WBOUND in Input/Output shouldn't be allowed
 SEG     ←   IPA (':' PARAMS)? / MATRIX VAR_ASN?             //

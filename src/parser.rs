@@ -714,11 +714,11 @@ impl Parser {
     }
 
     fn get_set(&mut self) -> Result<Option<Item>, RuleSyntaxError> {
-        // returns set of segs
+        // returns set of terms
         let start_pos = self.curr_tkn.position.start;
 
         if !self.expect(TokenKind::LeftCurly) { return Ok(None) }
-        let mut segs = Vec::new();
+        let mut terms = Vec::new();
         // NOTE: this while condition may allow  "/ _{A, B, C <eol>" as valid input
         // should probably return SyntaxError::ExpectedRightBracketAtEol
         // bug or feature? ¯\_(ツ)_/¯
@@ -726,15 +726,20 @@ impl Parser {
             if self.expect(TokenKind::RightCurly) { break; }
             if self.expect(TokenKind::Comma)      { continue; }
             if let Some(x) = self.get_seg()? {
-                segs.push(x);
+                terms.push(x);
                 continue;
             }
-            // TODO(girv): allow more than just segments 
+            if let Some(x) = self.get_bound() {
+                terms.push(x);
+                continue;
+            }
+
+            // TODO(girv): allow more than just segments and boundaries
             return Err(RuleSyntaxError::ExpectedSegment(self.curr_tkn.clone()))
         }
+        // TODO(girv): check that set isn't empty
         let end_pos = self.token_list[self.pos-1].position.end;
-
-        Ok(Some(Item::new(ParseKind::Set(segs.clone()), Position::new(self.line, start_pos, end_pos))))
+        Ok(Some(Item::new(ParseKind::Set(terms.clone()), Position::new(self.line, start_pos, end_pos))))
     }
 
     fn get_syll(&mut self) -> Result<Option<Item>, RuleSyntaxError> {
