@@ -11,8 +11,8 @@
     },
     {
         "rule_input" : ["[-voice, +cont] > [+voice] / V:[-stress]([+son])_"],
-        "word_input" : ["xun'θos","u'pe.ri","'me.du"],
-        "word_output": ["xun'ðos","u'fe.ri","'me.du"]
+        "word_input" : ["xun'θos","u'fe.ri","'me.du"],
+        "word_output": ["xun'ðos","u've.ri","'me.du"]
     },
     {
         "rule_input" : ["%:[+stress] > [-stress]", "% > [+stress] / #_"],
@@ -21,8 +21,8 @@
     },
     {
         "rule_input" : ["[+nasal] > [αPLACE] / _C:[αPLACE]"],
-        "word_input" : ["sam.daz", "hunɡ", "inp"],
-        "word_output": ["san.daz", "huŋɡ", "imp"]
+        "word_input" : ["ˈsɑm.dɑz", "ˈhʊnɡ", "ˈɪn.pʊt"],
+        "word_output": ["ˈsɑn.dɑz", "ˈhʊŋɡ", "ˈɪm.pʊt"]
     },
     {
         "rule_input" : ["r...l > &"],
@@ -30,8 +30,8 @@
         "word_output": ["pa.la.ba.ra"]
     },
     {
-        "rule_input" : ["[+syll, +hi] > [αbk, βfr, γrnd] / [αbk, βfr, βγrnd] (C,0) _(C,1) #"],
-        "word_input" : ["desun, røstin, sɨdyn, sodɨn, dasin"],
-        "word_output": ["desin, røstyn, sɨdɨn, sodun, dasɨn"]
+        "rule_input" : ["[+syll, +hi] > [αbk, βfr, γrnd] / [αbk, βfr, βγrnd] (C,0) _(C) #"],
+        "word_input" : ["desun","røstin","sɨdyn","sodɨn","dasin"],
+        "word_output": ["desin","røstyn","sɨdɨn","sodun","dasɨn"]
     }
 ]

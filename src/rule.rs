@@ -910,29 +910,18 @@ mod rule_tests {
     #[test]
     fn test_match_alpha_feature() {
         let test_rule = setup_rule("V > [αnasal] / _[αnasal]");
-        let test_word = setup_word("an.ti");
-        assert_eq!(test_rule.apply(test_word).unwrap().render().unwrap(), "ãn.ti");
 
-        let test_rule = setup_rule("V > [αnasal] / _[αnasal]");
-        let test_word = setup_word("na.ti");
-        assert_eq!(test_rule.apply(test_word).unwrap().render().unwrap(), "na.ti");
-
-        let test_rule = setup_rule("V > [αnasal] / _[αnasal]");
-        let test_word = setup_word("tan");
-        assert_eq!(test_rule.apply(test_word).unwrap().render().unwrap(), "tãn");
+        assert_eq!(test_rule.apply(setup_word("an.ti")).unwrap().render().unwrap(), "ãn.ti");
+        assert_eq!(test_rule.apply(setup_word("na.ti")).unwrap().render().unwrap(), "na.ti");
+        assert_eq!(test_rule.apply(setup_word("tan")).unwrap().render().unwrap(), "tãn");
     }
 
     #[test]
     fn test_nasal_assim() {
         let test_rule = setup_rule("[+nasal] > [αPLACE] / _C:[αPLACE]");
-        let test_word = setup_word("ˈsɑm.dɑz");
-        assert_eq!(test_rule.apply(test_word).unwrap().render().unwrap(), "ˈsɑn.dɑz");
-
-        let test_word = setup_word("ˈhʊng");
-        assert_eq!(test_rule.apply(test_word).unwrap().render().unwrap(), "ˈhʊŋɡ");
-
-        let test_word = setup_word("ˈɪn.pʊt");
-        assert_eq!(test_rule.apply(test_word).unwrap().render().unwrap(), "ˈɪm.pʊt");
+        assert_eq!(test_rule.apply(setup_word("ˈsɑm.dɑz")).unwrap().render().unwrap(), "ˈsɑn.dɑz");
+        assert_eq!(test_rule.apply(setup_word("ˈhʊng")).unwrap().render().unwrap(), "ˈhʊŋɡ");
+        assert_eq!(test_rule.apply(setup_word("ˈɪn.pʊt")).unwrap().render().unwrap(), "ˈɪm.pʊt");
     }
 
     #[test]
@@ -1026,17 +1015,57 @@ mod rule_tests {
         assert_eq!(test_rule.apply(setup_word("ˈɑp.ter")).unwrap().render().unwrap(), "ˈɑɸ.ter");
         assert_eq!(test_rule.apply(setup_word("ˈɑp.sɑn")).unwrap().render().unwrap(), "ˈɑɸ.sɑn");
 
+        assert_eq!(test_rule.apply(setup_word("ˈɑt.ter")).unwrap().render().unwrap(), "ˈɑs.ter");
+        assert_eq!(test_rule.apply(setup_word("ˈɑt.sɑn")).unwrap().render().unwrap(), "ˈɑs.sɑn");
+
+        assert_eq!(test_rule.apply(setup_word("ˈɑk.ter")).unwrap().render().unwrap(), "ˈɑx.ter");
+        assert_eq!(test_rule.apply(setup_word("ˈɑk.sɑn")).unwrap().render().unwrap(), "ˈɑx.sɑn");
+
     }
 
     #[test]
     fn test_grimms_law() {
         let test_rule = setup_rule("[+cons, -son, -voice, -cont], [+cons, -son, +voice, -cont, -sg], [+cons, +voice, +sg] > [+cont], [-voice], [-sg]");
         
-        assert_eq!(test_rule.apply(setup_word("kun'tos")).unwrap().render().unwrap(), "xunˈθos");
-        assert_eq!(test_rule.apply(setup_word("dant")).unwrap().render().unwrap(), "tanθ");
-        assert_eq!(test_rule.apply(setup_word("'me.dʱu")).unwrap().render().unwrap(), "ˈme.du");
-        assert_eq!(test_rule.apply(setup_word("'kʷod")).unwrap().render().unwrap(), "ˈxʷot");
+        assert_eq!(test_rule.apply(setup_word("kunˈtos")).unwrap().render().unwrap(), "xunˈθos");
+        assert_eq!(test_rule.apply(setup_word("ˈdant")).unwrap().render().unwrap(), "ˈtanθ");
+        assert_eq!(test_rule.apply(setup_word("ˈme.dʱu")).unwrap().render().unwrap(), "ˈme.du");
+        assert_eq!(test_rule.apply(setup_word("ˈkʷod")).unwrap().render().unwrap(), "ˈxʷot");
         assert_eq!(test_rule.apply(setup_word("'ɡʱans")).unwrap().render().unwrap(), "ˈɡans");
         assert_eq!(test_rule.apply(setup_word("'ɡʷʱels")).unwrap().render().unwrap(), "ˈɡʷels");
     }
+
+    #[test]
+    fn test_verners_law() {
+        // let test_rule = setup_rule("[-voice, +cont] > [+voice] / V:[-stress]([+son])_");
+        let test_rule = setup_rule("[-voice, +cont] > [+voice] / V:[-stress]_, V:[-stress][+son]_");
+        
+        assert_eq!(test_rule.apply(setup_word("xunˈθos")).unwrap().render().unwrap(), "xunˈðos");
+        assert_eq!(test_rule.apply(setup_word("fɑˈθer")).unwrap().render().unwrap(), "fɑˈðer");
+        assert_eq!(test_rule.apply(setup_word("uˈɸer")).unwrap().render().unwrap(), "uˈβer");
+        assert_eq!(test_rule.apply(setup_word("ɑɸ")).unwrap().render().unwrap(), "ɑβ");
+        assert_eq!(test_rule.apply(setup_word("ˈme.du")).unwrap().render().unwrap(), "ˈme.du");
+    }
+
+    #[test]
+    fn test_pgmc_stress_shift() {
+        let test_rule = setup_rule("%:[+stress], % > [-stress], [+stress] / _, #_");
+        assert_eq!(test_rule.apply(setup_word("xunˈðos")).unwrap().render().unwrap(), "ˈxun.ðos");
+        assert_eq!(test_rule.apply(setup_word("fɑˈðer")).unwrap().render().unwrap(), "ˈfɑ.ðer");
+        assert_eq!(test_rule.apply(setup_word("uˈβer")).unwrap().render().unwrap(), "ˈu.βer");
+    }
+
+    #[test]
+    fn test_japanese_devoicing() {
+        // let test_rule = setup_rule("V > [-voice] / [-voi]_{[-voi], #}");
+        let test_rule = setup_rule("V > [-voice] / [-voi]_[-voi], [-voi]_#");
+
+        assert_eq!(test_rule.apply(setup_word("de.sɯ")).unwrap().render().unwrap(), "de.sɯ̥");
+    }
+
+    // #[test]
+    // fn test_latin_stress() {
+    //     let test_rule = setup_rule("");
+    //     assert_eq!(test_rule.apply(setup_word("")).unwrap().render().unwrap(), "");
+    // }
 }
