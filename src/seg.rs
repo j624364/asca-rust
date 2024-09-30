@@ -305,7 +305,7 @@ impl Segment {
         //     true
         // }
 
-        // test against all cardinals for a match
+        // test against all cardinal values for a match
         for c_grapheme in CARDINALS_VEC.iter() {
             let x = CARDINALS_MAP.get(c_grapheme).unwrap();
             if *x == *self { return Some(c_grapheme.to_string()) }
@@ -364,42 +364,31 @@ impl Segment {
         //     let x = CARDINALS_MAP.get(c_grapheme).unwrap();
         //     let mut buf_str = c_grapheme.clone();
         //     let mut buf_seg = x.clone();
-
         //     for d in DIACRITS.iter() {
-            
         //         // let mut buf_seg = buffer.1;
         //         if self.match_modifiers(&d.prereqs) && self.match_modifiers(&d.payload) {
         //             // todo!("add diacritic to buffer")
-
         //             // if c_grapheme == "r" {
         //             //     eprintln!("--------");
         //             //     eprintln!("{} {} {:?} {:?}", buf_str,  d.diacrit, d.payload, d.payload);
         //             //     eprintln!("--------");
         //             // }
         //             buf_seg.apply_diacritic_payload(&d.payload);
-
         //             if buf_seg == *x {
         //                 continue;
         //             } else {
         //                 buf_str.push(d.diacrit);
         //             }
         //         }
-
         //         // if c_grapheme == "r" {
         //         //     eprintln!("{} {} {:?} {:?}", buf_str,  d.diacrit, d.payload, d.payload);
         //         // }
-
-                
-
         //         if buf_seg == *self { 
         //             candidates.push(buf_str.clone());
         //         }
         //     }
-            
         // }
-
         // eprintln!("{:?}\n", candidates);
-
         // if candidates.is_empty() {
         //     return None
         // } else {
@@ -412,7 +401,6 @@ impl Segment {
         //             cand_len = len;
         //         }
         //     }
-
         //     return Some(candidates[cand_index].clone())
         // }
 
@@ -426,13 +414,11 @@ impl Segment {
                 return false
             }
         }
-
         for (i, m) in mods.nodes.iter().enumerate() {
             if !self.match_node_mod(m, i) {
                 return false
             }
         }
-
         true
     }
 
@@ -461,7 +447,6 @@ impl Segment {
             let (node, mask) = feature_to_node_mask(FType::from_usize(feat_index));
             return self.match_feat_mod_kind(kind, node, mask)
         }
-
         true
     }
 
@@ -596,7 +581,6 @@ impl Segment {
                 }
             }
         }
-
         for (i, m) in dm.feats.iter().enumerate() {
             if let Some(kind) = m {
                 let (n,f) = feature_to_node_mask(FType::from_usize(i));
@@ -664,7 +648,6 @@ impl Segment {
                 }
             }
         }
-        
         for (i, m) in feats.iter().enumerate() {
             if let Some(kind) = m { 
                 let (n, f) = feature_to_node_mask(FType::from_usize(i));

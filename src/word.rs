@@ -117,18 +117,7 @@ impl Word {
 
         Ok(w)
     }
-    
-    // pub fn render_only_segments(&self) -> Option<String> {
-    //     let mut buffer = String::new();
-    //     for syll in self.syllables.clone() {
-    //         for seg in syll.segments {
-    //             buffer.push_str(&seg.get_as_grapheme()?);
-    //         }
-    //     }
-    //     Some(buffer)
-    // }
 
-    // TODO: `render` probably isn't the right verb here
     pub fn render(&self) -> Result<String, (String, usize)> {
         let mut buffer = String::new();
         for (i, syll) in self.syllables.iter().enumerate() {
@@ -200,44 +189,6 @@ impl Word {
         len
     }
 
-    
-    // /// Finds number of consecutive identical segments starting from the given index.
-    // /// Does not take into account if said index is in the middle of the repetition
-    // /// # Examples
-    // /// ``` 
-    // /// let word = Word::new("aaa").unwrap();
-    // /// assert_eq!(word.seg_length_at(0), 3);
-    // /// assert_eq!(word.seg_length_at(1), 2);
-    // /// ```
-    // pub fn seg_length_at(&self, seg_index: usize) -> usize {
-    //     if self.is_word_final(seg_index) {
-    //         return 1
-    //     }
-
-    //     let mut seg_index = seg_index+1;
-    //     let mut len = 1;
-
-    //     while seg_index < self.segments.len()
-    //     && self.get_seg_at(seg_index).unwrap() == self.get_seg_at(seg_index).unwrap() {
-    //         len +=1;
-    //         seg_index += 1;
-    //     }
-
-    //     len
-    // }
-
-    // pub fn seg_count(&self) -> usize {
-    //     let mut count = 0;
-    //     for syll in self.syllables.clone() {
-    //         count += syll.segments.len() - 1
-    //     }
-    //     count 
-    // } 
-
-    // pub fn syll_count(&self) -> usize {
-    //     self.syllables.len() - 1
-    // } 
-
     pub fn in_bounds(&self, seg_pos: SegPos) -> bool {
         seg_pos.syll_index < self.syllables.len() && seg_pos.seg_index < self.syllables[seg_pos.syll_index].segments.len()
     }
@@ -255,7 +206,6 @@ impl Word {
     }
 
     // pub fn first_diff(before: &Word, after: &Word) -> Option<(usize, isize)> {
-
     //     let mut first_diff = None;
     //     for (i,( bfr, aft)) in before.syllables.iter().zip(after.syllables.iter()).enumerate() {
     //         print!("{}, ", bfr.segments.len());
@@ -266,7 +216,6 @@ impl Word {
     //             break;
     //         } 
     //     }
-
     //     match first_diff {
     //         Some(_) => first_diff,
     //         None => {
@@ -281,47 +230,8 @@ impl Word {
     //             } else {
     //                 None
     //             } 
-
     //         },
     //     }
-    // }
-
-    // pub fn get_syll_at(&self, syll_index: usize) -> Option<Syllable> {
-    //     if syll_index < self.syllables.len() {
-    //         Some(self.syllables[syll_index].clone())
-    //     } else {
-    //         None
-    //     }
-    // }
-
-    // pub fn get_syll_index_from_seg_index(&self, seg_index: usize) -> usize {
-    //     assert!(seg_index < self.segments.len());
-
-    //     for (i, syll) in self.syllables.iter().enumerate() {
-    //         if seg_index > syll.end {
-    //             continue;
-    //         }
-    //         return i
-    //     }
-    //     unreachable!();
-    // }
-
-    // pub fn seg_is_syll_final(&self, seg_index: usize) -> bool {
-    //     let syll_index = self.get_syll_index_from_seg_index(seg_index);
-    //     seg_index == self.syllables[syll_index].end
-    // }
-
-    // pub fn seg_is_syll_initial(&self, seg_index: usize) -> bool {
-    //     let syll_index = self.get_syll_index_from_seg_index(seg_index);
-    //     seg_index == self.syllables[syll_index].start
-    // }
-
-    // pub fn is_word_final(&self, seg_index: usize) -> bool {
-    //     seg_index == self.segments.len() - 1
-    // }
-
-    // pub fn is_word_initial(&self, seg_index: usize) -> bool {
-    //     seg_index == 0
     // }
 
     // pub fn match_mod_at(&self, md: &SegMKind, seg_index: usize) -> bool {
@@ -331,10 +241,6 @@ impl Word {
     // pub fn match_supra_at(&self, supr: &Supr, seg_index: usize) -> bool {
     //     todo!()
     // }
-
-    // pub fn apply_mod_at(&mut self, m: &Modifiers, seg_index: usize) {
-    //     todo!()
-    // } 
 
     fn setup(&mut self, input_txt: String) -> Result<(), WordSyntaxError> {
         let mut i = 0;
@@ -573,14 +479,14 @@ mod word_tests {
 
     #[test]
     fn test_render_diacritics() {
-        // TODO: Need to test other diacritic combinations
+        // TODO: Test other diacritic combinations
         let w = Word::new("ˈmu.ðr̩".to_owned()).unwrap(); 
         assert_eq!(w.render().unwrap(), "ˈmu.ðr̩");
 
         let w = Word::new("ˈpʰiːkʲ".to_owned()).unwrap(); 
         assert_eq!(w.render().unwrap(), "ˈpʰiːkʲ");
 
-        let w = Word::new("ˈpʰiːkʲ".to_owned()).unwrap(); 
+        let w = Word::new("ˈpʰiikʲ".to_owned()).unwrap(); 
         assert_eq!(w.render().unwrap(), "ˈpʰiːkʲ");
     }
 

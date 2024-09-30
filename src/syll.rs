@@ -4,7 +4,7 @@ use crate   :: {
     seg     :: Segment, 
     error   :: RuleRuntimeError, 
     parser  :: { BinMod, ModKind, SupraSegs }, 
-    subrule :: VarKind, 
+    // subrule :: VarKind, 
 };
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
