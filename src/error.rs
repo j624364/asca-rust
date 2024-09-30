@@ -260,7 +260,6 @@ pub enum RuleSyntaxError {
     ExpectedCharArrow(char, LineNum, Pos),
     ExpectedCharDot(char, LineNum, Pos),
     ExpectedNumber(char, LineNum, Pos),
-    OutsideBrackets(char, LineNum, Pos),
     TooManyUnderlines(Token),
     UnexpectedEol(Token, char),
     ExpectedEndL(Token),
@@ -278,6 +277,7 @@ pub enum RuleSyntaxError {
     // AlreadyInitialisedVariable(Item, Item, usize),
     WrongModNode(LineNum, Pos),
     WrongModTone(LineNum, Pos),
+    OutsideBrackets(LineNum, Pos),
     NestedBrackets(LineNum, Pos),
     InsertErr(Token),
     DeleteErr(Token),
@@ -327,6 +327,7 @@ impl ASCAError for RuleSyntaxError {
             Self::WrongModNode(..)              => "Nodes cannot be ±; they can only be used in Alpha Notation expressions.".to_string(),
             Self::WrongModTone(..)              => "Tones cannot be ±; they can only be used with numeric values.".to_string(),
             Self::NestedBrackets(..)            => "Cannot have nested brackets of the same type".to_string(),
+            Self::OutsideBrackets(..)           => "Features must be inside square brackets".to_string(),
             Self::InsertErr(_)                  => "The input of an insertion rule must only contain `*` or `∅`".to_string(),
             Self::DeleteErr(_)                  => "The output of a deletion rule must only contain `*` or `∅`".to_string(),
             Self::EmptyInput(..)                => "Input cannot be empty. Use `*` or '∅' to indicate insertion".to_string(),
@@ -390,8 +391,7 @@ impl ASCAError for RuleSyntaxError {
             Self::ExpectedAlphabetic(_, line, pos) |
             Self::ExpectedCharArrow (_, line, pos) |
             Self::ExpectedCharDot   (_, line, pos) |
-            Self::ExpectedNumber    (_, line, pos) |
-            Self::OutsideBrackets   (_, line, pos) => {
+            Self::ExpectedNumber    (_, line, pos) => {
                 let arrows = " ".repeat(*pos) + "^" + "\n";
 
                 result.push_str(&format!("{}{}{}{}", 
@@ -401,12 +401,13 @@ impl ASCAError for RuleSyntaxError {
                     arrows.bright_red().bold()
                 ))
             },
-            Self::WrongModNode  (line, pos) |
-            Self::WrongModTone  (line, pos) |
-            Self::NestedBrackets(line, pos) | 
-            Self::EmptyInput    (line, pos) | 
-            Self::EmptyEnv      (line, pos) |
-            Self::EmptyOutput   (line, pos) => {
+            Self::WrongModNode   (line, pos) |
+            Self::WrongModTone   (line, pos) |
+            Self::EmptyInput     (line, pos) | 
+            Self::EmptyEnv       (line, pos) |
+            Self::EmptyOutput    (line, pos) |
+            Self::NestedBrackets (line, pos) | 
+            Self::OutsideBrackets(line, pos) => {
                 let arrows = " ".repeat(*pos) + "^" + "\n";
                 result.push_str(&format!("{}{}{}{}",
                     MARG.bright_cyan().bold(), 

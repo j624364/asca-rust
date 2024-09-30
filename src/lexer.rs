@@ -572,7 +572,7 @@ impl<'a> Lexer<'a> {
         if !self.curr_char().is_ascii_alphabetic() { return Ok(None) }
 
         if !self.inside_matrix { 
-            return Err(RuleSyntaxError::OutsideBrackets(self.curr_char(), self.line, self.pos))
+            return Err(RuleSyntaxError::OutsideBrackets(self.line, self.pos))
         }
 
         let start = self.pos;
