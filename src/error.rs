@@ -150,8 +150,6 @@ impl ASCAError for WordRuntimeError {
 
 #[derive(Debug, Clone)]
 pub enum RuleRuntimeError { 
-    UnbalancedRuleIO(Vec<Vec<Item>>),
-    UnbalancedRuleEnv(Vec<Item>),
     DeletionOnlySeg,
     DeletionOnlySyll,
     LonelySet(Position),
@@ -164,8 +162,6 @@ impl ASCAError for RuleRuntimeError {
     fn get_error_message(&self) -> String {
         match self {
             Self::LonelySet(_)                     => "A Set in output must have a matching Set in input".to_string(),
-            Self::UnbalancedRuleIO(_)              => "Input or Output has too few elements".to_string(),
-            Self::UnbalancedRuleEnv(_)             => "Environment has too few elements".to_string(),
             Self::DeletionOnlySeg                  => "Can't delete a word's only segment".to_string(),
             Self::DeletionOnlySyll                 => "Can't delete a word's only syllable".to_string(),
             Self::UnknownVariable(token)           => format!("Unknown variable '{}' at {}", token.value, token.position.start),
@@ -180,36 +176,6 @@ impl ASCAError for RuleRuntimeError {
         
         match self {
             Self::DeletionOnlySyll | Self::DeletionOnlySeg => {},
-            Self::UnbalancedRuleEnv(items) => {
-                let first_item = items.first().expect("Env should not be empty");
-                let last_item = items.last().expect("Env should not be empty");
-                let line = first_item.position.line;
-                let start = first_item.position.start;
-                let end = last_item.position.end;
-
-                let arrows = " ".repeat(start) + &"^".repeat(end-start) + "\n";
-                result.push_str(&format!("{}{}{}{}",  
-                MARG.bright_cyan().bold(), 
-                rules[line], 
-                MARG.bright_cyan().bold(), 
-                arrows.bright_red().bold()
-                ));
-            },
-            Self::UnbalancedRuleIO(items) => {
-                let first_item = items.first().expect("IO should not be empty").first().expect("IO should not be empty");
-                let last_item = items.last().expect("IO should not be empty").last().expect("IO should not be empty");
-                let line = first_item.position.line;
-                let start = first_item.position.start;
-                let end = last_item.position.end;
-
-                let arrows = " ".repeat(start) + &"^".repeat(end-start) + "\n";
-                result.push_str(&format!("{}{}{}{}",  
-                MARG.bright_cyan().bold(), 
-                rules[line], 
-                MARG.bright_cyan().bold(), 
-                arrows.bright_red().bold()
-                ));
-            }
             Self::UnknownVariable(t) => {
                 let line = t.position.line;
                 let start = t.position.start;
@@ -281,6 +247,7 @@ pub enum RuleSyntaxError {
     NestedBrackets(LineNum, Pos),
     InsertErr(Token),
     DeleteErr(Token),
+    MetathErr(Token),
     EmptyInput(LineNum, Pos),
     EmptyOutput(LineNum, Pos),
     EmptyEnv(LineNum, Pos),
@@ -291,6 +258,8 @@ pub enum RuleSyntaxError {
     TooManyWordBoundaries(Position),
     UnknownFeature(String, Position),
     UnknownEnbyFeature(String, Position),
+    UnbalancedRuleIO(Vec<Vec<Item>>),
+    UnbalancedRuleEnv(Vec<Item>),
 }
 
 impl ASCAError for RuleSyntaxError {
@@ -318,7 +287,6 @@ impl ASCAError for RuleSyntaxError {
             Self::ExpectedColon(token)          => format!("Expected ':', but received '{}'", token.value),
             Self::ExpectedUnderline(token)      => format!("Expected '_', but received '{}'", token.value),
             Self::ExpectedRightBracket(token)   => format!("Expected ')', but received '{}'", token.value),
-            Self::OutsideBrackets(..)           => "Features must be inside square brackets".to_string(),
             Self::ExpectedMatrix(token)         => format!("Expected '[', but received '{}'", if token.kind == crate::TokenKind::Eol {"End Of Line"} else {&token.value}),
             Self::ExpectedSegment(token)        => format!("Expected an IPA character, Primative or Matrix, but received '{}'", token.value),
             Self::ExpectedTokenFeature(token)   => format!("{} cannot be placed inside a matrix. An element inside `[]` must a distinctive feature", token.value),
@@ -330,11 +298,14 @@ impl ASCAError for RuleSyntaxError {
             Self::OutsideBrackets(..)           => "Features must be inside square brackets".to_string(),
             Self::InsertErr(_)                  => "The input of an insertion rule must only contain `*` or `∅`".to_string(),
             Self::DeleteErr(_)                  => "The output of a deletion rule must only contain `*` or `∅`".to_string(),
+            Self::MetathErr(_)                  => "The output of a methathis rule must only contain `&`".to_string(),
             Self::EmptyInput(..)                => "Input cannot be empty. Use `*` or '∅' to indicate insertion".to_string(),
             Self::EmptyOutput(..)               => "Output cannot be empty. Use `*` or '∅' to indicate deletion".to_string(),
             Self::EmptyEnv(..)                  => "Environment cannot be empty following a seperator.".to_string(),
             Self::InsertMetath(..)              => "A rule cannot be both an Insertion rule and a Metathesis rule".to_string(),
             Self::InsertDelete(..)              => "A rule cannot be both an Insertion rule and a Deletion rule".to_string(),
+            Self::UnbalancedRuleIO(_)           => "Input or Output has too few elements".to_string(),
+            Self::UnbalancedRuleEnv(_)          => "Environment has too few elements".to_string(),
         }
     }
 
@@ -360,6 +331,7 @@ impl ASCAError for RuleSyntaxError {
             Self::UnknownIPA(t)           | 
             Self::InsertErr(t)            | 
             Self::DeleteErr(t)            |
+            Self::MetathErr(t)            |
             Self::BadSyllableMatrix(t)  => {
                 let line = t.position.line;
                 let start = t.position.start;
@@ -437,6 +409,36 @@ impl ASCAError for RuleSyntaxError {
                     arrows.bright_red().bold()
                 ));
             },
+            Self::UnbalancedRuleEnv(items) => {
+                let first_item = items.first().expect("Env should not be empty");
+                let last_item = items.last().expect("Env should not be empty");
+                let line = first_item.position.line;
+                let start = first_item.position.start;
+                let end = last_item.position.end;
+
+                let arrows = " ".repeat(start) + &"^".repeat(end-start) + "\n";
+                result.push_str(&format!("{}{}{}{}",  
+                MARG.bright_cyan().bold(), 
+                rules[line], 
+                MARG.bright_cyan().bold(), 
+                arrows.bright_red().bold()
+                ));
+            },
+            Self::UnbalancedRuleIO(items) => {
+                let first_item = items.first().expect("IO should not be empty").first().expect("IO should not be empty");
+                let last_item = items.last().expect("IO should not be empty").last().expect("IO should not be empty");
+                let line = first_item.position.line;
+                let start = first_item.position.start;
+                let end = last_item.position.end;
+
+                let arrows = " ".repeat(start) + &"^".repeat(end-start) + "\n";
+                result.push_str(&format!("{}{}{}{}",  
+                MARG.bright_cyan().bold(), 
+                rules[line], 
+                MARG.bright_cyan().bold(), 
+                arrows.bright_red().bold()
+                ));
+            }
         }
 
         result

@@ -124,7 +124,7 @@ fn parse_words(unparsed_words: &[String]) -> Result<Vec<Word>,WordSyntaxError> {
     Ok(words)
 }
 
-fn apply_rules(rules: &[Rule], words: &[Word], is_traced: bool) -> Result<(Vec<Word>, Vec<Vec<String>>), RuleRuntimeError> {
+fn apply_rules(rules: &[Rule], words: &[Word], is_traced: bool) -> Result<(Vec<Word>, Vec<Vec<String>>), Error> {
     // TODO: work out tracing
     // We should treat each "rule block" as one instead of treating each intermediate rule as separate
     // This will help with tracing

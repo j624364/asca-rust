@@ -1,22 +1,18 @@
 ``` peg
-RULE    ←   SUB_RUL / MET_RUL / DEL_RUL / INS_RUL
+RULE    ←   INP ARR OUT ('/' ENV)? (PIPE ENV)? EOL          // NOTE: INP_TRM cannot be EMP when corresponding OUT_TRM is (MET / EMP) 
 
-SUB_RUL ←   INP ARR OUT ('/' ENV)? (PIPE ENV)? EOL          //
-MET_RUL ←   INP ARR '&' ('/' ENV)? (PIPE ENV)? EOL          // FIXME: 'INP' here is currently actually INP_TRM
-DEL_RUL ←   INP ARR EMP ('/' ENV)? (PIPE ENV)? EOL          // FIXME: 'INP' here is currently actually INP_TRM
-INS_RUL ←   EMP ARR OUT ('/' ENV)? (PIPE ENV)? EOL          // FIXME: 'OUT' here is currently actually OUT_TRM
-
-INP     ←   INP_TRM  ( ',' INP_TRM )*                       // 
-INP_TRM ←   INP_EL+                                         // 
-INP_EL  ←   ELLIPSS / SBOUND / TERM                         // 
+INP     ←   INP_TRM  ( ',' INP_TRM )*                       //
+INP_TRM ←   EMP / INP_EL+                                   //
+INP_EL  ←   ELLIPSS / SBOUND / TERM                         //
 
 OUT     ←   OUT_TRM  ( ',' OUT_TRM )*                       //
-OUT_TRM ←   OUT_EL+                                         //
+OUT_TRM ←   MET / EMP / OUT_EL+                             //
 OUT_EL  ←   SYL / SET / SEG / VAR / SBOUND                  // NOTE: 'SET' here only makes sense if it corresponds to a SET in INP
 
-ENV     ←   '_' ',' ENV_EL / ENV_TRM  (',' ENV_TRM)*        // e.g. _,# ==> #_ , _#
-ENV_TRM ←   ('WBOUND')? ENV_EL?  '_' ENV_EL? ('WBOUND')?    //
-ENV_EL  ←   ( SBOUND / ELLIPSS / TERM )+                    //
+ENV     ←   ENV_SPC / ENV_TRM  (',' ENV_TRM)*               // e.g. _,# ==> #_ , _#
+ENV_TRM ←   ('WBOUND')? ENV_ELS? '_' ENV_ELS? ('WBOUND')?   //
+ENV_ELS ←   ( SBOUND / ELLIPSS / TERM )+                    //
+ENV_SPC ←   '_' ',' ENV_EL                                  //
 
 TERM    ←   SYL / SET / SEG / OPT / VAR                     //
 SYL     ←   '%' (':' PARAMS)? VAR_ASN?                      //
@@ -29,13 +25,14 @@ MATRIX  ←   GROUP (':' PARAMS)? / PARAMS                    //
 VAR     ←   [0-9]+ (':' PARAMS)?                            //
 VAR_ASN ←   '=' [0-9]+                                      //
 
-GROUP	←   [A-Z]                                           //
+GROUP	←   'C' / 'O' / 'S' / 'L' / 'N' / 'G' / 'V'         //
 PARAMS  ←   '[' ARG (',' ARG)* ']'                          //
-ARG     ←   ARG_VAL [a-zA-Z]+ / TONE                        //
+ARG     ←   ARG_MOD [a-zA-Z]+ / TONE                        //
 TONE    ←   [a-zA-Z]+ ':' [0-9]+                            //
-ARG_VAL ←   '+' / '-' / [α-ω] / '-'[α-ω]                    //
+ARG_MOD ←   '+' / '-' / [α-ω] / '-'[α-ω]                    //
 
 EMP     ←   '*' / '∅'                                       //
+MET     ←   '&'                                             //
 BOUND	←   WBOUND / SBOUND                                 //
 WBOUND  ←   '#'                                             //
 SBOUND  ←   '$'                                             //

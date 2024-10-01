@@ -5,7 +5,6 @@ use crate::{
     rule ::*, 
     error::*, 
     seg  ::Segment,
-    rule ::RuleType,
     CARDINALS_MAP, 
 };
 
@@ -281,7 +280,7 @@ impl Parser {
     }
 
     fn get_env_elements(&mut self, is_after: bool) -> Result<Vec<Item>, RuleSyntaxError> {
-        // returns list of boundaries, ellipses and terms
+        // returns (('WBOUND')? ( SBOUND / ELLIPSS / TERM )+) / (( SBOUND / ELLIPSS / TERM )+ ('WBOUND')?)
         let mut els = Vec::new();
         let mut contains_word_bound = false;
         let mut word_bound_pos = Position::new(0, 0, 0);
@@ -308,7 +307,6 @@ impl Parser {
                 els.push(x);
                 continue;
             }
-
             break;
         }
         // We can safely unwrap here as if `contains_word_bound` is true, els can't be empty
@@ -323,7 +321,7 @@ impl Parser {
     }
 
     fn get_env_term(&mut self) -> Result<Item, RuleSyntaxError> {
-        // returns env elements
+        // returns ENV_TRM ← ('WBOUND')? ENV_ELS? '_' ENV_ELS? ('WBOUND')? 
         let start = self.curr_tkn.position.start;
 
         let before  = self.get_env_elements(false)?;
@@ -343,7 +341,7 @@ impl Parser {
     }
 
     fn get_spec_env(&mut self) -> Result<Option<Vec<Item>>, RuleSyntaxError> {
-
+        // returns ENV_SPC ← '_' ',' ENV_EL 
         let start = self.curr_tkn.position.start;
         let pstn = self.pos;
 
@@ -352,7 +350,6 @@ impl Parser {
         }
 
         debug_assert_eq!(pstn, self.pos - 1);
-
         if !self.expect(TokenKind::Comma) {
             self.pos -=2;
             self.advance();
@@ -375,23 +372,20 @@ impl Parser {
         ];
 
         Ok(Some(v))
-
     }
 
     fn get_env(&mut self) -> Result<Vec<Item>, RuleSyntaxError> { 
-        // returns environment
+        // returns ENV ← ENV_SPC / ENV_TRM  (',' ENV_TRM)* 
         if let Some(s) = self.get_spec_env()? { return Ok(s) }
 
         let mut envs = Vec::new();
         loop {
             let x = self.get_env_term()?;
             envs.push(x);
-
             if !self.expect(TokenKind::Comma) {
                 break
             }
         }
-
         if envs.is_empty() { return Err(RuleSyntaxError::EmptyEnv(self.line, self.token_list[self.pos].position.start)) }
 
         Ok(envs)
@@ -436,6 +430,7 @@ impl Parser {
     }
 
     fn ipa_to_vals(&self, ipa: Token) -> Result<Segment, RuleSyntaxError> {
+        // FIXME(girv): segs such as m̥ would have to be written as m:[-voice]
         match CARDINALS_MAP.get(&ipa.value) {
             Some(z) => Ok(*z),
             None => Err(RuleSyntaxError::UnknownIPA(ipa))
@@ -443,7 +438,7 @@ impl Parser {
     }
 
     fn group_to_matrix(&self, chr: Token) -> Result<Item, RuleSyntaxError> {
-        // returns matrix or None
+        // returns GROUP ← 'C' / 'O' / 'S' / 'L' / 'N' / 'G' / 'V' 
         use FType::*;
         use ModKind::*;
 
@@ -483,6 +478,7 @@ impl Parser {
     fn is_feature(&self) -> bool{ matches!(self.curr_tkn.kind, TokenKind::Feature(_)) }
 
     fn curr_token_to_modifier(&self) -> (FeatType, Mods) {
+        // returns ARG ← ARG_MOD [a-zA-Z]+ / TONE  
         match self.curr_tkn.kind {
             TokenKind::Feature(feature) => {
                 let value = &self.curr_tkn.value;
@@ -504,7 +500,7 @@ impl Parser {
     }
 
     fn get_param_args(&mut self, is_syll: bool) -> Result<Modifiers, RuleSyntaxError> {
-        // returns matrix or None
+        // returns PARAMS ← '[' ARG (',' ARG)* ']' 
         let mut args = Modifiers::new();
         while self.has_more_tokens() {
             if self.expect(TokenKind::RightSquare) {
@@ -515,8 +511,7 @@ impl Parser {
             }
             if self.is_feature() {
                 let (ft, mk) = self.curr_token_to_modifier();
-                if (
-                        ft != FeatType::Supr(SupraType::Tone) 
+                if (    ft != FeatType::Supr(SupraType::Tone) 
                      && ft != FeatType::Supr(SupraType::Stress)
                    ) && is_syll {
                     return Err(RuleSyntaxError::BadSyllableMatrix(self.curr_tkn.clone()))
@@ -562,7 +557,8 @@ impl Parser {
         Ok(args)
     }
 
-    fn get_params(&mut self) -> Result<Item, RuleSyntaxError> { 
+    fn get_params(&mut self) -> Result<Item, RuleSyntaxError> {
+        // returns PARAMS ← '[' ARG (',' ARG)* ']'  
         let start = self.token_list[self.pos-1].position.start;
         let args = self.get_param_args(false)?;
         let end = self.token_list[self.pos-1].position.end;
@@ -571,7 +567,7 @@ impl Parser {
     }
 
     fn get_group(&mut self) -> Result<Item, RuleSyntaxError> {
-        // returns matrix or None
+        // returns GROUP (':' PARAMS)?
         let chr = self.group_to_matrix(self.curr_tkn.clone())?;
         self.advance();
 
@@ -591,7 +587,7 @@ impl Parser {
     }
 
     fn get_ipa(&mut self) -> Result<Item, RuleSyntaxError> {
-        // returns IPA or Matrix
+        // returns IPA (':' PARAMS)?
         let ipa = self.ipa_to_vals(self.curr_tkn.clone())?;
         let pos = self.curr_tkn.position;
         self.advance();
@@ -609,13 +605,14 @@ impl Parser {
     }
     
     fn get_var_assign(&mut self, number: Token, char: &Item) -> Item {
+        // returns VAR_ASN ← '=' [0-9]+ 
         let num = number.value.parse::<usize>().expect("number should be a number as set in `self.get_seg`");
         let mods = char.kind.as_matrix().expect("char should be matrix as set in `self.get_group`").clone();
         Item::new(ParseKind::Matrix(mods, Some(num)), Position::new(self.line, char.position.start, char.position.end ))
     }
 
     fn get_seg(&mut self) -> Result<Option<Item>, RuleSyntaxError> {
-        // returns IPA / Matrix with varable number / None
+        // returns SEG ← IPA (':' PARAMS)? / MATRIX VAR_ASN?  
         if self.peek_expect(TokenKind::Cardinal) {
             let ipa = self.get_ipa()?;
             return Ok(Some(ipa))
@@ -646,6 +643,7 @@ impl Parser {
     }
 
     fn get_var(&mut self) -> Result<Option<Item>, RuleSyntaxError> {
+        // returns VAR ← [0-9]+ (':' PARAMS)? 
         let Some(t) = self.eat_expect(TokenKind::Number) else { return Ok(None) };     
         let mut pos = t.position;
         if !self.expect(TokenKind::Colon) {
@@ -663,7 +661,7 @@ impl Parser {
     }
 
     fn get_opt(&mut self) -> Result<Option<Item>, RuleSyntaxError> {
-        // returns optionals or None
+        // returns OPT ← '(' OPT_TRM+ (',' [0-9]+ (':' [1-9]+)?)? ')'
         let start_pos = self.curr_tkn.position.start;
 
         if !self.expect(TokenKind::LeftBracket) { return Ok(None) }
@@ -714,7 +712,7 @@ impl Parser {
     }
 
     fn get_set(&mut self) -> Result<Option<Item>, RuleSyntaxError> {
-        // returns set of terms
+        // returns SET ← '{' SET_TRM (',' SET_TRM)* '}'
         let start_pos = self.curr_tkn.position.start;
 
         if !self.expect(TokenKind::LeftCurly) { return Ok(None) }
@@ -743,7 +741,7 @@ impl Parser {
     }
 
     fn get_syll(&mut self) -> Result<Option<Item>, RuleSyntaxError> {
-        // returns Syll or None
+        // returns SYL ← '%' (':' PARAMS)? VAR_ASN?  
         let start_pos = self.curr_tkn.position.start;
 
         if !self.expect(TokenKind::Syllable) { return Ok(None) }
@@ -776,7 +774,7 @@ impl Parser {
     }
 
     fn get_term(&mut self) -> Result<Option<Item>, RuleSyntaxError> {
-        // returns syllable / set / segment / optionals
+        // returns TERM ← SYL / SET / SEG / OPT / VAR 
         if let Some(x) = self.get_syll()? { return Ok(Some(x)) }
         if let Some(x) = self.get_set()?  { return Ok(Some(x)) }
         if let Some(x) = self.get_seg()?  { return Ok(Some(x)) }
@@ -786,27 +784,25 @@ impl Parser {
         Ok(None)
     }
 
-    fn get_input_term(&mut self) -> Result<Vec<Item>, RuleSyntaxError> {
-        // returns list of terms, ellipses and syllable bounds
-        let mut terms = Vec::new();
+    fn get_input_els(&mut self) -> Result<Vec<Item>, RuleSyntaxError> {
+        // returns INP_EL+
+        let mut els = Vec::new();
         loop {
             if let Some(el) = self.eat_expect(TokenKind::Ellipsis) {
-                terms.push(Item::new(ParseKind::Ellipsis, el.position));
+                els.push(Item::new(ParseKind::Ellipsis, el.position));
             } else if let Some(s_bound) = self.get_syll_bound() {
-                terms.push(s_bound);
-            } else if self.peek_expect(TokenKind::GreaterThan) { // So we can try simple rules that don't call functions we are yet to implement
-                break                                            // We can probably remove this after parser logic is done, though it wouldn't hurt performance to leave it in
+                els.push(s_bound);
             } else if let Some(trm) = self.get_term()? {
-                terms.push(trm)
+                els.push(trm)
             } else {
                 break
             }
         }
-        Ok(terms)
+        Ok(els)
     }
 
-    fn get_output_element(&mut self) -> Result<Option<Item>, RuleSyntaxError> {
-        // returns syllable / segment / variable / set / syllbound
+    fn get_output_el(&mut self) -> Result<Option<Item>, RuleSyntaxError> {
+        // returns OUT_EL ← SYL / SET / SEG / VAR / SBOUND
         // NOTE: a set in the output only makes sense when matched to a set in the input w/ the same # of elements
         // This will be validated when applying
         if let Some(x) = self.get_syll()?      { return Ok(Some(x)) }
@@ -818,16 +814,17 @@ impl Parser {
         Ok(None)
     }
 
-    fn get_output_term(&mut self) -> Result<Vec<Item>, RuleSyntaxError> { 
-        // returns list of sylls, sets, and/or segments
-        let mut terms = Vec::new();
-        while let Some(trm) = self.get_output_element()? {
-            terms.push(trm);
+    fn get_output_els(&mut self) -> Result<Vec<Item>, RuleSyntaxError> { 
+        // returns OUT_EL+
+        let mut els = Vec::new();
+        while let Some(el) = self.get_output_el()? {
+            els.push(el);
         }
-        Ok(terms)
+        Ok(els)
     }
 
     fn get_empty(&mut self) -> Vec<Item> {
+        // EMP ← '*' / '∅'
         if !self.peek_expect(TokenKind::Star) && !self.peek_expect(TokenKind::EmptySet) {
             return Vec::new()
         }
@@ -836,17 +833,24 @@ impl Parser {
     }
 
     fn get_input(&mut self) -> Result<Vec<Vec<Item>>, RuleSyntaxError> {
-        // returns empty / list of input terms
+        // returns `INP ← INP_TRM  ( ',' INP_TRM )*` where `INP_TRM ← EMP / INP_EL+`
         let mut inputs = Vec::new();
-        let maybe_empty = self.get_empty();
-        if !maybe_empty.is_empty() {
-            inputs.push(maybe_empty);
-            return Ok(inputs)
-        }
         loop {
-            let maybe_inp_trm = self.get_input_term()?;
-            if maybe_inp_trm.is_empty() {
+            // Insertion
+            let maybe_empty = self.get_empty();
+            if !maybe_empty.is_empty() {
+                inputs.push(maybe_empty);
+                if !self.expect(TokenKind::Comma) && (!self.peek_expect(TokenKind::Arrow) && !self.peek_expect(TokenKind::GreaterThan)) {
+                    return Err(RuleSyntaxError::InsertErr(self.curr_tkn.clone()))
+                }
+                continue;
+            }
+            // Input elements
+            let maybe_inp_trm = self.get_input_els()?;
+            if maybe_inp_trm.is_empty() && inputs.is_empty() {
                 return Err(RuleSyntaxError::UnknownCharacter(self.curr_tkn.value.chars().next().unwrap(), self.line, self.pos))
+            } else if maybe_inp_trm.is_empty() && !self.expect(TokenKind::Comma) {
+                break;
             }
             inputs.push(maybe_inp_trm);
             if !self.expect(TokenKind::Comma) {
@@ -860,24 +864,32 @@ impl Parser {
     }
 
     fn get_output(&mut self) -> Result<Vec<Vec<Item>>, RuleSyntaxError> {
-        // returns empty / metathesis / list of output terms 
+        // returns `OUT ← OUT_TRM  ( ',' OUT_TRM )*` where `OUT_TRM ← '&' / EMP / OUT_EL+`
         let mut outputs = Vec::new();
-        // check for deletion rule
-        let maybe_empty = self.get_empty();
-        if !maybe_empty.is_empty() {
-            outputs.push(maybe_empty);
-            return Ok(outputs)
-        }
-        // check for metathesis
-        if let Some(el) = self.eat_expect(TokenKind::Ampersand) {
-            outputs.push(vec![Item::new(ParseKind::Metathesis, el.position)]);
-            return Ok(outputs)
-        }
-        // NOTE: need to add check for `+` (Duplication) if/when added
         loop {
-            let x = self.get_output_term()?;
-            if x.is_empty() {
+            // Metathesis
+            if let Some(el) = self.eat_expect(TokenKind::Ampersand) {
+                outputs.push(vec![Item::new(ParseKind::Metathesis, el.position)]);
+                if !self.expect(TokenKind::Comma) && (!self.peek_expect(TokenKind::Slash) && !self.peek_expect(TokenKind::Pipe) && !self.peek_expect(TokenKind::Eol)) {
+                    return Err(RuleSyntaxError::MetathErr(self.curr_tkn.clone()))
+                }
+                continue;
+            }
+            // Deletion
+            let maybe_empty = self.get_empty();
+            if !maybe_empty.is_empty() {
+                outputs.push(maybe_empty);
+                if !self.expect(TokenKind::Comma) && !self.peek_expect(TokenKind::Slash) && !self.peek_expect(TokenKind::Pipe) && !self.peek_expect(TokenKind::Eol) {
+                    return Err(RuleSyntaxError::DeleteErr(self.curr_tkn.clone()))
+                }
+                continue;
+            }
+            // Output Elements
+            let x = self.get_output_els()?;
+            if x.is_empty() && outputs.is_empty(){
                 return Err(RuleSyntaxError::EmptyOutput(self.line, self.token_list[self.pos].position.start))
+            } else if x.is_empty() && !self.expect(TokenKind::Comma) {
+                break;
             }
             outputs.push(x);
             if !self.expect(TokenKind::Comma) {
@@ -891,63 +903,33 @@ impl Parser {
     }
   
     fn rule(&mut self) -> Result<Rule, RuleSyntaxError> {
+        // returns RULE ← INP ARR OUT ('/' ENV)? (PIPE ENV)? EOL
         
+        // INP
         let input = self.get_input()?;
-
-        let mut rule_type: Option<RuleType> = match input[0][0].kind {
-            ParseKind::EmptySet => Some(RuleType::Insertion),
-            _ => None
-        };
-
+        // ARR
         if !self.expect(TokenKind::Arrow) && !self.expect(TokenKind::GreaterThan) {
-            if rule_type.is_some() { 
-                if self.peek_expect(TokenKind::Comma) {
-                    return Err(RuleSyntaxError::InsertErr(self.curr_tkn.clone()))
-                }
-                return Err(RuleSyntaxError::ExpectedArrow(self.curr_tkn.clone()))
-            }
             return Err(RuleSyntaxError::ExpectedArrow(self.curr_tkn.clone()))
         }
-
+        // OUT
         let output = self.get_output()?;
 
-        match output[0][0].kind {
-            ParseKind::Metathesis => match rule_type {
-                Some(_) => return Err(RuleSyntaxError::InsertMetath(self.line, input[0][0].position.start, output[0][0].position.start)),
-                None => rule_type = Some(RuleType::Metathesis),
-            },
-            ParseKind::EmptySet   => match rule_type {
-                Some(_) => return Err(RuleSyntaxError::InsertDelete(self.line, input[0][0].position.start, output[0][0].position.start)),
-                None => rule_type = Some(RuleType::Deletion)
-            },
-            _ => {}
-        }
-
-        let rule_type= rule_type.unwrap_or(RuleType::Substitution);
-
         if self.expect(TokenKind::Eol) {
-            return Ok(Rule::new(input, output, Vec::new(), Vec::new(), rule_type))
+            return Ok(Rule::new(input, output, Vec::new(), Vec::new()))
         }
-
         if !self.peek_expect(TokenKind::Slash) && !self.peek_expect(TokenKind::Pipe) {
-            if let RuleType::Substitution = rule_type {
-                return Err(RuleSyntaxError::ExpectedEndL(self.curr_tkn.clone()))
-            }
-            if self.peek_expect(TokenKind::Comma) {
-                return Err(RuleSyntaxError::DeleteErr(self.curr_tkn.clone()))
-            }
             return Err(RuleSyntaxError::ExpectedEndL(self.curr_tkn.clone()))
         }
-
+        // ('/' ENV)
         let context = self.get_context()?;
-        
+        // (PIPE ENV)
         let except = self.get_except_block()?;
-
+        // !EOL
         if !self.expect(TokenKind::Eol) {
             return Err(RuleSyntaxError::ExpectedEndL(self.curr_tkn.clone()))
         }
         
-        Ok(Rule::new(input, output, context, except, rule_type))
+        Ok(Rule::new(input, output, context, except))
 
     }
     
@@ -983,7 +965,6 @@ mod parser_tests {
         assert_eq!(result.output.len(), 2);
         assert_eq!(result.context.len(), 2);
         assert!(result.except.is_empty());
-        assert_eq!(result.rule_type, RuleType::Substitution);
 
 
         let exp_input = vec![ 
@@ -1027,7 +1008,6 @@ mod parser_tests {
         assert_eq!(result.output.len(), 1);
         assert!(result.context.is_empty());
         assert!(result.except.is_empty());
-        assert_eq!(result.rule_type, RuleType::Metathesis);
 
         let exp_input_res = vec![
             Item::new(ParseKind::Ipa(CARDINALS_MAP.get("t͡ɕ").unwrap().clone(), None),Position::new(0, 0, 3)),
@@ -1065,7 +1045,6 @@ mod parser_tests {
         assert_eq!(result.output.len(), 1);
         assert_eq!(result.context.len(), 1);
         assert!(result.except.is_empty());
-        assert_eq!(result.rule_type, RuleType::Substitution);
 
         // assert_eq!(result.variables.len(), 2);
         // assert!(result.variables.contains_key(&1));
