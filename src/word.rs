@@ -108,10 +108,10 @@ impl Word {
         let mut w = Self { syllables: Vec::new() };
         let t = text.replace('\'', "ˈ")
                     .replace(',',  "ˌ")
-                    .replace('g',  "ɡ")
-                    .replace('?',  "ʔ")
                     .replace(':',  "ː")
                     .replace(';',  "ː.")
+                    .replace('g',  "ɡ")
+                    .replace('?',  "ʔ")
                     .replace('ǝ',  "ə");
         w.setup(t)?;
 

@@ -260,6 +260,7 @@ pub enum RuleSyntaxError {
     UnknownEnbyFeature(String, Position),
     UnbalancedRuleIO(Vec<Vec<Item>>),
     UnbalancedRuleEnv(Vec<Item>),
+    DiacriticDoesNotMeetPreReqs(Position, Position)
 }
 
 impl ASCAError for RuleSyntaxError {
@@ -306,6 +307,7 @@ impl ASCAError for RuleSyntaxError {
             Self::InsertDelete(..)              => "A rule cannot be both an Insertion rule and a Deletion rule".to_string(),
             Self::UnbalancedRuleIO(_)           => "Input or Output has too few elements".to_string(),
             Self::UnbalancedRuleEnv(_)          => "Environment has too few elements".to_string(),
+            Self::DiacriticDoesNotMeetPreReqs(..) => format!("Segment does not have prerequisite properties to have diacritic",)
         }
     }
 
@@ -435,6 +437,22 @@ impl ASCAError for RuleSyntaxError {
                 result.push_str(&format!("{}{}{}{}",  
                 MARG.bright_cyan().bold(), 
                 rules[line], 
+                MARG.bright_cyan().bold(), 
+                arrows.bright_red().bold()
+                ));
+            },
+            Self::DiacriticDoesNotMeetPreReqs(ipa_pos, dia_pos) => {
+                println!("{ipa_pos}");
+                println!("{dia_pos}");
+
+                let arrows = " ".repeat(ipa_pos.start) 
+                                   + "^".repeat(ipa_pos.end - ipa_pos.start).as_str()
+                                   + " ".repeat(dia_pos.start - ipa_pos.end).as_str()
+                                   + "^".repeat(dia_pos.end - dia_pos.start).as_str()
+                                   + "\n";
+                result.push_str(&format!("{}{}{}{}",  
+                MARG.bright_cyan().bold(), 
+                rules[ipa_pos.line], 
                 MARG.bright_cyan().bold(), 
                 arrows.bright_red().bold()
                 ));

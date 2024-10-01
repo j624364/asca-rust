@@ -1,7 +1,11 @@
 use std  ::fmt::{self, Display};
 use serde::Deserialize;
 
-use crate::{CARDINALS_TRIE, error::RuleSyntaxError};
+use crate::{
+    error::RuleSyntaxError, 
+    CARDINALS_TRIE, 
+    DIACRITS
+};
 
 #[derive(Debug, Copy, Clone, PartialEq, Eq, Deserialize, Hash)]
 pub enum NodeType {
@@ -170,36 +174,47 @@ impl Display for FeatType {
 // #[derive(Debug, Copy, Clone, PartialEq, Eq, Ord, PartialOrd)]
 #[derive(Debug, Copy, Clone, PartialEq, Eq)]
 pub enum TokenKind {
-    LeftSquare,   // [
-    RightSquare,  // ]
-    LeftCurly,    // {
-    RightCurly,   // }
-    // LeftAngle,    // <
-    // RightAngle,   // >
-    LeftBracket,  // (
-    RightBracket, // )
-    LessThan,     // <
-    GreaterThan,  // >
-    Equals,       // =
-    Underline,    // _
-    Arrow,        // -> or =>
-    Comma,        // ,
-    Colon,        // :
-    WordBoundary, // #
-    SyllBoundary, // $
-    Syllable,     // %
-    Ampersand,    // %
-    Group,        // Primitive Category i.e. C for Cons, V for Vowel
-    Number,       // Number
-    Slash,        // /
-    DubSlash,  // //
-    Pipe,         // | 
-    Cardinal,     // IPA character
-    Star,         // *
-    EmptySet,     // ∅
-    Ellipsis,     // ... or .. or … or ⋯
+    LeftSquare,       // [
+    RightSquare,      // ]
+    LeftCurly,        // {
+    RightCurly,       // }
+    // LeftAngle,     // <
+    // RightAngle,    // >
+    LeftBracket,      // (
+    RightBracket,     // )
+    LessThan,         // <
+    GreaterThan,      // >
+    Equals,           // =
+    Underline,        // _
+    Arrow,            // -> or =>
+    Comma,            // ,
+    Colon,            // :
+    WordBoundary,     // #
+    SyllBoundary,     // $
+    Syllable,         // %
+    Ampersand,        // %
+    Group,            // Primitive Category i.e. C for Cons, V for Vowel
+    Number,           // Number
+    Slash,            // /
+    DubSlash,         // //
+    Pipe,             // | 
+    Cardinal,         // IPA character
+    Diacritic(u8),    // IPA Diacritic
+    Star,             // *
+    EmptySet,         // ∅
+    Ellipsis,         // ... or .. or … or ⋯
     Feature(FeatType),
-    Eol,          // End of Line 
+    Eol,              // End of Line 
+}
+
+impl TokenKind {
+    pub fn as_diacritic(&self) -> Option<&u8> {
+        if let Self::Diacritic(v) = self {
+            Some(v)
+        } else {
+            None
+        }
+    }
 }
 
 impl Display for TokenKind {
@@ -228,9 +243,10 @@ impl Display for TokenKind {
             Group        => write!(f, "Prim"),
             Number       => write!(f, "Num"),
             Slash        => write!(f, "Slash"),
-            DubSlash  => write!(f, "DoubleSlash"),
+            DubSlash     => write!(f, "DoubleSlash"),
             Pipe         => write!(f, "Pipe"),
             Cardinal     => write!(f, "Cardinal"),
+            Diacritic(_) => write!(f, "Diacritic"),
             Star         => write!(f, "Star"),
             EmptySet     => write!(f, "Empty"),
             Ellipsis     => write!(f, "Ellipsis"),
@@ -491,35 +507,20 @@ impl<'a> Lexer<'a> {
         Ok(Some(Token::new(tokenkind, value, self.line, start, self.pos)))
     }
 
-    // fn get_ipa_old(&mut self) -> Option<Token> {
-    //     if self.inside_square { return None }
-    //     let start = self.pos;
-    //
-    //     let mut  buffer = String::new();
-    //     let mut last_buffer: String;
-    //
-    //     let cardinals = self.cardinals_trie;
-    //
-    //     while self.has_more_chars() {
-    //
-    //         last_buffer = buffer.clone();
-    //         buffer.push(self.curr_char);
-    //
-    //         if !buffer.is_empty() && cardinals.find(&buffer.as_str()).is_empty() {
-    //             if !last_buffer.is_empty() && cardinals.contains(&last_buffer.as_str()) {
-    //                 return Some(Token::new(TokenKind::Cardinal, last_buffer, start, self.pos))
-    //             }
-    //             return None
-    //         }
-    //        
-    //         self.advance();
-    //     }
-    //
-    //     if buffer.is_empty() || !cardinals.contains(&buffer.as_str()) {
-    //         return None
-    //     }
-    //     return Some(Token::new(TokenKind::Cardinal, buffer, start, self.pos))
-    // }
+    fn get_diacritic(&mut self) -> Option<Token> {
+        if self.inside_matrix { return None }
+        let start = self.pos;
+
+        let mut char = self.curr_char();
+        if char == '\'' { char = 'ʼ'; }
+        for (i, d) in DIACRITS.iter().enumerate() {
+            if char == d.diacrit {
+                self.advance();
+                return Some(Token::new(TokenKind::Diacritic(i as u8), char.to_string(), self.line, start, self.pos))
+            }
+        }
+        None
+    } 
 
     fn get_ipa(&mut self) -> Option<Token> {
         if self.inside_matrix { return None }
@@ -531,8 +532,6 @@ impl<'a> Lexer<'a> {
             .replace('?',  "ʔ")
             .replace('ǝ',  "ə");
 
-        
-
         if CARDINALS_TRIE.contains_prefix(buffer.as_str()) {
             self.advance();
             loop {
@@ -542,7 +541,6 @@ impl<'a> Lexer<'a> {
                     self.advance();
                     continue;
                 }
-
                 if self.curr_char() == '^' {
                     tmp.pop();
                     tmp.push('\u{0361}');
@@ -561,6 +559,10 @@ impl<'a> Lexer<'a> {
                     }
                 }
 
+                // if buffer.ends_with('\u{0361}') || buffer.ends_with('\u{035C}') {
+                //     invalid 
+                // }
+                
                 return Some(Token::new(TokenKind::Cardinal, buffer, self.line, start, self.pos))
             }
         }
@@ -684,6 +686,7 @@ impl<'a> Lexer<'a> {
         if let Some(ftr_token) = self.get_feature()?      { return Ok(ftr_token) }
         if let Some(spc_token) = self.get_special_char()? { return Ok(spc_token) }
         if let Some(ipa_token) = self.get_ipa()           { return Ok(ipa_token) }
+        if let Some(dia_token) = self.get_diacritic()     { return Ok(dia_token) }
         if let Some(str_token) = self.get_string()?       { return Ok(str_token) } 
         
         Err(RuleSyntaxError::UnknownCharacter(self.curr_char(), self.line, self.pos))

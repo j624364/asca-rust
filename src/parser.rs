@@ -1,11 +1,11 @@
 use std::fmt;
 
-use crate::{
-    lexer::*, 
-    rule ::*, 
-    error::*, 
-    seg  ::Segment,
-    CARDINALS_MAP, 
+use crate :: {
+    error :: *, 
+    lexer :: *, 
+    rule  :: *, 
+    seg   :: Segment, 
+    CARDINALS_MAP, DIACRITS 
 };
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -430,7 +430,6 @@ impl Parser {
     }
 
     fn ipa_to_vals(&self, ipa: Token) -> Result<Segment, RuleSyntaxError> {
-        // FIXME(girv): segs such as m̥ would have to be written as m:[-voice]
         match CARDINALS_MAP.get(&ipa.value) {
             Some(z) => Ok(*z),
             None => Err(RuleSyntaxError::UnknownIPA(ipa))
@@ -588,12 +587,20 @@ impl Parser {
 
     fn get_ipa(&mut self) -> Result<Item, RuleSyntaxError> {
         // returns IPA (':' PARAMS)?
-        let ipa = self.ipa_to_vals(self.curr_tkn.clone())?;
+        let mut ipa = self.ipa_to_vals(self.curr_tkn.clone())?;
         let pos = self.curr_tkn.position;
         self.advance();
 
+        while matches!(self.curr_tkn.kind, TokenKind::Diacritic(_)) {
+            let dia = self.eat();
+            let d = dia.kind.as_diacritic().unwrap();
+            if ipa.check_and_apply_diacritic(&DIACRITS[*d as usize]).is_none() {
+                return Err(RuleSyntaxError::DiacriticDoesNotMeetPreReqs(pos, dia.position))
+            }
+        }
+
         if !self.expect(TokenKind::Colon) {
-            return Ok(Item::new(ParseKind::Ipa(ipa, None), pos))
+            return Ok(Item::new(ParseKind::Ipa(ipa, None), Position::new(self.line, pos.start, self.curr_tkn.position.end - 1)))
         }
         if !self.expect(TokenKind::LeftSquare) {
             return Err(RuleSyntaxError::ExpectedMatrix(self.curr_tkn.clone()))

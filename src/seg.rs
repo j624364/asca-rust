@@ -317,6 +317,9 @@ impl Segment {
         // Sort by difference (maybe also filter diff > 8 to cut on size)
         // iterate and match starting from smallest difference
 
+        // Because CARDINALS_MAP's order is random, this can lead to the `random discovery` of edge cases
+        // TODO(girv): test, test, test
+
         let mut candidates = Vec::new();
 
         for c_grapheme in CARDINALS_VEC.iter() {
@@ -328,7 +331,7 @@ impl Segment {
         }
 
         candidates.sort_by(|(.., a), (.., b) | a.cmp(b));
-        
+
         // for (a,_, b) in &candidates {
         //     eprintln!("{} {}", a.get_as_grapheme().unwrap(), b);
         // }
@@ -337,7 +340,6 @@ impl Segment {
         for (cand_seg , cand_graph, _) in candidates {
             let mut buf_seg = cand_seg;
             let mut buf_str = cand_graph.clone();
-
             for d in DIACRITS.iter() {
                 if self.match_modifiers(&d.prereqs) && self.match_modifiers(&d.payload) {
                         let before = buf_seg;
@@ -359,52 +361,6 @@ impl Segment {
         }
 
         Some("�".to_string())
-
-        // for c_grapheme in CARDINALS_VEC.iter() {
-        //     let x = CARDINALS_MAP.get(c_grapheme).unwrap();
-        //     let mut buf_str = c_grapheme.clone();
-        //     let mut buf_seg = x.clone();
-        //     for d in DIACRITS.iter() {
-        //         // let mut buf_seg = buffer.1;
-        //         if self.match_modifiers(&d.prereqs) && self.match_modifiers(&d.payload) {
-        //             // todo!("add diacritic to buffer")
-        //             // if c_grapheme == "r" {
-        //             //     eprintln!("--------");
-        //             //     eprintln!("{} {} {:?} {:?}", buf_str,  d.diacrit, d.payload, d.payload);
-        //             //     eprintln!("--------");
-        //             // }
-        //             buf_seg.apply_diacritic_payload(&d.payload);
-        //             if buf_seg == *x {
-        //                 continue;
-        //             } else {
-        //                 buf_str.push(d.diacrit);
-        //             }
-        //         }
-        //         // if c_grapheme == "r" {
-        //         //     eprintln!("{} {} {:?} {:?}", buf_str,  d.diacrit, d.payload, d.payload);
-        //         // }
-        //         if buf_seg == *self { 
-        //             candidates.push(buf_str.clone());
-        //         }
-        //     }
-        // }
-        // eprintln!("{:?}\n", candidates);
-        // if candidates.is_empty() {
-        //     return None
-        // } else {
-        //     let mut cand_index = 0;
-        //     let mut cand_len = 1024; 
-        //     for (i, c) in candidates.iter().enumerate() {
-        //         let len = c.chars().count();
-        //         if len < cand_len {
-        //             cand_index = i;
-        //             cand_len = len;
-        //         }
-        //     }
-        //     return Some(candidates[cand_index].clone())
-        // }
-
-
     }
 
     #[allow(unused)]
