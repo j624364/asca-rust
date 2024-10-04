@@ -14,14 +14,17 @@ This repo contains the logic for the applier which will be connected to a web fr
 ## Progress
 - [x] Parsing Words
 - [x] Parsing Rules
-- [ ] Matching Input (~90% complete)
+- [ ] Matching Input
+    - [x] Simple segments
+    - [ ] Ellipsis and Optional Segments
 - [ ] Applying Output
     - [x] Metathesis
     - [x] Deletion
-    - [ ] Insertion (in progress)
+    - [ ] Insertion (borked)
     - [ ] Substitution
         - [x] Same length Substitution 
-        - [ ] Complex Substitution
+        - [ ] Longer Input Substitution
+        - [x] Longer Output Substitution
 - [ ] Matching Environment and Exceptions
     - [x] Simple segments
     - [ ] Ellipsis and Optional Segments

@@ -9,7 +9,7 @@ use std ::{
 use crate ::{
     error :: RuleRuntimeError, 
     lexer ::{FType, Token}, 
-    parser::{AlphaMod, BinMod, Item, ModKind, Modifiers, ParseKind, SupraSegs}, 
+    parser::{AlphaMod, BinMod, Item, ModKind, Modifiers, ParseElement, SupraSegs}, 
     rule  ::{Alpha, RuleType, PlaceMod}, 
     seg   ::{feature_to_node_mask, NodeKind, Segment}, 
     syll  ::{StressKind, Syllable}, 
@@ -115,15 +115,15 @@ impl SubRule {
     }
 
     fn match_before_context_and_exception(&self, word: &Word, pos: SegPos) -> Result<bool, RuleRuntimeError> {
-        let empty_env = Item::new(ParseKind::Environment(vec![], vec![]), crate::Position { line: 0, start: 0, end: 0 });
-        let ParseKind::Environment(states, _) = &match &self.context {
+        let empty_env = Item::new(ParseElement::Environment(vec![], vec![]), crate::Position { line: 0, start: 0, end: 0 });
+        let ParseElement::Environment(states, _) = &match &self.context {
             Some(s) => s,
             None => match &self.except {
                 Some(_) => &empty_env,
                 None => return Ok(true),
             },
         }.kind else { unreachable!() };
-        let ParseKind::Environment(except_states, _) = &match &self.except {
+        let ParseElement::Environment(except_states, _) = &match &self.except {
             Some(ex) => ex,
             None => match &self.context {
                 Some(_) => &empty_env,
@@ -152,16 +152,16 @@ impl SubRule {
 
     fn match_after_context_and_exception(&self, word: &Word, pos: SegPos) -> Result<bool, RuleRuntimeError> {
         // TODO(girv): Don't know if this is actually better doing what I'm doing in before context match, so I'll leave them as different until I can bench them
-        const EMPTY_ENV: Item = Item{ kind: ParseKind::Environment(vec![], vec![]), position: crate::Position { line: 0, start: 0, end: 0 }};
+        const EMPTY_ENV: Item = Item{ kind: ParseElement::Environment(vec![], vec![]), position: crate::Position { line: 0, start: 0, end: 0 }};
         let binding = EMPTY_ENV;
-        let ParseKind::Environment(_, states) = &match &self.context {
+        let ParseElement::Environment(_, states) = &match &self.context {
             Some(s) => s,
             None => match &self.except {
                 Some(_) => &binding,
                 None => return Ok(true),
             },
         }.kind else { unreachable!() };
-        let ParseKind::Environment(_, except_states) = &match &self.except {
+        let ParseElement::Environment(_, except_states) = &match &self.except {
             Some(ex) => ex,
             None => match &self.context {
                 Some(_) => &binding,
@@ -194,7 +194,7 @@ impl SubRule {
         if state_index == 0 {
             if forwards {
                 pos.increment(word);
-            } else if let ParseKind::WordBound | ParseKind::SyllBound = state.kind {
+            } else if let ParseElement::WordBound | ParseElement::SyllBound = state.kind {
                 // Do Nothing
             } else {
                 pos.decrement(word);
@@ -207,34 +207,34 @@ impl SubRule {
         //     } 
         // }
         match &state.kind {
-            ParseKind::WordBound => if (!forwards && pos.at_word_start()) || (forwards && word.out_of_bounds(*pos)) {
+            ParseElement::WordBound => if (!forwards && pos.at_word_start()) || (forwards && word.out_of_bounds(*pos)) {
                 Ok(true)
             } else { Ok(false) },
-            ParseKind::SyllBound => if pos.at_syll_start() {
+            ParseElement::SyllBound => if pos.at_syll_start() {
                 Ok(true)
             } else { Ok(false) },
-            ParseKind::Ipa(s, m) => if self.context_match_ipa(s, m, word, *pos)? {
+            ParseElement::Ipa(s, m) => if self.context_match_ipa(s, m, word, *pos)? {
                 if forwards { pos.increment(word); } else { pos.decrement(word); }
                 Ok(true)
             } else { Ok(false) },
-            ParseKind::Matrix(m, v) => self.context_match_matrix(m, v, word, pos, forwards),
-            ParseKind::Syllable(s, t, v) => self.context_match_syll(s, t, v, word, pos, forwards),
-            ParseKind::Variable(vt, mods) => self.context_match_var(vt, mods, word, pos, forwards),
-            ParseKind::Set(s) => self.context_match_set(s, word, pos, forwards),
-            ParseKind::Optional(_, _, _) => todo!(),
-            ParseKind::Ellipsis => todo!(),
+            ParseElement::Matrix(m, v) => self.context_match_matrix(m, v, word, pos, forwards),
+            ParseElement::Syllable(s, t, v) => self.context_match_syll(s, t, v, word, pos, forwards),
+            ParseElement::Variable(vt, mods) => self.context_match_var(vt, mods, word, pos, forwards),
+            ParseElement::Set(s) => self.context_match_set(s, word, pos, forwards),
+            ParseElement::Optional(_, _, _) => todo!(),
+            ParseElement::Ellipsis => todo!(),
             
             
-            ParseKind::EmptySet | ParseKind::Metathesis |
-            ParseKind::Environment(_, _) => unreachable!(),
+            ParseElement::EmptySet | ParseElement::Metathesis |
+            ParseElement::Environment(_, _) => unreachable!(),
         }
     }
 
     fn context_match_set(&self, set: &[Item], word: &Word, pos: &mut SegPos, forwards: bool) -> Result<bool, RuleRuntimeError> {
         for s in set {
             let res = match &s.kind {
-                ParseKind::Variable(vt, m) => self.context_match_var(vt, m, word, pos, forwards),
-                ParseKind::Ipa(s, m) => if self.context_match_ipa(s, m, word, *pos)? {
+                ParseElement::Variable(vt, m) => self.context_match_var(vt, m, word, pos, forwards),
+                ParseElement::Ipa(s, m) => if self.context_match_ipa(s, m, word, *pos)? {
                     if forwards {
                         pos.increment(word);
                     } else {
@@ -242,10 +242,10 @@ impl SubRule {
                     }
                     Ok(true)
                 } else {Ok(false)},
-                ParseKind::Matrix(m, v) => self.context_match_matrix(m, v, word, pos, forwards),
-                ParseKind::Syllable(..) => todo!(),
-                ParseKind::WordBound => todo!(),
-                ParseKind::SyllBound => todo!(),
+                ParseElement::Matrix(m, v) => self.context_match_matrix(m, v, word, pos, forwards),
+                ParseElement::Syllable(..) => todo!(),
+                ParseElement::WordBound => todo!(),
+                ParseElement::SyllBound => todo!(),
                 _ => unimplemented!(),
             };
             if res? {
@@ -511,9 +511,9 @@ impl SubRule {
         let mut state_index = 0;
         let mut match_begin = None;
 
-        let empty_env = Item::new(ParseKind::Environment(vec![], vec![]), crate::Position { line: 0, start: 0, end: 0 });
+        let empty_env = Item::new(ParseElement::Environment(vec![], vec![]), crate::Position { line: 0, start: 0, end: 0 });
 
-        let ParseKind::Environment(before_states, after_states) = &match &self.context {
+        let ParseElement::Environment(before_states, after_states) = &match &self.context {
             Some(s) => s,
             None => match &self.except {
                 Some(_) => &empty_env,
@@ -521,7 +521,7 @@ impl SubRule {
             },
         }.kind else { unreachable!() };
 
-        let ParseKind::Environment(before_except_states, after_except_states) = &match &self.except {
+        let ParseElement::Environment(before_except_states, after_except_states) = &match &self.except {
             Some(ex) => ex,
             None => match &self.context {
                 Some(_) => &empty_env,
@@ -604,7 +604,7 @@ impl SubRule {
                 insertion_position = match match_begin {
                     Some(ip) => ip,
                     None => match after_states.last().unwrap().kind {
-                        ParseKind::WordBound | ParseKind::SyllBound => {
+                        ParseElement::WordBound | ParseElement::SyllBound => {
                             SegPos::new(word.syllables.len()-1, word.syllables.last().unwrap().segments.len())
                         },
                         _ => return Ok(None) 
@@ -636,48 +636,48 @@ impl SubRule {
 
     fn insertion_context_match_item(&self, cur_pos: &mut SegPos, state_index: &mut usize, word: &Word, states: &[Item], is_context_after: bool) -> Result<Option<SegPos>, RuleRuntimeError> {
         match &states[*state_index].kind {
-            ParseKind::WordBound => if (!is_context_after && cur_pos.at_word_start()) || (is_context_after && word.out_of_bounds(*cur_pos)) {
+            ParseElement::WordBound => if (!is_context_after && cur_pos.at_word_start()) || (is_context_after && word.out_of_bounds(*cur_pos)) {
                 *state_index += 1;
                 Ok(Some(*cur_pos))
             } else { Ok(None) },
-            ParseKind::Ipa(s, m) => if self.context_match_ipa(s, m, word, *cur_pos)? {
+            ParseElement::Ipa(s, m) => if self.context_match_ipa(s, m, word, *cur_pos)? {
                 *state_index += 1;
                 let pos = *cur_pos;
                 cur_pos.increment(word);
                 Ok(Some(pos))
             } else { Ok(None) },
-            ParseKind::SyllBound => if (!is_context_after && cur_pos.at_syll_start()) || (is_context_after && cur_pos.at_syll_end(word)) {
+            ParseElement::SyllBound => if (!is_context_after && cur_pos.at_syll_start()) || (is_context_after && cur_pos.at_syll_end(word)) {
             // ParseKind::SyllBound => if cur_pos.at_syll_start() {
                 *state_index += 1;
                 Ok(Some(*cur_pos))
             } else { Ok(None) },
-            ParseKind::Ellipsis => todo!(),
-            ParseKind::Syllable(s, t, v) => if self.context_match_syll(s, t, v, word, cur_pos, true)? {
+            ParseElement::Ellipsis => todo!(),
+            ParseElement::Syllable(s, t, v) => if self.context_match_syll(s, t, v, word, cur_pos, true)? {
                 *state_index += 1;
                 cur_pos.decrement(word);
                 Ok(Some(*cur_pos))
             } else { Ok(None) },
-            ParseKind::Set(set) => if self.context_match_set(set, word, cur_pos, true)? {
+            ParseElement::Set(set) => if self.context_match_set(set, word, cur_pos, true)? {
                 *state_index += 1;
                 // I hate this, but it works for now
                 cur_pos.decrement(word);
                 Ok(Some(*cur_pos))
             } else { Ok(None)},
-            ParseKind::Matrix(m, v) => if self.context_match_matrix(m, v, word, cur_pos, true)? {
+            ParseElement::Matrix(m, v) => if self.context_match_matrix(m, v, word, cur_pos, true)? {
                 *state_index += 1;
                 // I hate this, but it works for now
                 cur_pos.decrement(word);
                 Ok(Some(*cur_pos))
             } else { Ok(None)},
-            ParseKind::Variable(vt, mods) => if self.context_match_var(vt, mods, word, cur_pos, true)? {
+            ParseElement::Variable(vt, mods) => if self.context_match_var(vt, mods, word, cur_pos, true)? {
                 *state_index += 1;
                 Ok(Some(*cur_pos))
             } else { Ok(None)},
-            ParseKind::Optional(_, _, _) => todo!(),
+            ParseElement::Optional(_, _, _) => todo!(),
 
 
-            ParseKind::EmptySet | ParseKind::Metathesis |
-            ParseKind::Environment(_, _) => unreachable!(),
+            ParseElement::EmptySet | ParseElement::Metathesis |
+            ParseElement::Environment(_, _) => unreachable!(),
         }
     }
 
@@ -770,8 +770,8 @@ impl SubRule {
         
         for state in &self.output {
             match &state.kind {
-                ParseKind::Syllable(stress, tone, var) => self.insert_syllable(&mut res_word, insert_pos, stress, tone, var)?,
-                ParseKind::Ipa(seg, mods) => {        
+                ParseElement::Syllable(stress, tone, var) => self.insert_syllable(&mut res_word, insert_pos, stress, tone, var)?,
+                ParseElement::Ipa(seg, mods) => {        
                     if res_word.in_bounds(*insert_pos) {
                         res_word.syllables[insert_pos.syll_index].segments.insert(insert_pos.seg_index, *seg);
                     } else {
@@ -786,8 +786,8 @@ impl SubRule {
                         insert_pos.increment(&res_word);
                     }
                 },
-                ParseKind::Variable(num, mods) => self.insert_variable(&mut res_word, insert_pos, num, mods, after)?,
-                ParseKind::SyllBound => {
+                ParseElement::Variable(num, mods) => self.insert_variable(&mut res_word, insert_pos, num, mods, after)?,
+                ParseElement::SyllBound => {
                     if insert_pos.at_syll_start() || insert_pos.at_syll_end(&res_word) {
                         continue; // do nothing
                     }
@@ -807,11 +807,11 @@ impl SubRule {
                 },
                 
                 
-                ParseKind::Matrix(..) => return Err(RuleRuntimeError::InsertionMatrix(state.position)),
-                ParseKind::Set(_) => return Err(RuleRuntimeError::LonelySet(state.position)),
-                ParseKind::EmptySet  | ParseKind::Metathesis | 
-                ParseKind::Ellipsis  | ParseKind::Optional(..) | 
-                ParseKind::WordBound | ParseKind::Environment(..) => unreachable!(),
+                ParseElement::Matrix(..) => return Err(RuleRuntimeError::InsertionMatrix(state.position)),
+                ParseElement::Set(_) => return Err(RuleRuntimeError::LonelySet(state.position)),
+                ParseElement::EmptySet  | ParseElement::Metathesis | 
+                ParseElement::Ellipsis  | ParseElement::Optional(..) | 
+                ParseElement::WordBound | ParseElement::Environment(..) => unreachable!(),
             }
         }
 
@@ -839,8 +839,8 @@ impl SubRule {
         let mut res_word = word.clone();
         for (si, (in_state, out_state)) in self.input.iter().zip(&self.output).enumerate() {
             match &out_state.kind {
-                ParseKind::Syllable(_, _, _) => todo!(),
-                ParseKind::Matrix(m, v) => {
+                ParseElement::Syllable(_, _, _) => todo!(),
+                ParseElement::Matrix(m, v) => {
                     // get match at index and check it's a segment/or syllable and not a boundary
                     // if a syllable, make sure only do Syllable Suprs
                     // apply changes
@@ -850,7 +850,7 @@ impl SubRule {
                         MatchElement::SyllBound(..)  => todo!("Err: Can't apply matrix to syllable boundary"),
                     }
                 },
-                ParseKind::Ipa(seg, mods) => match input[si] {
+                ParseElement::Ipa(seg, mods) => match input[si] {
                     MatchElement::Segment(sp, _) => {
                         // "Replace with output IPA.
                         res_word.syllables[sp.syll_index].segments[sp.seg_index] = *seg;
@@ -862,15 +862,15 @@ impl SubRule {
                     MatchElement::Syllable(..) => todo!("Probably Err"),
                     MatchElement::SyllBound(..) => todo!("Err"),
                 },
-                ParseKind::Variable(_, _) => todo!(),
-                ParseKind::Set(set_output) => {
+                ParseElement::Variable(_, _) => todo!(),
+                ParseElement::Set(set_output) => {
                     // Check that self.input[si] is a set, if not throw RuleRuntimeError::LonelySet(state.position)
                     // Check both sets have the same number of elements 
                     // See which one of the input set matched and use the corresponding in output to substitute
                     match &in_state.kind {
-                        ParseKind::Set(set_input) => if set_input.len() == set_output.len() {
+                        ParseElement::Set(set_input) => if set_input.len() == set_output.len() {
                             if let MatchElement::Segment(sp, Some(i)) = input[si] {
-                                if let ParseKind::Ipa(seg, mods) = &set_output[i].kind {
+                                if let ParseElement::Ipa(seg, mods) = &set_output[i].kind {
                                     res_word.syllables[sp.syll_index].segments[sp.seg_index] = *seg;
                                     if let Some(m) = mods {
                                         res_word.apply_mods(&self.alphas, m, sp)?;
@@ -886,7 +886,7 @@ impl SubRule {
                     }
                 },
 
-                ParseKind::SyllBound => {
+                ParseElement::SyllBound => {
                     // if !pos.at_syll_start() && !pos.at_syll_end(word) {
                     //     // split current syll into two at insert_pos
                     //     todo!("Split")
@@ -894,18 +894,68 @@ impl SubRule {
                     todo!()
                 },
                 
-                ParseKind::EmptySet   | ParseKind::Metathesis    | 
-                ParseKind::Ellipsis   | ParseKind::Optional(..)  | 
-                ParseKind::WordBound  | ParseKind::Environment(..) => unreachable!(),
+                ParseElement::EmptySet   | ParseElement::Metathesis    | 
+                ParseElement::Ellipsis   | ParseElement::Optional(..)  | 
+                ParseElement::WordBound  | ParseElement::Environment(..) => unreachable!(),
             }
         }
 
         if self.output.len() > self.input.len() {
+            println!("{}", self.output[self.output.len() - self.input.len()]);
             todo!("insert remaining outputs");
         } else if self.input.len() > self.output.len() {
-            todo!("remove remaining inputs");
-        }
+            // TODO(girv): factor this out
+            let start_index = self.input.len() - self.output.len();
+            for &z in input.iter().skip(start_index).rev() {
+                match z {
+                    MatchElement::Segment(i, _) => {
+                        // remove segment                             
+                        if res_word.syllables.len() <= 1 && word.syllables[i.syll_index].segments.len() <= 1 {
+                            return Err(RuleRuntimeError::DeletionOnlySeg)
+                        }
+                        res_word.syllables[i.syll_index].segments.remove(i.seg_index);
+                        // if that was the only segment in that syllable, remove the syllable
+                        if res_word.syllables[i.syll_index].segments.is_empty() {
+                            res_word.syllables.remove(i.syll_index);
+                        }
+                    },
+                    MatchElement::Syllable(i, _) => {
+                        // remove syllable
+                        if res_word.syllables.len() <= 1 {
+                            return Err(RuleRuntimeError::DeletionOnlySyll)
+                        }
+                        res_word.remove_syll(i);
+                    },
+                    MatchElement::SyllBound(i, _) => {
+                        // join the two neighbouring syllables
+                        // if one has stress and/or tone, joined syll gets them
+                        // if they both have stress, highest wins
+                        // if they both have tone, join them i.e. ma5a1 > ma:51
+                        if res_word.syllables.len() <= 1 {
+                            return Err(RuleRuntimeError::DeletionOnlySyll)
+                        }
+                        
+                        if i == 0 || i >= res_word.syllables.len() {
+                            // can't delete a word boundary
+                            continue;
+                        }
+                        let mut syll_segs = res_word.syllables[i].segments.clone();
+                        res_word.syllables[i-1].segments.append(&mut syll_segs);
 
+                        res_word.syllables[i-1].stress = match (res_word.syllables[i-1].stress, res_word.syllables[i].stress) {
+                            (StressKind::Primary, _) | (_, StressKind::Primary) => StressKind::Primary,
+                            (StressKind::Secondary, StressKind::Secondary)  | 
+                            (StressKind::Secondary, StressKind::Unstressed) | 
+                            (StressKind::Unstressed, StressKind::Secondary)  => StressKind::Secondary,
+                            (StressKind::Unstressed, StressKind::Unstressed) => StressKind::Unstressed,
+                        };
+                        let syll_tone = res_word.syllables[i].tone.clone();
+                        res_word.syllables[i-1].tone.push_str(&syll_tone);
+                        res_word.syllables.remove(i);
+                    },
+                }
+            }
+        };
 
         Ok(res_word)
     }
@@ -922,7 +972,7 @@ impl SubRule {
                     // if we have a full match
 
                     // As matching a syllbound doesn't increment, this is to avoid an infinite loop
-                    if self.input.last().unwrap().kind == ParseKind::SyllBound {
+                    if self.input.last().unwrap().kind == ParseElement::SyllBound {
                         cur_index.increment(word);
                     }
                     return Ok((captures, Some(cur_index)));
@@ -950,7 +1000,7 @@ impl SubRule {
 
         if match_begin.is_none() { // if we've got to the end of the word and we haven't began matching
             Ok((vec![], None))
-        } else if self.input.last().unwrap().kind == ParseKind::SyllBound {
+        } else if self.input.last().unwrap().kind == ParseElement::SyllBound {
             // if we've reached the end of the word and the last state is a word boundary
             captures.push(MatchElement::SyllBound(word.syllables.len(), None));
             Ok((captures, None))
@@ -968,35 +1018,35 @@ impl SubRule {
         states: &[Item], 
     ) -> Result<bool, RuleRuntimeError> {
         match &states[*state_index].kind {
-            ParseKind::Variable(vt, m) => if self.input_match_var(captures, state_index, vt, m, word, seg_pos)? {
+            ParseElement::Variable(vt, m) => if self.input_match_var(captures, state_index, vt, m, word, seg_pos)? {
                 seg_pos.increment(word);
                 *state_index += 1;
                 Ok(true)
             } else { Ok(false) },
-            ParseKind::Ipa(s, m) => if self.input_match_ipa(captures, s, m, word, *seg_pos)? {
+            ParseElement::Ipa(s, m) => if self.input_match_ipa(captures, s, m, word, *seg_pos)? {
                 seg_pos.increment(word);
                 *state_index += 1;
                 Ok(true)
             } else { Ok(false) },
-            ParseKind::Matrix(m, v) => if self.input_match_matrix(captures, m, v, word, seg_pos)? {
+            ParseElement::Matrix(m, v) => if self.input_match_matrix(captures, m, v, word, seg_pos)? {
                 seg_pos.increment(word);
                 *state_index += 1;
                 Ok(true) 
             } else { Ok(false) },
-            ParseKind::Set(s) => if self.input_match_set(captures, state_index, s, word, seg_pos)? {
+            ParseElement::Set(s) => if self.input_match_set(captures, state_index, s, word, seg_pos)? {
                 seg_pos.increment(word); // TODO(girv): when we allow boundaries within sets, this will have to be incremented within the match_set function
                 *state_index += 1;
                 Ok(true)
             } else { Ok(false) },
-            ParseKind::SyllBound => if self.input_match_syll_bound(captures, *seg_pos) {
+            ParseElement::SyllBound => if self.input_match_syll_bound(captures, *seg_pos) {
                 // NOTE(girv): Boundaries do not advance seg_index 
                 *state_index += 1;
                 Ok(true)
             } else { Ok(false) },
-            ParseKind::Syllable(s, t, v) => self.input_match_syll(captures, state_index, s, t, v, word, seg_pos),
-            ParseKind::Ellipsis => self.input_match_ellipsis(captures, word, seg_pos, states, state_index),
-            ParseKind::Optional(opt_states, match_min, match_max) => self.input_match_optionals(captures, word, seg_pos, states, opt_states, *match_min, *match_max),            
-            ParseKind::EmptySet | ParseKind::WordBound | ParseKind::Metathesis | ParseKind::Environment(_, _) => unreachable!(),
+            ParseElement::Syllable(s, t, v) => self.input_match_syll(captures, state_index, s, t, v, word, seg_pos),
+            ParseElement::Ellipsis => self.input_match_ellipsis(captures, word, seg_pos, states, state_index),
+            ParseElement::Optional(opt_states, match_min, match_max) => self.input_match_optionals(captures, word, seg_pos, states, opt_states, *match_min, *match_max),            
+            ParseElement::EmptySet | ParseElement::WordBound | ParseElement::Metathesis | ParseElement::Environment(_, _) => unreachable!(),
         }
     }
 
@@ -1145,12 +1195,12 @@ impl SubRule {
     fn input_match_set(&self, captures: &mut Vec<MatchElement>, state_index: &mut usize, set: &[Item], word: &Word, pos: &mut SegPos) -> Result<bool, RuleRuntimeError> {
         for (i,s) in set.iter().enumerate() {
             let res = match &s.kind {
-                ParseKind::Variable(vt, m) => self.input_match_var(captures, state_index, vt, m, word, pos),
-                ParseKind::Ipa(s, m)       => self.input_match_ipa(captures, s, m, word, *pos),
-                ParseKind::Matrix(m, v)    => self.input_match_matrix(captures, m, v, word, pos),
-                ParseKind::Syllable(..) => todo!(),
-                ParseKind::WordBound => todo!(),
-                ParseKind::SyllBound => todo!(),
+                ParseElement::Variable(vt, m) => self.input_match_var(captures, state_index, vt, m, word, pos),
+                ParseElement::Ipa(s, m)       => self.input_match_ipa(captures, s, m, word, *pos),
+                ParseElement::Matrix(m, v)    => self.input_match_matrix(captures, m, v, word, pos),
+                ParseElement::Syllable(..) => todo!(),
+                ParseElement::WordBound => todo!(),
+                ParseElement::SyllBound => todo!(),
                 _ => unimplemented!(),
             };
             if res? {

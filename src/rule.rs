@@ -1,16 +1,16 @@
 use std::{
-    collections::HashMap, 
     cell::RefCell,
+    collections::HashMap, 
     cmp ::max, 
     fmt, 
 };
 
 use crate   :: {
-    parser  :: {Item, Supr}, 
     error   :: {Error, RuleSyntaxError}, 
-    word    :: Word,
+    parser  :: {Item, ParseElement, Supr}, 
     seg     :: NodeKind, 
     subrule :: SubRule, 
+    word    :: Word,
 };
 
 #[derive(Debug, Copy, Clone, PartialEq, Eq)]
@@ -18,7 +18,6 @@ pub enum RuleType {
     Substitution,
     Metathesis,
     Deletion,
-    // Reduplication,
     Insertion,
 }
 
@@ -80,7 +79,7 @@ pub struct Rule {
     pub output:    Vec<Vec<Item>>,    // these need to be Vec<Vec<Item>>
     pub context:   Vec<Item>,
     pub except:    Vec<Item>,
-}   // todo: if we move rule_type calc to SubRule, that would allow us to have multirules with insert/delete/metath
+}
 
 impl Rule {
     pub fn new(i: Vec<Vec<Item>>, o: Vec<Vec<Item>>, c :Vec<Item>, e :Vec<Item>) -> Self {
@@ -98,20 +97,20 @@ impl Rule {
         if self.context.len() != max && self.context.len() != 1 && !self.context.is_empty() { return Err(RuleSyntaxError::UnbalancedRuleEnv(self.context.clone())) }
         if self.except.len()  != max && self.except.len()  != 1 && !self.except.is_empty()  { return Err(RuleSyntaxError::UnbalancedRuleEnv(self.except.clone()))  }
 
-        // populate subrules, if one if length==1 then it's value is duplicated to rest of subrules
+        // populate subrules, if one's length == 1 then it's value is duplicated to rest of subrules
         let mut sub_vec = Vec::new();
         for i in 0..max {
-            let input   = if self.input.len()  == 1 { self.input[0].clone() }  else { self.input[i].clone() };
+            let input   = if  self.input.len() == 1 {  self.input[0].clone() } else {  self.input[i].clone() };
             let output  = if self.output.len() == 1 { self.output[0].clone() } else { self.output[i].clone() };
             let context = if self.context.is_empty() { None } else if self.context.len() == 1 { Some(self.context[0].clone()) } else { Some(self.context[i].clone()) };
-            let except  = if self.except.is_empty()  { None } else if self.except.len()  == 1 { Some(self.except[0].clone()) }  else { Some(self.except[i].clone()) };
+            let except  = if  self.except.is_empty() { None } else if  self.except.len() == 1 { Some( self.except[0].clone()) } else { Some( self.except[i].clone()) };
             let rule_type = {
                 match (&input[0].kind, &output[0].kind) {
-                    (crate::ParseKind::EmptySet, crate::ParseKind::EmptySet) => return Err(RuleSyntaxError::InsertDelete(input[0].position.line, input[0].position.start, output[0].position.start)),
-                    (crate::ParseKind::EmptySet, crate::ParseKind::Metathesis) => return Err(RuleSyntaxError::InsertMetath(input[0].position.line, input[0].position.start, output[0].position.start)),
-                    (crate::ParseKind::EmptySet, _) => RuleType::Insertion,
-                    (_, crate::ParseKind::EmptySet) => RuleType::Deletion,
-                    (_, crate::ParseKind::Metathesis) => RuleType::Metathesis,
+                    (ParseElement::EmptySet, ParseElement::EmptySet) => return Err(RuleSyntaxError::InsertDelete(input[0].position.line, input[0].position.start, output[0].position.start)),
+                    (ParseElement::EmptySet, ParseElement::Metathesis) => return Err(RuleSyntaxError::InsertMetath(input[0].position.line, input[0].position.start, output[0].position.start)),
+                    (ParseElement::EmptySet, _) => RuleType::Insertion,
+                    (_, ParseElement::EmptySet) => RuleType::Deletion,
+                    (_, ParseElement::Metathesis) => RuleType::Metathesis,
                     (..) => RuleType::Substitution  
                 }
             };
@@ -126,7 +125,7 @@ impl Rule {
                     variables: RefCell::new(HashMap::new()), 
                     alphas: RefCell::new(HashMap::new()), 
                     // pos: SegPos::new(0, 0),
-                    // state_index: SegPos::new(0, 0),
+                    // state_index: 0,
                 }
             );
         }
@@ -141,19 +140,15 @@ impl Rule {
         let mut res_word = word; 
         for i in sub_rules {
             res_word = i.apply(res_word)?;
-
             // println!("{i:#?} ---> {res_word:#?}");
         }
-
-        Ok(res_word) // TODO: return new word
-
+        Ok(res_word)
     }
 }
 
 impl fmt::Debug for Rule {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        writeln!(f, "Rule ->")?;;
-        
+        writeln!(f, "Rule ->")?;
         writeln!(f, "    Input = [")?;
         for i in self.input.iter() {
             writeln!(f, "        {i:?}")?;
@@ -226,10 +221,17 @@ mod rule_tests {
     }
 
     #[test]
-    fn test_del_ipa_before_bound() {
+    fn test_del_ipa_before_wbound() {
         let test_rule = setup_rule("t > *  / _#");
         let test_word = setup_word("kat.kat");
         assert_eq!(test_rule.apply(test_word).unwrap().render().unwrap(), "kat.ka");
+    }
+
+    #[test]
+    fn test_del_ipa_before_sbound() {
+        let test_rule = setup_rule("t > *  / _$ | _#");
+        let test_word = setup_word("kat.kat");
+        assert_eq!(test_rule.apply(test_word).unwrap().render().unwrap(), "ka.kat");
     }
     
     #[test]
