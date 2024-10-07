@@ -404,7 +404,7 @@ impl SubRule {
                         (MatchElement::SyllBound(..), MatchElement::Syllable(..)) => todo!(),
                     }
                 }
-
+                // TODO: Update current position
                 Ok(res_word)
             },
             RuleType::Deletion => {
@@ -498,7 +498,7 @@ impl SubRule {
                 }
                 Ok(res_word)
             },
-            RuleType::Substitution => self.substitution(word, input),
+            RuleType::Substitution => self.substitution(word, input, current_pos),
         }
     }
 
@@ -835,7 +835,7 @@ impl SubRule {
         }
     }
     
-    fn substitution(&self, word: &Word, input: Vec<MatchElement>) -> Result<Word, RuleRuntimeError> {
+    fn substitution(&self, word: &Word, input: Vec<MatchElement>, current_pos: &mut Option<SegPos>) -> Result<Word, RuleRuntimeError> {
         let mut res_word = word.clone();
         for (si, (in_state, out_state)) in self.input.iter().zip(&self.output).enumerate() {
             match &out_state.kind {
@@ -917,6 +917,15 @@ impl SubRule {
                         // if that was the only segment in that syllable, remove the syllable
                         if res_word.syllables[i.syll_index].segments.is_empty() {
                             res_word.syllables.remove(i.syll_index);
+                            if let Some(pos) = current_pos {
+                                debug_assert!(pos.syll_index > 0);
+                                pos.syll_index -= 1;
+                            }
+                        }
+                        if let Some(pos) = current_pos { 
+                            if pos.seg_index > 0 {
+                                pos.seg_index -= 1; 
+                            }
                         }
                     },
                     MatchElement::Syllable(i, _) => {
@@ -925,6 +934,10 @@ impl SubRule {
                             return Err(RuleRuntimeError::DeletionOnlySyll)
                         }
                         res_word.remove_syll(i);
+                        if let Some(pos) = current_pos {
+                            debug_assert!(pos.syll_index > 0);
+                            pos.syll_index -= 1;
+                        }
                     },
                     MatchElement::SyllBound(i, _) => {
                         // join the two neighbouring syllables
@@ -952,6 +965,11 @@ impl SubRule {
                         let syll_tone = res_word.syllables[i].tone.clone();
                         res_word.syllables[i-1].tone.push_str(&syll_tone);
                         res_word.syllables.remove(i);
+
+                        if let Some(pos) = current_pos {
+                            debug_assert!(pos.syll_index > 0);
+                            pos.syll_index -= 1;
+                        }
                     },
                 }
             }

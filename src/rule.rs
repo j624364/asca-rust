@@ -196,6 +196,23 @@ mod rule_tests {
     }
 
     #[test]
+    fn test_sub_del_ipa() {
+        let test_rule = setup_rule("sk > ʃ");
+        let test_word = setup_word("skip");
+        assert_eq!(test_rule.apply(test_word).unwrap().render().unwrap(), "ʃip");
+    }
+
+    #[test]
+    fn test_sub_del_ipa_bordering() {
+        let test_rule = setup_rule("sk > ʃ");
+        let test_word = setup_word("skskip");
+        assert_eq!(test_rule.apply(test_word).unwrap().render().unwrap(), "ʃːip");
+
+        let test_word = setup_word("ask.skip");
+        assert_eq!(test_rule.apply(test_word).unwrap().render().unwrap(), "aʃ.ʃip");
+    }
+
+    #[test]
     fn test_sub_set() {
         let test_rule = setup_rule("{p, t, k} > {b, d, g}");
         let test_word = setup_word("pa.ta.ka");
