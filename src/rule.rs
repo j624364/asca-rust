@@ -196,6 +196,29 @@ mod rule_tests {
     }
 
     #[test]
+    fn test_sub_syll_var() {
+        let test_rule = setup_rule("% > 1:[-str] / %:[+str]=1_");
+        let test_word = setup_word("keˈsa.lo");
+        assert_eq!(test_rule.apply(test_word).unwrap().render().unwrap(), "keˈsa.sa");
+    }
+
+    #[test]
+    fn test_sub_assim() {
+        let test_rule = setup_rule("V > [αround] / _C[αround]");
+        let test_word = setup_word("le.ro");
+        assert_eq!(test_rule.apply(test_word).unwrap().render().unwrap(), "lø.ro");
+    }
+
+    #[test]
+    fn test_sub_assim_turk_contrived() {
+        let test_rule = setup_rule("[+syll, +hi] > [αbk, βfr, γrnd] / [αbk, βfr, γrnd] CC _C #");
+        let test_word = setup_word("røstin");
+        assert_eq!(test_rule.apply(test_word).unwrap().render().unwrap(), "røstyn");
+        let test_word = setup_word("kɨzlik");
+        assert_eq!(test_rule.apply(test_word).unwrap().render().unwrap(), "kɨzlɨk");
+    }
+
+    #[test]
     fn test_sub_del_ipa() {
         let test_rule = setup_rule("sk > ʃ");
         let test_word = setup_word("skip");

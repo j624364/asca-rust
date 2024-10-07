@@ -859,10 +859,33 @@ impl SubRule {
                             res_word.apply_mods(&self.alphas, m, sp)?;
                         }
                     },    
-                    MatchElement::Syllable(..) => todo!("Probably Err"),
-                    MatchElement::SyllBound(..) => todo!("Err"),
+                    MatchElement::Syllable(..) | MatchElement::SyllBound(..) => todo!("Err"),
                 },
-                ParseElement::Variable(_, _) => todo!(),
+                ParseElement::Variable(num, mods) => {
+                    if let Some(var) = self.variables.borrow_mut().get(&num.value.parse().unwrap()) {
+                        match (var, input[si]) {
+                            (VarKind::Segment(seg), MatchElement::Segment(sp, _)) => {
+                                res_word.syllables[sp.syll_index].segments[sp.seg_index] = *seg;
+                                if let Some(m) = mods {
+                                    res_word.apply_mods(&self.alphas, m, sp)?;
+                                }
+                            },
+                            (VarKind::Syllable(syll), MatchElement::Syllable(sp, _)) => {
+                                res_word.syllables[sp] = syll.clone();
+                                if let Some(m) = mods {
+                                    res_word.syllables[sp].apply_mods(&self.alphas, &m.suprs)?;
+                                }
+                            },
+
+                            (VarKind::Segment(_), MatchElement::Syllable(..)) |
+                            (VarKind::Segment(_), MatchElement::SyllBound(..)) |
+                            (VarKind::Syllable(_), MatchElement::Segment(..)) |
+                            (VarKind::Syllable(_), MatchElement::SyllBound(..)) => todo!("Err"),
+                        }
+                    } else {
+                        return Err(RuleRuntimeError::UnknownVariable(num.clone()))
+                    }
+                },
                 ParseElement::Set(set_output) => {
                     // Check that self.input[si] is a set, if not throw RuleRuntimeError::LonelySet(state.position)
                     // Check both sets have the same number of elements 
