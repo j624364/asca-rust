@@ -599,7 +599,7 @@ impl Parser {
         }
 
         if !self.expect(TokenKind::Colon) {
-            return Ok(Item::new(ParseElement::Ipa(ipa, None), Position::new(self.line, pos.start, self.curr_tkn.position.end - 1)))
+            return Ok(Item::new(ParseElement::Ipa(ipa, None), Position::new(self.line, pos.start, self.token_list[self.pos-1].position.end)))
         }
         if !self.expect(TokenKind::LeftSquare) {
             return Err(RuleSyntaxError::ExpectedMatrix(self.curr_tkn.clone()))
@@ -1004,7 +1004,7 @@ mod parser_tests {
 
     #[test]
     fn test_metathesis() {
-        let maybe_result = Parser:: new(setup("t͡ɕ...b͡β > &"),0).parse();
+        let maybe_result = Parser::new(setup("t͡ɕ...b͡β > &"),0).parse();
 
         assert!(maybe_result.is_ok());
 
