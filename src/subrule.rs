@@ -86,7 +86,15 @@ impl SubRule {
                         }
                         sp
                     },
-                    MatchElement::SyllBound(s, _) => SegPos::new(s, 0),
+                    MatchElement::SyllBound(s, _) => {
+                        let mut sp = SegPos::new(s, 0);
+                        if s != 0 {
+                            sp.decrement(&word);
+                        } // else {
+                            // FIXME(girv): this may lead to bugs 
+                        // }
+                        sp
+                    },
                     MatchElement::Syllable(s, _)  => SegPos::new(s, word.syllables[s].segments.len()-1),
                 };
                 if !self.match_before_context_and_exception(&word, start)? || !self.match_after_context_and_exception(&word, end)? {
@@ -97,9 +105,11 @@ impl SubRule {
                     // end of word
                     break;
                 }
-                println!("{}", word.render().unwrap());
+                let prev = word.render().unwrap();
                 println!("Match! {:?}", res);
                 word = self.transform(&word, res, &mut next_index)?;
+                println!("{} => {}", prev, word.render().unwrap());
+                
                 if let Some(ci) = next_index { 
                     cur_index = ci;
                 } else {

@@ -45,7 +45,7 @@ impl SegPos {
 
     pub fn increment(&mut self, word: &Word) {
         // NOTE: Does not guarantee that the resulting position is within the bounds of the word
-        debug_assert!(self.syll_index < word.syllables.len());
+        debug_assert!(self.syll_index < word.syllables.len(), "error incrementing");
 
         self.seg_index += 1;
         if self.seg_index > word.syllables[self.syll_index].segments.len() - 1 {
@@ -55,9 +55,12 @@ impl SegPos {
     }
 
     pub fn decrement(&mut self, word: &Word) {
-        debug_assert!(self.syll_index < word.syllables.len());
-        
-        if self.seg_index > 0 {
+        // debug_assert!(self.syll_index < word.syllables.len(), "error decrementing");
+
+        if self.syll_index > word.syllables.len() {
+            self.syll_index = word.syllables.len() - 1;
+            self.seg_index = word.syllables[self.syll_index].segments.len() - 1;
+        } else if self.seg_index > 0 {
             self.seg_index -= 1;
         } else if self.syll_index > 0 {
             self.syll_index -= 1;
