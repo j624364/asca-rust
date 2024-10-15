@@ -1440,10 +1440,10 @@ impl SubRule {
                             return Ok(seg.node_match(*n, *m))
                         } else if let Some((n, place)) = alph.as_place() {
                             return Ok(
-                                seg.node_match(*n, place.lab) &&
-                                seg.node_match(*n, place.cor) &&
-                                seg.node_match(*n, place.dor) &&
-                                seg.node_match(*n, place.phr)
+                                seg.node_match(NodeKind::Labial, place.lab) &&
+                                seg.node_match(NodeKind::Coronal, place.cor) &&
+                                seg.node_match(NodeKind::Dorsal, place.dor) &&
+                                seg.node_match(NodeKind::Pharyngeal, place.phr)
                             )
                         } else {
                             todo!("err: Alpha is not node");
@@ -1466,17 +1466,24 @@ impl SubRule {
                     if let Some(alph) = self.alphas.borrow().get(ia) {
                         if let Some((n, m)) = alph.as_node() {
                             return Ok(!seg.node_match(*n, *m))
-                        } else if let Some((n, place)) = alph.as_place() {
+                        } else if let Some((_, place)) = alph.as_place() {
+                            println!("hi");
+
                             return Ok(
-                                !seg.node_match(*n, place.lab) &&
-                                !seg.node_match(*n, place.cor) &&
-                                !seg.node_match(*n, place.dor) &&
-                                !seg.node_match(*n, place.phr)
+                                !seg.node_match(NodeKind::Labial, place.lab) ||
+                                !seg.node_match(NodeKind::Coronal, place.cor) ||
+                                !seg.node_match(NodeKind::Dorsal, place.dor) ||
+                                !seg.node_match(NodeKind::Pharyngeal, place.phr)
                             )
                         } else {
                             todo!("err: Alpha is not node");
                         }
                     }
+
+                    // FIXME: aPLACE_-aPLACE works, but -aPLACE_aPLACE does not
+                    // We do not insert the inverse
+                    // Perhaps we enforce this as an error,
+                    // I.e. "First occurence of alpha must be positive"
                     if node == NodeKind::Place {
                         let place = PlaceMod::new(
                             seg.get_node(NodeKind::Labial),
