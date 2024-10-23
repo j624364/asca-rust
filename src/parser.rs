@@ -509,9 +509,7 @@ impl Parser {
             }
             if self.is_feature() {
                 let (ft, mk) = self.curr_token_to_modifier();
-                if (    ft != FeatType::Supr(SupraType::Tone) 
-                     && ft != FeatType::Supr(SupraType::Stress)
-                   ) && is_syll {
+                if ft != FeatType::Supr(SupraType::Tone) && ft != FeatType::Supr(SupraType::Stress) && is_syll {
                     return Err(RuleSyntaxError::BadSyllableMatrix(self.curr_tkn.clone()))
                 }
                 match ft {
