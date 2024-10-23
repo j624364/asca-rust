@@ -181,7 +181,7 @@ mod rule_tests {
     
     fn setup_rule(test_str: &str) -> Rule {
         use crate::{Lexer, Parser};
-        Parser:: new(Lexer::new(&test_str.chars().collect::<Vec<_>>(),0).get_line().unwrap(), 0).parse().unwrap()
+        Parser::new(Lexer::new(&test_str.chars().collect::<Vec<_>>(),0).get_line().unwrap(), 0).parse().unwrap()
     }
 
     fn setup_word(test_str: &str) -> Word {
@@ -243,6 +243,17 @@ mod rule_tests {
     }
 
     #[test]
+    fn test_sub_alpha() {
+        let test_rule = setup_rule("d > [αvoice] / _[αvoice]");
+        let test_word = setup_word("ad.ha");
+        assert_eq!(test_rule.apply(test_word).unwrap().render().unwrap(), "at.ha");
+
+        let test_rule = setup_rule("k > [αvoice] / [-αvoice]_");
+        let test_word = setup_word("əs.kɔl");
+        assert_eq!(test_rule.apply(test_word).unwrap().render().unwrap(), "əs.ɡɔl");
+    }
+
+    #[test]
     fn test_met_simple_ipa() {
         let test_rule = setup_rule("sk > &");
         let test_word = setup_word("ˈɑːs.ki.ɑn");
@@ -251,6 +262,45 @@ mod rule_tests {
         let test_rule = setup_rule("[+rhotic]V > & / _s");
         let test_word = setup_word("ˈhros");
         assert_eq!(test_rule.apply(test_word).unwrap().render().unwrap(), "ˈhors");
+
+        let test_rule = setup_rule("oba > &");
+        let test_word = setup_word("ˈko.ba.lo.ba");
+        assert_eq!(test_rule.apply(test_word).unwrap().render().unwrap(), "ˈka.bo.la.bo");
+    }
+
+    #[test]
+    fn test_manual_met() {
+        let test_rule = setup_rule("[+rho]=1 V=2 > 2 1  / _s");
+        let test_word = setup_word("ˈhros");
+        assert_eq!(test_rule.apply(test_word).unwrap().render().unwrap(), "ˈhors");
+    }
+
+    // #[test]
+    // fn test_met_long_dist_ipa() {
+    //     let test_rule = setup_rule("r...l > &");
+    //     let test_word = setup_word("ˈpa.ra.bo.la");
+    //     assert_eq!(test_rule.apply(test_word).unwrap().render().unwrap(), "ˈpa.la.bo.ra");
+    // }
+
+    #[test]
+    fn test_met_syll_bound() {
+        let test_rule = setup_rule("$s > & / V_{p,t,k}");
+        let test_word = setup_word("e.spa.ɲa");
+        assert_eq!(test_rule.apply(test_word).unwrap().render().unwrap(), "es.pa.ɲa");
+    }
+
+    #[test]
+    fn test_met_syll() {
+        let test_rule = setup_rule("%% > &");
+        let test_word = setup_word("sa.ro.na");
+        assert_eq!(test_rule.apply(test_word).unwrap().render().unwrap(), "ro.sa.na");
+    }
+
+    #[test]
+    fn test_met_ident() {
+        let test_rule = setup_rule("V > &");
+        let test_word = setup_word("saus");
+        assert_eq!(test_rule.apply(test_word).unwrap().render().unwrap(), "saus");
     }
 
     #[test]
@@ -258,6 +308,33 @@ mod rule_tests {
         let test_rule = setup_rule("lVr > &");
         let test_word = setup_word("la.ri");
         assert_eq!(test_rule.apply(test_word).unwrap().render().unwrap(), "ra.li");
+        // V matches a vowel segment of arbitrary length (user must specify [-long] if only matching short segments)
+        let test_word = setup_word("la:.ri");
+        assert_eq!(test_rule.apply(test_word).unwrap().render().unwrap(), "raː.li");
+        // But does not match different consecutive vowels
+        let test_word = setup_word("lau.ri");
+        assert_eq!(test_rule.apply(test_word).unwrap().render().unwrap(), "lau.ri");
+    }
+
+    #[test]
+    fn test_del_simple_ipa() {
+        let test_rule = setup_rule("o > *");
+        let test_word = setup_word("o.so.on.o");
+        assert_eq!(test_rule.apply(test_word).unwrap().render().unwrap(), "s.n");
+    }
+
+    #[test]
+    fn test_del_syll() {
+        let test_rule = setup_rule("% > * | _s");
+        let test_word = setup_word("a.ske.sa.re");
+        assert_eq!(test_rule.apply(test_word).unwrap().render().unwrap(), "a.ske");
+    }
+
+    #[test]
+    fn test_del_syll_var() {
+        let test_rule = setup_rule("%=1 > * / 1_");
+        let test_word = setup_word("ke.sa.sa");
+        assert_eq!(test_rule.apply(test_word).unwrap().render().unwrap(), "ke.sa");
     }
 
     #[test]
@@ -402,6 +479,15 @@ mod rule_tests {
         let test_word = setup_word("ski");
         println!("* > e / _C");
         assert_eq!(test_rule.apply(test_word).unwrap().render().unwrap(), "eseki");
+    }
+
+    #[test]
+    fn test_insertion_spanish() {
+        // TODO(girv): insertion cannot match set in context to set in output
+        // let test_rule = setup_rule("* > {b, d} / {m, n}_r");
+        let test_rule = setup_rule("* > b, d / m_r, n_r");
+        let test_word = setup_word("om.re");
+        assert_eq!(test_rule.apply(test_word).unwrap().render().unwrap(), "om.bre");
     }
 
     #[test]
