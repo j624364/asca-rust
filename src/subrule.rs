@@ -8,12 +8,12 @@ use std ::{
 
 use crate ::{
     error :: RuleRuntimeError, 
-    lexer ::{FType, Token}, 
+    lexer ::{FType, Position, Token}, 
     parser::{AlphaMod, BinMod, Item, ModKind, Modifiers, ParseElement, SupraSegs}, 
-    rule  ::{Alpha, RuleType, PlaceMod}, 
+    rule  ::{Alpha, PlaceMod, RuleType}, 
     seg   ::{feature_to_node_mask, NodeKind, Segment}, 
     syll  ::{StressKind, Syllable}, 
-    word  ::{SegPos, Word}
+    word  ::{SegPos, Word},
 };
 
 type SylPos = usize;            // the index of the syllable in the word.syllables array
@@ -150,7 +150,7 @@ impl SubRule {
             }
         }
         let mut start_pos = pos;
-        let mut is_except_match = if except_states.is_empty() {false} else {true};
+        let mut is_except_match = !except_states.is_empty();
         for (si, state) in except_states.iter().rev().enumerate() {
             if !self.context_match(word, state, &mut start_pos, false, si)? {
                 println!("{} {}", word.render().unwrap(), state);
@@ -188,7 +188,7 @@ impl SubRule {
             }
         }
         let mut start_pos = pos;
-        let mut is_except_match = if except_states.is_empty() {false} else {true};
+        let mut is_except_match = !except_states.is_empty();
         for (si, state) in except_states.iter().enumerate() {
             if !self.context_match(word, state, &mut start_pos, true, si)? {
                 println!("{} {}", word.render().unwrap(), state);
@@ -227,7 +227,7 @@ impl SubRule {
                 if forwards { pos.increment(word); } else { pos.decrement(word); }
                 Ok(true)
             } else { Ok(false) },
-            ParseElement::Matrix(m, v) => self.context_match_matrix(m, v, word, pos, forwards),
+            ParseElement::Matrix(m, v) => self.context_match_matrix(m, v, word, pos, forwards, state.position),
             ParseElement::Syllable(s, t, v) => self.context_match_syll(s, t, v, word, pos, forwards),
             ParseElement::Variable(vt, mods) => self.context_match_var(vt, mods, word, pos, forwards),
             ParseElement::Set(s) => self.context_match_set(s, word, pos, forwards),
@@ -252,7 +252,7 @@ impl SubRule {
                     }
                     Ok(true)
                 } else {Ok(false)},
-                ParseElement::Matrix(m, v) => self.context_match_matrix(m, v, word, pos, forwards),
+                ParseElement::Matrix(m, v) => self.context_match_matrix(m, v, word, pos, forwards, s.position),
                 ParseElement::Syllable(..) => todo!(),
                 ParseElement::WordBound => todo!(),
                 ParseElement::SyllBound => todo!(),
@@ -339,11 +339,11 @@ impl SubRule {
         }
     }
 
-    fn context_match_matrix(&self, mods: &Modifiers, var: &Option<usize>, word: &Word, pos: &mut SegPos, forwards: bool) -> Result<bool, RuleRuntimeError> {        
+    fn context_match_matrix(&self, mods: &Modifiers, var: &Option<usize>, word: &Word, pos: &mut SegPos, forwards: bool, err_pos: Position) -> Result<bool, RuleRuntimeError> {        
         if word.out_of_bounds(*pos) {
             return Ok(false)
         }
-        if self.match_modifiers(mods, word, pos)? {
+        if self.match_modifiers(mods, word, pos, err_pos)? {
             if let Some(v) = var {
                 self.variables.borrow_mut().insert(*v, VarKind::Segment(word.get_seg_at(*pos).unwrap()));
             }
@@ -645,6 +645,7 @@ impl SubRule {
     }
 
     fn insertion_context_match_item(&self, cur_pos: &mut SegPos, state_index: &mut usize, word: &Word, states: &[Item], is_context_after: bool) -> Result<Option<SegPos>, RuleRuntimeError> {
+        let err_pos = states[*state_index].position;
         match &states[*state_index].kind {
             ParseElement::WordBound => if (!is_context_after && cur_pos.at_word_start()) || (is_context_after && word.out_of_bounds(*cur_pos)) {
                 *state_index += 1;
@@ -670,10 +671,11 @@ impl SubRule {
             ParseElement::Set(set) => if self.context_match_set(set, word, cur_pos, true)? {
                 *state_index += 1;
                 // I hate this, but it works for now
-                cur_pos.decrement(word);
+                // cur_pos.decrement(word);
+                println!("{cur_pos:?}");
                 Ok(Some(*cur_pos))
             } else { Ok(None)},
-            ParseElement::Matrix(m, v) => if self.context_match_matrix(m, v, word, cur_pos, true)? {
+            ParseElement::Matrix(m, v) => if self.context_match_matrix(m, v, word, cur_pos, true, err_pos)? {
                 *state_index += 1;
                 // I hate this, but it works for now
                 cur_pos.decrement(word);
@@ -1068,6 +1070,7 @@ impl SubRule {
         word: &Word, 
         states: &[Item], 
     ) -> Result<bool, RuleRuntimeError> {
+        let err_pos = states[*state_index].position;
         match &states[*state_index].kind {
             ParseElement::Variable(vt, m) => if self.input_match_var(captures, state_index, vt, m, word, seg_pos)? {
                 seg_pos.increment(word);
@@ -1079,7 +1082,7 @@ impl SubRule {
                 *state_index += 1;
                 Ok(true)
             } else { Ok(false) },
-            ParseElement::Matrix(m, v) => if self.input_match_matrix(captures, m, v, word, seg_pos)? {
+            ParseElement::Matrix(m, v) => if self.input_match_matrix(captures, m, v, word, seg_pos, err_pos)? {
                 seg_pos.increment(word);
                 *state_index += 1;
                 Ok(true) 
@@ -1248,7 +1251,7 @@ impl SubRule {
             let res = match &s.kind {
                 ParseElement::Variable(vt, m) => self.input_match_var(captures, state_index, vt, m, word, pos),
                 ParseElement::Ipa(s, m)       => self.input_match_ipa(captures, s, m, word, *pos),
-                ParseElement::Matrix(m, v)    => self.input_match_matrix(captures, m, v, word, pos),
+                ParseElement::Matrix(m, v)    => self.input_match_matrix(captures, m, v, word, pos, s.position),
                 ParseElement::Syllable(..) => todo!(),
                 ParseElement::WordBound => todo!(),
                 ParseElement::SyllBound => todo!(),
@@ -1320,8 +1323,8 @@ impl SubRule {
         }
     }
 
-    fn input_match_matrix(&self, captures: &mut Vec<MatchElement>, mods: &Modifiers, var: &Option<usize>, word: &Word, pos: &mut SegPos) -> Result<bool, RuleRuntimeError> { 
-        if self.match_modifiers(mods, word, pos)? {
+    fn input_match_matrix(&self, captures: &mut Vec<MatchElement>, mods: &Modifiers, var: &Option<usize>, word: &Word, pos: &mut SegPos, err_pos: Position) -> Result<bool, RuleRuntimeError> { 
+        if self.match_modifiers(mods, word, pos, err_pos)? {
             if let Some(v) = var {
                 self.variables.borrow_mut().insert(*v, VarKind::Segment(word.get_seg_at(*pos).unwrap()));
             }
@@ -1350,40 +1353,40 @@ impl SubRule {
         seg.apply_seg_mods(&self.alphas, mods.nodes, mods.feats)?;
 
         if *s == seg {
-            self.match_supr_mod_seg(word, &mods.suprs, pos)
+            Ok(self.match_supr_mod_seg(word, &mods.suprs, pos))
         } else {
             Ok(false)
         }
     }
 
-    fn match_modifiers(&self, mods: &Modifiers, word: &Word, pos: &SegPos) -> Result<bool, RuleRuntimeError> {
+    fn match_modifiers(&self, mods: &Modifiers, word: &Word, pos: &SegPos, err_pos: Position) -> Result<bool, RuleRuntimeError> {
         let seg = word.get_seg_at(*pos).expect("Segment Position should be within bounds");
         
         for (i, m) in mods.feats.iter().enumerate() {
-            if !self.match_feat_mod(m, i, seg)? {
+            if !self.match_feat_mod(m, i, seg, err_pos)? {
                 return Ok(false);
             }
         }
         for (i, m) in mods.nodes.iter().enumerate() {
-            if !self.match_node_mod(m, i, seg)? {
+            if !self.match_node_mod(m, i, seg, err_pos)? {
                 return Ok(false);
             }
         }
-        self.match_supr_mod_seg(word, &mods.suprs, pos)
+        Ok(self.match_supr_mod_seg(word, &mods.suprs, pos))
     }
 
-    fn match_supr_mod_seg(&self, word: &Word, mods: &SupraSegs, pos: &SegPos) -> Result<bool, RuleRuntimeError> {
+    fn match_supr_mod_seg(&self, word: &Word, mods: &SupraSegs, pos: &SegPos) -> bool {
 
         let syll = &word.syllables[pos.syll_index];
 
-        if !self.match_stress(&mods.stress, syll) { return Ok(false) }
-        if !self.match_seg_length(word, &mods.length, pos) { return Ok(false) }
+        if !self.match_stress(&mods.stress, syll) { return false }
+        if !self.match_seg_length(word, &mods.length, pos) { return false }
 
         if let Some(t) = mods.tone.as_ref() {
-            return Ok(self.match_tone(t, syll))
+            return self.match_tone(t, syll)
         }
 
-        Ok(true)
+        true
     }
 
     fn match_seg_length(&self, word: &Word, length: &[Option<ModKind>; 2], pos: &SegPos) -> bool {
@@ -1411,42 +1414,42 @@ impl SubRule {
         true
     }
 
-    fn match_node_mod(&self, md:&Option<ModKind>, node_index: usize, seg: Segment) -> Result<bool, RuleRuntimeError> {
+    fn match_node_mod(&self, md:&Option<ModKind>, node_index: usize, seg: Segment, err_pos: Position) -> Result<bool, RuleRuntimeError> {
         if let Some(kind) = md {
             let node = NodeKind::from_usize(node_index);
-            return self.match_node(seg, node, kind)
+            return self.match_node(seg, node, kind, err_pos)
         }
         Ok(true)
     }
 
-    fn match_feat_mod(&self, md: &Option<ModKind>, feat_index: usize, seg: Segment) -> Result<bool, RuleRuntimeError> {
+    fn match_feat_mod(&self, md: &Option<ModKind>, feat_index: usize, seg: Segment, err_pos: Position) -> Result<bool, RuleRuntimeError> {
         if let Some(kind) = md { 
             let (node, mask) = feature_to_node_mask(FType::from_usize(feat_index));
-            return self.match_seg_kind(kind, seg, node, mask)
+            return self.match_seg_kind(kind, seg, node, mask, err_pos)
         }
         Ok(true)
     }
 
-    fn match_node(&self, seg: Segment, node: NodeKind, val: &ModKind) -> Result<bool, RuleRuntimeError> {
+    fn match_node(&self, seg: Segment, node: NodeKind, val: &ModKind, err_pos: Position) -> Result<bool, RuleRuntimeError> {
         match val {
             ModKind::Binary(bt) => match bt {
                 BinMod::Negative => Ok(seg.get_node(node).is_none()),
                 BinMod::Positive => Ok(seg.get_node(node).is_some()),
             },
             ModKind::Alpha(am) => match am {
-                AlphaMod::Alpha(a) => {
-                    if let Some(alph) = self.alphas.borrow().get(a) {
+                AlphaMod::Alpha(ch) => {
+                    if let Some(alph) = self.alphas.borrow().get(ch) {
                         if let Some((n, m)) = alph.as_node() {
                             return Ok(seg.node_match(*n, *m))
-                        } else if let Some((n, place)) = alph.as_place() {
+                        } else if let Some((_, place)) = alph.as_place() {
                             return Ok(
-                                seg.node_match(NodeKind::Labial, place.lab) &&
+                                seg.node_match(NodeKind::Labial, place.lab)  &&
                                 seg.node_match(NodeKind::Coronal, place.cor) &&
-                                seg.node_match(NodeKind::Dorsal, place.dor) &&
+                                seg.node_match(NodeKind::Dorsal, place.dor)  &&
                                 seg.node_match(NodeKind::Pharyngeal, place.phr)
                             )
                         } else {
-                            todo!("err: Alpha is not node");
+                            return Err(RuleRuntimeError::AlphaIsNotNode(err_pos))
                         }
                     }
                     if node == NodeKind::Place {
@@ -1456,84 +1459,67 @@ impl SubRule {
                             seg.get_node(NodeKind::Dorsal),
                             seg.get_node(NodeKind::Pharyngeal),
                         );
-                        self.alphas.borrow_mut().insert(*a, Alpha::Place(node, place)); 
+                        self.alphas.borrow_mut().insert(*ch, Alpha::Place(node, place)); 
                     } else {
-                        self.alphas.borrow_mut().insert(*a, Alpha::Node(node, seg.get_node(node))); 
+                        self.alphas.borrow_mut().insert(*ch, Alpha::Node(node, seg.get_node(node))); 
                     }
                     Ok(true)
                 },
-                AlphaMod::InvAlpha(ia) => {
-                    if let Some(alph) = self.alphas.borrow().get(ia) {
+                AlphaMod::InvAlpha(inv_ch) => {
+                    if let Some(alph) = self.alphas.borrow().get(inv_ch) {
                         if let Some((n, m)) = alph.as_node() {
-                            return Ok(!seg.node_match(*n, *m))
+                            Ok(!seg.node_match(*n, *m))
                         } else if let Some((_, place)) = alph.as_place() {
-                            println!("hi");
-
-                            return Ok(
-                                !seg.node_match(NodeKind::Labial, place.lab) ||
+                            Ok(
+                                !seg.node_match(NodeKind::Labial, place.lab)  ||
                                 !seg.node_match(NodeKind::Coronal, place.cor) ||
-                                !seg.node_match(NodeKind::Dorsal, place.dor) ||
+                                !seg.node_match(NodeKind::Dorsal, place.dor)  ||
                                 !seg.node_match(NodeKind::Pharyngeal, place.phr)
                             )
                         } else {
-                            todo!("err: Alpha is not node");
+                            Err(RuleRuntimeError::AlphaIsNotNode(err_pos))
                         }
-                    }
-
-                    // FIXME: aPLACE_-aPLACE works, but -aPLACE_aPLACE does not
-                    // We do not insert the inverse
-                    // Perhaps we enforce this as an error,
-                    // I.e. "First occurence of alpha must be positive"
-                    if node == NodeKind::Place {
-                        let place = PlaceMod::new(
-                            seg.get_node(NodeKind::Labial),
-                            seg.get_node(NodeKind::Coronal),
-                            seg.get_node(NodeKind::Dorsal),
-                            seg.get_node(NodeKind::Pharyngeal),
-                        );
-                        self.alphas.borrow_mut().insert(*ia, Alpha::Place(node, place)); 
                     } else {
-                        self.alphas.borrow_mut().insert(*ia, Alpha::Node(node, seg.get_node(node)));
+                        Err(RuleRuntimeError::AlphaUnknown(err_pos))
                     }
-                    Ok(true)
                 },
             },
         }
     }
 
-    fn match_seg_kind(&self, kind: &ModKind, seg: Segment, node: NodeKind, mask: u8) -> Result<bool, RuleRuntimeError> {
+    fn match_seg_kind(&self, kind: &ModKind, seg: Segment, node: NodeKind, mask: u8, err_pos: Position) -> Result<bool, RuleRuntimeError> {
         match kind {
             ModKind::Binary(bt) => match bt {
                 BinMod::Negative => Ok(seg.feat_match(node, mask, false)),
                 BinMod::Positive => Ok(seg.feat_match(node, mask, true)),
             },
             ModKind::Alpha(am) => match am {
-                AlphaMod::Alpha(a) => {
-                    if let Some(alph) = self.alphas.borrow().get(a) {
+                AlphaMod::Alpha(ch) => {
+                    if let Some(alph) = self.alphas.borrow().get(ch) {
                         if let Some((&n, &m, &pos)) = alph.as_feature() {
                             return Ok(seg.feat_match(n, m, pos))
                         } else {
-                            todo!("Err: Alpha is not feature")
+                            return Err(RuleRuntimeError::AlphaIsNotFeature(err_pos))
                         }
                     } 
                     if let Some(f) = seg.get_feat(node, mask) {
-                        self.alphas.borrow_mut().insert(*a, Alpha::Feature(node, mask, f != 0)); 
+                        self.alphas.borrow_mut().insert(*ch, Alpha::Feature(node, mask, f != 0)); 
                         Ok(true)
                     } else {
                         // Maybe err?
                         Ok(false)
                     }
                 },
-                AlphaMod::InvAlpha(ia) => {
-                    if let Some(alph) = self.alphas.borrow().get(ia) {
+                AlphaMod::InvAlpha(inv_ch) => {
+                    if let Some(alph) = self.alphas.borrow().get(inv_ch) {
                         if let Some((&n, &m, &pos)) = alph.as_feature() {
                             return Ok(seg.feat_match(n, m, !pos))
                         } else {
-                            todo!("Err: Alpha is not feature")
+                            return Err(RuleRuntimeError::AlphaIsNotFeature(err_pos))
                         }
                     } 
                     if let Some(f) = seg.get_feat(node, mask) {
-                        self.alphas.borrow_mut().insert(*ia, Alpha::Feature(node, mask, f == 0));
+                        self.alphas.borrow_mut().insert(*inv_ch, Alpha::Feature(node, mask, f == 0));
                         Ok(true)
                     } else {
                         // Maybe err?
