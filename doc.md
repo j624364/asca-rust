@@ -7,32 +7,44 @@
 
 ### The Basics
 
+In general, a rule is made of 4 parts:
+```
+input     -> the content to match
+output    -> the result 
+context   -> the specificity of the surrounding environment
+exception -> the exclusivity of the surrounding environment
+```
+These blocks are divided by specific separators so that a given rule looks like this:
 ```
 input (=)> output / context (| or //) exception
-i.e. ei > & | c
+
+e.g. ei > ie | c_ (/i/ will flip to be before /e/, except when following /c/)
 ```
 
+An empty context or exception can be omitted:
 ```
-a > e             (sai > sei)
-a > e / _         (this is equivalent to the above) 
+a > e           (/saj/ > /sej/)
+a > e / _       (this is equivalent to the above) 
+```
+The input and output cannot be omitted. Insertion and deletion are mark by the `*` operator.
 
 ```
-
-```
-V > * / #_ "Apheresis: a vowel elides at the beginning of a word"
-V > * / _# "Apocope: a vowel elides at the end of a word"
+V > * / #_      (Apheresis: a vowel elides at the beginning of a word)
+V > * / _#      (Apocope: a vowel elides at the end of a word)
+* > e / #_      (Prothesis: /e/ is inserted at the beginning of a word)
+* > u / _#      (Paragoge: /u/ is inserted at the end of a word)
 ```
 
 ### Examples
 
 Grimm's Law
 ```
-Simple
+Simple IPA:
 p, t, k, kʷ > ɸ, θ, x, xʷ 
 b, d, g, gʷ > p, t, k, kʷ
 bʰ, dʰ, gʰ, gʷʰ > b, d, g, gʷ
 
-Using Distinctive Features
+Using Distinctive Features:
 [+cons, -son, -voice, -cont] > [+cont]
 [+cons, -son, +voice, -cont] > [-voice]
 [+cons, +voice, +sg] > [-sg]
@@ -41,12 +53,13 @@ Using Distinctive Features
 Latin Stress
 ```
 Standard Version
-V:[+long] > [+stress] / _%# "A penult syll ending with a long vowel becomes stressed"
-V > [+stress] / _C%#        "A penult syll ending with a consonant becomes stressed"
-% > [+stress] / %:[-str]%#  "If the penult is unstressed, the antepenult becomes stressed"
+% > [+stress] / #_#          (If only one syllable, it is stressed)
+V:[+long] > [+stress] / _%#  (A penult syll ending with a long vowel becomes stressed)
+V > [+stress] / _C%#         (A penult syll ending with a consonant becomes stressed)
+% > [+stress] / _%:[-str]%#  (If the penult is unstressed, the antepenult becomes stressed)
 
 Condensed Version
-V:[+lng], V, % => [+stress] / _%#, _C%#, %:[-str]%#
+%, V:[+lng], V, % => [+str] / #_#, _%#, _C%#, _%:[-str]%#
 ```
 
 Nasal Assimilation
@@ -114,10 +127,8 @@ For example, ```(C,5)_```  matches up to 5 consonants preceding the target. This
 ```
 
 ### Variables
-Variables are
-
 Variables are declared by using the `=` operator, followed by a number. This number can then be used later in the rule to invoke the variable.
-Currently, only matrices and groups can be assigned to a variable.
+Currently; matrices, groups, and syllables can be assigned to a variable.
 
 Using variables, we can implement metathesis without need of the `&` operator.
 ```
@@ -127,7 +138,7 @@ Old English R metathesis (hros > hors)
 
 It can also be used to define a simple haplology rule.
 ```
-%=1 > * / 1_ "A syllable is deleted if preceded by an identical syllable"
+%=1 > * / 1_ (A syllable is deleted if preceded by an identical syllable)
 ```
 
 ### Propagation 
@@ -179,7 +190,7 @@ A full table of segments and there values can be found here: `TODO`.
 │        │       voice       │       voiced segments       │     voiceless segments     │
 │ LARYNG │   spread glottis  │      aspirates, breathy     │             -              │
 │        │   const glottis   │    ejectives, implosives    │             -              │
-├────────┼─────────┼─────────┼─────────────────────────────┼────────────────────────────┤
+├────────┼─────────┬─────────┼─────────────────────────────┼────────────────────────────┤
 │        │ LABIAL  │  bilab  │       p, b, f, v, etc.      │             -              │
 │        │         │  round  │       rounded segments      │      p, b, f, v, etc.      │
 │        ├─────────┼─────────┼─────────────────────────────┼────────────────────────────┤
@@ -235,10 +246,10 @@ For example, if one wants to match for syllables with primary stress but exclude
 
 ```
 
-Example: Inital Syllable Stress Shift
+Rule Example: Inital Syllable Stress Shift
 ```
-%:[+stress] > [-stress] "All stressed syllables become unstressed"
-% > [=stress] / #_      "The syllable at the beginning of the word becomes stressed"
+%:[+stress] > [-stress] (All stressed syllables become unstressed)
+% > [+stress] / #_      (The syllable at the beginning of the word becomes stressed)
 ```
 
 ### Length
@@ -255,14 +266,18 @@ Example: Inital Syllable Stress Shift
 └──────────────┴────────────────────────────────┘
 ```
 
-Example: Compensatory Lengthening
+Rule Example: Compensatory Lengthening
 ```
-V > [+long] / _C#   "A vowel becomes long before a consonant at the end of a word"
-C > * / V:[+long]_# "A consonant at the end of a word before the long vowel elides"
+V > [+long] / _C#   (A vowel becomes long before a consonant at the end of a word)
+C > * / V:[+long]_# (A consonant at the end of a word before the long vowel elides)
+
+or by using variable substitution
+
+V=1 C > 1:[+long] / _#
 ```
 
 ### Tone
-ASCA does not currently support tone diacritics or tone letters.
+ASCA does not currently support tone diacritics or tone letters. Tone instead is represented by numbers following the syllable. As of yet, there are no rules regarding the meaning or syntax of these numbers; However, for demonstration we will follow the Chinese convention, by using numbers from 1 (lowest pitch) to 5 (highest pitch).
 
 ```
 mā => `ma55`
@@ -272,13 +287,13 @@ mà => `ma51`
 ma => `ma0` or just `ma`
 ```
 
-Example: Mandarin 3rd Tone Sandhi
+Rule Example: Mandarin 3rd Tone Sandhi
 ```
 %:[tone: 214] > [tone:35] / _%[tone: 214]
 "3rd tone becomes 2nd tone before another 3rd tone"
 ```
 
-Example: Middle Chinese Tonogenesis
+Rule Example: Middle Chinese Tonogenesis
 ```
 % > [tone: 33]                       (平 and 入)
 V > [tone: 35], [tone: 51] / _ʔ, _s, (上 then 去)
@@ -286,3 +301,35 @@ V > [tone: 35], [tone: 51] / _ʔ, _s, (上 then 去)
 ```
 
 ## Saving and Loading Files
+
+
+
+# Limitations
+
+## Syllable Structure
+It is up to you to maintain syllable boundaries.
+This can be done by using metathesising, inserting, and deleting $.
+
+
+For example, imagine a input word of `'si.te`. If we apply the rule `V > * / C_#`, we end up with a floating consonant `'si.t`.
+
+This can be fixed in two ways: 
+```
+$C > & / _# (the consonant is moved into the first syllable, with the now empty second syllable being deleted)
+or
+$ > * / _C# (the two syllables are merged by deleting the boundary between them)
+```
+
+`Tone cannot be alpha'd`
+
+`Special Environment` 
+
+```
+V:[-long] > [+long] > _,ə
+ə > * 
+
+Expected:
+/sa.ə.o/ > /sa:.o/
+Actual:
+/sa.ə.o/ > /sa:.o:/
+```
