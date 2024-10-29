@@ -53,13 +53,13 @@ Using Distinctive Features:
 Latin Stress
 ```
 Standard Version
-% > [+stress] / #_#          (If only one syllable, it is stressed)
+% > [+stress] / #_#          (If there is only one syllable, it is stressed)
 V:[+long] > [+stress] / _%#  (A penult syll ending with a long vowel becomes stressed)
-V > [+stress] / _C%#         (A penult syll ending with a consonant becomes stressed)
+V > [+stress] / _{C,G}%#     (A penult syll ending with a consonant or glide becomes stressed)
 % > [+stress] / _%:[-str]%#  (If the penult is unstressed, the antepenult becomes stressed)
 
 Condensed Version
-%, V:[+lng], V, % => [+str] / #_#, _%#, _C%#, _%:[-str]%#
+%, V:[+lng], V, % => [+str] / #_#, _%#, _{C,G}%#, _%:[-str]%#
 ```
 
 Nasal Assimilation
