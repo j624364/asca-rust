@@ -381,9 +381,10 @@ impl Word {
 
     }
 
-    pub fn apply_supras(&mut self, alphas: &RefCell<HashMap<char, Alpha>>, mods: &SupraSegs, pos: SegPos) -> Result<(), RuleRuntimeError> {
+    pub fn apply_supras(&mut self, alphas: &RefCell<HashMap<char, Alpha>>, mods: &SupraSegs, pos: SegPos) -> Result<i8, RuleRuntimeError> {
         let seg = self.get_seg_at(pos).expect("pos is in bounds");
         let mut seg_len = self.seg_length_in_syll(pos);
+        let mut len_change = 0;
         match mods.length {
             // [long, Overlong]
             [None, None] => {},
@@ -392,10 +393,12 @@ impl Word {
                     crate::BinMod::Negative => while seg_len > 2 {
                         self.syllables[pos.syll_index].segments.remove(pos.seg_index);
                         seg_len -=1;
+                        len_change -=1;
                     },
                     crate::BinMod::Positive => while seg_len < 3 {
                         self.syllables[pos.syll_index].segments.insert(pos.seg_index, seg);
                         seg_len +=1;
+                        len_change +=1;
                     },
                 },
                 crate::ModKind::Alpha(_) => todo!(),
@@ -405,10 +408,12 @@ impl Word {
                     crate::BinMod::Negative => while seg_len > 1 {
                         self.syllables[pos.syll_index].segments.remove(pos.seg_index);
                         seg_len -= 1;
+                        len_change -=1;
                     },
                     crate::BinMod::Positive => while seg_len < 2 {
                         self.syllables[pos.syll_index].segments.insert(pos.seg_index, seg);
                         seg_len += 1;
+                        len_change +=1;
                     },
                 },
                 crate::ModKind::Alpha(_) => todo!(),
@@ -417,10 +422,13 @@ impl Word {
         }
 
 
-        self.syllables[pos.syll_index].apply_mods(alphas, mods)
+        self.syllables[pos.syll_index].apply_mods(alphas, mods)?;
+
+        // println!("len_ch: {}", len_change);
+        Ok(len_change)
     }
 
-    pub fn apply_mods(&mut self, alphas: &RefCell<HashMap<char, Alpha>>, mods: &Modifiers, start_pos: SegPos) -> Result<(), RuleRuntimeError> {
+    pub fn apply_mods(&mut self, alphas: &RefCell<HashMap<char, Alpha>>, mods: &Modifiers, start_pos: SegPos) -> Result<i8, RuleRuntimeError> {
         // check seg length, if long then we must apply mods to all occurences (we assume that we are at the start)
         let mut pos = start_pos;
 
