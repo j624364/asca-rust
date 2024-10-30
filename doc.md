@@ -1,16 +1,16 @@
 # ASCA Documentation and User Guide
-[Defining Sound Changes](#Defining-Sound-Changes) | 
-[Basics](#Basics) | [Examples](#Examples) | [Groupings](#Groupings) | [Metathesis](#Metathesis) | [Gemination](#Gemination) | [Optional Segments](#Optional-Segments) | [Alpha Notation](#Alpha-Notation) | [Variables](#Variables) | [Propagation](#Propagation) |
-[Distinctive Features](#Distinctive-Features) | 
-[Suprasegmental Features](#Suprasegmental-Features) | [Saving and Loading Files](#saving-and-loading-files)
+[Defining Sound Changes](#defining-sound-changes) | [The Basics](#the-basics) | [Condensed Rules](#condensed-rules) 
+| [Distinctive Features](#distinctive-features) | [Suprasegmental Features](#suprasegmental-features)
+| [Groupings](#groupings) | [Metathesis](#metathesis) | [Gemination](#gemination) | [Optional Segments](#optional-segments) | [Alpha Notation](#alpha-notation) | [Variables](#variables) | [Propagation](#propagation) 
+ | [Saving and Loading Files](#saving-and-loading-files) | [Limitations](#limitations)
 ## Defining Sound Changes
 
 ### The Basics
-
+If you are familiar with [formal notation](https://en.wikipedia.org/wiki/Phonological_rule), there shouldn't be many surprises.
 In general, a rule is made of 4 parts:
 ```
-input     -> the content to match
-output    -> the result 
+input     -> the content to be transformed
+output    -> the result of the transformation
 context   -> the specificity of the surrounding environment
 exception -> the exclusivity of the surrounding environment
 ```
@@ -18,70 +18,27 @@ These blocks are divided by specific separators so that a given rule looks like 
 ```
 input (=)> output / context (| or //) exception
 
-e.g. ei > ie | c_ (/i/ will flip to be before /e/, except when following /c/)
+e.g. ei > ie | c_ (/i/ will flip to be before /e/, except when directly before /c/)
 ```
 
-An empty context or exception can be omitted:
+A environment can only contain one underline `_`. An empty environment can be omitted:
 ```
 a > e           (/saj/ > /sej/)
-a > e / _       (this is equivalent to the above) 
+a > e / _       (this is equivalent to the above)
+a > e / __      (this is invalid)
 ```
-The input and output cannot be omitted. Insertion and deletion are mark by the `*` operator.
+### Insertion and Deletion Rules
+
+The input and output cannot be omitted. Insertion and deletion are marked by the `*` operator.
 
 ```
-V > * / #_      (Apheresis: a vowel elides at the beginning of a word)
-V > * / _#      (Apocope: a vowel elides at the end of a word)
+e > * / #_      (Apheresis: a vowel elides at the beginning of a word)
+e > * / _#      (Apocope: a vowel elides at the end of a word)
 * > e / #_      (Prothesis: /e/ is inserted at the beginning of a word)
-* > u / _#      (Paragoge: /u/ is inserted at the end of a word)
+* > e / _#      (Paragoge: /e/ is inserted at the end of a word)
 ```
 
-### Examples
-
-Grimm's Law
-```
-Simple IPA:
-p, t, k, kʷ > ɸ, θ, x, xʷ 
-b, d, g, gʷ > p, t, k, kʷ
-bʰ, dʰ, gʰ, gʷʰ > b, d, g, gʷ
-
-Using Distinctive Features:
-[+cons, -son, -voice, -cont] > [+cont]
-[+cons, -son, +voice, -cont] > [-voice]
-[+cons, +voice, +sg] > [-sg]
-```
-
-Latin Stress
-```
-Standard Version
-% > [+stress] / #_#          (If there is only one syllable, it is stressed)
-V:[+long] > [+stress] / _%#  (A penult syll ending with a long vowel becomes stressed)
-V > [+stress] / _{C,G}%#     (A penult syll ending with a consonant or glide becomes stressed)
-% > [+stress] / _%:[-str]%#  (If the penult is unstressed, the antepenult becomes stressed)
-
-Condensed Version
-%, V:[+lng], V, % => [+str] / #_#, _%#, _{C,G}%#, _%:[-str]%#
-```
-
-Nasal Assimilation
-```
-[+cons, +nasal] > [α PLACE] / _[+cons, αPLACE] 
-"A nasal consonant takes the place of following consonant i.e. [nk] > [ŋk]"
-```
-
-### Groupings
-
-Groupings can be used as shorthand to match often used parts of speech
-```
-C -> Consonants (equiv. to [+cons, -syll])
-O -> Obstruents (equiv. to [+cons, -son, -syll])
-S -> Sonorants  (equiv. to [+cons, +son, -syll])
-L -> Liquids    (equiv. to [+cons, +sin, -syll, +approx])
-N -> Nasals     (equiv. to [+cons, +sin, -syll, -approx])
-G -> Glides     (equiv. to [-cons, +son, -syll ])
-V -> Vowels     (equiv. to [-cons, +son, +syll ])
-```
-
-### Metathesis
+### Metathesis Rules
 The ampersand operator ```&``` states that the order of the matched input is reversed. So that, for example, a sequence of matched segments `ABC` becomes `CBA`. The operator can be used to flip an arbitrary number of segments.
 The output of a metathesis rule must contain *only* `&` and nothing else. 
 
@@ -97,75 +54,38 @@ Spanish Hyperthesis (Old Spanish parabla => Spanish palabra)
 r...l > &       
 ```
 
-### Gemination
-Geminating a consonant is as simple as making a vowel long.
+### Condensed Rules
+Multiple rules can be condensed into one line. This can be useful when you have two or more sequential rules that share identical inputs, outputs, or environments.
 
 ```
-C > [+long] / V:[-long]_#
-(A consonant is geminated at the end of a word, before a short vowel)
-```
-
-### Optional Segments
-Optional Segments are declared as ```(S, M:N)``` where: 
-```
-S = the segment(s) to be repeated
-M = the minimum number of iterations (optional, default = 0)
-N = the maximum number of iterations (inclusive). N must be greater than or equal to M.
-```
-For example, ```(C,5)_```  matches up to 5 consonants preceding the target. This will lazily target environments of `_`, `C_`, `CC_`, `CCC_`, `CCCC_`, and `CCCCC_`.
-
-`(C,3:5)` matches `CCC_`, `CCCC_`, and `CCCCC_`.
-
-`(C,0)_` matches any number of consonants preceding the target. This is equal to regex’s Lazy Zero-Or-More operator (*?)
-
-`(C)_` matches zero or one consonant preceding the target, this is the same as (C,1)_ or (C,0:1)
-
-### Alpha Notation
+For Example:
+e > * / #_
+e > * / _#
+can be condensed into:
+e > * / #_, _#
 
 ```
-[+cons, +nasal] > [α PLACE] / _[+cons, αPLACE]
-```
+It is important to remember that the rules are still applied sequentially and not at the same time.
 
-### Variables
-Variables are declared by using the `=` operator, followed by a number. This number can then be used later in the rule to invoke the variable.
-Currently; matrices, groups, and syllables can be assigned to a variable.
+### Special Environment
 
-Using variables, we can implement metathesis without need of the `&` operator.
-```
-Old English R metathesis (hros > hors)
-[+rho]=1 V=2 > 2 1  / _s
-```
-
-It can also be used to define a simple haplology rule.
-```
-%=1 > * / 1_ (A syllable is deleted if preceded by an identical syllable)
-```
-
-### Propagation 
-As ASCA changes all matching environments in a word sequentially,  left-to-right harmonies naturally propagate.
-
+You may often have condensed rules like the one above where the same environs are being matched both before and after the input. As this can be common, there is a shorthand form of `_,` followed by the environment elements in question.
 
 ```
-V > [α front, β back] > V:[α front, β back]C_	
-/sinotehu/ becomes /sinøtehy/, not /sinøtɤhy/
+e > * / #_, _#
+becomes
+e > * / _,#
 ```
 
-To achieve right-to-left propagation, … must be used and the harmonic “trigger” must be fixed (i.e. a vowel at the word boundary). 
-
+Any elements passed the comma are mirrored such that:
 ```
-V > [α front, β back] > _CV:[α front, β back]
-/sinotehu/ becomes /sɯnøtɤhu/, note no propagation
-
-V > [α front, β back] > _...V:[α front, β back]#
-/sinotehu/ becomes /sɯnotɤhu/, as expected
+_,ABC => ABC_CBA
 ```
-
-For left-to-right propagation, it may be stylistically justified to do the same, but it will not affect the result.
 
 
 ## Distinctive Features
 ASCA allows for 24 segmental features.  
-A full table of segments and there values can be found here: `TODO`.
+A full table of segments and there values can be found [here](https://bit.ly/3sHjqvA).
 
 ```
 ┌────────┬─────────┬─────────┬─────────────────────────────┬────────────────────────────┐
@@ -185,7 +105,7 @@ A full table of segments and there values can be found here: `TODO`.
 │        │     strident      │    f, v, s, z, ʃ, ʒ etc.    │   ɸ, β, θ, ð, ç, ʝ, etc.   │
 │        │      rhotic       │        trills, flaps,       │             -              │
 │        │                   │ rhoticised vowels and cons. │             -              │
-│        │       click       │       click consonants      │             -              │
+│        │       click       │       click consonants      │             _              │
 ├────────┼───────────────────┼─────────────────────────────┼────────────────────────────┤
 │        │       voice       │       voiced segments       │     voiceless segments     │
 │ LARYNG │   spread glottis  │      aspirates, breathy     │             -              │
@@ -223,10 +143,36 @@ A full table of segments and there values can be found here: `TODO`.
 └────────┴─────────────┴─────────────┴─────────────┴─────────────┘
 ```
 
+### Using Distinctive Features
+
+Distinctive features are defined between square brackets `e.g. [+cons]`. These are called matrices. A matrix can have multiple features, each separated by a comma `e.g. [+cons, -syll]`. 
+Whitespace is not important, meaning `[+del.rel.]` is identical to `[ + del. rel. ]`. Many features also have shorthands `e.g. [bk, hi, lo, dr] = [back, high, low, del.rel.]`.
+
+A matrix can be used standalone to represent a segment, or can be used to modify a segment by joining them with a colon `:`.
+```
+[-cons, +son, +syll] > [+rtr] / q_  (vowels pharyngealise following /q/)
+a:[-stress, -long] > ə              (unstressed short /a/ becomes schwa) 
+
+note a[-stress, -long] would match two segments: /a/ followed by a short, unstressed segment 
+```
+
+Grimm's Law
+```
+Simple IPA:
+p, t, k, kʷ > ɸ, θ, x, xʷ 
+b, d, g, gʷ > p, t, k, kʷ
+bʰ, dʰ, gʰ, gʷʰ > b, d, g, gʷ
+
+Using Distinctive Features:
+[+cons, -son, -cont, -voice] > [+cont]
+[+cons, -son, -cont, +voice, -sg] > [-voice]
+[+cons, +voice, +sg] > [-sg]
+```
+
 ## Suprasegmental Features
 
 ### Stress
-ASCA allows for a 3-way distinction between primary, secondary, and unstressed syllables
+ASCA allows for a 3-way distinction between primary, secondary, and unstressed syllables.
 
 ```
 ┌──────────────────┬────────────────────────────────┐
@@ -240,13 +186,23 @@ ASCA allows for a 3-way distinction between primary, secondary, and unstressed s
 └──────────────────┴──────────────┴─────────────────┘
 ```
 
-For example, if one wants to match for syllables with primary stress but exclude secondary stress, `[+stress, -sec. stress]`.
+For example, if one wanted to match for syllables with primary stress but exclude secondary stress, `[+stress, -sec. stress]`.
 
+Stress can be used on a whole syllable or on a segment. This allows you to change the stress of a syllable based on segments within it and vice-versa.
+
+Rule Example: Latin Stress
+```
+Standard Version
+% > [+stress] / #_#          (If there is only one syllable, it is stressed)
+V:[+long] > [+stress] / _%#  (A penult syll ending with a long vowel becomes stressed)
+V > [+stress] / _C%#         (A penult syll ending with a consonant or glide becomes stressed)
+% > [+stress] / _%:[-str]%#  (If the penult is unstressed, the antepenult becomes stressed)
+
+Condensed Version
+%, V:[+lng], V, % => [+str] / #_#, _%#, _C%#, _%:[-str]%#
 ```
 
-```
-
-Rule Example: Inital Syllable Stress Shift
+Rule Example: Germanic Inital Stress Shift
 ```
 %:[+stress] > [-stress] (All stressed syllables become unstressed)
 % > [+stress] / #_      (The syllable at the beginning of the word becomes stressed)
@@ -277,9 +233,10 @@ V=1 C > 1:[+long] / _#
 ```
 
 ### Tone
-ASCA does not currently support tone diacritics or tone letters. Tone instead is represented by numbers following the syllable. As of yet, there are no rules regarding the meaning or syntax of these numbers; However, for demonstration we will follow the Chinese convention, by using numbers from 1 (lowest pitch) to 5 (highest pitch).
+ASCA does not currently support tone diacritics or tone letters. Tone instead is represented by numbers following the syllable. As of yet, there are no rules regarding the meaning or syntax of these numbers; However, for demonstration we will follow the [Chinese convention](https://en.wikipedia.org/wiki/Tone_letter#Numerical_values), using numbers from 1 (lowest pitch) to 5 (highest pitch). As with stress, either a syllable or a segment can be matched or modified with tone.
 
 ```
+The tones of Mandarin would be represented in this system as:
 mā => `ma55`
 má => `ma35`
 mǎ => `ma214`
@@ -289,24 +246,144 @@ ma => `ma0` or just `ma`
 
 Rule Example: Mandarin 3rd Tone Sandhi
 ```
-%:[tone: 214] > [tone:35] / _%[tone: 214]
-"3rd tone becomes 2nd tone before another 3rd tone"
+%:[tone: 214] > [tone:35] / _%[tone: 214] 
+(3rd tone becomes 2nd tone before another 3rd tone)
 ```
 
 Rule Example: Middle Chinese Tonogenesis
 ```
 % > [tone: 33]                       (平 and 入)
-V > [tone: 35], [tone: 51] / _ʔ, _s, (上 then 去)
-ʔ , s / _$                           (Phonemicisation)
+V > [tone: 35], [tone: 51] / _ʔ, _s  (上 then 去)
+ʔ , s > * / _$                       (Phonemicisation)
 ```
+
+
+## Groupings
+
+Groupings can be used as shorthand to match often used parts of speech.
+```
+C -> Consonants (obstruents and sonorants)          (equiv. to [-syll])
+O -> Obstruents (plosives, fricatives, affricates)  (equiv. to [+cons, -son, -syll])
+S -> Sonorants  (nasals and liquids)                (equiv. to [+cons, +son, -syll])
+L -> Liquids                                        (equiv. to [+cons, +son, -syll, +approx])
+N -> Nasals                                         (equiv. to [+cons, +son, -syll, -approx])
+G -> Glides                                         (equiv. to [-cons, +son, -syll ])
+V -> Vowels                                         (equiv. to [-cons, +son, +syll])
+```
+Note that glottalic consontants such as `/h/ and /ʔ/` are considered `[-cons, -son, -syll]` and are therefore not captured by any grouping other than `C`. 
+
+## Sets
+
+
+## Gemination
+Geminating a consonant is as simple as making a vowel long.
+
+```
+C > [+long] / V:[-long]_#
+(A consonant is geminated at the end of a word, before a short vowel)
+```
+
+## Optional Segments
+Optional Segments are declared as ```(S, M:N)``` where: 
+```
+S = the segment(s) to be repeated
+M = the minimum number of iterations (optional, default = 0)
+N = the maximum number of iterations (inclusive). N must be greater than or equal to M.
+```
+For example, ```(C,5)_```  matches up to 5 consonants preceding the target. This will lazily target environments of `_`, `C_`, `CC_`, `CCC_`, `CCCC_`, and `CCCCC_`.
+
+`(C,3:5)` matches `CCC_`, `CCCC_`, and `CCCCC_`.
+
+`(C,0)_` matches any number of consonants preceding the target. This is equal to regex’s Lazy Zero-Or-More operator (*?)
+
+`(C)_` matches zero or one consonant preceding the target. This is the same as `(C,1)_` or `(C,0:1)`
+
+## Alpha Notation
+
+Take these two rules:
+```
+[+son] > [-nasal] / [-nasal]_
+[+son] > [+nasal] / [+nasal]_
+``` 
+Both are identical, except both `nasal` features are positive in one and negative in the other. These rules will also be applied sequentially.
+We can replace these with a single rule, which is only applied once, by replacing the +/- with a greek character `α..ω`. If greek characters are not available, latin capitals `A..Z` can be used instead.
+
+Rule Example: Malay Nasalisation
+```
+[+son] > [α nasal] / [α nasal]_
+```
+Rule Example: Turkish Vowel Harmony
+```
+V:[+hi] > [αbk, βfr, γrnd] / V:[αbk, βfr, γrnd] (C,0) _ (C) #"
+```
+
+Alpha notation is very useful for rules requiring feature assimilation.
+
+Rule Example: Nasal Assimilation
+```
+[+cons, +nasal] > [α PLACE] / _[+cons, αPLACE] 
+(A nasal consonant takes the place of a following consonant i.e. [nk] > [ŋk])
+```
+
+### Inversion
+Imagine the original two rules were instead as such.
+```
+[+son] > [-nasal] / [+nasal]_
+[+son] > [+nasal] / [-nasal]_
+```
+To join these with alpha notation, we can invert the output alpha by putting a minus `-` in front.
+```
+[+son] > [-α nasal] / [α nasal]_
+```
+This is useful for dissimilation rules.
+
+## Variables
+Variables are declared by using the `=` operator, followed by a number. This number can then be used later in the rule to invoke the variable.
+Currently; matrices, groups, and syllables can be assigned to a variable.
+
+Using variables, we can implement basic metathesis without need of the `&` operator.
+```
+Old English R metathesis (hros > hors)
+[+rho]=1 V=2 > 2 1  / _s
+```
+
+It can also be used to define a simple haplology rule.
+```
+%=1 > * / 1_ (A syllable is deleted if preceded by an identical syllable)
+```
+Despite the name, variables cannot be reassigned.
+
+## Propagation 
+As ASCA changes all matching environments in a word sequentially, left-to-right harmonies naturally propagate.
+
+
+```
+V > [α front, β back] > V:[α front, β back]C_	
+/sinotehu/ becomes /sinøtehy/, not /sinøtɤhy/
+```
+
+To achieve right-to-left propagation, … must be used and the harmonic “trigger” must be fixed (i.e. a vowel at the word boundary). 
+
+```
+V > [α front, β back] / _CV:[α front, β back]
+/sinotehu/ becomes /sɯnøtɤhu/, note no propagation
+
+V > [α front, β back] / _...V:[α front, β back]#
+/sinotehu/ becomes /sɯnotɤhu/, as expected
+```
+
+For left-to-right propagation, it may be stylistically justified to do the same, but it will not affect the result.
+
+
+
 
 ## Saving and Loading Files
 
 
 
-# Limitations
+## Limitations
 
-## Syllable Structure
+### Syllable Structure
 It is up to you to maintain syllable boundaries.
 This can be done by using metathesising, inserting, and deleting $.
 
@@ -321,6 +398,8 @@ $ > * / _C# (the two syllables are merged by deleting the boundary between them)
 ```
 
 `Tone cannot be alpha'd`
+
+`Sequence of identical segments (e.g. VV_) are parsed differently to long segments (e.g. V:[+long]) in before_context`
 
 `Special Environment` 
 
