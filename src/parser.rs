@@ -367,7 +367,7 @@ impl Parser {
 
         let v = vec![
             Item::new(ParseElement::Environment(x.clone(), Vec::new()), Position::new(self.line, start, end)),
-            Item::new(ParseElement::Environment(Vec::new(), x), Position::new(self.line, start, end))
+            Item::new(ParseElement::Environment(Vec::new(), x.into_iter().rev().collect()), Position::new(self.line, start, end))
         ];
 
         Ok(Some(v))
