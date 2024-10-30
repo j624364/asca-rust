@@ -452,7 +452,7 @@ impl Parser {
         let mut args = Modifiers::new(); 
 
         (match chr.value.as_str() {
-            "C" => vec![CONS_P, SYLL_M],                 // +cons, -syll              // Consonant
+            "C" => vec![SYLL_M],                 // -syll              // Consonant
             "O" => vec![CONS_P, SONR_M, SYLL_M],         // +cons, -son, -syll        // Obstruent
             "S" => vec![CONS_P, SONR_P, SYLL_M],         // +cons, +son, -syll        // Sonorant
             "L" => vec![CONS_P, SONR_P, SYLL_M, APPR_P], // +cons, +son, -syll, +appr // Liquid
