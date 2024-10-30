@@ -125,7 +125,7 @@ impl SubRule {
     }
 
     fn match_before_context_and_exception(&self, word: &Word, pos: SegPos) -> Result<bool, RuleRuntimeError> {
-        let empty_env = Item::new(ParseElement::Environment(vec![], vec![]), crate::Position { line: 0, start: 0, end: 0 });
+        let empty_env = Item::new(ParseElement::Environment(vec![], vec![]), Position { line: 0, start: 0, end: 0 });
         let ParseElement::Environment(states, _) = &match &self.context {
             Some(s) => s,
             None => match &self.except {
@@ -161,8 +161,7 @@ impl SubRule {
     }
 
     fn match_after_context_and_exception(&self, word: &Word, pos: SegPos) -> Result<bool, RuleRuntimeError> {
-        // TODO(girv): Don't know if this is actually better doing what I'm doing in before context match, so I'll leave them as different until I can bench them
-        const EMPTY_ENV: Item = Item{ kind: ParseElement::Environment(vec![], vec![]), position: crate::Position { line: 0, start: 0, end: 0 }};
+        const EMPTY_ENV: Item = Item{ kind: ParseElement::Environment(vec![], vec![]), position: Position { line: 0, start: 0, end: 0 }};
         let binding = EMPTY_ENV;
         let ParseElement::Environment(_, states) = &match &self.context {
             Some(s) => s,
@@ -210,12 +209,13 @@ impl SubRule {
                 pos.decrement(word);
             }
         }
-        // // So that things like V:[+long]_ will work 
-        // if !forwards {
-        //     while pos.seg_index > 0 && word.syllables[pos.syll_index].segments[pos.seg_index] == word.syllables[pos.syll_index].segments[pos.seg_index - 1] {
-        //         pos.decrement(word);
-        //     } 
-        // }
+        // So that things like V:[+long]_ will work
+        // NOTE(girv): means that VV_ will not match the same as V:[+long]
+        if !forwards {
+            while pos.seg_index > 0 && word.syllables[pos.syll_index].segments[pos.seg_index] == word.syllables[pos.syll_index].segments[pos.seg_index - 1] {
+                pos.decrement(word);
+            } 
+        }
         match &state.kind {
             ParseElement::WordBound => if (!forwards && pos.at_word_start()) || (forwards && word.out_of_bounds(*pos)) {
                 Ok(true)
@@ -280,21 +280,27 @@ impl SubRule {
     }
 
     fn context_match_syll_var(&self, syll_to_match: &Syllable, mods: &Option<Modifiers>, word: &Word, pos: &mut SegPos, forwards: bool) -> Result<bool, RuleRuntimeError> {
-        
-        if (forwards && !pos.at_syll_start()) || (!forwards && !pos.at_syll_end(word)) {
+        if !(forwards && pos.at_syll_start() || !forwards && pos.at_syll_end(word)) {
             return Ok(false)
         }
-
         let cur_syll = if word.in_bounds(*pos) {
              &word.syllables[pos.syll_index]
         } else { return Ok(false) };
         
-        if mods.is_none() {
-            if *cur_syll != *syll_to_match {
+        if let Some(Modifiers { nodes: _, feats: _, suprs }) = mods {
+            if !self.match_stress(&suprs.stress, cur_syll) {
                 return Ok(false)
             }
-        } else {
-            todo!("Need to Compare Mods")
+            if let Some(t) = suprs.tone.as_ref()  {
+                if !self.match_tone(t, cur_syll) {
+                    return Ok(false)
+                }
+            }
+            if cur_syll.segments != syll_to_match.segments {
+                return Ok(false)
+            }
+        } else if *cur_syll != *syll_to_match {
+            return Ok(false)
         }
 
         if forwards {
@@ -304,39 +310,38 @@ impl SubRule {
             pos.seg_index = 0;
             pos.decrement(word);
         }
-        
         Ok(true)
     }
 
-    fn context_match_syll(&self, stress: &[Option<ModKind>; 2], tone: &Option<String>, var: &Option<usize>, word: &Word, pos: &mut SegPos, forwards: bool) -> Result<bool, RuleRuntimeError> {
-        if (forwards && pos.at_syll_start()) || (!forwards && pos.at_syll_end(word)) {
-            let cur_syll = if word.in_bounds(*pos){ 
-                &word.syllables[pos.syll_index] 
-            } else { return Ok(false) };
+    fn context_match_syll(&self, stress: &[Option<ModKind>; 2], tone: &Option<String>, var: &Option<usize>, word: &Word, pos: &mut SegPos, forwards: bool) -> Result<bool, RuleRuntimeError> {        
+        if !(forwards && pos.at_syll_start() || !forwards && pos.at_syll_end(word)) {
+            return Ok(false)
+        }
+        let cur_syll = if word.in_bounds(*pos){ 
+            &word.syllables[pos.syll_index] 
+        } else { return Ok(false) };
 
-            if !self.match_stress(stress, cur_syll) {
+        if !self.match_stress(stress, cur_syll) {
+            return Ok(false)
+        }
+        if let Some(t) = tone.as_ref() {
+            if !self.match_tone(t, cur_syll) {
                 return Ok(false)
             }
-            if let Some(t) = tone.as_ref() {
-                if !self.match_tone(t, cur_syll) {
-                    return Ok(false)
-                }
-            }
-            if let Some(v) = var {
-                self.variables.borrow_mut().insert(*v, VarKind::Syllable(word.syllables[pos.syll_index].clone()));
-            }
-
-            if forwards {
-                pos.syll_index += 1;
-                pos.seg_index = 0;
-            } else {
-                pos.seg_index = 0;
-                pos.decrement(word);
-            }
-            Ok(true)
-        } else {
-            Ok(false)
         }
+        if let Some(v) = var {
+            self.variables.borrow_mut().insert(*v, VarKind::Syllable(word.syllables[pos.syll_index].clone()));
+        }
+
+        if forwards {
+            pos.syll_index += 1;
+            pos.seg_index = 0;
+        } else {
+            pos.seg_index = 0;
+            pos.decrement(word);
+        }
+        Ok(true)
+       
     }
 
     fn context_match_matrix(&self, mods: &Modifiers, var: &Option<usize>, word: &Word, pos: &mut SegPos, forwards: bool, err_pos: Position) -> Result<bool, RuleRuntimeError> {        
@@ -364,13 +369,13 @@ impl SubRule {
                 let mut res_word = word.clone();
                 for z in 0..(input.len() / 2) {
                     match (input[z], input[input.len()-1-z]) {
-                        (MatchElement::Segment(i, _), MatchElement::Segment(j, _)) => {
+                        (MatchElement::Segment(li, _), MatchElement::Segment(ri, _)) => {
                             // FIXME: If we swap syllables or boundaries then do this, these SegPos may not be correct
-                            let si = res_word.get_seg_at(i).unwrap();
-                            let sj = res_word.get_seg_at(j).unwrap();
-                            let tmp = si;
-                            res_word.syllables[i.syll_index].segments[i.seg_index] = sj;
-                            res_word.syllables[j.syll_index].segments[j.seg_index] = tmp;
+                            let sl = res_word.get_seg_at(li).unwrap();
+                            let sr = res_word.get_seg_at(ri).unwrap();
+                            let tmp = sl;
+                            res_word.syllables[li.syll_index].segments[li.seg_index] = sr;
+                            res_word.syllables[ri.syll_index].segments[ri.seg_index] = tmp;
                         },
                         (MatchElement::Syllable(i, _), MatchElement::Syllable(j, _)) => {
                             res_word.swap_syll(i, j);
@@ -662,7 +667,6 @@ impl SubRule {
                 *state_index += 1;
                 Ok(Some(*cur_pos))
             } else { Ok(None) },
-            ParseElement::Ellipsis => todo!(),
             ParseElement::Syllable(s, t, v) => if self.context_match_syll(s, t, v, word, cur_pos, true)? {
                 *state_index += 1;
                 cur_pos.decrement(word);
@@ -671,7 +675,7 @@ impl SubRule {
             ParseElement::Set(set) => if self.context_match_set(set, word, cur_pos, true)? {
                 *state_index += 1;
                 // I hate this, but it works for now
-                // cur_pos.decrement(word);
+                cur_pos.decrement(word);
                 println!("{cur_pos:?}");
                 Ok(Some(*cur_pos))
             } else { Ok(None)},
@@ -685,6 +689,7 @@ impl SubRule {
                 *state_index += 1;
                 Ok(Some(*cur_pos))
             } else { Ok(None)},
+            ParseElement::Ellipsis => todo!(),
             ParseElement::Optional(_, _, _) => todo!(),
 
 
@@ -698,24 +703,13 @@ impl SubRule {
             return Ok(false)
         }
         let seg = word.get_seg_at(pos).unwrap();
-        if mods.is_none() {
-            Ok(*s == seg)
+
+        if let Some(m) = mods {
+            Ok(self.match_ipa_with_modifiers(s, m, word, &pos)?)
         } else {
-            todo!("Need to Compare Modifiers")
+            Ok(*s == seg)
         }
     }
-
-    // fn input_match_var(&self, captures: &mut Vec<MatchElement>, state_index: &mut usize, vt: &Token, mods: &Option<Modifiers>, word: &Word, pos: &mut SegPos) -> Result<bool, RuleRuntimeError> {
-    //     if let Some(var) = self.variables.borrow_mut().get(&vt.value.parse::<usize>().unwrap()) {
-    //         match var {
-    //             VarKind::Segment(s)  => self.input_match_ipa(captures, s, mods, word, *pos),
-    //             VarKind::Syllable(s) => self.input_match_syll_var(captures, state_index , s, mods, word, pos),
-    //         }
-    //         // NOTE(girv): we should not push here
-    //     } else {
-    //         Err(RuleRuntimeError::UnknownVariable(vt.clone()))
-    //     }
-    // }
 
     fn insert_variable(&self, word: &mut Word, insert_pos: &mut SegPos, num: &Token, mods: &Option<Modifiers>, after: bool) -> Result<(), RuleRuntimeError> {
         if let Some(var) = self.variables.borrow_mut().get(&num.value.parse().unwrap()) {
@@ -826,7 +820,6 @@ impl SubRule {
                 ParseElement::WordBound | ParseElement::Environment(..) => unreachable!(),
             }
         }
-
         Ok(res_word)
     }
 
@@ -1337,14 +1330,15 @@ impl SubRule {
 
     fn input_match_ipa(&self, captures: &mut Vec<MatchElement>, s: &Segment, mods: &Option<Modifiers>, word: &Word, pos: SegPos) -> Result<bool, RuleRuntimeError> {
         let seg = word.get_seg_at(pos).unwrap();
-        if mods.is_none() {
-            if *s == seg {
+
+        if let Some(m) = mods {
+            if self.match_ipa_with_modifiers(s, m, word, &pos)? {
                 captures.push(MatchElement::Segment(pos, None));
                 Ok(true)
             } else {
                 Ok(false)
             }
-        } else if self.match_ipa_with_modifiers(s, mods.as_ref().unwrap(), word, &pos)? {
+        } else if *s == seg {
             captures.push(MatchElement::Segment(pos, None));
             Ok(true)
         } else {
