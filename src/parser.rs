@@ -483,9 +483,11 @@ impl Parser {
                 match value.as_str() {
                     "+" => (feature, Mods::Binary(BinMod::Positive)),
                     "-" => (feature, Mods::Binary(BinMod::Negative)),
-                    "α"|"β"|"γ"|"δ"|"ε"|"ζ"|"η"|"θ"|"ι"|"κ"|"λ"|"μ"|"ν"|"ξ"|"ο"|"π"|"ρ"|"σ"|"ς"|"τ"|"υ"|"φ"|"χ"|"ψ"|"ω" => 
-                        (feature, Mods::Alpha(AlphaMod::Alpha(value.chars().next().unwrap()))),
-                    "-α"|"-β"|"-γ"|"-δ"|"-ε"|"-ζ"|"-η"|"-θ"|"-ι"|"-κ"|"-λ"|"-μ"|"-ν"|"-ξ"|"-ο"|"-π"|"-ρ"|"-σ"|"-ς"|"-τ"|"-υ"|"-φ"|"-χ"|"-ψ"|"-ω" =>
+                    "α"|"β"|"γ"|"δ"|"ε"|"ζ"|"η"|"θ"|"ι"|"κ"|"λ"|"μ"|"ν"|"ξ"|"ο"|"π"|"ρ"|"σ"|"ς"|"τ"|"υ"|"φ"|"χ"|"ψ"|"ω"|
+                    "A"|"B"|"C"|"D"|"E"|"F"|"G"|"H"|"I"|"J"|"K"|"L"|"M"|"N"|"O"|"P"|"Q"|"R"|"S"|"T"|"U"|"V"|"W"|"X"|"Y"|"Z" => 
+                    (feature, Mods::Alpha(AlphaMod::Alpha(value.chars().next().unwrap()))),
+                    "-α"|"-β"|"-γ"|"-δ"|"-ε"|"-ζ"|"-η"|"-θ"|"-ι"|"-κ"|"-λ"|"-μ"|"-ν"|"-ξ"|"-ο"|"-π"|"-ρ"|"-σ"|"-ς"|"-τ"|"-υ"|"-φ"|"-χ"|"-ψ"|"-ω"|
+                    "-A"|"-B"|"-C"|"-D"|"-E"|"-F"|"-G"|"-H"|"-I"|"-J"|"-K"|"-L"|"-M"|"-N"|"-O"|"-P"|"-Q"|"-R"|"-S"|"-T"|"-U"|"-V"|"-W"|"-X"|"-Y"|"-Z" => 
                         (feature, Mods::Alpha(AlphaMod::InvAlpha(value.chars().nth(1).unwrap()))),
                     _ if feature == FeatType::Supr(SupraType::Tone) => (feature, Mods::Number(value.to_owned())),
                     _ => {

@@ -397,11 +397,9 @@ impl<'a> Lexer<'a> {
     }
 
     fn get_primative(&mut self) -> Option<Token> {
-        if !self.curr_char().is_ascii_uppercase() { return None }
+        if self.inside_matrix || !self.curr_char().is_ascii_uppercase() { return None }
 
         let start = self.pos;
-        // let c = self.curr_char();
-        // self.advance();
 
         let c = self.chop(1);
         
@@ -419,8 +417,7 @@ impl<'a> Lexer<'a> {
     }
 
     fn get_feature(&mut self) -> Result<Option<Token>, RuleSyntaxError> {
-        
-        if !self.inside_matrix || self.curr_char() != '+' && self.curr_char() != '-' && !matches!(self.curr_char(), 'α'..='ω') {
+        if !self.inside_matrix || self.curr_char() != '+' && self.curr_char() != '-' && !matches!(self.curr_char(), 'α'..='ω') && !matches!(self.curr_char(), 'A'..='Z') {
             return Ok(None);
         }
         
@@ -429,7 +426,7 @@ impl<'a> Lexer<'a> {
 
         self.advance();
         
-        let mod_val = if val == '-' && matches!(self.curr_char(), 'α'..='ω') {
+        let mod_val = if val == '-' && (matches!(self.curr_char(), 'α'..='ω') || matches!(self.curr_char(), 'A'..='Z')) {
             let mut tmp = String::from('-'); tmp.push(self.curr_char());
             self.advance();
             tmp
@@ -674,7 +671,7 @@ impl<'a> Lexer<'a> {
         }
     }
 
-    pub fn get_next_token(&mut self) -> Result<Token, RuleSyntaxError>{
+    pub fn get_next_token(&mut self) -> Result<Token, RuleSyntaxError> {
         
         self.trim_whitespace();
         
