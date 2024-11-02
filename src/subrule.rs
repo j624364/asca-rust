@@ -986,8 +986,157 @@ impl SubRule {
         }
 
         if self.output.len() > self.input.len() {
-            println!("{}", self.output[self.output.len() - self.input.len()]);
-            todo!("insert remaining outputs");
+            let Some(pos) = current_pos else {todo!()};
+            for z in self.output.iter().skip(self.input.len()) {
+                match &z.kind {
+                    ParseElement::Ipa(seg, mods) => {
+                        if res_word.in_bounds(*pos) {
+                            res_word.syllables[pos.syll_index].segments.insert(pos.seg_index, *seg);
+                        } else if let Some(syll) = res_word.syllables.get_mut(pos.syll_index) { 
+                            if pos.seg_index >= syll.segments.len() {
+                                syll.segments.push_back(*seg);
+                            } else {
+                                syll.segments.insert(pos.seg_index, *seg);
+                            }
+                        } else {
+                            res_word.syllables.last_mut().unwrap().segments.push_back(*seg);
+                        }          
+                        if let Some(m) = mods {
+                            let lc = res_word.apply_mods(&self.alphas, m, *pos)?;
+    
+                            match lc.cmp(&0) {
+                                std::cmp::Ordering::Greater => pos.seg_index += lc.unsigned_abs() as usize,
+                                std::cmp::Ordering::Less    => pos.seg_index -= lc.unsigned_abs() as usize,
+                                _ => {}
+                            }
+                        }          
+                        
+                        if res_word.in_bounds(*pos) {
+                            pos.increment(&res_word);
+                        }
+                    },
+                    ParseElement::SyllBound => {
+                        if pos.at_syll_start() {
+                            // if res_word.out_of_bounds(*pos) {
+                            // } else {
+                            //     continue;
+                            // }
+                            // TODO: Possibly err if out of bounds, as it leads to unexpected behaviour (see rule::test_sub_insert_syll())
+                            continue;
+                        }
+                        // split current syll into two at pos
+                        // initialise stress & tone as default
+                        let mut new_syll = Syllable::new();
+                        let syll = res_word.syllables.get_mut(pos.syll_index).unwrap();
+    
+                        while syll.segments.len() > pos.seg_index {
+                            new_syll.segments.push_front(syll.segments.pop_back().unwrap());
+                        }
+                        res_word.syllables.insert(pos.syll_index+1, new_syll);
+    
+                        pos.syll_index += 1;
+                        pos.seg_index = 0;
+                    },
+                    ParseElement::Syllable(stress, tone, var) => {
+                        if pos.at_syll_start() {
+                            // apply mods to current syllable
+                            if let Some(syll) = res_word.syllables.get_mut(pos.syll_index) {
+                                syll.apply_mods(&self.alphas, &SupraSegs { stress: *stress, length: [None, None], tone: tone.clone() })?;
+                                if let Some(v) = var {
+                                    self.variables.borrow_mut().insert(*v, VarKind::Syllable(res_word.syllables[pos.syll_index].clone()));
+                                }
+                                continue;
+                            } else {
+                                // TODO: Possibly err as out of bounds leads to unexpected behaviour (see rule::test_sub_insert_syll())
+                                continue;
+                            }
+                        } 
+                        // split current syll into two at insert_pos
+                        // Apply mods to second syll
+                        let mut new_syll = Syllable::new();
+                        new_syll.apply_mods(&self.alphas, /*&self.variables,*/ &SupraSegs { stress: *stress, length: [None, None], tone: tone.clone() })?;
+
+                        let syll = res_word.syllables.get_mut(pos.syll_index).expect("pos should not be out of bounds");
+
+                        while syll.segments.len() > pos.seg_index {
+                            new_syll.segments.push_front(syll.segments.pop_back().unwrap());
+                        }
+                        res_word.syllables.insert(pos.syll_index+1, new_syll);
+
+                        pos.syll_index += 2;
+                        pos.seg_index = 0;
+
+                        if let Some(v) = var {
+                            self.variables.borrow_mut().insert(*v, VarKind::Syllable(res_word.syllables[pos.syll_index -1].clone()));
+                        }
+                    },
+                    ParseElement::Variable(num, mods) => {
+                        if let Some(var) = self.variables.borrow().get(&num.value.parse().unwrap()) {
+                            match var {
+                                VarKind::Segment(seg) => {
+                                    if res_word.in_bounds(*pos) {
+                                        res_word.syllables[pos.syll_index].segments.insert(pos.seg_index, *seg);
+                                    } else if let Some(syll) = res_word.syllables.get_mut(pos.syll_index) { 
+                                        if pos.seg_index >= syll.segments.len() {
+                                            syll.segments.push_back(*seg);
+                                        } else {
+                                            syll.segments.insert(pos.seg_index, *seg);
+                                        }
+                                    } else {
+                                        res_word.syllables.last_mut().unwrap().segments.push_back(*seg);
+                                    }
+                                    if let Some(m) = mods {
+                                        let lc = res_word.apply_mods(&self.alphas, m, *pos)?;
+                
+                                        match lc.cmp(&0) {
+                                            std::cmp::Ordering::Greater => pos.seg_index += lc.unsigned_abs() as usize,
+                                            std::cmp::Ordering::Less    => pos.seg_index -= lc.unsigned_abs() as usize,
+                                            _ => {}
+                                        }
+                                    }          
+                                    
+                                    if res_word.in_bounds(*pos) {
+                                        pos.increment(&res_word);
+                                    }
+                                },
+                                VarKind::Syllable(syll) => {
+                                    let mut new_syll = syll.clone();
+                                    if let Some(m) = mods {
+                                        new_syll.apply_mods(&self.alphas, &m.suprs)?;
+                                    }
+                                    if pos.at_syll_start() {
+                                        res_word.syllables.insert(pos.syll_index, new_syll.clone());
+                                        pos.syll_index += 1;
+
+                                    } else {
+                                        // split current syllable in two, insert var_syll in between them
+                                        let before_syll = res_word.syllables.get_mut(pos.syll_index).unwrap();
+                                        let mut after_syll = Syllable::new();
+                                        while before_syll.segments.len() > pos.seg_index {
+                                            after_syll.segments.push_front(before_syll.segments.pop_back().unwrap());
+                                        }
+                                        res_word.syllables.insert(pos.syll_index+1, after_syll);
+                                        res_word.syllables.insert(pos.syll_index+1, new_syll);
+
+                                        pos.syll_index += 3;
+                                        pos.seg_index = 0;
+                                    }
+                                },
+                            }
+                        } else {
+                            return Err(RuleRuntimeError::UnknownVariable(num.clone()))
+                        }
+                    },
+
+
+                    ParseElement::Set(_) => return Err(RuleRuntimeError::LonelySet(z.position)),
+                    ParseElement::Matrix(..) => return Err(RuleRuntimeError::InsertionMatrix(z.position)),
+                    
+                    ParseElement::EmptySet   | ParseElement::Metathesis    | 
+                    ParseElement::Ellipsis   | ParseElement::Optional(..)  | 
+                    ParseElement::WordBound  | ParseElement::Environment(..) => unreachable!(),
+                }
+            }
         } else if self.input.len() > self.output.len() {
             // TODO(girv): factor this out
             let start_index = self.input.len() - self.output.len();
