@@ -33,5 +33,10 @@
         "rule_input" : ["V:[+hi] > [αbk, βfr, γrnd] / V:[αbk, βfr, γrnd] (C,0) _(C) #"],
         "word_input" : ["desun","røstin","sɨdyn","sodɨn","dasin"],
         "word_output": ["desin","røstyn","sɨdɨn","sodun","dasɨn"]
+    },
+    {
+        "rule_input" : ["%, V:[+lng], V, % => [+str] / #_#, _%#, _C%#, _%:[-str]%#"],
+        "word_input" : ["kae.sar","juː.li.us","de.kem.ber"],
+        "word_output": ["ˈkae.sar","ˈjuː.li.us","deˈkem.ber"]
     }
 ]
