@@ -217,12 +217,8 @@ impl SubRule {
             } 
         }
         match &state.kind {
-            ParseElement::WordBound => if (!forwards && pos.at_word_start()) || (forwards && word.out_of_bounds(*pos)) {
-                Ok(true)
-            } else { Ok(false) },
-            ParseElement::SyllBound => if pos.at_syll_start() {
-                Ok(true)
-            } else { Ok(false) },
+            ParseElement::WordBound => Ok((!forwards && pos.at_word_start()) || (forwards && word.out_of_bounds(*pos))),
+            ParseElement::SyllBound => Ok(pos.at_syll_start()),
             ParseElement::Ipa(s, m) => if self.context_match_ipa(s, m, word, *pos)? {
                 if forwards { pos.increment(word); } else { pos.decrement(word); }
                 Ok(true)
@@ -245,17 +241,13 @@ impl SubRule {
             let res = match &s.kind {
                 ParseElement::Variable(vt, m) => self.context_match_var(vt, m, word, pos, forwards),
                 ParseElement::Ipa(s, m) => if self.context_match_ipa(s, m, word, *pos)? {
-                    if forwards {
-                        pos.increment(word);
-                    } else {
-                        pos.decrement(word);
-                    }
+                    if forwards { pos.increment(word); } else { pos.decrement(word); }
                     Ok(true)
                 } else {Ok(false)},
                 ParseElement::Matrix(m, v) => self.context_match_matrix(m, v, word, pos, forwards, s.position),
                 ParseElement::Syllable(..) => todo!(),
-                ParseElement::WordBound => todo!(),
-                ParseElement::SyllBound => todo!(),
+                ParseElement::WordBound => Ok((!forwards && pos.at_word_start()) || (forwards && word.out_of_bounds(*pos))),
+                ParseElement::SyllBound => Ok(pos.at_syll_start()),
                 _ => unimplemented!(),
             };
             if res? {
