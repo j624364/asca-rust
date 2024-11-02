@@ -451,9 +451,9 @@ impl<'a> Lexer<'a> {
         let tkn_kind = self.feature_match(buffer, start, self.pos)?;
             
         match tkn_kind {
-            TokenKind::Feature(FeatType::Node(_)) => if mod_val == "+" || mod_val == "-" {
-                return Err(RuleSyntaxError::WrongModNode(self.line, start))
-            }, 
+            // TokenKind::Feature(FeatType::Node(_)) => if mod_val == "+" || mod_val == "-" {
+            //     return Err(RuleSyntaxError::WrongModNode(self.line, start))
+            // }, 
             TokenKind::Feature(FeatType::Supr(SupraType::Tone)) 
             => if mod_val == "+" || mod_val == "-" {
                 return Err(RuleSyntaxError::WrongModTone(self.line, start))
