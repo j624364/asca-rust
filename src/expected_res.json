@@ -30,7 +30,7 @@
         "word_output": ["pa.la.ba.ra"]
     },
     {
-        "rule_input" : ["[+syll, +hi] > [αbk, βfr, γrnd] / [αbk, βfr, γrnd] (C,0) _(C) #"],
+        "rule_input" : ["V:[+hi] > [αbk, βfr, γrnd] / V:[αbk, βfr, γrnd] (C,0) _(C) #"],
         "word_input" : ["desun","røstin","sɨdyn","sodɨn","dasin"],
         "word_output": ["desin","røstyn","sɨdɨn","sodun","dasɨn"]
     }
