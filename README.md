@@ -21,9 +21,9 @@ This repo contains the logic for the applier which will be connected to a web fr
     - [x] Metathesis
     - [x] Deletion
     - [ ] Insertion (borked)
-    - [ ] Substitution
+    - [x] Substitution
         - [x] Same length Substitution 
-        - [ ] Longer Input Substitution
+        - [x] Longer Input Substitution
         - [x] Longer Output Substitution
 - [ ] Matching Environment and Exceptions
     - [x] Simple segments
