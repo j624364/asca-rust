@@ -146,7 +146,7 @@ impl NodeKind {
             5 => {debug_assert_eq!(value, Coronal as usize); Coronal}
             6 => {debug_assert_eq!(value, Dorsal as usize); Dorsal}
             7 => {debug_assert_eq!(value, Pharyngeal as usize); Pharyngeal},
-            _ => unreachable!("\nOut of Range converting `usize` to `NodeType`\nThis is a bug!\n")
+            _ => unreachable!("\nOut of Range converting `{value}` to `NodeType`(max: 7) \nThis is a bug!\n")
         }
     }
 }
@@ -413,7 +413,7 @@ impl Segment {
                 BinMod::Positive => self.feat_match(node, mask, true),
             },
             // NOTE: Alpha's don't make sense here
-            // this is a consequence of using SegMKind for everything
+            // this is a consequence of using ModKind for everything
             ModKind::Alpha(_) => unreachable!(),
         }
     }
@@ -565,7 +565,6 @@ impl Segment {
             let node = NodeKind::from_usize(i);
             if let Some(kind) = m {
                 match kind {
-                    // nodes in rules only really make sense with alphas, but i guess this may be useful ¯\_(ツ)_/¯
                     ModKind::Binary(bm) => match bm {
                         BinMod::Negative => match node {
                             NodeKind::Root | NodeKind::Manner | NodeKind::Laryngeal => todo!("Err: Cannot be set to null"),
@@ -576,22 +575,33 @@ impl Segment {
                         BinMod::Positive => match node {
                             NodeKind::Root | NodeKind::Manner | NodeKind::Laryngeal => todo!("Err: Cannot be set to null"),
                             NodeKind::Place => {},
-                            _ => self.set_node(node, Some(0)),
+                            _ => {
+                                // preserve node if already positive
+                                if self.get_node(node).is_none() {
+                                    self.set_node(node, Some(0))
+                                }
+                            },
                         },
                     },
                     ModKind::Alpha(am) => match am {
                         AlphaMod::Alpha(a) => {
                             if let Some(alpha) = alphas.borrow().get(a) {
                                 if let Some((n, m)) = alpha.as_node() {
-                                    debug_assert_eq!(*n, node);
-                                    debug_assert_ne!(*n, NodeKind::Place);
-                                    self.set_node(*n, *m);
+                                    if *n == node {
+                                        self.set_node(*n, *m);
+                                    } else {
+                                        todo!("Err: alpha must be assigned to same node")
+                                    }
+
                                 } else if let Some((n, place)) = alpha.as_place() {
-                                    debug_assert_eq!(*n, node);
-                                    self.set_node(NodeKind::Labial    , place.lab);
-                                    self.set_node(NodeKind::Coronal   , place.cor);
-                                    self.set_node(NodeKind::Dorsal    , place.dor);
-                                    self.set_node(NodeKind::Pharyngeal, place.phr);
+                                    if *n == node { 
+                                        self.set_node(NodeKind::Labial    , place.lab);
+                                        self.set_node(NodeKind::Coronal   , place.cor);
+                                        self.set_node(NodeKind::Dorsal    , place.dor);
+                                        self.set_node(NodeKind::Pharyngeal, place.phr);
+                                    } else {
+                                        todo!("Err: alpha must be assigned to same node")
+                                    }
                                 } else {
                                     todo!("Err: alpha is not a node")
                                 }
@@ -615,21 +625,18 @@ impl Segment {
                     ModKind::Alpha(am) => match am {
                         AlphaMod::Alpha(a) => {
                             if let Some(alpha) = alphas.borrow().get(a) {
-                                if let Some((&nk, &ft, &tp)) = alpha.as_feature() {
-                                    debug_assert_eq!(n, nk);
-                                    debug_assert_ne!(nk, NodeKind::Place);
-                                    self.set_feat(nk, ft, tp);
-                                }
+                                if let Some((&_alp_nk, &_alp_ft, &tp)) = alpha.as_feature() {
+                                    // self.set_feat(alp_nk, alp_ft, tp);
+                                    self.set_feat(n, f, tp);
+                                } else { unreachable!() }
                             } else {
                                 todo!("Err: no alpha set")
                             }
                         },
                         AlphaMod::InvAlpha(ia) => {
                             if let Some(alpha) = alphas.borrow().get(ia) {
-                                if let Some((&nk, &ft, &tp)) = alpha.as_feature() {
-                                    debug_assert_eq!(n, nk);
-                                    debug_assert_ne!(nk, NodeKind::Place);
-                                    self.set_feat(nk, ft, !tp);
+                                if let Some((&_alp_nk, &_alp_ft, &tp)) = alpha.as_feature() {
+                                    self.set_feat(n, f, !tp);
                                 }
                             } else {
                                 todo!("Err: no alpha set")
