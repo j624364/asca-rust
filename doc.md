@@ -309,12 +309,14 @@ Groupings can be used as shorthand to match often used parts of speech.
 C -> Consonants (obstruents and sonorants)          (equiv. to [-syll])
 O -> Obstruents (plosives, fricatives, affricates)  (equiv. to [+cons, -son, -syll])
 S -> Sonorants  (nasals and liquids)                (equiv. to [+cons, +son, -syll])
+P -> Plosives                                       (equiv, to [+cons, -son, -syll, -delrel, -cont])
+F -> Fricatives                                     (equiv, to [+cons, -son, -syll, -approx, +cont])
 L -> Liquids                                        (equiv. to [+cons, +son, -syll, +approx])
 N -> Nasals                                         (equiv. to [+cons, +son, -syll, -approx])
-G -> Glides                                         (equiv. to [-cons, +son, -syll ])
+G -> Glides                                         (equiv. to [-cons, +son, -syll])
 V -> Vowels                                         (equiv. to [-cons, +son, +syll])
 ```
-Note that glottalic consontants such as `/h/ and /ʔ/` are considered `[-cons, -son, -syll]` and are therefore not captured by any grouping other than `C`. 
+Note that purely glottalic consonants such as `/h/ and /ʔ/` are considered `[-cons, -son, -syll]` and are therefore not captured by any grouping other than `C`. 
 
 ## Sets
 Sets are defined between curly brackets `{}` and can contain IPA, Groups, Matrices or Boundaries.
