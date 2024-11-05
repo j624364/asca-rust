@@ -6,7 +6,7 @@
 ## Defining Sound Changes
 
 ### The Basics
-ASCA tries to stick to commonly used [formal notation](https://en.wikipedia.org/wiki/Phonological_rule) wherever possible.
+ASCA tries to stick to commonly used [notation](https://en.wikipedia.org/wiki/Phonological_rule) wherever possible.
 In general, a rule is made of 4 parts:
 ```
 input     -> the content to be transformed
@@ -30,10 +30,10 @@ a > e / __      (this is invalid)
 
 ### IPA Characters
 
-ASCA recognises over 250 base IPA phones which can be modified with any of 28 diacritics, creating thousands of variants.
+ASCA recognises over 300 base IPA phones which can be modified with any of 30 diacritics. Meaning that most common IPA codepoints should be representable.
 
 Types of phones include:
-- Clicks (velar and uvular)
+- Clicks
 - Ejectives & Implosives
 - Voiceless, Creaky, Breathy Phonation
 - Syllabic Consonants
@@ -43,9 +43,13 @@ Types of phones include:
 
 ASCA supports digraphs; where two characters are joined by `◌͡◌`or `◌͜◌` or alternatively `^`. I.e. `d͡ʒ` can be represented as `d^ʒ`.
 
-Clicks are not separated by a joining character. I.e. `kʘ` not `k^ʘ`.
+Clicks are preceded by a velar or uvular plosive/nasal, denoting place of rear articulation, voicing, and nasality. These are not joined by a tie. I.e. `ŋʘ` not `ŋ^ʘ` or `ʘ`.
 
-A full list of supported base phones and diacritics can be found [here](https://bit.ly/3sHjqvA).
+Doubly articulated stops, such as `ɡ͡b`,  are not supported.
+
+In the event that ASCA is unable to render a segment in IPA, `�` will be used in its place.
+
+A full list of supported base phones and diacritics (with their values) can be found [here](https://bit.ly/3sHjqvA).
 
 ### Special Characters
 
@@ -57,7 +61,7 @@ A full list of supported base phones and diacritics can be found [here](https://
 
 ### Insertion and Deletion Rules
 
-Unlike SCA², the input and output cannot be omitted. Insertion and deletion are marked by the `*` operator.
+Unlike [SCA²](https://www.zompist.com/sca2.html), the input and output cannot be omitted. Insertion and deletion are marked by the `*` operator.
 The input or output must contain *only* this operator to be valid.
 
 ```
@@ -111,12 +115,12 @@ e > * / _,#
 
 Any elements past the comma are mirrored such that:
 ```
-_,ABC => ABC_CBA
+_,ABC => ABC_ , _CBA
 ```
 
 
 ## Distinctive Features
-ASCA allows for 24 segmental features.  
+ASCA allows for 26 segmental features.  
 A full table of segments and there values can be found [here](https://bit.ly/3sHjqvA).
 
 ```
@@ -135,15 +139,16 @@ A full table of segments and there values can be found [here](https://bit.ly/3sH
 │        │                   │      prenasalised stops     │                            │
 │        │  delayed release  │     affricate consonants    │       Plosives, etc.       │
 │        │     strident      │    f, v, s, z, ʃ, ʒ etc.    │   ɸ, β, θ, ð, ç, ʝ, etc.   │
-│        │      rhotic       │        trills, flaps,       │             -              │
+│        │      rhotic       │    r-like trills & flaps    │             -              │
 │        │                   │ rhoticised vowels and cons. │             -              │
 │        │       click       │       click consonants      │             _              │
 ├────────┼───────────────────┼─────────────────────────────┼────────────────────────────┤
 │        │       voice       │       voiced segments       │     voiceless segments     │
-│ LARYNG │   spread glottis  │      aspirates, breathy     │             -              │
+│ LARYNG │   spread glottis  │   aspirates, breathy voice  │             -              │
 │        │   const glottis   │    ejectives, implosives    │             -              │
+│        │                   │         creaky voice        │             -              │
 ├────────┼─────────┬─────────┼─────────────────────────────┼────────────────────────────┤
-│        │ LABIAL  │  bilab  │       p, b, f, v, etc.      │             -              │
+│        │ LABIAL  │  ldent  │       ɱ, ʋ, f, v, etc.      │      ɸ, β, p, b, etc.      │
 │        │         │  round  │       rounded segments      │      p, b, f, v, etc.      │
 │        ├─────────┼─────────┼─────────────────────────────┼────────────────────────────┤
 │        │ CORONAL │ anterior│      dentals, alveolars     │ post-palatals, retroflexes │
@@ -157,7 +162,7 @@ A full table of segments and there values can be found [here](https://bit.ly/3sH
 │        │         │ reduced │            schwa            │             -              │
 │        ├─────────┼─────────┼─────────────────────────────┼────────────────────────────┤
 │        │ PHARYNG │   atr   │                             │                            │
-│        │         │   rtr   │         pharyngeals         │        Epiglottals         │
+│        │         │   rtr   │         pharyngeals         │        epiglottals         │
 └────────┴─────────┴─────────┴─────────────────────────────┴────────────────────────────┘
 ```
 
@@ -350,9 +355,9 @@ For example, ```(C,5)_```  matches up to 5 consonants preceding the target. This
 
 `(C,3:5)` matches `CCC_`, `CCCC_`, and `CCCCC_`.
 
-`(C,0)_` matches any number of consonants preceding the target. This is equal to regex’s Lazy Zero-Or-More operator (*?)
+`(C,0)_` matches any number of consonants preceding the target. This is equal to regex’s Lazy-Zero-Or-More operator (*?)
 
-`(C)_` matches zero or one consonant preceding the target. This is the same as `(C,1)_` or `(C,0:1)`
+`(C)_` matches zero or one consonant preceding the target. This is the same as `(C,1)_` or `(C,0:1)_`
 
 ## Alpha Notation
 
@@ -410,7 +415,7 @@ It can also be used to define a simple haplology rule.
 ```
 %=1 > * / 1_ (A syllable is deleted if preceded by an identical syllable)
 ```
-Despite the name, variables cannot be reassigned.
+Despite the name, variables cannot be reassigned. However, they can be modified with a feature matrix.
 
 ## Propagation 
 As ASCA changes all matching environments in a word sequentially, left-to-right harmonies naturally propagate.
@@ -440,7 +445,7 @@ For left-to-right propagation, it may be stylistically justified to do the same,
 
 
 
-## Limitations
+## Limitations & Considerations
 
 ### Syllable Structure
 It is up to you to maintain syllable boundaries.
@@ -456,10 +461,7 @@ or
 $ > * / _C# (the two syllables are merged by deleting the boundary between them)
 ```
 
-
 `Can only check the presence of a syllable boundary, not the absence of one`
-
-`Labiodental vs labial consonants`
 
 `Tone cannot be alpha'd`
 
