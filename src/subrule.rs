@@ -109,6 +109,9 @@ impl SubRule {
                 println!("Match! {:?}", res);
                 word = self.transform(&word, res, &mut next_index)?;
                 println!("{} => {}", prev, word.render().unwrap());
+
+                self.alphas.borrow_mut().clear();
+                self.variables.borrow_mut().clear();
                 
                 if let Some(ci) = next_index { 
                     cur_index = ci;
