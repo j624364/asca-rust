@@ -29,7 +29,7 @@ pub const fn feature_to_node_mask(feat: FType) -> (NodeKind, u8) {
         SpreadGlottis       => (NodeKind::Laryngeal, 0b010),
         ConstrGlottis       => (NodeKind::Laryngeal, 0b001),
         
-        Bilabial            => (NodeKind::Labial, 0b10),
+        Labiodental         => (NodeKind::Labial, 0b10),
         Round               => (NodeKind::Labial, 0b01),
 
         Anterior            => (NodeKind::Coronal, 0b10),

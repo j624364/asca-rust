@@ -1,6 +1,7 @@
 #!/usr/bin/env python
 import warnings
 warnings.filterwarnings("ignore", "\nPyarrow", DeprecationWarning)
+import os
 import pandas as pd
 import json
 
@@ -58,7 +59,7 @@ def set_features(d):
     # Set Labial Features
     if d['LAB']:
         labial = 0
-        if d['lpl']:
+        if d['ldl']:
             labial += 0b10
         if d['rnd']:
             labial += 0b01
@@ -120,7 +121,8 @@ def replace(d):
 
 
 def main():
-    data = pd.read_csv("features.tsv", sep="\t")
+    filepath = os.path.join(os.path.dirname(__file__), "features.tsv")
+    data = pd.read_csv(filepath, sep="\t")
     x = data.to_dict(orient="records")
     cardinals = []
     cardinals = {}

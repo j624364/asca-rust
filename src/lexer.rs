@@ -70,7 +70,7 @@ pub enum FType {
     /*MAN*/ Continuant, Approximant, Lateral, Nasal, DelayedRelease, Strident, Rhotic, Click,          
     /*LAR*/ Voice, SpreadGlottis, ConstrGlottis,   
     // PLACE Node
-    /*LAB*/ Bilabial, Round,          
+    /*LAB*/ Labiodental, Round,          
     /*COR*/ Anterior, Distributed,     
     /*DOR*/ Front, Back, High, Low, Tense, Reduced,        
     /*PHR*/ AdvancedTongueRoot, RetractedTongueRoot, 
@@ -93,7 +93,7 @@ impl Display for FType {
             FType::Voice               => write!(f, "voi"),
             FType::SpreadGlottis       => write!(f, "s.g."),
             FType::ConstrGlottis       => write!(f, "c.g."),
-            FType::Bilabial            => write!(f, "bilab"),
+            FType::Labiodental         => write!(f, "bilab"),
             FType::Round               => write!(f, "rnd"),
             FType::Anterior            => write!(f, "ant"),
             FType::Distributed         => write!(f, "dis"),
@@ -134,7 +134,7 @@ impl FType {
             13 => {debug_assert_eq!(value, ConstrGlottis as usize); ConstrGlottis},
             // PLACE Node
             // LABIAL subnode
-            14 => {debug_assert_eq!(value, Bilabial as usize); Bilabial},
+            14 => {debug_assert_eq!(value, Labiodental as usize); Labiodental},
             15 => {debug_assert_eq!(value, Round as usize); Round},
             // CORONAL subnode
             16 => {debug_assert_eq!(value, Anterior as usize); Anterior},
@@ -633,15 +633,16 @@ impl<'a> Lexer<'a> {
             "laryngeal"      | "laryng"     | "laryn"  | "lar"   => Ok(Feature(Node(Laryngeal))),
             "voice"          | "voi"        | "vce"    | "vc"    => Ok(Feature(Feat(Voice))),
             "spreadglottis"  | "spreadglot" | 
-            "spread"         | "s.g."       | "sg"               => Ok(Feature(Feat(SpreadGlottis))),
-            "constrictedglottis"            | "constricted" |
-            "constglot"      | "constr"     | "c.g."   | "cg"    => Ok(Feature(Feat(ConstrGlottis))),
+            "spread"         | "s.g."       | "s.g"    | "sg"    => Ok(Feature(Feat(SpreadGlottis))),
+            "constrictedglottis"            | "constricted"  |
+            "constglot"      | "constr"     | "c.g." | "c.g" | 
+            "cg"                                                 => Ok(Feature(Feat(ConstrGlottis))),
             // Place Node Feature
             "place"       | "plce"    | "plc"                    => Ok(Feature(Node(Place))),
             // Labial Place Node Features
             "labial"      | "lbl"     | "lab"                    => Ok(Feature(Node(Labial))),
-            // TODO: come up with a better name for this feature
-            "bilabial"    | "bilab"   | "blb"                    => Ok(Feature(Feat(Bilabial))),
+            "labiodental" | "ldental" | "labiodent" | 
+            "labdent"     | "lbdntl"  | "ldent"     | "ldl"      => Ok(Feature(Feat(Labiodental))),
             "round"       | "rnd"     | "rd"                     => Ok(Feature(Feat(Round))),
             // Coronal Place Node Features
             "coronal"     | "coron"   | "crnl" | "cor"           => Ok(Feature(Node(Coronal))),
@@ -658,11 +659,13 @@ impl<'a> Lexer<'a> {
             // Pharyngeal Place Node Features
             "pharyngeal" | "pharyng" | "pharyn"  |
             "phar"       | "phr"                                 => Ok(Feature(Node(Pharyngeal))),
-            "advancedtongueroot"     | "a.t.r."  | "atr"         => Ok(Feature(Feat(AdvancedTongueRoot))),
-            "retractedtongueroot"    | "r.t.r."  | "rtr"         => Ok(Feature(Feat(RetractedTongueRoot))),
+            "advancedtongueroot"     | "a.t.r."  | "a.t.r" | 
+            "a.tr" | "at.r" | "atr"                              => Ok(Feature(Feat(AdvancedTongueRoot))),
+            "retractedtongueroot"    | "r.t.r."  | "r.t.r" | 
+            "r.tr" | "rt.r" | "rtr"                              => Ok(Feature(Feat(RetractedTongueRoot))),
             // Suprasegmental Features
             "long"     | "lng"                                   => Ok(Feature(Supr(Long))),
-            "overlong" | "overlng" | "ovrlng" | "xlng"           => Ok(Feature(Supr(Overlong))),
+            "overlong" | "overlng" | "ovrlng" | "vlng"           => Ok(Feature(Supr(Overlong))),
             "stress"   | "str"                                   => Ok(Feature(Supr(Stress))),
             "secondarystress"| "sec.stress" | "secstress" |
             "sec.str."       | "secstr" | "sec"                  => Ok(Feature(Supr(SecStress))),
