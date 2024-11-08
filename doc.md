@@ -3,10 +3,64 @@
 | [Distinctive Features](#distinctive-features) | [Suprasegmental Features](#suprasegmental-features)
 | [Groupings](#groupings) | [Metathesis](#metathesis) | [Gemination](#gemination) | [Optional Segments](#optional-segments) | [Alpha Notation](#alpha-notation) | [Variables](#variables) | [Propagation](#propagation) 
  | [Saving and Loading Files](#saving-and-loading-files) | [Limitations](#limitations)
+
+## Defining Words
+
+### IPA Characters
+
+ASCA recognises over 300 base IPA phones which can be modified with any of 30 diacritics. Meaning that most commonly used IPA codepoints should be representable.
+
+Types of phones include:
+- Clicks
+- Ejectives & Implosives
+- Voiceless, Creaky, Breathy Phonation
+- Syllabic Consonants
+- Affricates
+- Advanced & Retracted Tongue Root
+- Labialised, Glottalised, Velarised, Palatalised, Pharyngealised (etc.) Segments
+
+ASCA supports digraphs; where two characters are joined by a tie (`◌͡◌`or `◌͜◌`) or, if not available, a caret `^` (i.e. `d͡ʒ` can be represented as `d^ʒ`). The tie/caret is not optional, `dʒ` is considered a sequence of two segments `d` and `ʒ`
+
+Clicks are preceded by a velar or uvular plosive/nasal, denoting place of rear articulation, voicing, and nasality. These are not joined by a tie (i.e. `ŋʘ` not `ŋ^ʘ` nor `ʘ`).
+
+Doubly articulated stops, such as `ɡ͡b`,  are not supported.
+
+In the event that ASCA is unable to render a segment in IPA, `�` will be used in its place.
+
+A full list of supported base phones and diacritics (with their values) can be found [here](https://bit.ly/3sHjqvA).
+
+### Suprasegmentals
+
+#### Syllable Boundary
+Syllables are separated by `.`.
+A word with no marked boundaries is considered one syllable. There are no rules regarding internal syllable structure.
+
+#### Length
+Segment length can be represented by either `ː` or `:`. A segment can be followed by multiple length markers, representing overlong segments. Alternatively, length can be represented by repetition of the segment (i.e. `si:m` can be `siim`). Identical segments that are separated by a syllable boundary are not considered one long segment. If a long segment falls at the end of a syllable, `;` can be used a shorthand to also close the syllable (i.e. `si:.tiŋ` can be `si;tiŋ`).
+
+#### Stress
+Primary stress can be represented by either `ˈ` or `'` and secondary stress by either `ˌ` or `,`. These are placed at the start of the syllable. The boundary marker can be omitted if followed by a stressed syllable (i.e. `ə'gəʊ` instead of `ə.'gəʊ`).
+
+#### Tone
+ASCA does not currently support tone diacritics or tone letters. Tone instead is represented by numbers following the syllable. As of yet, there are no rules regarding the meaning or syntax of these numbers; However, for demonstration we will follow the [Chinese convention](https://en.wikipedia.org/wiki/Tone_letter#Numerical_values), using numbers from 1 (lowest pitch) to 5 (highest pitch). As with stress, either a syllable or a segment can be matched or modified with tone.
+
+The tones of Mandarin would be represented in this system as:
+```
+mā => `ma55`
+má => `ma35`
+mǎ => `ma214`
+mà => `ma51`
+ma => `ma0` or just `ma`
+```
+Tone is placed at the end of a syllable and therefore automatically closes it. However, you may still mark the boundary for clarity.
+```
+pu35.jɑʊ̯51.tan55.ɕin55 => pu35jɑʊ̯51tan55ɕin55
+```
+
 ## Defining Sound Changes
 
 ### The Basics
-ASCA tries to stick to commonly used [notation](https://en.wikipedia.org/wiki/Phonological_rule) wherever possible.
+ASCA tries to stick to commonly used [notation](https://en.wikipedia.org/wiki/Phonological_rule) wherever possible. Though, it may differ from other appliers.
 In general, a rule is made of 4 parts:
 ```
 input     -> the content to be transformed
@@ -18,7 +72,7 @@ These blocks are divided by specific separators so that a given rule looks like 
 ```
 input (=)> output / context (| or //) exception
 
-e.g. ei > ie | c_ (/i/ will flip to be before /e/, except when directly before /c/)
+e.g. ei > ie | c_ (/ei/ changes to /ie/, except when directly after /c/)
 ```
 
 A environment can only contain one underline `_`. An empty environment can be omitted:
@@ -27,29 +81,6 @@ a > e           (/saj/ > /sej/)
 a > e / _       (this is equivalent to the above)
 a > e / __      (this is invalid)
 ```
-
-### IPA Characters
-
-ASCA recognises over 300 base IPA phones which can be modified with any of 30 diacritics. Meaning that most common IPA codepoints should be representable.
-
-Types of phones include:
-- Clicks
-- Ejectives & Implosives
-- Voiceless, Creaky, Breathy Phonation
-- Syllabic Consonants
-- Affricates
-- Advanced & Retracted Tongue Root
-- Labialised, Glottalised, Velarised, Palatalised, Pharyngealised (etc.) Segments
-
-ASCA supports digraphs; where two characters are joined by `◌͡◌`or `◌͜◌` or alternatively `^`. I.e. `d͡ʒ` can be represented as `d^ʒ`.
-
-Clicks are preceded by a velar or uvular plosive/nasal, denoting place of rear articulation, voicing, and nasality. These are not joined by a tie. I.e. `ŋʘ` not `ŋ^ʘ` or `ʘ`.
-
-Doubly articulated stops, such as `ɡ͡b`,  are not supported.
-
-In the event that ASCA is unable to render a segment in IPA, `�` will be used in its place.
-
-A full list of supported base phones and diacritics (with their values) can be found [here](https://bit.ly/3sHjqvA).
 
 ### Special Characters
 
@@ -71,7 +102,6 @@ e > * / _#      (Apocope: a vowel elides at the end of a word)
 * > e / _#      (Paragoge: /e/ is inserted at the end of a word)
 ```
 You may use the empty set character `∅` instead.
-
 
 ### Metathesis Rules
 The ampersand operator ```&``` states that the order of the matched input is reversed. So that, for example, a sequence of matched segments `ABC` becomes `CBA`. The operator can be used to flip an arbitrary number of segments.
@@ -199,7 +229,7 @@ Rule Example: Grimm's Law
 Simple IPA:
 p, t, k, kʷ > ɸ, θ, x, xʷ 
 b, d, g, gʷ > p, t, k, kʷ
-bʰ, dʰ, gʰ, gʷʰ > b, d, g, gʷ
+bʱ, dʱ, gʱ, gʷʱ > b, d, g, gʷ
 
 Using Distinctive Features:
 [+cons, -son, -cont, -voice] > [+cont]
@@ -278,18 +308,8 @@ V=1 C > 1:[+long] / _#
 ```
 
 ### Tone
-ASCA does not currently support tone diacritics or tone letters. Tone instead is represented by numbers following the syllable. As of yet, there are no rules regarding the meaning or syntax of these numbers; However, for demonstration we will follow the [Chinese convention](https://en.wikipedia.org/wiki/Tone_letter#Numerical_values), using numbers from 1 (lowest pitch) to 5 (highest pitch). As with stress, either a syllable or a segment can be matched or modified with tone.
-
-The tones of Mandarin would be represented in this system as:
-```
-mā => `ma55`
-má => `ma35`
-mǎ => `ma214`
-mà => `ma51`
-ma => `ma0` or just `ma`
-```
-
-Tone also uses a different syntax within matrices. That is, `[tone: X]`, where `X` are the tone numbers  
+Tone has a unique syntax within matrices. That is, `[tone: X]`, where `X` are the tone numbers.  
+As of yet, tone cannot be used with alpha notation; nor can it be negated.
 
 ```
 Rule Example: Mandarin 3rd Tone Sandhi
@@ -305,7 +325,6 @@ Rule Example: Middle Chinese Tonogenesis
 V > [tone: 35], [tone: 51] / _ʔ, _s  (上 then 去)
 ʔ , s > * / _$                       (Phonemicisation)
 ```
-As of yet, tone cannot be used with alpha notation.
 
 ## Groupings
 
@@ -324,13 +343,14 @@ V -> Vowels                                         (equiv. to [-cons, +son, +sy
 Note that purely glottalic consonants such as `/h/ and /ʔ/` are considered `[-cons, -son, -syll]` and are therefore not captured by any grouping other than `C`. 
 
 ## Sets
-Sets are defined between curly brackets `{}` and can contain IPA, Groups, Matrices or Boundaries.
+Sets are defined between curly brackets `{}` and can contain IPA, Groups, Matrices or Boundaries.  
+Currently, sets cannot contain sequences (i.e. cannot have `{nd, NC}`).
 
 ```
 p, t, k > b, d, g       (3 Rules)   
 {p, t, k} > {b, d, g}   (1 Rule)
 ```
-A set in output if matched to a set in the input must contain the same number of segments.
+A set in the output if matched to a set in the input must contain the same number of segments.
 
 ```
 {p, t} > {b, d, g}      (ERROR)
@@ -390,7 +410,7 @@ Rule Example: Nasal Assimilation
 ```
 
 ### Inversion
-Imagine the original two rules were instead as such.
+Imagine the original two rules were instead:
 ```
 [+son] > [-nasal] / [+nasal]_
 [+son] > [+nasal] / [-nasal]_
@@ -399,7 +419,7 @@ To join these with alpha notation, we can invert the output alpha by putting a m
 ```
 [+son] > [-α nasal] / [α nasal]_
 ```
-This is useful for dissimilation rules.
+This can be useful for dissimilation rules.
 
 ## Variables
 Variables are declared by using the `=` operator, followed by a number. This number can then be used later in the rule to invoke the variable.
@@ -459,11 +479,8 @@ This can be fixed in two ways:
 $C > & / _# (the consonant is moved into the first syllable, with the now empty second syllable being deleted)
 or
 $ > * / _C# (the two syllables are merged by deleting the boundary between them)
-```
 
-`Can only check the presence of a syllable boundary, not the absence of one`
-
-`Tone cannot be alpha'd`
+`A syllable added to the beginning of a word in a substitution rule steals stress`
 
 `Sequence of identical segments (e.g. VV_) are parsed differently to long segments (e.g. V:[+long]) in before_context`
 
