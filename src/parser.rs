@@ -451,19 +451,20 @@ impl Parser {
         const CONT_M: (FType, ModKind) = (Continuant,     Binary(BinMod::Negative));  // -continuent
         const CONT_P: (FType, ModKind) = (Continuant,     Binary(BinMod::Positive));  // +continuent
         const DLRL_M: (FType, ModKind) = (DelayedRelease, Binary(BinMod::Negative));  // -del.rel.
+        const NASL_P: (FType, ModKind) = (Nasal,          Binary(BinMod::Positive));  // +nasal
 
         let mut args = Modifiers::new(); 
 
         (match chr.value.as_str() {
-            "C" => vec![SYLL_M],                                 // -syll                            // Consonant
-            "O" => vec![CONS_P, SONR_M, SYLL_M],                 // +cons, -son, -syll               // Obstruent
-            "S" => vec![CONS_P, SONR_P, SYLL_M],                 // +cons, +son, -syll               // Sonorant
-            "P" => vec![CONS_P, SONR_M, SYLL_M, DLRL_M, CONT_M], // +cons, +son, -syll, -dlrl, -cont // Plosive
-            "F" => vec![CONS_P, SONR_M, SYLL_M, APPR_M, CONT_P], // +cons, +son, -syll, -appr, +cont // Fricative 
-            "L" => vec![CONS_P, SONR_P, SYLL_M, APPR_P],         // +cons, +son, -syll, +appr        // Liquid
-            "N" => vec![CONS_P, SONR_P, SYLL_M, APPR_M],         // +cons, +son, -syll, -appr        // Nasal
-            "G" => vec![CONS_M, SONR_P, SYLL_M],                 // -cons, +son, -syll               // Glide
-            "V" => vec![CONS_M, SONR_P, SYLL_P],                 // -cons, +son, +syll               // Vowel
+            "C" => vec![SYLL_M],                                 // -syll                             // Consonant
+            "O" => vec![CONS_P, SONR_M, SYLL_M],                 // +cons, -son, -syll                // Obstruent
+            "S" => vec![CONS_P, SONR_P, SYLL_M],                 // +cons, +son, -syll                // Sonorant
+            "P" => vec![CONS_P, SONR_M, SYLL_M, DLRL_M, CONT_M], // +cons, +son, -syll, -dlrl, -cont  // Plosive
+            "F" => vec![CONS_P, SONR_M, SYLL_M, APPR_M, CONT_P], // +cons, +son, -syll, -appr, +cont  // Fricative 
+            "L" => vec![CONS_P, SONR_P, SYLL_M, APPR_P],         // +cons, +son, -syll, +appr         // Liquid
+            "N" => vec![CONS_P, SONR_P, SYLL_M, APPR_M, NASL_P], // +cons, +son, -syll, -appr, +nasal // Nasal
+            "G" => vec![CONS_M, SONR_P, SYLL_M],                 // -cons, +son, -syll                // Glide
+            "V" => vec![CONS_M, SONR_P, SYLL_P],                 // -cons, +son, +syll                // Vowel
 
             // TODO(girv): possible other groups
             // "B"  // Bilabial

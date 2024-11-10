@@ -336,7 +336,7 @@ S -> Sonorants  (nasals and liquids)                (equiv. to [+cons, +son, -sy
 P -> Plosives                                       (equiv, to [+cons, -son, -syll, -delrel, -cont])
 F -> Fricatives                                     (equiv, to [+cons, -son, -syll, -approx, +cont])
 L -> Liquids                                        (equiv. to [+cons, +son, -syll, +approx])
-N -> Nasals                                         (equiv. to [+cons, +son, -syll, -approx])
+N -> Nasals                                         (equiv. to [+cons, +son, -syll, -approx, +nasal])
 G -> Glides                                         (equiv. to [-cons, +son, -syll])
 V -> Vowels                                         (equiv. to [-cons, +son, +syll])
 ```
