@@ -314,7 +314,7 @@ impl Segment {
         // if no match is found, 
         // loop through again, but this time test cardinal + diacritics
 
-        // Sort by difference (maybe also filter diff > 8 to cut on size)
+        // Sort by difference (filter out diff >= 8 to cut on size)
         // iterate and match starting from smallest difference
 
         // Because CARDINALS_MAP's order is random, this can lead to the `random discovery` of edge cases
@@ -563,7 +563,9 @@ impl Segment {
                 match kind {
                     ModKind::Binary(bm) => match bm {
                         BinMod::Negative => match node {
-                            NodeKind::Root | NodeKind::Manner | NodeKind::Laryngeal => todo!("Err: Cannot be set to null"),
+                            NodeKind::Root      => return Err(RuleRuntimeError::NodeCannotBeNone("Root".to_owned(), err_pos)),
+                            NodeKind::Manner    => return Err(RuleRuntimeError::NodeCannotBeNone("Manner".to_owned(), err_pos)),
+                            NodeKind::Laryngeal => return Err(RuleRuntimeError::NodeCannotBeNone("Largyneal".to_owned(), err_pos)),
                             NodeKind::Place => {
                                 // e.g. Debuccalization
                                 self.set_node(NodeKind::Labial    , None);
@@ -575,11 +577,10 @@ impl Segment {
                             
                         },
                         BinMod::Positive => match node {
-                            NodeKind::Root | NodeKind::Manner | NodeKind::Laryngeal => todo!("Err: Cannot be set to null"),
-                            NodeKind::Place => {
-                                // applying +place makes no sense, does it mean [+lab,+cor,+dor,+phr]? [+lab,+cor,+dor]?
-                                todo!("Err: Place can't be positive");
-                            },
+                            NodeKind::Root      => return Err(RuleRuntimeError::NodeCannotBeSome("Root".to_owned(), err_pos)),
+                            NodeKind::Manner    => return Err(RuleRuntimeError::NodeCannotBeSome("Manner".to_owned(), err_pos)),
+                            NodeKind::Laryngeal => return Err(RuleRuntimeError::NodeCannotBeSome("Largyneal".to_owned(), err_pos)),
+                            NodeKind::Place     => return Err(RuleRuntimeError::NodeCannotBeSome("Place".to_owned(), err_pos)),
                             _ => {
                                 // preserve node if already positive
                                 if self.get_node(node).is_none() {
@@ -595,16 +596,28 @@ impl Segment {
                                     if n == node {
                                         self.set_node(n, m);
                                     } else {
-                                        todo!("Err: alpha must be assigned to same node")
+                                        return Err(RuleRuntimeError::AlphaIsNotSameNode(err_pos))
                                     }
-
                                 } else if let Some(place) = alpha.as_place() {
-                                    self.set_node(NodeKind::Labial    , place.lab);
-                                    self.set_node(NodeKind::Coronal   , place.cor);
-                                    self.set_node(NodeKind::Dorsal    , place.dor);
-                                    self.set_node(NodeKind::Pharyngeal, place.phr);
+                                    match node {
+                                        NodeKind::Root      => return Err(RuleRuntimeError::NodeCannotBeSet("Root".to_owned(), err_pos)),
+                                        NodeKind::Manner    => return Err(RuleRuntimeError::NodeCannotBeSet("Manner".to_owned(), err_pos)),
+                                        NodeKind::Laryngeal => return Err(RuleRuntimeError::NodeCannotBeSet("Laryngeal".to_owned(), err_pos)),
+                                        NodeKind::Place => {
+                                            self.set_node(NodeKind::Labial    , place.lab);
+                                            self.set_node(NodeKind::Coronal   , place.cor);
+                                            self.set_node(NodeKind::Dorsal    , place.dor);
+                                            self.set_node(NodeKind::Pharyngeal, place.phr);
+                                        },
+                                        // Partial Place application
+                                        NodeKind::Labial     => self.set_node(NodeKind::Labial    , place.lab),
+                                        NodeKind::Coronal    => self.set_node(NodeKind::Coronal   , place.cor),
+                                        NodeKind::Dorsal     => self.set_node(NodeKind::Dorsal    , place.dor),
+                                        NodeKind::Pharyngeal => self.set_node(NodeKind::Pharyngeal, place.phr),
+                                    }
+                                    
                                 } else {
-                                    todo!("Err: alpha is not a node")
+                                    return Err(RuleRuntimeError::AlphaIsNotNode(err_pos))
                                 }
                             } else {
                                 return Err(RuleRuntimeError::AlphaUnknown(err_pos))
