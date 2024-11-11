@@ -178,7 +178,7 @@ A full table of segments and there values can be found [here](https://bit.ly/3sH
 │        │   const glottis   │    ejectives, implosives    │             -              │
 │        │                   │         creaky voice        │             -              │
 ├────────┼─────────┬─────────┼─────────────────────────────┼────────────────────────────┤
-│        │ LABIAL  │  ldent  │       ɱ, ʋ, f, v, etc.      │      ɸ, β, p, b, etc.      │
+│        │ LABIAL  │ labdent │       ɱ, ʋ, f, v, etc.      │      ɸ, β, p, b, etc.      │
 │        │         │  round  │       rounded segments      │      p, b, f, v, etc.      │
 │        ├─────────┼─────────┼─────────────────────────────┼────────────────────────────┤
 │        │ CORONAL │ anterior│      dentals, alveolars     │ post-palatals, retroflexes │
@@ -236,6 +236,30 @@ Using Distinctive Features:
 [+cons, -son, -cont, +voice, -sg] > [-voice]
 [+cons, +voice, +sg] > [-sg]
 ```
+
+### Node and Subnode features
+#### Matching a subnode
+SubNodes can be used to match segments by place of articulation.
+```
+[+labial]  -> rounded, labial, and labiodental segments
+[+coronal] -> dental, alveolar, retroflex, palatal (etc.) segments
+[+dorsal]  -> vowels & velar, uvular, palatal segments
+[+phargyn] -> epiglottal/pharyngeal segments, and atr/rtr
+[+place]   -> matches all non glottal segments
+[-place]   -> h, ɦ, ʔ, etc. 
+```
+The major nodes Root, Manner, and Largyngeal cannot be positive or negative. See [alpha notation](#alpha-notation) for their use cases.
+
+#### Applying a subnode
+In the output block, these features can be used to add or remove a place of articulation:
+```
+Rule Example: Plosive Debuccalisation
+
+[+cons, -son, -voi] > [-cons, +c.g., -place] ( {p,t,k} > ʔ)
+```
+When adding a node, all features within the node are set to `-`.
+
+Again; Root, Manner, and Largyngeal cannot be used in this way. Place also cannot be `+place` in this case.
 
 ## Suprasegmental Features
 
@@ -400,7 +424,8 @@ Rule Example: Turkish Vowel Harmony
 V:[+hi] > [αbk, βfr, γrnd] / V:[αbk, βfr, γrnd] (C,0) _ (C) #"
 ```
 
-Alpha notation is very useful for rules requiring feature assimilation.
+### Node and Subnodes
+Alpha notation is very useful for rules requiring place assimilation.
 
 ```
 Rule Example: Nasal Assimilation
@@ -410,15 +435,18 @@ Rule Example: Nasal Assimilation
 ```
 
 ### Inversion
-Imagine the original two rules were instead:
+Imagine we have two debuccalisation rules, one for plosives and one for fricatives
 ```
-[+son] > [-nasal] / [+nasal]_
-[+son] > [+nasal] / [-nasal]_
+O:[-voi, -cont] > [-cons, -c.g., -place] / _#           (pat > paʔ)
+O:[-voi, +cont] > [-cons, +s.g., -place, -strid] / _#   (pas > pah)
 ```
-To join these with alpha notation, we can invert the output alpha by putting a minus `-` in front.
+It would be nice if we where able to join them into one rule. To accomplish this, we can use inversion:
 ```
-[+son] > [-α nasal] / [α nasal]_
+O:[-voi, Acont] > [-cons, As.g., -Ac.g., -place, -strid] / _#
+(pat, pas > paʔ, pah)
 ```
+When matching an obstruent that is `[-cont]`, the output becomes `[-s.g., +c.g.]`. While when the obstruent is `[+cont]`, the ouput is `[+s.g., -c.g.]`
+
 This can be useful for dissimilation rules.
 
 ## Variables
