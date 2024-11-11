@@ -425,7 +425,8 @@ V:[+hi] > [αbk, βfr, γrnd] / V:[αbk, βfr, γrnd] (C,0) _ (C) #"
 ```
 
 ### Node and Subnodes
-Alpha notation is very useful for rules requiring place assimilation.
+
+An node alpha carries all the features within it. This can be very useful for assimilation rules.
 
 ```
 Rule Example: Nasal Assimilation
@@ -433,6 +434,9 @@ Rule Example: Nasal Assimilation
 [+cons, +nasal] > [α PLACE] / _[+cons, αPLACE] 
 (A nasal consonant takes the place of a following consonant i.e. [nk] > [ŋk])
 ```
+An alpha assigned to a subnode can be +/- when used on a binary feature. The place node is positive when any subnode is.
+
+
 
 ### Inversion
 Imagine we have two debuccalisation rules, one for plosives and one for fricatives
@@ -440,17 +444,22 @@ Imagine we have two debuccalisation rules, one for plosives and one for fricativ
 O:[-voi, -cont] > [-cons, -c.g., -place] / _#           (pat > paʔ)
 O:[-voi, +cont] > [-cons, +s.g., -place, -strid] / _#   (pas > pah)
 ```
-It would be nice if we where able to join them into one rule. To accomplish this, we can use inversion:
+It would be nice if we were able to join them into one rule. To accomplish this, we can use inversion:
 ```
 O:[-voi, Acont] > [-cons, As.g., -Ac.g., -place, -strid] / _#
 (pat, pas > paʔ, pah)
 ```
 When matching an obstruent that is `[-cont]`, the output becomes `[-s.g., +c.g.]`. While when the obstruent is `[+cont]`, the ouput is `[+s.g., -c.g.]`
 
-This can be useful for dissimilation rules.
+This can be used with nodes for conditional clustering:
+```
+ə$ > * / P:[-nas, αPLACE]_N:[-αPLACE]
+(pə.no > pno, pə.mo > pə.mo)
+```
+In the rule above, plosives and nasals cluster only if they are of a different place of articulation.
 
 ## Variables
-Variables are declared by using the `=` operator, followed by a number. This number can then be used later in the rule to invoke the variable.
+Variables allow us to invoke a previously matched element. Variables are declared by using the `=` operator, followed by a number. This number can then be used later in the rule to invoke the variable.
 Currently; matrices, groups, and syllables can be assigned to a variable.
 
 Using variables, we can implement basic metathesis without need of the `&` operator.
