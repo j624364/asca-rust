@@ -61,7 +61,7 @@ pub struct Diacritic {
 }
 
 
-#[derive(Clone, PartialEq, Eq)]
+#[derive(Clone, Copy, PartialEq, Eq)]
 pub struct DiaMods {
     pub nodes: [Option<ModKind>; NodeType::Pharyngeal as usize + 1],
     pub feats: [Option<ModKind>; FType::RetractedTongueRoot as usize + 1],
@@ -341,7 +341,7 @@ impl Segment {
             let mut buf_seg = cand_seg;
             let mut buf_str = cand_graph.clone();
             for d in DIACRITS.iter() {
-                if self.match_modifiers(&d.prereqs) && self.match_modifiers(&d.payload) {
+                if self.match_modifiers(&d.prereqs).is_ok() && self.match_modifiers(&d.payload).is_ok() {
                         let before = buf_seg;
                         buf_seg.apply_diacritic_payload(&d.payload);
                         if buf_seg == before {
@@ -363,19 +363,18 @@ impl Segment {
         Some("�".to_string())
     }
 
-    #[allow(unused)]
-    pub fn match_modifiers(&self, mods: &DiaMods) -> bool {
+    pub fn match_modifiers(&self, mods: &DiaMods) -> Result<(), (usize, bool)> {
         for (i, m) in mods.feats.iter().enumerate() {
             if !self.match_feat_mod(m, i) {
-                return false
+                return Err((i, false))
             }
         }
         for (i, m) in mods.nodes.iter().enumerate() {
             if !self.match_node_mod(m, i) {
-                return false
+                return Err((i, true))
             }
         }
-        true
+        Ok(())
     }
 
     pub fn match_node_mod(&self, md: &Option<ModKind>, node_index: usize) -> bool {
@@ -461,11 +460,11 @@ impl Segment {
         }
     }
 
-    pub fn set_place_nodes(&mut self, vals: [Option<u8>; 4]) {
-        for (i, val) in vals.iter().enumerate() {
-            self.set_node(NodeKind::from_usize(i+3), *val);
-        }
-    }
+    // pub fn set_place_nodes(&mut self, vals: [Option<u8>; 4]) {
+    //     for (i, val) in vals.iter().enumerate() {
+    //         self.set_node(NodeKind::from_usize(i+3), *val);
+    //     }
+    // }
 
     pub fn set_node(&mut self, node: NodeKind, val: Option<u8>) {
         match node {
@@ -551,13 +550,10 @@ impl Segment {
         }
     }
 
-    pub fn check_and_apply_diacritic(&mut self, d: &Diacritic) -> Option<()> {
-        // check if we meet prereqs 
-        if self.match_modifiers(&d.prereqs) {
-            self.apply_diacritic_payload(&d.payload);
-            return Some(())
-        }
-        None
+    pub fn check_and_apply_diacritic(&mut self, d: &Diacritic) -> Result<(), (usize, bool)> {
+        self.match_modifiers(&d.prereqs)?;
+        self.apply_diacritic_payload(&d.payload);
+        Ok(())
     }
 
     pub fn apply_seg_mods(&mut self, alphas: &RefCell<HashMap<char, Alpha>> , nodes: [Option<ModKind>; NodeType::count()], feats: [Option<ModKind>; FType::count()], err_pos: Position) -> Result<(), RuleRuntimeError>{

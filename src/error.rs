@@ -67,7 +67,8 @@ pub enum WordSyntaxError {
     UnknownChar(String, usize),
     NoSegmentBeforeColon(String, usize),
     DiacriticBeforeSegment(String, usize),
-    DiacriticDoesNotMeetPreReqs(String, usize),
+    DiacriticDoesNotMeetPreReqsFeat(String, usize, String, bool),
+    DiacriticDoesNotMeetPreReqsNode(String, usize, String, bool),
     CouldNotParse(String),
 }
 
@@ -77,8 +78,11 @@ impl ASCAError for WordSyntaxError {
             WordSyntaxError::UnknownChar(_, _)                      => "Unknown Char".to_string(),
             WordSyntaxError::NoSegmentBeforeColon(_, _)             => "No Segment Before Colon".to_string(),
             WordSyntaxError::DiacriticBeforeSegment(_, _)           => "Diacritic Before Segment".to_string(),
-            WordSyntaxError::DiacriticDoesNotMeetPreReqs(txt, i) => format!("Segment does not have prerequisite properties to have diacritic `{}`", txt.chars().nth(*i).unwrap_or_default()),
             WordSyntaxError::CouldNotParse(_)                       => "Unable to parse word".to_string(),
+            WordSyntaxError::DiacriticDoesNotMeetPreReqsFeat(txt, i, t, pos) |
+            WordSyntaxError::DiacriticDoesNotMeetPreReqsNode(txt, i, t, pos) => {
+                format!("Segment does not have prerequisite properties to have diacritic `{}`. Must be {}{}", txt.chars().nth(*i).unwrap_or_default(), if *pos { '+' } else { '-' },t)
+            },
         }
     }
 
@@ -93,7 +97,8 @@ impl ASCAError for WordSyntaxError {
             Self::UnknownChar(text, i)            |
             Self::NoSegmentBeforeColon(text, i)   |
             Self::DiacriticBeforeSegment(text, i) |
-            Self::DiacriticDoesNotMeetPreReqs(text, i) => (
+            Self::DiacriticDoesNotMeetPreReqsFeat(text, i, ..) |
+            Self::DiacriticDoesNotMeetPreReqsNode(text, i, ..) => (
                 " ".repeat(*i) + "^" + "\n", 
                 text
             ),
@@ -257,7 +262,9 @@ pub enum RuleSyntaxError {
     UnknownEnbyFeature(String, Position),
     UnbalancedRuleIO(Vec<Vec<Item>>),
     UnbalancedRuleEnv(Vec<Item>),
-    DiacriticDoesNotMeetPreReqs(Position, Position)
+    DiacriticDoesNotMeetPreReqsFeat(Position, Position, String, bool),
+    DiacriticDoesNotMeetPreReqsNode(Position, Position, String, bool),
+    UnexpectedDiacritic(Position, Position),
 }
 
 impl ASCAError for RuleSyntaxError {
@@ -304,7 +311,11 @@ impl ASCAError for RuleSyntaxError {
             Self::InsertDelete(..)                => "A rule cannot be both an Insertion rule and a Deletion rule".to_string(),
             Self::UnbalancedRuleIO(_)             => "Input or Output has too few elements".to_string(),
             Self::UnbalancedRuleEnv(_)            => "Environment has too few elements".to_string(),
-            Self::DiacriticDoesNotMeetPreReqs(..) => "Segment does not have prerequisite properties to have diacritic".to_string()
+            Self::DiacriticDoesNotMeetPreReqsFeat(.., t , pos) |
+            Self::DiacriticDoesNotMeetPreReqsNode(.., t , pos) => {
+                format!("Segment does not have prerequisite properties to have this diacritic. Must be {}{}", if *pos { '+' } else { '-' },t) 
+            },
+            Self::UnexpectedDiacritic(..) => "Diacritics can only modify IPA Segments".to_string(),
         }
     }
 
@@ -389,13 +400,15 @@ impl ASCAError for RuleSyntaxError {
                     first_item.position.line
                 )
             },
-            Self::DiacriticDoesNotMeetPreReqs(ipa_pos, dia_pos) => (
-                " ".repeat(ipa_pos.start) 
-                    + &"^".repeat(ipa_pos.end - ipa_pos.start)
-                    + &" ".repeat(dia_pos.start - ipa_pos.end)
+            Self::UnexpectedDiacritic(elm_pos, dia_pos) | 
+            Self::DiacriticDoesNotMeetPreReqsFeat(elm_pos, dia_pos, ..) | 
+            Self::DiacriticDoesNotMeetPreReqsNode(elm_pos, dia_pos, ..) => (
+                " ".repeat(elm_pos.start) 
+                    + &"^".repeat(elm_pos.end - elm_pos.start)
+                    + &" ".repeat(dia_pos.start - elm_pos.end)
                     + &"^".repeat(dia_pos.end - dia_pos.start)
                     + "\n", 
-                ipa_pos.line
+                elm_pos.line
             ),
         };
 

@@ -340,11 +340,28 @@ impl Word {
                 for d in DIACRITS.iter() {
                     if c == d.diacrit {
                         match sy.segments.back_mut() {
-                            Some(s) => if s.check_and_apply_diacritic(d).is_some() {
-                                i += 1;
-                                continue 'outer;
-                            } else {
-                                return Err(WordSyntaxError::DiacriticDoesNotMeetPreReqs(input_txt, i))
+                            Some(s) => match s.check_and_apply_diacritic(d) {
+                                Ok(_) => {
+                                    i += 1;
+                                    continue 'outer;
+                                },
+                                Err((mod_index, is_node)) => {
+                                    if !is_node {
+                                        let ft = FType::from_usize(mod_index);
+                                        let pos = match d.prereqs.feats[mod_index].unwrap() {
+                                            ModKind::Binary(bin_mod) => bin_mod == BinMod::Positive,
+                                            _ => unreachable!(),
+                                        };
+                                        return Err(WordSyntaxError::DiacriticDoesNotMeetPreReqsFeat(input_txt, i, ft.to_string(), pos))
+                                    } else {
+                                        let nt = NodeType::from_usize(mod_index);
+                                        let pos = match d.prereqs.nodes[mod_index].unwrap() {
+                                            ModKind::Binary(bin_mod) => bin_mod == BinMod::Positive,
+                                            _ => unreachable!(),
+                                        };
+                                        return Err(WordSyntaxError::DiacriticDoesNotMeetPreReqsNode(input_txt, i, nt.to_string(), pos))
+                                    };
+                                },
                             },
                             None => return Err(WordSyntaxError::DiacriticBeforeSegment(input_txt, i))
                         }

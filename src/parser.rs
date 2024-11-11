@@ -627,8 +627,22 @@ impl Parser {
         while matches!(self.curr_tkn.kind, TokenKind::Diacritic(_)) {
             let dia = self.eat();
             let d = dia.kind.as_diacritic().unwrap();
-            if ipa.check_and_apply_diacritic(&DIACRITS[*d as usize]).is_none() {
-                return Err(RuleSyntaxError::DiacriticDoesNotMeetPreReqs(pos, dia.position))
+            if let Err((mod_index, is_node)) = ipa.check_and_apply_diacritic(&DIACRITS[*d as usize]) {
+                if !is_node {
+                    let ft = FType::from_usize(mod_index);
+                    let positive = match &DIACRITS[*d as usize].prereqs.feats[mod_index].unwrap() {
+                        ModKind::Binary(bin_mod) => *bin_mod == BinMod::Positive,
+                        _ => unreachable!(),
+                    };
+                    return Err(RuleSyntaxError::DiacriticDoesNotMeetPreReqsFeat(pos, dia.position, ft.to_string(), positive))
+                } else {
+                    let nt = NodeType::from_usize(mod_index);
+                    let positive = match &DIACRITS[*d as usize].prereqs.nodes[mod_index].unwrap() {
+                        ModKind::Binary(bin_mod) => *bin_mod == BinMod::Positive,
+                        _ => unreachable!(),
+                    };
+                    return Err(RuleSyntaxError::DiacriticDoesNotMeetPreReqsNode(pos, dia.position, nt.to_string(), positive))
+                };
             }
         }
 
@@ -886,13 +900,22 @@ impl Parser {
                 continue;
             }
             // Input elements
-            let maybe_inp_trm = self.get_input_els()?;
-            if maybe_inp_trm.is_empty() && inputs.is_empty() {
+            let inp_term = self.get_input_els()?;
+            if inp_term.is_empty() && inputs.is_empty() {
                 return Err(RuleSyntaxError::UnknownCharacter(self.curr_tkn.value.chars().next().unwrap(), self.line, self.pos))
-            } else if maybe_inp_trm.is_empty() && !self.expect(TokenKind::Comma) {
+            } else if inp_term.is_empty() && !self.expect(TokenKind::Comma) {
                 break;
             }
-            inputs.push(maybe_inp_trm);
+            
+            if let TokenKind::Diacritic(_) = self.curr_tkn.kind {
+                match inp_term.last() {
+                    Some(Item { kind: _, position }) => return Err(RuleSyntaxError::UnexpectedDiacritic(*position, self.curr_tkn.position)),
+                    _ => { unreachable!(); }
+                }
+            }
+
+            inputs.push(inp_term);
+
             if !self.expect(TokenKind::Comma) {
                 break
             }
@@ -925,13 +948,21 @@ impl Parser {
                 continue;
             }
             // Output Elements
-            let x = self.get_output_els()?;
-            if x.is_empty() && outputs.is_empty(){
+            let out_term = self.get_output_els()?;
+            if out_term.is_empty() && outputs.is_empty(){
                 return Err(RuleSyntaxError::EmptyOutput(self.line, self.token_list[self.pos].position.start))
-            } else if x.is_empty() && !self.expect(TokenKind::Comma) {
+            } else if out_term.is_empty() && !self.expect(TokenKind::Comma) {
                 break;
             }
-            outputs.push(x);
+
+            if let TokenKind::Diacritic(_) = self.curr_tkn.kind {
+                match out_term.last() {
+                    Some(Item { kind: _, position }) => return Err(RuleSyntaxError::UnexpectedDiacritic(*position, self.curr_tkn.position)),
+                    _ => { unreachable!(); }
+                }
+            }
+
+            outputs.push(out_term);
             if !self.expect(TokenKind::Comma) {
                 break
             }
