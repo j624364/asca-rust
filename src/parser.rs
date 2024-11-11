@@ -1,17 +1,21 @@
-use std::fmt;
+use std::{
+    cell::RefCell, 
+    collections::HashMap, 
+    fmt
+};
 
 use crate :: {
     error :: *, 
     lexer :: *, 
-    rule  :: *, 
+    rule  :: { Alpha, Rule },
     seg   :: Segment, 
     CARDINALS_MAP, DIACRITS 
 };
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum BinMod {
+    Positive,
     Negative,
-    Positive
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -26,6 +30,30 @@ pub enum ModKind{
     Alpha(AlphaMod),
 }
 
+impl ModKind {
+    pub fn as_binary(&self, alphas: &RefCell<HashMap<char, Alpha>>, err_pos: Position) -> Result<bool, RuleRuntimeError> {
+        match self {
+            ModKind::Binary(bin_mod) => Ok(*bin_mod == BinMod::Positive),
+            ModKind::Alpha(alpha_mod) => match alpha_mod {
+                AlphaMod::Alpha(ch) => {
+                    if let Some(alpha) = alphas.borrow().get(ch) {
+                        Ok(alpha.as_binary())
+                    } else {
+                        Err(RuleRuntimeError::AlphaUnknown(err_pos))
+                    }
+                },
+                AlphaMod::InvAlpha(ch) => {
+                    if let Some(alpha) = alphas.borrow().get(ch) {
+                        Ok(!alpha.as_binary())
+                    } else {
+                        Err(RuleRuntimeError::AlphaUnknown(err_pos))
+                    }
+                },
+            },
+        }
+    }
+}
+
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum Mods {
     Binary(BinMod),
@@ -33,17 +61,17 @@ pub enum Mods {
     Alpha(AlphaMod),
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub struct Supr {
-    pub kind: SupraType,
-    pub modifier: ModKind
-}
+// #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+// pub struct Supr {
+//     pub kind: SupraType,
+//     pub modifier: ModKind
+// }
 
-impl Supr {
-    pub fn new(kind: SupraType, modifier:ModKind) -> Self {
-        Self {kind, modifier}
-    }
-}
+// impl Supr {
+//     pub fn new(kind: SupraType, modifier:ModKind) -> Self {
+//         Self {kind, modifier}
+//     }
+// }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct SupraSegs {

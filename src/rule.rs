@@ -6,11 +6,11 @@ use std::{
 };
 
 use crate   :: {
-    error   :: {Error, RuleSyntaxError}, 
-    parser  :: {Item, ParseElement, Supr}, 
+    error   :: { Error, RuleSyntaxError }, 
+    parser  :: { Item, ParseElement }, 
     seg     :: NodeKind, 
     subrule :: SubRule, 
-    word    :: Word,
+    word    :: Word, 
 };
 
 #[derive(Debug, Copy, Clone, PartialEq, Eq)]
@@ -38,38 +38,54 @@ impl PlaceMod {
 #[derive(Debug)]
 pub enum Alpha {
     Node(NodeKind, Option<u8>),
-    Place(NodeKind, PlaceMod),
-    Feature(NodeKind, u8, bool),
-    Supra(Supr), // TODO: Replace Supr with something else
+    Place(PlaceMod),
+    Feature(bool),
+    Supra(bool),
 }
 
 impl Alpha {
-    /// Returns `true` if the alpha is `Feature`.
-    pub fn is_feature(&self) -> bool {
-        matches!(self, Self::Feature(..))
-    }
+    // /// Returns `true` if the alpha is `Feature`.
+    // pub fn is_feature(&self) -> bool {
+    //     matches!(self, Self::Feature(..))
+    // }
 
-    pub fn as_node(&self) -> Option<(&NodeKind, &Option<u8>)> {
+    pub fn as_node(&self) -> Option<(NodeKind, Option<u8>)> {
         if let Self::Node(n, m) = self {
-            Some((n, m))
+            Some((*n, *m))
         } else {
             None
         }
     }
 
-    pub fn as_feature(&self) -> Option<(&NodeKind, &u8, &bool)> {
-        if let Self::Feature(nk, msk, pos) = self {
-            Some((nk, msk, pos))
+    // pub fn as_feature(&self) -> Option<&bool> {
+    //     if let Self::Feature(pos) = self {
+    //         Some(pos)
+    //     } else {
+    //         None
+    //     }
+    // }
+
+    pub fn as_place(&self) -> Option<&PlaceMod> {
+        if let Self::Place(place) = self {
+            Some(place)
         } else {
             None
         }
     }
 
-    pub fn as_place(&self) -> Option<(&NodeKind, &PlaceMod)> {
-        if let Self::Place(nk, place) = self {
-            Some((nk, place))
-        } else {
-            None
+    // pub fn as_supra(&self) -> Option<(&SupraType, &bool)> {
+    //     if let Self::Supra(st, pos) = self {
+    //         Some((st, pos))
+    //     } else {
+    //         None
+    //     }
+    // }
+
+    pub fn as_binary(&self) -> bool {
+        match self {
+            Alpha::Feature(pos) | Alpha::Supra(pos) => *pos,
+            Alpha::Node(_, node_mod) => node_mod.is_some(),
+            Alpha::Place(pm) => pm.lab.is_some() || pm.cor.is_some() || pm.dor.is_some() || pm.phr.is_some(),
         }
     }
 }

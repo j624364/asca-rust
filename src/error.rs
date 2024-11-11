@@ -1,7 +1,7 @@
 use colored::Colorize;
 use crate  :: {
-    lexer  :: {Position, Token},
-    parser :: Item, 
+    lexer  :: {Position, Token, TokenKind}, 
+    parser :: Item,
 };
 
 pub trait ASCAError: Clone {
@@ -152,7 +152,7 @@ pub enum RuleRuntimeError {
     InsertionNoContextOrException(Position),
     InsertionMatrix(Position),
     AlphaUnknown(Position),
-    AlphaIsNotFeature(Position),
+    AlphaUnknownInv(Position),
     AlphaIsNotNode(Position),
 }
 
@@ -165,8 +165,8 @@ impl ASCAError for RuleRuntimeError {
             Self::UnknownVariable(token)           => format!("Unknown variable '{}' at {}", token.value, token.position.start),
             Self::InsertionNoContextOrException(_) => "Insertion rules must have a context".to_string(),
             Self::InsertionMatrix(_)               => "An incomplete matrix cannot be inserted".to_string(),
-            Self::AlphaUnknown(_)                  => "First occurence of a node alpha must be positive".to_string(),
-            Self::AlphaIsNotFeature(_)             => "Binary alphas cannot be used on nodes".to_string(),
+            Self::AlphaUnknown(_)                  => "Alpha has not be assigned before applying".to_string(),
+            Self::AlphaUnknownInv(_)               => "First occurence of a node alpha must not be inverted".to_string(),
             Self::AlphaIsNotNode(_)                => "Node alphas cannot be used on binary features".to_string(),
         }
     }
@@ -185,15 +185,14 @@ impl ASCAError for RuleRuntimeError {
                 " ".repeat(pos.end) + "^" + "\n", 
                 pos.line
             ),
-            Self::LonelySet(pos) | Self::InsertionMatrix(pos) => (
-                " ".repeat(pos.start) + &"^".repeat(pos.end-pos.start) + "\n", 
-                pos.line
-            ),
-            Self::AlphaIsNotFeature(pos) | Self::AlphaIsNotNode(pos) => (
+            Self::LonelySet(pos)       | 
+            Self::AlphaIsNotNode(pos)  |
+            Self::InsertionMatrix(pos) => (
                 " ".repeat(pos.start) + &"^".repeat(pos.end-pos.start) + "\n",
                 pos.line
             ),
-            Self::AlphaUnknown(pos) => (
+            Self::AlphaUnknown(pos) |
+            Self::AlphaUnknownInv(pos) => (
                 " ".repeat(pos.start) + "^^" + "\n", 
                 pos.line
             ),
@@ -239,7 +238,7 @@ pub enum RuleSyntaxError {
     BadSyllableMatrix(Token),
     // BadVariableAssignment(Item),
     // AlreadyInitialisedVariable(Item, Item, usize),
-    WrongModNode(LineNum, Pos),
+    // WrongModNode(LineNum, Pos),
     WrongModTone(LineNum, Pos),
     OutsideBrackets(LineNum, Pos),
     NestedBrackets(LineNum, Pos),
@@ -266,8 +265,8 @@ impl ASCAError for RuleSyntaxError {
         match self {
             Self::OptMathError(_, low, high)      => format!("An Option's second argument '{high}' must be greater than or equal to it's first argument '{low}'"),
             Self::UnknownIPA(token)               => format!("Could not get value of IPA '{}'.", token.value),
-            Self::UnknownGrouping(token)          => format!("Unknown grouping '{}'. Known groupings are (C)onsonant, (O)bstruent, (S)onorant, (L)iquid, (N)asal, (G)lide, and (V)owel", token.value),
-            Self::UnknownFeature(feat, Position{line,start, end}) => format!("Unknown feature '{feat}' at {line}:{start}-{end}'."),
+            Self::UnknownGrouping(token)          => format!("Unknown grouping '{}'. Known groupings are (C)onsonant, (O)bstruent, (S)onorant, (P)losive, (F)ricative, (L)iquid, (N)asal, (G)lide, and (V)owel", token.value),
+            Self::UnknownFeature(feat, pos)       => format!("Unknown feature '{feat}' at {}:{}-{}'. Did you mean {}? ", pos.line, pos.start, pos.end, get_feat_closest(feat)),
             Self::UnknownEnbyFeature(feat, ..)    => format!("Feature '{feat}' has no modifier."),
             Self::ExpectedAlphabetic(c, l, pos)   => format!("Expected ASCII character, but received '{c}' at {l}:{pos}'."),
             Self::ExpectedCharColon(c, l, pos)    => format!("Expected ':', but received '{c}' at {l}:{pos}"),
@@ -286,12 +285,12 @@ impl ASCAError for RuleSyntaxError {
             Self::ExpectedColon(token)            => format!("Expected ':', but received '{}'", token.value),
             Self::ExpectedUnderline(token)        => format!("Expected '_', but received '{}'", token.value),
             Self::ExpectedRightBracket(token)     => format!("Expected ')', but received '{}'", token.value),
-            Self::ExpectedMatrix(token)           => format!("Expected '[', but received '{}'", if token.kind == crate::TokenKind::Eol {"End Of Line"} else {&token.value}),
+            Self::ExpectedMatrix(token)           => format!("Expected '[', but received '{}'", if token.kind == TokenKind::Eol {"End Of Line"} else {&token.value}),
             Self::ExpectedSegment(token)          => format!("Expected an IPA character, Primative or Matrix, but received '{}'", token.value),
             Self::ExpectedTokenFeature(token)     => format!("{} cannot be placed inside a matrix. An element inside `[]` must a distinctive feature", token.value),
             Self::ExpectedVariable(token)         => format!("Expected number, but received {} ", token.value),
             Self::BadSyllableMatrix(_)            => "A syllable can only have parameters stress and tone".to_string(),
-            Self::WrongModNode(..)                => "Nodes cannot be ±; they can only be used in Alpha Notation expressions.".to_string(),
+            // Self::WrongModNode(..)                => "Nodes cannot be ±; they can only be used in Alpha Notation expressions.".to_string(),
             Self::WrongModTone(..)                => "Tones cannot be ±; they can only be used with numeric values.".to_string(),
             Self::NestedBrackets(..)              => "Cannot have nested brackets of the same type".to_string(),
             Self::OutsideBrackets(..)             => "Features must be inside square brackets".to_string(),
@@ -349,7 +348,7 @@ impl ASCAError for RuleSyntaxError {
                 " ".repeat(*pos) + "^" + "\n", 
                 *line
             ),
-            Self::WrongModNode   (line, pos) |
+            // Self::WrongModNode   (line, pos) |
             Self::WrongModTone   (line, pos) |
             Self::EmptyInput     (line, pos) | 
             Self::EmptyEnv       (line, pos) |
@@ -409,4 +408,110 @@ impl ASCAError for RuleSyntaxError {
 
         result
     }
+}
+
+
+const FEAT_VARIANTS: [&str; 171] = [ 
+    "root", "rut", "rt", 
+    "consonantal", "consonant", "cons" , "cns",          
+    "sonorant", "sonor", "son" , "snrt", "sn",
+    "syllabic", "syllab", "syll" , "syl",          
+    // Manner Node Features
+    "manner", "mann", "man", "mnnr" , "mnr" ,
+    "continuant", "contin", "cont" , "cnt",
+    "approximant", "approx", "appr", "app",
+    "lateral", "latrl", "ltrl", "lat",
+    "nasal", "nsl", "nas",
+    "delayedrelease", "delrel", "d.r.", "del.rel.", "delayed", "dl", "dlrl", "dr", "delay", "del.rel", "drel",
+    "strident", "strid", "stri", "stridnt",
+    "rhotic", "rhot", "rho", "rhtc", "rh",
+    "click", "clik", "clk", "clck",
+    // Laryngeal Node Features
+    "laryngeal", "laryng", "laryn", "lar",
+    "voice", "voi", "vce", "vc",
+    "spreadglottis", "spreadglot", "spread", "s.g.", "s.g", "sg",
+    "constrictedglottis", "constricted", "constglot", "constr", "c.g.", "c.g", "cg",
+    // Place Node Feature
+    "place", "plce", "plc",   
+    // Labial Place Node Features
+    "labial", "lbl", "lab",
+    "labiodental", "ldental", "labiodent", "labdent", "lbdntl", "ldent", "ldl",
+    "round", "rund", "rnd", "rd",
+    // Coronal Place Node Features
+    "coronal", "coron", "crnl", "cor",
+    "anterior", "anter", "antr", "ant",
+    "distributed", "distrib", "dist", "dis" , "dst",
+    // Dorsal Place Node Features
+    "dorsal", "drsl", "dors", "dor",
+    "front", "frnt", "fnt", "fro", "frt", "fr",
+    "back", "bck", "bk",
+    "high", "hgh", "hi",
+    "low", "lw", "lo",
+    "tense", "tens", "tns", "ten",
+    "reduced", "reduc", "redu", "rdcd", "red",
+    // Pharyngeal Place Node Features
+    "pharyngeal", "pharyng", "pharyn", "phar", "phr",
+    "advancedtongueroot", "a.t.r.", "a.t.r", "a.tr", "at.r", "atr",
+    "retractedtongueroot", "r.t.r.", "r.t.r", "r.tr", "rt.r", "rtr",
+    // Suprasegmental Features
+    "long", "lng",
+    "overlong", "overlng", "ovrlng", "vlng",
+    "stress", "str",
+    "secondarystress", "sec.stress", "secstress", "sec.str.", "sec.str", "secstr", "sec"
+];
+
+fn get_feat_closest(s: &str) -> &'static str {
+    let mut best_lev = usize::MAX;
+    let mut best_str= "";
+
+    for var in FEAT_VARIANTS {
+        let len = lev(s, var);
+        if len < best_lev {
+            best_str = var;
+            best_lev = len;
+        }
+    }
+
+    best_str
+} 
+
+fn lev(a: &str, b: &str) -> usize {
+    let mut dist = 0;
+
+    if a == b { return dist }
+
+    let a_len = a.chars().count();
+    let b_len = b.chars().count();
+
+    debug_assert!(a_len > 0);
+    debug_assert!(b_len > 0);
+
+    let mut cache: Vec<usize> = (1..).take(a_len).collect();
+
+    for (bi, b_ch) in b.chars().enumerate() {
+        dist = bi;
+        let mut a_dist = bi;
+
+        for (ai, a_ch) in a.chars().enumerate() {
+            let b_dist = a_dist + (a_ch != b_ch) as usize;
+
+            a_dist = cache[ai];
+
+            dist = if a_dist > dist {
+                if b_dist > dist {
+                    dist + 1
+                } else {
+                    b_dist
+                }
+            } else if b_dist > a_dist {
+                a_dist + 1
+            } else {
+                b_dist
+            };
+
+            cache[ai] = dist;
+        }
+    }
+
+    dist
 }

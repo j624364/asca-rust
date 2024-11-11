@@ -1,10 +1,9 @@
 use std     :: { cell::RefCell, collections::{ HashMap, VecDeque }, fmt };
 use crate   :: {
-    rule    :: Alpha,
-    seg     :: Segment, 
     error   :: RuleRuntimeError, 
-    parser  :: { BinMod, ModKind, SupraSegs }, 
-    // subrule :: VarKind, 
+    parser  :: { Modifiers, SupraSegs }, 
+    rule    :: Alpha, 
+    seg     :: Segment, Position,  
 };
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -42,37 +41,133 @@ impl Syllable {
         Self {segments: VecDeque::new(), stress: StressKind::default(), tone: String::new()}
     }
 
-    pub fn apply_mods(&mut self, _alphas: &RefCell<HashMap<char, Alpha>> , /*_vars: &RefCell<HashMap<usize, VarKind>>,*/ mods: &SupraSegs) -> Result<(), RuleRuntimeError>{
-        // NOTE: this function ignores mods.length 
+    pub fn replace_segment(&mut self, pos: usize, seg: &Segment, mods: &Option<Modifiers>, alphas: &RefCell<HashMap<char, Alpha>>, err_pos: Position) -> Result<i8, RuleRuntimeError> {
+        let mut seg_len = self.get_seg_length_at(pos);
+        let mut lc = 1 - seg_len as i8;
+
+        while seg_len > 1 {
+            self.segments.remove(pos+1);
+            seg_len -= 1;
+        }
+        // let mut lc = 0;
+        self.segments[pos] = *seg;
+
+        if let Some(m) = mods {
+            lc += self.apply_seg_mods(alphas, m, pos, err_pos)?;
+        }
+
+        Ok(lc)
+    }
+
+    pub fn get_seg_length_at(&self, pos: usize) -> usize {
+        assert!(pos < self.segments.len());
+        let mut s_i = pos + 1;
+        let mut len = 1;
+        while s_i < self.segments.len() && self.segments[pos] == self.segments[s_i] {
+            len +=1; s_i += 1;
+        }
+        len
+    }
+
+    pub fn apply_seg_mods(&mut self, alphas: &RefCell<HashMap<char, Alpha>>, mods: &Modifiers, start_pos: usize, err_pos: Position) -> Result<i8, RuleRuntimeError> {
+        // check seg length, if long then we must apply mods to all occurences (we assume that we are at the start)
+        // debug_assert!(self.in_bounds(start_pos));
+        let mut pos = start_pos;
+        let mut seg_len = self.get_seg_length_at(pos);
+        while seg_len > 0 {
+            let seg = self.segments.get_mut(pos).expect("position is in bounds");
+            seg.apply_seg_mods(alphas, mods.nodes, mods.feats, err_pos)?;
+            seg_len -= 1;
+            pos +=1;
+        }
+        // TODO(girv): Really, this should be first so that we don't have to needlessly apply mods if we apply -long
+        self.apply_supras(alphas, &mods.suprs, start_pos, err_pos)
+    }
+
+    pub fn apply_supras(&mut self, alphas: &RefCell<HashMap<char, Alpha>>, mods: &SupraSegs, pos: usize, err_pos: Position) -> Result<i8, RuleRuntimeError> {
+        let seg = self.segments[pos];
+        let mut seg_len = self.get_seg_length_at(pos);
+        let mut len_change = 0;
+        match mods.length {
+            // [long, Overlong]
+            [None, None] => {},
+            [None, Some(v)] => if v.as_binary(alphas, err_pos)? {
+                while seg_len < 3 {
+                    self.segments.insert(pos, seg);
+                    seg_len +=1;
+                    len_change +=1;
+                }
+            } else {
+                while seg_len > 2 {
+                    self.segments.remove(pos);
+                    seg_len -=1;
+                    len_change -=1;
+                }
+            },
+            [Some(long), None] => if long.as_binary(alphas, err_pos)? {
+                while seg_len < 2 {
+                    self.segments.insert(pos, seg);
+                    seg_len += 1;
+                    len_change +=1;
+                }
+            } else {
+                while seg_len > 1 {
+                    self.segments.remove(pos);
+                    seg_len -= 1;
+                    len_change -=1;
+                }
+            },
+            [Some(long), Some(vlong)] => match (long.as_binary(alphas, err_pos)?, vlong.as_binary(alphas, err_pos)?) {
+                (true, true) => while seg_len < 3 {
+                    self.segments.insert(pos, seg);
+                    seg_len +=1;
+                    len_change +=1;
+                },
+                (true, false) => {
+                    while seg_len > 2 {
+                        self.segments.remove(pos);
+                        seg_len -=1;
+                        len_change -=1;
+                    }
+                    while seg_len < 2 {
+                        self.segments.insert(pos, seg);
+                        seg_len += 1;
+                        len_change +=1;
+                    }
+                },
+                (false, false) => while seg_len > 1 {
+                    self.segments.remove(pos);
+                    seg_len -= 1;
+                    len_change -=1;
+                },
+                (false, true) => todo!("Err? +overlong cannot be -long"),
+            },
+        }
+
+        self.apply_syll_mods(alphas, mods, err_pos)?;
+
+        Ok(len_change)
+    }
+
+    pub fn apply_syll_mods(&mut self, alphas: &RefCell<HashMap<char, Alpha>>, mods: &SupraSegs, err_pos: Position) -> Result<(), RuleRuntimeError>{
         match mods.stress {
             // [stress, secstress]
             [None, None] => {},
-            [None, Some(v)] => match v {
-                ModKind::Binary(b) => match b {
-                    BinMod::Negative => if let StressKind::Secondary = self.stress {
-                        self.stress = StressKind::Unstressed
-                    },
-                    BinMod::Positive => self.stress = StressKind::Secondary,
-                },
-                ModKind::Alpha(_) => todo!(),
+            [None, Some(sec)] => if sec.as_binary(alphas, err_pos)? {
+                self.stress = StressKind::Secondary;
+            } else if self.stress == StressKind::Secondary {
+                self.stress = StressKind::Unstressed;
             },
-            [Some(v), None] => match v {
-                ModKind::Binary(b) => match b {
-                    BinMod::Negative => self.stress = StressKind::Unstressed,
-                    BinMod::Positive => self.stress = StressKind::Primary,
-                },
-                ModKind::Alpha(_) => todo!(),
+            [Some(prim), None] => if prim.as_binary(alphas, err_pos)? {
+                self.stress = StressKind::Primary;
+            } else {
+                self.stress = StressKind::Unstressed;
             },
-            [Some(p), Some(s)] => match (p,s) {
-                (ModKind::Binary(a), ModKind::Binary(b)) => match (a,b) {
-                    (BinMod::Negative, BinMod::Negative) => self.stress = StressKind::Unstressed,
-                    (BinMod::Negative, BinMod::Positive) => self.stress = StressKind::Secondary, //FIXME: This could be seen as an error? (+secstress is inherently +stress)
-                    (BinMod::Positive, BinMod::Negative) => self.stress = StressKind::Primary,
-                    (BinMod::Positive, BinMod::Positive) => self.stress = StressKind::Secondary,
-                },
-                (ModKind::Binary(_), ModKind::Alpha(_)) => todo!(),
-                (ModKind::Alpha(_), ModKind::Binary(_)) => todo!(),
-                (ModKind::Alpha(_), ModKind::Alpha(_)) => todo!(),
+            [Some(prim), Some(sec)] => match (prim.as_binary(alphas, err_pos)?, sec.as_binary(alphas, err_pos)?) {
+                (true, true) => self.stress = StressKind::Secondary,
+                (true, false) => self.stress = StressKind::Primary,
+                (false, true) => todo!("Err? +secstress cannot be -stress"),
+                (false, false) => self.stress = StressKind::Unstressed,
             },
         }
 

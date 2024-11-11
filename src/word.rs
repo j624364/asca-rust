@@ -5,26 +5,14 @@ use std::{
 };
 
 use crate :: {
-    seg   ::Segment, 
-    rule  ::Alpha, 
-    syll  ::{StressKind, Syllable}, 
-    error ::{RuleRuntimeError, WordSyntaxError}, 
-    parser::{Modifiers, SupraSegs}, 
-    CARDINALS_MAP, CARDINALS_TRIE, DIACRITS 
+    error :: { RuleRuntimeError, WordSyntaxError },
+    lexer :: { FType, NodeType, Position },
+    parser:: { BinMod, Modifiers, ModKind },
+    rule  :: Alpha,
+    seg   :: Segment,
+    syll  :: { StressKind, Syllable },
+    CARDINALS_MAP, CARDINALS_TRIE, DIACRITS,
 };
-
-// #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-// pub enum LengthKind {
-//     Short,
-//     Long,
-//     Overlong
-// }
-//
-// impl Default for LengthKind {
-//     fn default() -> Self {
-//         Self::Short
-//     }
-// }
 
 #[derive(Clone, Copy, PartialEq, Eq)]
 pub struct SegPos {
@@ -45,10 +33,14 @@ impl SegPos {
 
     pub fn increment(&mut self, word: &Word) {
         // NOTE: Does not guarantee that the resulting position is within the bounds of the word
-        debug_assert!(self.syll_index < word.syllables.len(), "error incrementing");
+        // debug_assert!(self.syll_index < word.syllables.len(), "error incrementing");
+
+        if self.syll_index >= word.syllables.len() {
+            return
+        }
 
         self.seg_index += 1;
-        if self.seg_index > word.syllables[self.syll_index].segments.len() - 1 {
+        if self.seg_index >= word.syllables[self.syll_index].segments.len() {
             self.seg_index = 0;
             self.syll_index += 1;
         }
@@ -142,12 +134,12 @@ impl Word {
         Ok(buffer)
     }
 
-    pub fn get_segs_in_syll(&self, syll_index: usize) -> &VecDeque<Segment> {
+    pub fn get_syll_segments(&self, syll_index: usize) -> &VecDeque<Segment> {
         debug_assert!(syll_index < self.syllables.len());
         &self.syllables[syll_index].segments
     } 
 
-    pub fn get_segs_in_syll_mut(&mut self, syll_index: usize) -> &mut VecDeque<Segment> {
+    pub fn get_syll_segments_mut(&mut self, syll_index: usize) -> &mut VecDeque<Segment> {
         debug_assert!(syll_index < self.syllables.len());
         &mut self.syllables[syll_index].segments
     } 
@@ -165,32 +157,31 @@ impl Word {
     }
 
     /// Finds number of consecutive identical segments ***within a syllable*** starting from the given index.
-    /// 
+    /// <br>
     /// Does not take into account if said index is in the middle of the repetition
+    /// # Panics
+    /// If SegPos is out of bounds
     /// # Examples
     /// ``` 
     /// let word = Word::new("aa.a").unwrap();
-    /// assert_eq!(word.seg_length_at(0), 2);
-    /// assert_eq!(word.seg_length_at(1), 1);
+    /// assert_eq!(word.seg_length_at(SegPos{0,0}), 2);
+    /// assert_eq!(word.seg_length_at(SegPos{1,0}), 1);
     /// ```
-    pub fn seg_length_in_syll(&self, seg_index: SegPos) -> usize {
-
-        let syll = &self.syllables[seg_index.syll_index];
-
-        if seg_index.seg_index > syll.segments.len() {
-            return 1
-        }
-
-        let mut s_i = seg_index.seg_index + 1;
-        let mut len = 1;
-
-        while s_i < syll.segments.len() && syll.segments[seg_index.seg_index] == syll.segments[s_i] {
-            len +=1;
-            s_i += 1;
-        }
-
-        len
+    pub fn seg_length_at(&self, seg_index: SegPos) -> usize {
+        self.syllables[seg_index.syll_index].get_seg_length_at(seg_index.seg_index)
     }
+
+    // pub fn find_start_of_long_seg(&self, seg_pos: SegPos) -> SegPos {
+    //     if seg_pos.seg_index == 0 {
+    //         return seg_pos
+    //     }
+    //     let syll = &self.syllables[seg_pos.syll_index];
+    //     let mut s_i = seg_pos.seg_index - 1;
+    //     while s_i > 0 && syll.segments[seg_pos.seg_index] == syll.segments[s_i] {
+    //         s_i -= 1;
+    //     }
+    //     SegPos { syll_index: seg_pos.syll_index, seg_index: s_i }
+    // }
 
     pub fn in_bounds(&self, seg_pos: SegPos) -> bool {
         seg_pos.syll_index < self.syllables.len() && seg_pos.seg_index < self.syllables[seg_pos.syll_index].segments.len()
@@ -235,14 +226,6 @@ impl Word {
     //             } 
     //         },
     //     }
-    // }
-
-    // pub fn match_mod_at(&self, md: &SegMKind, seg_index: usize) -> bool {
-    //     todo!()
-    // }
-
-    // pub fn match_supra_at(&self, supr: &Supr, seg_index: usize) -> bool {
-    //     todo!()
     // }
 
     fn setup(&mut self, input_txt: String) -> Result<(), WordSyntaxError> {
@@ -381,72 +364,8 @@ impl Word {
 
     }
 
-    pub fn apply_supras(&mut self, alphas: &RefCell<HashMap<char, Alpha>>, mods: &SupraSegs, pos: SegPos) -> Result<i8, RuleRuntimeError> {
-        let seg = self.get_seg_at(pos).expect("pos is in bounds");
-        let mut seg_len = self.seg_length_in_syll(pos);
-        let mut len_change = 0;
-        match mods.length {
-            // [long, Overlong]
-            [None, None] => {},
-            [None, Some(v)] => match v {
-                crate::ModKind::Binary(b) => match b {
-                    crate::BinMod::Negative => while seg_len > 2 {
-                        self.syllables[pos.syll_index].segments.remove(pos.seg_index);
-                        seg_len -=1;
-                        len_change -=1;
-                    },
-                    crate::BinMod::Positive => while seg_len < 3 {
-                        self.syllables[pos.syll_index].segments.insert(pos.seg_index, seg);
-                        seg_len +=1;
-                        len_change +=1;
-                    },
-                },
-                crate::ModKind::Alpha(_) => todo!(),
-            },
-            [Some(v), None] => match v {
-                crate::ModKind::Binary(b) => match b {
-                    crate::BinMod::Negative => while seg_len > 1 {
-                        self.syllables[pos.syll_index].segments.remove(pos.seg_index);
-                        seg_len -= 1;
-                        len_change -=1;
-                    },
-                    crate::BinMod::Positive => while seg_len < 2 {
-                        self.syllables[pos.syll_index].segments.insert(pos.seg_index, seg);
-                        seg_len += 1;
-                        len_change +=1;
-                    },
-                },
-                crate::ModKind::Alpha(_) => todo!(),
-            },
-            [Some(_), Some(_)] => todo!(),
-        }
-
-
-        self.syllables[pos.syll_index].apply_mods(alphas, mods)?;
-
-        // println!("len_ch: {}", len_change);
-        Ok(len_change)
-    }
-
-    pub fn apply_mods(&mut self, alphas: &RefCell<HashMap<char, Alpha>>, mods: &Modifiers, start_pos: SegPos) -> Result<i8, RuleRuntimeError> {
-        // check seg length, if long then we must apply mods to all occurences (we assume that we are at the start)
-        let mut pos = start_pos;
-
-        debug_assert!(self.in_bounds(pos));
-        
-        let mut seg_len = self.seg_length_in_syll(pos);
-        while seg_len > 0 {
-            // todo
-            let seg = self.syllables[pos.syll_index].segments.get_mut(pos.seg_index).expect("position is in bounds");
-
-            seg.apply_seg_mods(alphas, mods.nodes, mods.feats)?;
-
-            seg_len -= 1;
-            pos.increment(self);
-        }
-
-        // Really, this should be first so that we don't have to needlessly apply mods if we apply -long
-        self.apply_supras(alphas, &mods.suprs, start_pos)
+    pub fn apply_seg_mods(&mut self, alphas: &RefCell<HashMap<char, Alpha>>, mods: &Modifiers, start_pos: SegPos, err_pos: Position) -> Result<i8, RuleRuntimeError> {
+        self.syllables[start_pos.syll_index].apply_seg_mods(alphas, mods, start_pos.seg_index, err_pos)
     }
 }
 

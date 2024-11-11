@@ -1,12 +1,12 @@
 use std::{cell::RefCell, collections::HashMap, fmt};
 use serde::Deserialize;
 
-use crate ::{
-    error ::RuleRuntimeError, 
-    lexer ::{FType, NodeType}, 
-    parser::{BinMod, ModKind}, 
-    CARDINALS_MAP, CARDINALS_VEC, DIACRITS,
-    Alpha, AlphaMod, 
+use crate :: {
+    error :: RuleRuntimeError, 
+    lexer :: { FType, NodeType, Position }, 
+    parser:: { AlphaMod, BinMod, ModKind }, 
+    rule  :: Alpha, 
+    CARDINALS_MAP, CARDINALS_VEC, DIACRITS 
 };
 
 pub const fn feature_to_node_mask(feat: FType) -> (NodeKind, u8) {
@@ -135,8 +135,8 @@ impl NodeKind {
     pub const fn count() -> usize { 8 }
 
     pub fn from_usize(value: usize) -> Self {
+        debug_assert!(NodeKind::count() == 8);
         use NodeKind::*;
-
         match value {
             0 => {debug_assert_eq!(value, Root as usize); Root}
             1 => {debug_assert_eq!(value, Manner as usize); Manner}
@@ -560,7 +560,7 @@ impl Segment {
         None
     }
 
-    pub fn apply_seg_mods(&mut self, alphas: &RefCell<HashMap<char, Alpha>> , nodes: [Option<ModKind>; NodeType::count()], feats: [Option<ModKind>; FType::count()]) -> Result<(), RuleRuntimeError>{
+    pub fn apply_seg_mods(&mut self, alphas: &RefCell<HashMap<char, Alpha>> , nodes: [Option<ModKind>; NodeType::count()], feats: [Option<ModKind>; FType::count()], err_pos: Position) -> Result<(), RuleRuntimeError>{
         for (i, m) in nodes.iter().enumerate() { 
             let node = NodeKind::from_usize(i);
             if let Some(kind) = m {
@@ -568,13 +568,22 @@ impl Segment {
                     ModKind::Binary(bm) => match bm {
                         BinMod::Negative => match node {
                             NodeKind::Root | NodeKind::Manner | NodeKind::Laryngeal => todo!("Err: Cannot be set to null"),
-                            NodeKind::Place => {},
+                            NodeKind::Place => {
+                                // e.g. Debuccalization
+                                self.set_node(NodeKind::Labial    , None);
+                                self.set_node(NodeKind::Coronal   , None);
+                                self.set_node(NodeKind::Dorsal    , None);
+                                self.set_node(NodeKind::Pharyngeal, None);
+                            },
                             _ => self.set_node(node, None),
                             
                         },
                         BinMod::Positive => match node {
                             NodeKind::Root | NodeKind::Manner | NodeKind::Laryngeal => todo!("Err: Cannot be set to null"),
-                            NodeKind::Place => {},
+                            NodeKind::Place => {
+                                // applying +place makes no sense, does it mean [+lab,+cor,+dor,+phr]? [+lab,+cor,+dor]?
+                                todo!("Err: Place can't be positive");
+                            },
                             _ => {
                                 // preserve node if already positive
                                 if self.get_node(node).is_none() {
@@ -587,29 +596,25 @@ impl Segment {
                         AlphaMod::Alpha(a) => {
                             if let Some(alpha) = alphas.borrow().get(a) {
                                 if let Some((n, m)) = alpha.as_node() {
-                                    if *n == node {
-                                        self.set_node(*n, *m);
+                                    if n == node {
+                                        self.set_node(n, m);
                                     } else {
                                         todo!("Err: alpha must be assigned to same node")
                                     }
 
-                                } else if let Some((n, place)) = alpha.as_place() {
-                                    if *n == node { 
-                                        self.set_node(NodeKind::Labial    , place.lab);
-                                        self.set_node(NodeKind::Coronal   , place.cor);
-                                        self.set_node(NodeKind::Dorsal    , place.dor);
-                                        self.set_node(NodeKind::Pharyngeal, place.phr);
-                                    } else {
-                                        todo!("Err: alpha must be assigned to same node")
-                                    }
+                                } else if let Some(place) = alpha.as_place() {
+                                    self.set_node(NodeKind::Labial    , place.lab);
+                                    self.set_node(NodeKind::Coronal   , place.cor);
+                                    self.set_node(NodeKind::Dorsal    , place.dor);
+                                    self.set_node(NodeKind::Pharyngeal, place.phr);
                                 } else {
                                     todo!("Err: alpha is not a node")
                                 }
                             } else {
-                                todo!("Err: no alpha set")
+                                return Err(RuleRuntimeError::AlphaUnknown(err_pos))
                             }
                         },
-                        AlphaMod::InvAlpha(_) => todo!("Err: Nodes cannot be inverse alpha"), // I don't think this makes sense for nodes 
+                        AlphaMod::InvAlpha(_) => todo!("Err: Nodes cannot be inverse alpha"), // I don't think this makes sense for applying nodes 
                     },
                 }
             }
@@ -625,21 +630,18 @@ impl Segment {
                     ModKind::Alpha(am) => match am {
                         AlphaMod::Alpha(a) => {
                             if let Some(alpha) = alphas.borrow().get(a) {
-                                if let Some((&_alp_nk, &_alp_ft, &tp)) = alpha.as_feature() {
-                                    // self.set_feat(alp_nk, alp_ft, tp);
-                                    self.set_feat(n, f, tp);
-                                } else { unreachable!() }
+                                let tp = alpha.as_binary();
+                                self.set_feat(n, f, tp);
                             } else {
-                                todo!("Err: no alpha set")
+                                return Err(RuleRuntimeError::AlphaUnknown(err_pos))
                             }
                         },
                         AlphaMod::InvAlpha(ia) => {
                             if let Some(alpha) = alphas.borrow().get(ia) {
-                                if let Some((&_alp_nk, &_alp_ft, &tp)) = alpha.as_feature() {
+                                let tp = alpha.as_binary();
                                     self.set_feat(n, f, !tp);
-                                }
                             } else {
-                                todo!("Err: no alpha set")
+                                return Err(RuleRuntimeError::AlphaUnknown(err_pos))
                             }
                         },
                     },

@@ -79,7 +79,7 @@ impl SubRule {
                 let end = match *res.last().unwrap() {
                     MatchElement::Segment(mut sp, _)  => {
                         // So that long vowels work
-                        let mut seg_len = word.seg_length_in_syll(sp);
+                        let mut seg_len = word.seg_length_at(sp);
                         while seg_len > 1 {
                             sp.increment(&word);
                             seg_len -= 1;
@@ -98,6 +98,8 @@ impl SubRule {
                     MatchElement::Syllable(s, _)  => SegPos::new(s, word.syllables[s].segments.len()-1),
                 };
                 if !self.match_before_context_and_exception(&word, start)? || !self.match_after_context_and_exception(&word, end)? {
+                    self.alphas.borrow_mut().clear();
+                    self.variables.borrow_mut().clear();
                     if let Some(ci) = next_index { 
                         cur_index = ci;
                         continue;
@@ -222,13 +224,13 @@ impl SubRule {
         match &state.kind {
             ParseElement::WordBound => Ok((!forwards && pos.at_word_start()) || (forwards && word.out_of_bounds(*pos))),
             ParseElement::SyllBound => Ok(pos.at_syll_start()),
-            ParseElement::Ipa(s, m) => if self.context_match_ipa(s, m, word, *pos)? {
+            ParseElement::Ipa(s, m) => if self.context_match_ipa(s, m, word, *pos, state.position)? {
                 if forwards { pos.increment(word); } else { pos.decrement(word); }
                 Ok(true)
             } else { Ok(false) },
             ParseElement::Matrix(m, v) => self.context_match_matrix(m, v, word, pos, forwards, state.position),
             ParseElement::Syllable(s, t, v) => self.context_match_syll(s, t, v, word, pos, forwards),
-            ParseElement::Variable(vt, mods) => self.context_match_var(vt, mods, word, pos, forwards),
+            ParseElement::Variable(vt, mods) => self.context_match_var(vt, mods, word, pos, forwards, state.position),
             ParseElement::Set(s) => self.context_match_set(s, word, pos, forwards),
             ParseElement::Optional(_, _, _) => todo!(),
             ParseElement::Ellipsis => todo!(),
@@ -242,8 +244,8 @@ impl SubRule {
     fn context_match_set(&self, set: &[Item], word: &Word, pos: &mut SegPos, forwards: bool) -> Result<bool, RuleRuntimeError> {
         for s in set {
             let res = match &s.kind {
-                ParseElement::Variable(vt, m) => self.context_match_var(vt, m, word, pos, forwards),
-                ParseElement::Ipa(s, m) => if self.context_match_ipa(s, m, word, *pos)? {
+                ParseElement::Variable(vt, m) => self.context_match_var(vt, m, word, pos, forwards, s.position),
+                ParseElement::Ipa(seg, m) => if self.context_match_ipa(seg, m, word, *pos, s.position)? {
                     if forwards { pos.increment(word); } else { pos.decrement(word); }
                     Ok(true)
                 } else {Ok(false)},
@@ -260,10 +262,10 @@ impl SubRule {
         Ok(false)
     }
 
-    fn context_match_var(&self, vt: &Token, mods: &Option<Modifiers>, word: &Word, pos: &mut SegPos, forwards: bool) -> Result<bool, RuleRuntimeError> {
+    fn context_match_var(&self, vt: &Token, mods: &Option<Modifiers>, word: &Word, pos: &mut SegPos, forwards: bool, err_pos: Position) -> Result<bool, RuleRuntimeError> {
         if let Some(var) = self.variables.borrow_mut().get(&vt.value.parse::<usize>().unwrap()) {
             match var {
-                VarKind::Segment(s) => if self.context_match_ipa(s, mods, word, *pos)? {
+                VarKind::Segment(s) => if self.context_match_ipa(s, mods, word, *pos, err_pos)? {
                     if forwards { pos.increment(word); } else { pos.decrement(word); }
                     Ok(true)
                 } else { Ok(false) },
@@ -283,7 +285,7 @@ impl SubRule {
         } else { return Ok(false) };
         
         if let Some(Modifiers { nodes: _, feats: _, suprs }) = mods {
-            if !self.match_stress(&suprs.stress, cur_syll) {
+            if !self.match_stress(&suprs.stress, cur_syll)? {
                 return Ok(false)
             }
             if let Some(t) = suprs.tone.as_ref()  {
@@ -316,7 +318,7 @@ impl SubRule {
             &word.syllables[pos.syll_index] 
         } else { return Ok(false) };
 
-        if !self.match_stress(stress, cur_syll) {
+        if !self.match_stress(stress, cur_syll)? {
             return Ok(false)
         }
         if let Some(t) = tone.as_ref() {
@@ -358,7 +360,7 @@ impl SubRule {
         }
     }
 
-    fn transform(&self, word: &Word, input: Vec<MatchElement>, current_pos: &mut Option<SegPos>) -> Result<Word, RuleRuntimeError> {
+    fn transform(&self, word: &Word, input: Vec<MatchElement>, next_pos: &mut Option<SegPos>) -> Result<Word, RuleRuntimeError> {
         match self.rule_type {
             RuleType::Metathesis => {
                 let mut res_word = word.clone();
@@ -431,12 +433,12 @@ impl SubRule {
                             if res_word.syllables[i.syll_index].segments.is_empty() {
                                 res_word.syllables.remove(i.syll_index);
                                                            
-                                if let Some(pos) = current_pos {
+                                if let Some(pos) = next_pos {
                                     debug_assert!(pos.syll_index > 0);
                                     pos.syll_index -= 1;
                                 }
                             }
-                            if let Some(pos) = current_pos { 
+                            if let Some(pos) = next_pos { 
                                 if pos.seg_index > 0 {
                                     pos.seg_index -= 1; 
                                 }
@@ -449,7 +451,7 @@ impl SubRule {
                             }
                             res_word.remove_syll(i);
 
-                            if let Some(pos) = current_pos {
+                            if let Some(pos) = next_pos {
                                 debug_assert!(pos.syll_index > 0);
                                 pos.syll_index -= 1;
                             }
@@ -481,7 +483,7 @@ impl SubRule {
                             res_word.syllables[i-1].tone.push_str(&syll_tone);
                             res_word.syllables.remove(i);
 
-                            if let Some(pos) = current_pos {
+                            if let Some(pos) = next_pos {
                                 debug_assert!(pos.syll_index > 0);
                                 pos.syll_index -= 1;
                             }
@@ -818,35 +820,128 @@ impl SubRule {
         Ok(res_word)
     }
 
-    fn apply_syll_mods(&self, word: &mut Word, syll_index: usize, mods: &Modifiers, var: &Option<usize>) -> Result<(), RuleRuntimeError> {
-        // NOTE(girv): Maybe we should error or give warnings if we have non-syllable features 
-        if let Some(_v) = var {
-            todo!("Deal with variable")
+    // fn insert(&self, word: &Word, insert_pos: &mut SegPos, insert_after: bool) -> Result<Word, RuleRuntimeError> {
+    //     let mut res_word = word.clone();
+    //     for state in &self.output {
+    //         match &state.kind {
+    //             ParseElement::Syllable(stress, tone, var) => self.insert_syllable(&mut res_word, insert_pos, stress, tone, var)?,
+    //             ParseElement::Ipa(seg, mods) => {       
+    //                 println!("ins_pos: {:?}", insert_pos);
+    //
+    //                 let mut pos = if insert_after { SegPos::new(insert_pos.syll_index, insert_pos.seg_index )
+    //                 } else { *insert_pos };
+    //                 println!("after: {}" , insert_after);
+    //                 // if let Some(Item { kind: ParseElement::Environment(vb, va), position: _ }) = &self.context { 
+    //                 //     if vb.is_empty() && va[0].kind == ParseElement::WordBound || va[0].kind == ParseElement::SyllBound {
+    //                 //         println!("DJAHBDJAHBSDJHb");
+    //                 //         if res_word.in_bounds(pos) {
+    //                 //             res_word.syllables[pos.syll_index].segments.insert(pos.seg_index, *seg);
+    //                 //         } else {
+    //                 //             res_word.syllables.last_mut().unwrap().segments.push_back(*seg);
+    //                 //         if let Some(m) = mods {
+    //                 //             println!("{:?}", pos);
+    //                 //             res_word.apply_mods(&self.alphas, m, pos)?;
+    //                 //         }          
+    //                 //         if res_word.in_bounds(pos) {
+    //                 //             pos.increment(&res_word);
+    //                 //         }
+    //                 //         continue;
+    //                 //     }
+    //                 // }
+    //
+    //                 if res_word.in_bounds(pos) {
+    //                     res_word.syllables[pos.syll_index].segments.insert(pos.seg_index, *seg);
+    //                 } else if let Some(syll) = res_word.syllables.get_mut(pos.syll_index) { 
+    //                     if pos.seg_index >= syll.segments.len() {
+    //                         syll.segments.push_back(*seg);
+    //                     } else {
+    //                         syll.segments.insert(pos.seg_index, *seg);
+    //                     }
+    //                 } else {
+    //                     res_word.syllables.last_mut().unwrap().segments.push_back(*seg);
+    //                 }          
+    //                 if let Some(m) = mods {
+    //                     println!("{:?}", pos);
+    //                     res_word.apply_mods(&self.alphas, m, pos)?;
+    //                 }          
+    //              
+    //                 if res_word.in_bounds(pos) {
+    //                     pos.increment(&res_word);
+    //                 }
+    //                 *insert_pos = pos;
+    //             },
+    //             ParseElement::Variable(num, mods) => self.insert_variable(&mut res_word, insert_pos, num, mods, insert_after)?,
+    //             ParseElement::SyllBound => {
+    //                 if insert_pos.at_syll_start() || insert_pos.at_syll_end(&res_word) {
+    //                     continue; // do nothing
+    //                 }
+    //                 // split current syll into two at insert_pos
+    //                 // initialise stress & tone as default
+    //                 let mut new_syll = Syllable::new();
+    //                 let syll = res_word.syllables.get_mut(insert_pos.syll_index).unwrap();
+    //                 while syll.segments.len() > insert_pos.seg_index {
+    //                     new_syll.segments.push_front(syll.segments.pop_back().unwrap());
+    //                 }
+    //                 res_word.syllables.insert(insert_pos.syll_index+1, new_syll);
+    //                 insert_pos.syll_index += 1;
+    //                 insert_pos.seg_index = 0;
+    //             },     
+    //             ParseElement::Matrix(..) => return Err(RuleRuntimeError::InsertionMatrix(state.position)),
+    //             ParseElement::Set(_) => return Err(RuleRuntimeError::LonelySet(state.position)),
+    //             ParseElement::EmptySet  | ParseElement::Metathesis | 
+    //             ParseElement::Ellipsis  | ParseElement::Optional(..) | 
+    //             ParseElement::WordBound | ParseElement::Environment(..) => unreachable!(),
+    //         }
+    //     }
+    //     Ok(res_word)
+    // }
+
+    fn context_match_ipa(&self, s: &Segment, mods: &Option<Modifiers>, word: &Word, pos: SegPos, err_pos: Position) -> Result<bool, RuleRuntimeError> {
+        if word.out_of_bounds(pos) {
+            return Ok(false)
+        }
+        let seg = word.get_seg_at(pos).unwrap();
+        if let Some(m) = mods {
+            Ok(self.match_ipa_with_modifiers(s, m, word, &pos, err_pos)?)
         } else {
-            word.syllables.get_mut(syll_index).unwrap().apply_mods(&self.alphas, /*&self.variables,*/ &mods.suprs)
+            Ok(*s == seg)
         }
     }
-    
-    fn apply_seg_mods(&self, word: &mut Word, pos: SegPos, mods: &Modifiers, var: &Option<usize>) -> Result<i8, RuleRuntimeError>{
-        if let Some(_v) = var {
-            todo!("Deal with variable")
-        } else {
-            word.apply_mods(&self.alphas, mods, pos)
+
+    fn apply_syll_mods(&self, word: &mut Word, syll_index: usize, mods: &Modifiers, var: &Option<usize>, err_pos: Position) -> Result<(), RuleRuntimeError> {
+        // NOTE(girv): Maybe we should give a warning if we have non-syllable features 
+        word.syllables.get_mut(syll_index).unwrap().apply_syll_mods(&self.alphas, /*&self.variables,*/ &mods.suprs, err_pos)?;
+        
+        if let Some(v) = var {
+            self.variables.borrow_mut().insert(*v, VarKind::Syllable(word.syllables[syll_index].clone()));
         }
+        Ok(())
     }
     
-    fn substitution(&self, word: &Word, input: Vec<MatchElement>, current_pos: &mut Option<SegPos>) -> Result<Word, RuleRuntimeError> {
+    fn apply_seg_mods(&self, word: &mut Word, pos: SegPos, mods: &Modifiers, var: &Option<usize>, err_pos: Position) -> Result<i8, RuleRuntimeError>{
+        let lc = word.apply_seg_mods(&self.alphas, mods, pos, err_pos)?;
+
+        if let Some(v) = var {
+            self.variables.borrow_mut().insert(*v, VarKind::Segment(word.syllables[pos.syll_index].segments[pos.seg_index]));
+        }
+
+        Ok(lc)
+    }
+    
+    fn substitution(&self, word: &Word, input: Vec<MatchElement>, next_pos: &mut Option<SegPos>) -> Result<Word, RuleRuntimeError> {
         // the SegPositions captured in input will not be correct if we change the length of a segment
         // therefore we must keep track of a change in a syllable's length and update the SegPositions accordingly
         let mut total_len_change: Vec<i8> = vec![0; word.syllables.len()];
+        let mut last_pos = SegPos::new(0, 0);
         
         let mut res_word = word.clone();
-        for (state_index, (in_state, out_state)) in self.input.iter().zip(&self.output).enumerate().rev() {
+        for (state_index, (in_state, out_state)) in self.input.iter().zip(&self.output).enumerate() {
             match &out_state.kind {
                 ParseElement::Syllable(_, _, _) => todo!(), // error??
                 ParseElement::Matrix(m, v) => {
                     // get match at index and check it's a segment/or syllable and not a boundary and apply changes
                     // if a syllable, make sure to only do Syllable Suprs
+                    println!("{:?}", self.alphas);
                     match input[state_index] {
                         MatchElement::Segment(mut sp, _)   => {
                             // TODO: since it's reversed syll index should only change on insertion ???
@@ -856,18 +951,25 @@ impl SubRule {
                                 std::cmp::Ordering::Less    => sp.seg_index -= total_len_change[sp.syll_index].unsigned_abs() as usize, // Should not underflow
                                 _ => {},
                             }
+                            last_pos = sp;
                             debug_assert!(res_word.in_bounds(sp));
-                            let lc = self.apply_seg_mods(&mut res_word, sp, m, v)?;
+                            let lc = self.apply_seg_mods(&mut res_word, sp, m, v, out_state.position)?;
                             total_len_change[sp.syll_index] += lc;
-                            if let Some(pos) = current_pos { 
-                                match lc.cmp(&0) {
-                                    std::cmp::Ordering::Greater => for _ in 0..lc { pos.increment(&res_word); },
-                                    std::cmp::Ordering::Less    => for _ in lc..0 { pos.decrement(&res_word); },
-                                    _ => {},
-                                }
-                            }
+                            // if let Some(pos) = next_pos { 
+                                // if pos.syll_index == sp.syll_index {
+                                    match lc.cmp(&0) {
+                                        std::cmp::Ordering::Greater =>  last_pos.seg_index += lc.unsigned_abs() as usize,
+                                        std::cmp::Ordering::Less    =>  last_pos.seg_index -= lc.unsigned_abs() as usize,
+                                        _ => {},
+                                    }
+                                // }
+                            // }
                         },
-                        MatchElement::Syllable(sp, _)  => self.apply_syll_mods(&mut res_word, sp, m, v)?,
+                        MatchElement::Syllable(sp, _)  => {
+                            last_pos.syll_index = sp;
+                            self.apply_syll_mods(&mut res_word, sp, m, v, out_state.position)?;
+                            
+                        },
                         MatchElement::SyllBound(..)  => todo!("Err: Can't apply matrix to syllable boundary"),
                     }
                 },
@@ -878,21 +980,27 @@ impl SubRule {
                             std::cmp::Ordering::Less    => sp.seg_index -= total_len_change[sp.syll_index].unsigned_abs() as usize,
                             _ => {},
                         }
+                        last_pos = sp;
+                        println!("LP1: {:?}", last_pos);
                         debug_assert!(res_word.in_bounds(sp));
                         // "Replace with output IPA.
-                        res_word.syllables[sp.syll_index].segments[sp.seg_index] = *seg;
-                        // Apply Mods
-                        if let Some(m) = mods {
-                            let lc = res_word.apply_mods(&self.alphas, m, sp)?;
-                            total_len_change[sp.syll_index] += lc;
-                            if let Some(pos) = current_pos { 
-                                match lc.cmp(&0) {
-                                    std::cmp::Ordering::Greater => for _ in 0..lc { pos.increment(&res_word); },
-                                    std::cmp::Ordering::Less    => for _ in lc..0 { pos.decrement(&res_word); },
-                                    _ => {},
-                                }
+                        let lc = res_word.syllables[sp.syll_index].replace_segment(sp.seg_index, seg, mods, &self.alphas, out_state.position)?;
+                        total_len_change[sp.syll_index] += lc;
+                        println!("LP2: {:?}", last_pos);
+                        println!("LC: {}", lc);
+                        // if let Some(pos) = next_pos { 
+                            match lc.cmp(&0) {
+                                std::cmp::Ordering::Greater =>  last_pos.seg_index += lc.unsigned_abs() as usize,
+                                // std::cmp::Ordering::Less    =>  last_pos.seg_index -= lc.unsigned_abs() as usize,
+                                _ => {},
                             }
-                        }
+                        // }
+                        println!("LP3: {:?}", last_pos);
+                        println!("fbsdlkjgbsjdbglkjb");
+                        last_pos.seg_index +=1;
+                        println!("LP4: {:?}", last_pos);
+
+                        
                     },    
                     MatchElement::Syllable(..) | MatchElement::SyllBound(..) => todo!("Err"),
                 },
@@ -905,25 +1013,34 @@ impl SubRule {
                                     std::cmp::Ordering::Less    => sp.seg_index -= total_len_change[sp.syll_index].unsigned_abs() as usize,
                                     _ => {},
                                 }
+                                last_pos = sp;
                                 debug_assert!(res_word.in_bounds(sp));
                                 res_word.syllables[sp.syll_index].segments[sp.seg_index] = *seg;
                                 if let Some(m) = mods {
-                                    let lc = res_word.apply_mods(&self.alphas, m, sp)?;
+                                    let lc = res_word.apply_seg_mods(&self.alphas, m, sp, num.position)?;
                                     total_len_change[sp.syll_index] += lc;
-                                    if let Some(pos) = current_pos { 
+                                    // if let Some(pos) = next_pos { 
                                         match lc.cmp(&0) {
-                                            std::cmp::Ordering::Greater => for _ in 0..lc { pos.increment(&res_word); },
-                                            std::cmp::Ordering::Less    => for _ in lc..0 { pos.decrement(&res_word); },
+                                            std::cmp::Ordering::Greater =>  last_pos.seg_index += lc.unsigned_abs() as usize,
+                                            // std::cmp::Ordering::Less    =>  last_pos.seg_index -= lc.unsigned_abs() as usize,
                                             _ => {},
                                         }
-                                    }
+                                    // }
                                 }
+                                last_pos.seg_index +=1;
                             },
                             (VarKind::Syllable(syll), MatchElement::Syllable(sp, _)) => {
+                                last_pos.syll_index = sp;
+                                last_pos.seg_index = 0;
                                 res_word.syllables[sp] = syll.clone();
                                 if let Some(m) = mods {
-                                    res_word.syllables[sp].apply_mods(&self.alphas, &m.suprs)?;
+                                    res_word.syllables[sp].apply_syll_mods(&self.alphas, &m.suprs, num.position)?;
                                 }
+                                total_len_change.insert(sp, 0);
+                                println!("LPB: {:?}", last_pos);
+                                last_pos.syll_index +=1;
+                                last_pos.seg_index = 0;
+                                println!("LPA: {:?}", last_pos);
                             },
                             (VarKind::Segment(_), MatchElement::Syllable(..)) |
                             (VarKind::Segment(_), MatchElement::SyllBound(..)) |
@@ -946,21 +1063,23 @@ impl SubRule {
                                     std::cmp::Ordering::Less    => sp.seg_index -= total_len_change[sp.syll_index].unsigned_abs() as usize,
                                     _ => {},
                                 }
+                                last_pos = sp;
                                 debug_assert!(res_word.in_bounds(sp));
                                 match &set_output[i].kind {
                                     ParseElement::Ipa(seg, mods) => {
                                         res_word.syllables[sp.syll_index].segments[sp.seg_index] = *seg;
                                         if let Some(m) = mods {
-                                            let lc = res_word.apply_mods(&self.alphas, m, sp)?;
+                                            let lc = res_word.apply_seg_mods(&self.alphas, m, sp, set_output[i].position)?;
                                             total_len_change[sp.syll_index] += lc;
-                                            if let Some(pos) = current_pos { 
+                                            // if let Some(pos) = next_pos { 
                                                 match lc.cmp(&0) {
-                                                    std::cmp::Ordering::Greater => for _ in 0..lc { pos.increment(&res_word); },
-                                                    std::cmp::Ordering::Less    => for _ in lc..0 { pos.decrement(&res_word); },
+                                                    std::cmp::Ordering::Greater =>  last_pos.seg_index += lc.unsigned_abs() as usize,
+                                                    // std::cmp::Ordering::Less    =>  last_pos.seg_index -= lc.unsigned_abs() as usize,
                                                     _ => {},
                                                 }
-                                            }
+                                            // }
                                         }
+                                        last_pos.seg_index +=1;
                                     }
                                     _ => todo!("`Syllable` is not implemented in `Sets` yet")
                                 }
@@ -988,12 +1107,15 @@ impl SubRule {
             }
         }
 
+        let mut pos = last_pos;
         if self.output.len() > self.input.len() {
-            let Some(pos) = current_pos else {todo!()};
             for z in self.output.iter().skip(self.input.len()) {
                 match &z.kind {
                     ParseElement::Ipa(seg, mods) => {
-                        if res_word.in_bounds(*pos) {
+                        if res_word.in_bounds(pos) {
+                            println!("{:?}", res_word.render());
+                            println!("POS: {:?}", pos);
+                            println!("TLC: {:?}", total_len_change[0]);
                             res_word.syllables[pos.syll_index].segments.insert(pos.seg_index, *seg);
                         } else if let Some(syll) = res_word.syllables.get_mut(pos.syll_index) { 
                             if pos.seg_index >= syll.segments.len() {
@@ -1005,20 +1127,25 @@ impl SubRule {
                             res_word.syllables.last_mut().unwrap().segments.push_back(*seg);
                         }          
                         if let Some(m) = mods {
-                            let lc = res_word.apply_mods(&self.alphas, m, *pos)?;
+                            let lc = res_word.apply_seg_mods(&self.alphas, m, pos, z.position)?;
     
                             match lc.cmp(&0) {
                                 std::cmp::Ordering::Greater => pos.seg_index += lc.unsigned_abs() as usize,
-                                std::cmp::Ordering::Less    => pos.seg_index -= lc.unsigned_abs() as usize,
+                                // std::cmp::Ordering::Less    => pos.seg_index -= lc.unsigned_abs() as usize,
                                 _ => {}
                             }
                         }          
                         
-                        if res_word.in_bounds(*pos) {
+                        if res_word.in_bounds(pos) {
                             pos.increment(&res_word);
                         }
                     },
                     ParseElement::SyllBound => {
+                        println!("{:?}", res_word.render());
+                        println!("S_POS: {:?}", pos);
+
+                        // dak
+                        //  ^
                         if pos.at_syll_start() {
                             // if res_word.out_of_bounds(*pos) {
                             // } else {
@@ -1026,25 +1153,35 @@ impl SubRule {
                             // }
                             // TODO: Possibly err if out of bounds, as it leads to unexpected behaviour (see rule::test_sub_insert_syll())
                             continue;
-                        }
+                        } 
+                        // else if pos.at_syll_end(&res_word) {
+                        //     pos.syll_index += 1;
+                        //     pos.seg_index = 0;
+                        //     continue;
+                        // }
                         // split current syll into two at pos
                         // initialise stress & tone as default
                         let mut new_syll = Syllable::new();
                         let syll = res_word.syllables.get_mut(pos.syll_index).unwrap();
+                        // new_syll.stress = syll.stress;
+                        // new_syll.tone = syll.tone.clone();
+                        // syll.stress = StressKind::Unstressed;
+                        // syll.tone = String::new();
     
                         while syll.segments.len() > pos.seg_index {
                             new_syll.segments.push_front(syll.segments.pop_back().unwrap());
                         }
                         res_word.syllables.insert(pos.syll_index+1, new_syll);
-    
+                        total_len_change.insert(pos.syll_index+1, 0);
                         pos.syll_index += 1;
                         pos.seg_index = 0;
+
                     },
                     ParseElement::Syllable(stress, tone, var) => {
                         if pos.at_syll_start() {
                             // apply mods to current syllable
                             if let Some(syll) = res_word.syllables.get_mut(pos.syll_index) {
-                                syll.apply_mods(&self.alphas, &SupraSegs { stress: *stress, length: [None, None], tone: tone.clone() })?;
+                                syll.apply_syll_mods(&self.alphas, &SupraSegs { stress: *stress, length: [None, None], tone: tone.clone() }, z.position)?;
                                 if let Some(v) = var {
                                     self.variables.borrow_mut().insert(*v, VarKind::Syllable(res_word.syllables[pos.syll_index].clone()));
                                 }
@@ -1057,7 +1194,7 @@ impl SubRule {
                         // split current syll into two at insert_pos
                         // Apply mods to second syll
                         let mut new_syll = Syllable::new();
-                        new_syll.apply_mods(&self.alphas, /*&self.variables,*/ &SupraSegs { stress: *stress, length: [None, None], tone: tone.clone() })?;
+                        new_syll.apply_syll_mods(&self.alphas, /*&self.variables,*/ &SupraSegs { stress: *stress, length: [None, None], tone: tone.clone() }, z.position)?;
 
                         let syll = res_word.syllables.get_mut(pos.syll_index).expect("pos should not be out of bounds");
 
@@ -1077,7 +1214,8 @@ impl SubRule {
                         if let Some(var) = self.variables.borrow().get(&num.value.parse().unwrap()) {
                             match var {
                                 VarKind::Segment(seg) => {
-                                    if res_word.in_bounds(*pos) {
+                                    println!("fdfnsdkngsdnfgksndfgknsflgkn");
+                                    if res_word.in_bounds(pos) {
                                         res_word.syllables[pos.syll_index].segments.insert(pos.seg_index, *seg);
                                     } else if let Some(syll) = res_word.syllables.get_mut(pos.syll_index) { 
                                         if pos.seg_index >= syll.segments.len() {
@@ -1089,7 +1227,7 @@ impl SubRule {
                                         res_word.syllables.last_mut().unwrap().segments.push_back(*seg);
                                     }
                                     if let Some(m) = mods {
-                                        let lc = res_word.apply_mods(&self.alphas, m, *pos)?;
+                                        let lc = res_word.apply_seg_mods(&self.alphas, m, pos, num.position)?;
                 
                                         match lc.cmp(&0) {
                                             std::cmp::Ordering::Greater => pos.seg_index += lc.unsigned_abs() as usize,
@@ -1098,14 +1236,14 @@ impl SubRule {
                                         }
                                     }          
                                     
-                                    if res_word.in_bounds(*pos) {
+                                    if res_word.in_bounds(pos) {
                                         pos.increment(&res_word);
                                     }
                                 },
                                 VarKind::Syllable(syll) => {
                                     let mut new_syll = syll.clone();
                                     if let Some(m) = mods {
-                                        new_syll.apply_mods(&self.alphas, &m.suprs)?;
+                                        new_syll.apply_syll_mods(&self.alphas, &m.suprs, num.position)?;
                                     }
                                     if pos.at_syll_start() {
                                         res_word.syllables.insert(pos.syll_index, new_syll.clone());
@@ -1151,6 +1289,8 @@ impl SubRule {
                             std::cmp::Ordering::Less    => sp.seg_index -= total_len_change[sp.syll_index].unsigned_abs() as usize,
                             _ => {},
                         }
+
+                        pos = sp;
                         debug_assert!(res_word.in_bounds(sp));
                         // remove segment                             
                         if res_word.syllables.len() <= 1 && word.syllables[sp.syll_index].segments.len() <= 1 {
@@ -1160,27 +1300,30 @@ impl SubRule {
                         // if that was the only segment in that syllable, remove the syllable
                         if res_word.syllables[sp.syll_index].segments.is_empty() {
                             res_word.syllables.remove(sp.syll_index);
-                            if let Some(pos) = current_pos {
-                                debug_assert!(pos.syll_index > 0);
-                                pos.syll_index -= 1;
-                            }
+                            // if let Some(pos) = next_pos {
+                                // debug_assert!(pos.syll_index > 0);
+                                // pos.syll_index += 1;
+                            // }
+                            
                         }
-                        if let Some(pos) = current_pos { 
-                            if pos.seg_index > 0 {
-                                pos.seg_index -= 1; 
-                            }
+                        
+                        if pos.seg_index > 0 {
+                            pos.seg_index -= 1; 
                         }
+                        
                     },
                     MatchElement::Syllable(i, _) => {
                         // remove syllable
                         if res_word.syllables.len() <= 1 {
                             return Err(RuleRuntimeError::DeletionOnlySyll)
                         }
+                        pos.syll_index = i;
+                        pos.seg_index = 0;
                         res_word.remove_syll(i);
-                        if let Some(pos) = current_pos {
-                            debug_assert!(pos.syll_index > 0);
-                            pos.syll_index -= 1;
-                        }
+                        // if let Some(pos) = next_pos {
+                        //     debug_assert!(pos.syll_index > 0);
+                        //     pos.syll_index -= 1;
+                        // }
                     },
                     MatchElement::SyllBound(i, _) => {
                         // join the two neighbouring syllables
@@ -1195,6 +1338,10 @@ impl SubRule {
                             // can't delete a word boundary
                             continue;
                         }
+                        pos.syll_index = i;
+                        pos.seg_index = 0;
+                        pos.decrement(&res_word);
+
                         let mut syll_segs = res_word.syllables[i].segments.clone();
                         res_word.syllables[i-1].segments.append(&mut syll_segs);
 
@@ -1209,16 +1356,30 @@ impl SubRule {
                         res_word.syllables[i-1].tone.push_str(&syll_tone);
                         res_word.syllables.remove(i);
 
-                        if let Some(pos) = current_pos {
-                            debug_assert!(pos.syll_index > 0);
-                            pos.syll_index -= 1;
-                        }
+                        
+                        // if let Some(pos) = next_pos {
+                        //     debug_assert!(pos.syll_index > 0);
+                        //     pos.syll_index -= 1;
+                        // }
                     },
                 }
             }
         };
+        if let Some(next) = next_pos {
+            pos.increment(&res_word);
+            // pos.increment(&res_word);
+            *next = pos;
+        }
+
+        if res_word.syllables.last_mut().unwrap().segments.is_empty() {
+            res_word.syllables.pop();
+        }
         Ok(res_word)
     }
+
+    // fn deletion(&self, word: &Word, els: Vec<MatchElement>) -> Result<Word, RuleRuntimeError> {
+    //     todo!()
+    // }
 
     fn input_match_at(&self, word: &Word, start_index: SegPos) -> Result<(Vec<MatchElement>, Option<SegPos>), RuleRuntimeError> {
         let mut cur_index = start_index;
@@ -1249,6 +1410,8 @@ impl SubRule {
                 state_index = 0;
                 captures = vec![];
                 match_begin = None;
+                self.alphas.borrow_mut().clear();
+                self.variables.borrow_mut().clear();
             } else {
                 // if we weren't in the middle of matching, move on
                 cur_index.increment(word);
@@ -1279,12 +1442,12 @@ impl SubRule {
     ) -> Result<bool, RuleRuntimeError> {
         let err_pos = states[*state_index].position;
         match &states[*state_index].kind {
-            ParseElement::Variable(vt, m) => if self.input_match_var(captures, state_index, vt, m, word, seg_pos)? {
+            ParseElement::Variable(vt, m) => if self.input_match_var(captures, state_index, vt, m, word, seg_pos, err_pos)? {
                 seg_pos.increment(word);
                 *state_index += 1;
                 Ok(true)
             } else { Ok(false) },
-            ParseElement::Ipa(s, m) => if self.input_match_ipa(captures, s, m, word, *seg_pos)? {
+            ParseElement::Ipa(s, m) => if self.input_match_ipa(captures, s, m, word, *seg_pos, err_pos)? {
                 seg_pos.increment(word);
                 *state_index += 1;
                 Ok(true)
@@ -1394,7 +1557,7 @@ impl SubRule {
             let cur_syll_index = pos.syll_index;
             let cur_syll = &word.syllables[cur_syll_index];
 
-            if !self.match_stress(stress, cur_syll) {
+            if !self.match_stress(stress, cur_syll)? {
                 return Ok(false)
             }
             if let Some(t) = tone.as_ref() {
@@ -1416,28 +1579,100 @@ impl SubRule {
         }
     }
 
-    fn match_stress(&self, stress: &[Option<ModKind>; 2], syll: &Syllable) -> bool {
+    fn match_stress(&self, stress: &[Option<ModKind>; 2], syll: &Syllable) -> Result<bool, RuleRuntimeError> {
         // ±stress (+ matches prim and sec, - matches unstressed)
         if let Some(str) = stress[0] {
             match str {
-                ModKind::Binary(b) => match b {
-                    BinMod::Negative => if syll.stress != StressKind::Unstressed { return false },
-                    BinMod::Positive => if syll.stress == StressKind::Unstressed { return false },
+                ModKind::Binary(bm) => match bm {
+                    BinMod::Negative => if syll.stress != StressKind::Unstressed { return Ok(false) },
+                    BinMod::Positive => if syll.stress == StressKind::Unstressed { return Ok(false) },
                 },
-                ModKind::Alpha(_) => todo!(),
+                ModKind::Alpha(am) => match am {
+                    AlphaMod::Alpha(ch) => {
+                        let mut alpha_assigned = false; // needed because of borrow checker weirdness. See: https://github.com/rust-lang/rust/issues/113792
+                        if let Some(alph) = self.alphas.borrow().get(&ch) {
+                            let pos = alph.as_binary();
+                            match syll.stress {
+                                StressKind::Primary |
+                                StressKind::Secondary  => if !pos { return Ok(false) },
+                                StressKind::Unstressed => if  pos { return Ok(false) },
+                            }
+                            alpha_assigned = true;
+                        } 
+                        if !alpha_assigned {
+                            let stress = syll.stress != StressKind::Unstressed;
+                            self.alphas.borrow_mut().insert(ch, Alpha::Supra(stress));
+                        }
+                    },
+                    AlphaMod::InvAlpha(ch) => {
+                        let mut alpha_assigned = false; // needed because of borrow checker weirdness. See: https://github.com/rust-lang/rust/issues/113792
+                        if let Some(alph) = self.alphas.borrow().get(&ch) {
+                            let pos = alph.as_binary();
+                            match syll.stress {
+                                StressKind::Primary |
+                                StressKind::Secondary  => if  pos { return Ok(false) },
+                                StressKind::Unstressed => if !pos { return Ok(false) },
+                            }
+                            alpha_assigned = true;
+                        } // else {
+                        //     return Err(RuleRuntimeError::AlphaUnknownInvStress(err_pos))
+                        // } 
+                        if !alpha_assigned {
+                            let stress = syll.stress == StressKind::Unstressed;
+                            self.alphas.borrow_mut().insert(ch, Alpha::Supra(stress));
+                        }
+                        
+                    },
+                },
             }
         }
         // ±secstress (+ matches sec, - matches prim and unstressed)
         if let Some(str) = stress[1] {
             match str {
-                ModKind::Binary(b) => match b {
-                    BinMod::Negative => if syll.stress == StressKind::Secondary { return false },
-                    BinMod::Positive => if syll.stress != StressKind::Secondary { return false },
+                ModKind::Binary(bm) => match bm {
+                    BinMod::Negative => if syll.stress == StressKind::Secondary { return Ok(false) },
+                    BinMod::Positive => if syll.stress != StressKind::Secondary { return Ok(false) },
                 },
-                ModKind::Alpha(_) => todo!(),
+                ModKind::Alpha(am) => match am {
+                    AlphaMod::Alpha(ch) => {
+                        let mut alpha_assigned = false; // needed because of borrow checker weirdness. See: https://github.com/rust-lang/rust/issues/113792
+                        if let Some(alph) = self.alphas.borrow().get(&ch) {
+                            let pos = alph.as_binary();
+                            match syll.stress {
+                                StressKind::Secondary  => if !pos { return Ok(false) },
+                                StressKind::Primary |
+                                StressKind::Unstressed => if  pos { return Ok(false) },
+                            }
+                            alpha_assigned = true;
+                        } 
+                        if !alpha_assigned {
+                            let stress = syll.stress == StressKind::Secondary;
+                            self.alphas.borrow_mut().insert(ch, Alpha::Supra(stress));
+                        }
+                    },
+                    AlphaMod::InvAlpha(ch) => {
+                        let mut alpha_assigned = false; // needed because of borrow checker weirdness. See: https://github.com/rust-lang/rust/issues/113792
+                        if let Some(alph) = self.alphas.borrow().get(&ch) {
+                            let pos = alph.as_binary();
+                            match syll.stress {
+                                StressKind::Secondary  => if  pos { return Ok(false) },
+                                StressKind::Primary |
+                                StressKind::Unstressed => if !pos { return Ok(false) },
+                            }
+                            alpha_assigned = true;
+                        } // else {
+                        //     return Err(RuleRuntimeError::AlphaUnknownInvStress(err_pos))
+                        // }
+                        if !alpha_assigned {
+                            let stress = syll.stress != StressKind::Secondary;
+                            self.alphas.borrow_mut().insert(ch, Alpha::Supra(stress));
+                        }
+                    },
+                },
             }
         }
-        true
+
+        Ok(true)
     }
 
     fn match_tone(&self, tone: &str, syll: &Syllable) -> bool {        
@@ -1456,8 +1691,8 @@ impl SubRule {
     fn input_match_set(&self, captures: &mut Vec<MatchElement>, state_index: &mut usize, set: &[Item], word: &Word, pos: &mut SegPos) -> Result<bool, RuleRuntimeError> {
         for (i,s) in set.iter().enumerate() {
             let res = match &s.kind {
-                ParseElement::Variable(vt, m) => self.input_match_var(captures, state_index, vt, m, word, pos),
-                ParseElement::Ipa(s, m)       => self.input_match_ipa(captures, s, m, word, *pos),
+                ParseElement::Variable(vt, m) => self.input_match_var(captures, state_index, vt, m, word, pos, s.position),
+                ParseElement::Ipa(seg, m)     => self.input_match_ipa(captures, seg, m, word, *pos, s.position),
                 ParseElement::Matrix(m, v)    => self.input_match_matrix(captures, m, v, word, pos, s.position),
                 ParseElement::Syllable(..) => todo!(),
                 ParseElement::WordBound => todo!(),
@@ -1472,11 +1707,11 @@ impl SubRule {
         Ok(false)
     }
 
-    fn input_match_ipa(&self, captures: &mut Vec<MatchElement>, s: &Segment, mods: &Option<Modifiers>, word: &Word, pos: SegPos) -> Result<bool, RuleRuntimeError> {
+    fn input_match_ipa(&self, captures: &mut Vec<MatchElement>, s: &Segment, mods: &Option<Modifiers>, word: &Word, pos: SegPos, err_pos: Position) -> Result<bool, RuleRuntimeError> {
         let seg = word.get_seg_at(pos).unwrap();
 
         if let Some(m) = mods {
-            if self.match_ipa_with_modifiers(s, m, word, &pos)? {
+            if self.match_ipa_with_modifiers(s, m, word, &pos, err_pos)? {
                 captures.push(MatchElement::Segment(pos, None));
                 Ok(true)
             } else {
@@ -1490,41 +1725,49 @@ impl SubRule {
         }
     }
 
-    // fn match_syll_var(&self, captures: &mut Vec<MatchElement>, s: &Syllable, mods: &Option<Modifiers>, word: &Word, pos: SegPos) -> Result<bool, RuleRuntimeError> {
     fn input_match_syll_var(&self, captures: &mut Vec<MatchElement>, state_index: &mut usize, syll_to_match: &Syllable, mods: &Option<Modifiers>, word: &Word, pos: &mut SegPos) -> Result<bool, RuleRuntimeError> {
         if pos.seg_index != 0 || word.out_of_bounds(*pos){
             return Ok(false)
         }
         let csi = pos.syll_index;
         let cur_syll = &word.syllables[csi];
-        
-        if mods.is_none() {
-            if *cur_syll != *syll_to_match {
+
+        if let Some(m) = mods {
+            if !self.match_stress(&m.suprs.stress, cur_syll)? {
+                return Ok(false)
+            } 
+            if let Some(t) = &m.suprs.tone.as_ref() {
+                if !self.match_tone(t, cur_syll) {
+                    return Ok(false)
+                }
+            }
+            if cur_syll.segments != syll_to_match.segments {
                 return Ok(false)
             }
-            captures.push(MatchElement::Syllable(csi, None));
-    
-            *state_index += 1;
-            pos.syll_index += 1;
-            pos.seg_index = 0;
 
-            // Because we are incrementing in the parent function in the case of a match
-            // We must jump to the next syllable but not skip the segment at index 0
-            if pos.syll_index < word.syllables.len() {
-                pos.decrement(word);
-            }
-            
-            Ok(true)
-        } else {
-            todo!("Need to Compare Mods")
+        } else if *cur_syll != *syll_to_match {
+            return Ok(false)
         }
+        captures.push(MatchElement::Syllable(csi, None));
 
+        *state_index += 1;
+        pos.syll_index += 1;
+        pos.seg_index = 0;
+
+        // Because we are incrementing in the parent function in the case of a match
+        // We must jump to the next syllable but not skip the segment at index 0
+        if pos.syll_index < word.syllables.len() {
+            pos.decrement(word);
+        }
+        
+        Ok(true)
+        
     }
 
-    fn input_match_var(&self, captures: &mut Vec<MatchElement>, state_index: &mut usize, vt: &Token, mods: &Option<Modifiers>, word: &Word, pos: &mut SegPos) -> Result<bool, RuleRuntimeError> {
+    fn input_match_var(&self, captures: &mut Vec<MatchElement>, state_index: &mut usize, vt: &Token, mods: &Option<Modifiers>, word: &Word, pos: &mut SegPos, err_pos: Position) -> Result<bool, RuleRuntimeError> {
         match self.variables.borrow_mut().get(&vt.value.parse::<usize>().unwrap()) {
             Some(var) => match var {
-                VarKind::Segment(s)  => self.input_match_ipa(captures, s, mods, word, *pos),
+                VarKind::Segment(s)  => self.input_match_ipa(captures, s, mods, word, *pos, err_pos),
                 VarKind::Syllable(s) => self.input_match_syll_var(captures, state_index , s, mods, word, pos),
             },
             None => Err(RuleRuntimeError::UnknownVariable(vt.clone())),
@@ -1538,7 +1781,7 @@ impl SubRule {
             }
             captures.push(MatchElement::Segment(*pos, None));
             // the way we implement `long` vowels means we need to do this
-            let mut seg_length = word.seg_length_in_syll(*pos);            
+            let mut seg_length = word.seg_length_at(*pos);            
             while seg_length > 1 {
                 pos.increment(word);
                 seg_length -= 1;
@@ -1546,7 +1789,7 @@ impl SubRule {
             Ok(true)
         } else {
             // the way we implement `long` vowels means we need to do this
-            let mut seg_length = word.seg_length_in_syll(*pos);            
+            let mut seg_length = word.seg_length_at(*pos);            
             while seg_length > 1 {
                 pos.increment(word);
                 seg_length -= 1;
@@ -1555,13 +1798,13 @@ impl SubRule {
         }
     }
 
-    fn match_ipa_with_modifiers(&self, s: &Segment, mods: &Modifiers, word: &Word, pos: &SegPos) -> Result<bool, RuleRuntimeError> {
+    fn match_ipa_with_modifiers(&self, s: &Segment, mods: &Modifiers, word: &Word, pos: &SegPos, err_pos: Position) -> Result<bool, RuleRuntimeError> {
         let mut seg = word.get_seg_at(*pos).expect("Segment Position should be within bounds");
 
-        seg.apply_seg_mods(&self.alphas, mods.nodes, mods.feats)?;
+        seg.apply_seg_mods(&self.alphas, mods.nodes, mods.feats, err_pos)?;
 
         if *s == seg {
-            Ok(self.match_supr_mod_seg(word, &mods.suprs, pos))
+            Ok(self.match_supr_mod_seg(word, &mods.suprs, pos)?)
         } else {
             Ok(false)
         }
@@ -1571,7 +1814,7 @@ impl SubRule {
         let seg = word.get_seg_at(*pos).expect("Segment Position should be within bounds");
         
         for (i, m) in mods.feats.iter().enumerate() {
-            if !self.match_feat_mod(m, i, seg, err_pos)? {
+            if !self.match_feat_mod(m, i, seg)? {
                 return Ok(false);
             }
         }
@@ -1580,46 +1823,103 @@ impl SubRule {
                 return Ok(false);
             }
         }
-        Ok(self.match_supr_mod_seg(word, &mods.suprs, pos))
+        self.match_supr_mod_seg(word, &mods.suprs, pos)
     }
 
-    fn match_supr_mod_seg(&self, word: &Word, mods: &SupraSegs, pos: &SegPos) -> bool {
+    fn match_supr_mod_seg(&self, word: &Word, mods: &SupraSegs, pos: &SegPos) -> Result<bool, RuleRuntimeError> {
 
         let syll = &word.syllables[pos.syll_index];
 
-        if !self.match_stress(&mods.stress, syll) { return false }
-        if !self.match_seg_length(word, &mods.length, pos) { return false }
+        if !self.match_stress(&mods.stress, syll)? { return Ok(false) }
+        if !self.match_seg_length(word, &mods.length, pos)? { return Ok(false) }
 
         if let Some(t) = mods.tone.as_ref() {
-            return self.match_tone(t, syll)
+            return Ok(self.match_tone(t, syll))
         }
 
-        true
+        Ok(true)
     }
 
-    fn match_seg_length(&self, word: &Word, length: &[Option<ModKind>; 2], pos: &SegPos) -> bool {
-        let seg_length = word.seg_length_in_syll(*pos);
+    fn match_seg_length(&self, word: &Word, length: &[Option<ModKind>; 2], pos: &SegPos) -> Result<bool, RuleRuntimeError> {
+        let seg_length = word.seg_length_at(*pos);
         // +/- long
         if let Some(len) = length[0] {
             match len {
-                ModKind::Binary(b) => match b {
-                    BinMod::Negative => if seg_length > 1 { return false },
-                    BinMod::Positive => if seg_length < 2 { return false },
+                ModKind::Binary(bm) => match bm {
+                    BinMod::Positive => if seg_length < 2 { return Ok(false) },
+                    BinMod::Negative => if seg_length > 1 { return Ok(false) },
                 },
-                ModKind::Alpha(_) => todo!(),
+                ModKind::Alpha(am) => match am {
+                    AlphaMod::Alpha(ch) => {
+                        let mut alpha_assigned = false; // needed because of borrow checker weirdness. See: https://github.com/rust-lang/rust/issues/113792
+                        if let Some(alph) = self.alphas.borrow().get(&ch) {
+                            match alph.as_binary() {
+                                true  => if seg_length < 2 { return Ok(false) },
+                                false => if seg_length > 1 { return Ok(false) },
+                            }
+                            alpha_assigned = true;
+                        }
+                        if !alpha_assigned {
+                            self.alphas.borrow_mut().insert(ch, Alpha::Supra(seg_length > 1));
+                        }
+                    },
+                    AlphaMod::InvAlpha(ch) => {
+                        let mut alpha_assigned = false; // needed because of borrow checker weirdness. See: https://github.com/rust-lang/rust/issues/113792
+                        if let Some(alph) = self.alphas.borrow().get(&ch) {
+                            match !alph.as_binary() {
+                                true  => if seg_length < 2 { return Ok(false) },
+                                false => if seg_length > 1 { return Ok(false) }
+                            }
+                            alpha_assigned = true;
+                        }
+                        if !alpha_assigned {
+                            self.alphas.borrow_mut().insert(ch, Alpha::Supra(seg_length <= 1));
+                        }
+                    },
+                },
             }
         }
         // +/- overlong
         if let Some(len) = length[1] {
             match len {
-                ModKind::Binary(b) => match b {
-                    BinMod::Negative => if seg_length > 2 { return false },
-                    BinMod::Positive => if seg_length < 3 { return false },
+                ModKind::Binary(bm) => match bm {
+                    BinMod::Positive => if seg_length < 3 { return Ok(false) },
+                    BinMod::Negative => if seg_length > 2 { return Ok(false) },
                 },
-                ModKind::Alpha(_) => todo!(),
+                ModKind::Alpha(am) => match am {
+                    AlphaMod::Alpha(ch) => {
+                        let mut alpha_assigned = false; // needed because of borrow checker weirdness. See: https://github.com/rust-lang/rust/issues/113792
+                        if let Some(alph) = self.alphas.borrow().get(&ch) {
+                            match alph.as_binary() {
+                                true  => if seg_length < 3 { return Ok(false) },
+                                false => if seg_length > 2 { return Ok(false) },
+                            }
+                            alpha_assigned = true;
+                        } // else {
+                        //     return Err(RuleRuntimeError::AlphaIsNotSupra(err_pos))
+                        // }
+                        if !alpha_assigned  {
+                            self.alphas.borrow_mut().insert(ch, Alpha::Supra(seg_length > 2));
+                        }
+
+                    },
+                    AlphaMod::InvAlpha(ch) => {
+                        let mut alpha_assigned = false; // needed because of borrow checker weirdness. See: https://github.com/rust-lang/rust/issues/113792
+                        if let Some(alph) = self.alphas.borrow().get(&ch) {
+                            match !alph.as_binary() {
+                                true  => if seg_length < 3 { return Ok(false) },
+                                false => if seg_length > 2 { return Ok(false) },
+                            }
+                            alpha_assigned = true;
+                        }
+                        if !alpha_assigned {
+                            self.alphas.borrow_mut().insert(ch, Alpha::Supra(seg_length <= 2));
+                        }
+                    },
+                },
             }
         }
-        true
+        Ok(true)
     }
 
     fn match_node_mod(&self, md:&Option<ModKind>, node_index: usize, seg: Segment, err_pos: Position) -> Result<bool, RuleRuntimeError> {
@@ -1630,10 +1930,10 @@ impl SubRule {
         Ok(true)
     }
 
-    fn match_feat_mod(&self, md: &Option<ModKind>, feat_index: usize, seg: Segment, err_pos: Position) -> Result<bool, RuleRuntimeError> {
+    fn match_feat_mod(&self, md: &Option<ModKind>, feat_index: usize, seg: Segment) -> Result<bool, RuleRuntimeError> {
         if let Some(kind) = md { 
             let (node, mask) = feature_to_node_mask(FType::from_usize(feat_index));
-            return self.match_seg_kind(kind, seg, node, mask, err_pos)
+            return self.match_seg_kind(kind, seg, node, mask)
         }
         Ok(true)
     }
@@ -1648,8 +1948,12 @@ impl SubRule {
                 AlphaMod::Alpha(ch) => {
                     if let Some(alph) = self.alphas.borrow().get(ch) {
                         if let Some((n, m)) = alph.as_node() {
-                            return Ok(seg.node_match(*n, *m))
-                        } else if let Some((_, place)) = alph.as_place() {
+                            if n == node {
+                                return Ok(seg.node_match(n, m))
+                            } else {
+                                todo!("Err: node alpha must be matched to same node")
+                            }
+                        } else if let Some(place) = alph.as_place() {
                             return Ok(
                                 seg.node_match(NodeKind::Labial, place.lab)  &&
                                 seg.node_match(NodeKind::Coronal, place.cor) &&
@@ -1667,7 +1971,7 @@ impl SubRule {
                             seg.get_node(NodeKind::Dorsal),
                             seg.get_node(NodeKind::Pharyngeal),
                         );
-                        self.alphas.borrow_mut().insert(*ch, Alpha::Place(node, place)); 
+                        self.alphas.borrow_mut().insert(*ch, Alpha::Place(place)); 
                     } else {
                         self.alphas.borrow_mut().insert(*ch, Alpha::Node(node, seg.get_node(node))); 
                     }
@@ -1676,8 +1980,12 @@ impl SubRule {
                 AlphaMod::InvAlpha(inv_ch) => {
                     if let Some(alph) = self.alphas.borrow().get(inv_ch) {
                         if let Some((n, m)) = alph.as_node() {
-                            Ok(!seg.node_match(*n, *m))
-                        } else if let Some((_, place)) = alph.as_place() {
+                            if n == node {
+                                Ok(!seg.node_match(n, m))
+                            } else {
+                                todo!("Err: node alpha must be matched to same node")
+                            }
+                        } else if let Some(place) = alph.as_place() {
                             Ok(
                                 !seg.node_match(NodeKind::Labial, place.lab)  ||
                                 !seg.node_match(NodeKind::Coronal, place.cor) ||
@@ -1688,14 +1996,14 @@ impl SubRule {
                             Err(RuleRuntimeError::AlphaIsNotNode(err_pos))
                         }
                     } else {
-                        Err(RuleRuntimeError::AlphaUnknown(err_pos))
+                        Err(RuleRuntimeError::AlphaUnknownInv(err_pos))
                     }
                 },
             },
         }
     }
 
-    fn match_seg_kind(&self, kind: &ModKind, seg: Segment, node: NodeKind, mask: u8, err_pos: Position) -> Result<bool, RuleRuntimeError> {
+    fn match_seg_kind(&self, kind: &ModKind, seg: Segment, node: NodeKind, mask: u8) -> Result<bool, RuleRuntimeError> {
         match kind {
             ModKind::Binary(bt) => match bt {
                 BinMod::Negative => Ok(seg.feat_match(node, mask, false)),
@@ -1704,14 +2012,10 @@ impl SubRule {
             ModKind::Alpha(am) => match am {
                 AlphaMod::Alpha(ch) => {
                     if let Some(alph) = self.alphas.borrow().get(ch) {
-                        if let Some((&n, &m, &pos)) = alph.as_feature() {
-                            return Ok(seg.feat_match(n, m, pos))
-                        } else {
-                            return Err(RuleRuntimeError::AlphaIsNotFeature(err_pos))
-                        }
-                    } 
+                        return Ok(seg.feat_match(node, mask, alph.as_binary()))
+                    } // NOTE: cannot `be else if` because alphas.borrow is not dropped. See: https://github.com/rust-lang/rust/issues/113792
                     if let Some(f) = seg.get_feat(node, mask) {
-                        self.alphas.borrow_mut().insert(*ch, Alpha::Feature(node, mask, f != 0)); 
+                        self.alphas.borrow_mut().insert(*ch, Alpha::Feature(f != 0)); 
                         Ok(true)
                     } else {
                         // Maybe err?
@@ -1720,14 +2024,10 @@ impl SubRule {
                 },
                 AlphaMod::InvAlpha(inv_ch) => {
                     if let Some(alph) = self.alphas.borrow().get(inv_ch) {
-                        if let Some((&n, &m, &pos)) = alph.as_feature() {
-                            return Ok(seg.feat_match(n, m, !pos))
-                        } else {
-                            return Err(RuleRuntimeError::AlphaIsNotFeature(err_pos))
-                        }
-                    } 
+                        return Ok(seg.feat_match(node, mask, !alph.as_binary()))
+                    } // NOTE: cannot `be else if` because alphas.borrow is not dropped. See: https://github.com/rust-lang/rust/issues/113792
                     if let Some(f) = seg.get_feat(node, mask) {
-                        self.alphas.borrow_mut().insert(*inv_ch, Alpha::Feature(node, mask, f == 0));
+                        self.alphas.borrow_mut().insert(*inv_ch, Alpha::Feature(f == 0));
                         Ok(true)
                     } else {
                         // Maybe err?
