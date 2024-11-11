@@ -69,6 +69,8 @@ impl SubRule {
         let mut cur_index = SegPos::new(0, 0);
         // TODO(girv): `$ > *` or any broad deletion rule without context/exception should  give a warning to the user
         loop {
+            self.alphas.borrow_mut().clear();
+            self.variables.borrow_mut().clear();
             let (res, mut next_index) = self.input_match_at(&word, cur_index)?;
             if !res.is_empty() {
                 let start = match res[0] {
@@ -98,8 +100,6 @@ impl SubRule {
                     MatchElement::Syllable(s, _)  => SegPos::new(s, word.syllables[s].segments.len()-1),
                 };
                 if !self.match_before_context_and_exception(&word, start)? || !self.match_after_context_and_exception(&word, end)? {
-                    self.alphas.borrow_mut().clear();
-                    self.variables.borrow_mut().clear();
                     if let Some(ci) = next_index { 
                         cur_index = ci;
                         continue;
@@ -111,18 +111,15 @@ impl SubRule {
                 println!("Match! {:?}", res);
                 word = self.transform(&word, res, &mut next_index)?;
                 println!("{} => {}", prev, word.render().unwrap());
-
-                self.alphas.borrow_mut().clear();
-                self.variables.borrow_mut().clear();
                 
                 if let Some(ci) = next_index { 
                     cur_index = ci;
                 } else {
-                    // end of word
+                    println!("EOW");
                     break;
                 }
             } else {
-                // no match
+                println!("No match at {:?}", cur_index);
                 break
             }
         }
@@ -941,7 +938,6 @@ impl SubRule {
                 ParseElement::Matrix(m, v) => {
                     // get match at index and check it's a segment/or syllable and not a boundary and apply changes
                     // if a syllable, make sure to only do Syllable Suprs
-                    println!("{:?}", self.alphas);
                     match input[state_index] {
                         MatchElement::Segment(mut sp, _)   => {
                             // TODO: since it's reversed syll index should only change on insertion ???
@@ -996,7 +992,6 @@ impl SubRule {
                             }
                         // }
                         println!("LP3: {:?}", last_pos);
-                        println!("fbsdlkjgbsjdbglkjb");
                         last_pos.seg_index +=1;
                         println!("LP4: {:?}", last_pos);
 
@@ -1141,11 +1136,6 @@ impl SubRule {
                         }
                     },
                     ParseElement::SyllBound => {
-                        println!("{:?}", res_word.render());
-                        println!("S_POS: {:?}", pos);
-
-                        // dak
-                        //  ^
                         if pos.at_syll_start() {
                             // if res_word.out_of_bounds(*pos) {
                             // } else {
@@ -1214,7 +1204,6 @@ impl SubRule {
                         if let Some(var) = self.variables.borrow().get(&num.value.parse().unwrap()) {
                             match var {
                                 VarKind::Segment(seg) => {
-                                    println!("fdfnsdkngsdnfgksndfgknsflgkn");
                                     if res_word.in_bounds(pos) {
                                         res_word.syllables[pos.syll_index].segments.insert(pos.seg_index, *seg);
                                     } else if let Some(syll) = res_word.syllables.get_mut(pos.syll_index) { 
@@ -1415,9 +1404,11 @@ impl SubRule {
             } else {
                 // if we weren't in the middle of matching, move on
                 cur_index.increment(word);
+                self.alphas.borrow_mut().clear();
+                self.variables.borrow_mut().clear();
                 // NOTE(girv): Should be unnecessary, but safety first!
                 state_index = 0;
-                captures = vec![];  
+                captures = vec![];
             }
         }
 
