@@ -21,6 +21,21 @@ pub enum NodeType {
 
 impl NodeType {
     pub const fn count() -> usize { 8 }
+
+    pub fn from_usize(value: usize) -> Self {
+        use NodeType::*;
+        match value {
+            0 => {debug_assert_eq!(value, Root as usize); Root},
+            1 => {debug_assert_eq!(value, Manner as usize); Manner},
+            2 => {debug_assert_eq!(value, Laryngeal as usize); Laryngeal},
+            3 => {debug_assert_eq!(value, Place as usize); Place},
+            4 => {debug_assert_eq!(value, Labial as usize); Labial},
+            5 => {debug_assert_eq!(value, Coronal as usize); Coronal},
+            6 => {debug_assert_eq!(value, Dorsal as usize); Dorsal},
+            7 => {debug_assert_eq!(value, Pharyngeal as usize); Pharyngeal},
+            _ => unreachable!()
+        }
+    }
 }
 
 impl Display for NodeType {
@@ -79,30 +94,30 @@ pub enum FType {
 impl Display for FType {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            FType::Consonantal         => write!(f, "cons"),
-            FType::Sonorant            => write!(f, "son"),
-            FType::Syllabic            => write!(f, "syll"),
-            FType::Continuant          => write!(f, "cont"),
-            FType::Approximant         => write!(f, "appr"),
-            FType::Lateral             => write!(f, "lat"),
-            FType::Nasal               => write!(f, "nas"),
-            FType::DelayedRelease      => write!(f, "d.r."),
-            FType::Strident            => write!(f, "strid"),
-            FType::Rhotic              => write!(f, "rho"),
-            FType::Click               => write!(f, "clk"),
-            FType::Voice               => write!(f, "voi"),
+            FType::Consonantal         => write!(f, "consonantal"),
+            FType::Sonorant            => write!(f, "sonorant"),
+            FType::Syllabic            => write!(f, "syllablic"),
+            FType::Continuant          => write!(f, "continuant"),
+            FType::Approximant         => write!(f, "approx."),
+            FType::Lateral             => write!(f, "lateral"),
+            FType::Nasal               => write!(f, "nasas"),
+            FType::DelayedRelease      => write!(f, "del.rel."),
+            FType::Strident            => write!(f, "strident"),
+            FType::Rhotic              => write!(f, "rhotic"),
+            FType::Click               => write!(f, "click"),
+            FType::Voice               => write!(f, "voice"),
             FType::SpreadGlottis       => write!(f, "s.g."),
             FType::ConstrGlottis       => write!(f, "c.g."),
-            FType::Labiodental         => write!(f, "bilab"),
-            FType::Round               => write!(f, "rnd"),
-            FType::Anterior            => write!(f, "ant"),
-            FType::Distributed         => write!(f, "dis"),
-            FType::Front               => write!(f, "fr"),
-            FType::Back                => write!(f, "bk"),
-            FType::High                => write!(f, "hi"),
-            FType::Low                 => write!(f, "lo"),
-            FType::Tense               => write!(f, "tens"),
-            FType::Reduced             => write!(f, "red"),
+            FType::Labiodental         => write!(f, "labiodental"),
+            FType::Round               => write!(f, "round"),
+            FType::Anterior            => write!(f, "anterior"),
+            FType::Distributed         => write!(f, "distributed"),
+            FType::Front               => write!(f, "front"),
+            FType::Back                => write!(f, "back"),
+            FType::High                => write!(f, "high"),
+            FType::Low                 => write!(f, "low"),
+            FType::Tense               => write!(f, "tense"),
+            FType::Reduced             => write!(f, "reduced"),
             FType::AdvancedTongueRoot  => write!(f, "atr"),
             FType::RetractedTongueRoot => write!(f, "rtr")
         }
@@ -417,7 +432,7 @@ impl<'a> Lexer<'a> {
     }
 
     fn get_feature(&mut self) -> Result<Option<Token>, RuleSyntaxError> {
-        if !self.inside_matrix || self.curr_char() != '+' && self.curr_char() != '-' && !matches!(self.curr_char(), 'α'..='ω') && !matches!(self.curr_char(), 'A'..='Z') {
+        if !self.inside_matrix || self.curr_char() != '+' && self.curr_char() != '-' && !matches!(self.curr_char(), 'α'..='ω') && !self.curr_char().is_ascii_uppercase() {
             return Ok(None);
         }
         
@@ -426,7 +441,7 @@ impl<'a> Lexer<'a> {
 
         self.advance();
         
-        let mod_val = if val == '-' && (matches!(self.curr_char(), 'α'..='ω') || matches!(self.curr_char(), 'A'..='Z')) {
+        let mod_val = if val == '-' && (matches!(self.curr_char(), 'α'..='ω') || self.curr_char().is_ascii_uppercase()) {
             let mut tmp = String::from('-'); tmp.push(self.curr_char());
             self.advance();
             tmp
@@ -449,17 +464,10 @@ impl<'a> Lexer<'a> {
         }
 
         let tkn_kind = self.feature_match(buffer, start, self.pos)?;
-            
-        match tkn_kind {
-            // TokenKind::Feature(FeatType::Node(_)) => if mod_val == "+" || mod_val == "-" {
-            //     return Err(RuleSyntaxError::WrongModNode(self.line, start))
-            // }, 
-            TokenKind::Feature(FeatType::Supr(SupraType::Tone)) 
-            => if mod_val == "+" || mod_val == "-" {
-                return Err(RuleSyntaxError::WrongModTone(self.line, start))
-            }
-            _ => {}
-        }
+        
+        if let TokenKind::Feature(FeatType::Supr(SupraType::Tone)) = tkn_kind { if mod_val == "+" || mod_val == "-" {
+            return Err(RuleSyntaxError::WrongModTone(self.line, start))
+        } }
 
         Ok(Some(Token::new(tkn_kind, mod_val, self.line, start, self.pos)))
     }
