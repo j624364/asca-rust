@@ -220,7 +220,14 @@ impl SubRule {
         }
         match &state.kind {
             ParseElement::WordBound => Ok((!forwards && pos.at_word_start()) || (forwards && word.out_of_bounds(*pos))),
-            ParseElement::SyllBound => Ok(pos.at_syll_start()),
+            ParseElement::SyllBound => {
+                // NOTE: why this works, I have no idea
+                if state_index == 0 {
+                    Ok(pos.at_syll_start())
+                } else {
+                    Ok(forwards && pos.at_syll_start() || !forwards && pos.at_syll_end(word))
+                }
+            },
             ParseElement::Ipa(s, m) => if self.context_match_ipa(s, m, word, *pos, state.position)? {
                 if forwards { pos.increment(word); } else { pos.decrement(word); }
                 Ok(true)
