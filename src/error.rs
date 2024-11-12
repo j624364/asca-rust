@@ -265,6 +265,7 @@ pub enum RuleSyntaxError {
     EmptyInput(LineNum, Pos),
     EmptyOutput(LineNum, Pos),
     EmptyEnv(LineNum, Pos),
+    EmptySet(Position),
     InsertMetath(LineNum, Pos, Pos),
     InsertDelete(LineNum, Pos, Pos),
     StuffAfterWordBound(Position),
@@ -319,6 +320,7 @@ impl ASCAError for RuleSyntaxError {
             Self::EmptyInput(..)                  => "Input cannot be empty. Use `*` or '∅' to indicate insertion".to_string(),
             Self::EmptyOutput(..)                 => "Output cannot be empty. Use `*` or '∅' to indicate deletion".to_string(),
             Self::EmptyEnv(..)                    => "Environment cannot be empty following a seperator.".to_string(),
+            Self::EmptySet(..)                    => "Sets cannot be empty".to_string(),
             Self::InsertMetath(..)                => "A rule cannot be both an Insertion rule and a Metathesis rule".to_string(),
             Self::InsertDelete(..)                => "A rule cannot be both an Insertion rule and a Deletion rule".to_string(),
             Self::UnbalancedRuleIO(_)             => "Input or Output has too few elements".to_string(),
@@ -400,6 +402,12 @@ impl ASCAError for RuleSyntaxError {
                 (
                     " ".repeat(start) + &"^".repeat(end-start) + "\n", 
                     first_item.position.line
+                )
+            },
+            Self::EmptySet(pos) => {
+                (
+                    " ".repeat(pos.start) + &"^".repeat(pos.end-pos.start) + "\n",
+                    pos.line
                 )
             },
             Self::UnbalancedRuleIO(items) => {

@@ -789,9 +789,15 @@ impl Parser {
             // TODO(girv): allow more than just segments and boundaries
             return Err(RuleSyntaxError::ExpectedSegment(self.curr_tkn.clone()))
         }
-        // TODO(girv): check that set isn't empty
+
         let end_pos = self.token_list[self.pos-1].position.end;
-        Ok(Some(Item::new(ParseElement::Set(terms.clone()), Position::new(self.line, start_pos, end_pos))))
+        let pos = Position::new(self.line, start_pos, end_pos);
+
+        if terms.is_empty() {
+            Err(RuleSyntaxError::EmptySet(pos))
+        } else {
+            Ok(Some(Item::new(ParseElement::Set(terms.clone()), pos)))
+        }
     }
 
     fn get_syll(&mut self) -> Result<Option<Item>, RuleSyntaxError> {
