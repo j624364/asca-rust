@@ -226,13 +226,13 @@ mod rule_tests {
     #[test]
     fn test_semivowel_syllabication() {
         // let test_rule = setup_rule("q > [+dist, +fr, -bk, -hi, +lo]");
-        let test_rule = setup_rule("[+approx, -lat, Ahi] > [+syll, +son, -cons, +lab, - PHR, Atense]");
+        let test_rule = setup_rule("[-syll, +approx, -lat, Ahi] > [+syll, +son, -cons, +lab, - PHR, Atense]");
         let test_word = setup_word("ʕ̞.w.ʟ");
         assert_eq!(test_rule.apply(test_word).unwrap().render().unwrap(), "ɑ.u.ʟ");
 
-        let test_rule = setup_rule("[+approx], [+approx, +hi] > [+syll, +son, -cons, +lab, -phr], [+tense]");
-        let test_word = setup_word("w");
-        assert_eq!(test_rule.apply(test_word).unwrap().render().unwrap(), "u");
+        let test_rule = setup_rule("[+approx, +hi] > [+syll, +tense]");
+        let test_word = setup_word("wj");
+        assert_eq!(test_rule.apply(test_word).unwrap().render().unwrap(), "ui");
 
         let test_rule = setup_rule("V > a");
         let test_word = setup_word("e.o");
@@ -263,6 +263,12 @@ mod rule_tests {
         let test_rule = setup_rule("O:[-voi] > [-cons, +c.g., -place]");
         let test_word = setup_word("p");
         assert_eq!(test_rule.apply(test_word).unwrap().render().unwrap(), "ʔ");
+
+        let test_rule = setup_rule("O:[-voi, Acont] > [-cons, As.g., -Ac.g., -place, -strid]");
+        let test_word = setup_word("pa.sa.ta.fa");
+        assert_eq!(test_rule.apply(test_word).unwrap().render().unwrap(), "ʔa.ha.ʔa.ha");
+        let test_word = setup_word("sa.pa.fa.pa");
+        assert_eq!(test_rule.apply(test_word).unwrap().render().unwrap(), "ha.ʔa.ha.ʔa");
     }
 
     #[test]
@@ -413,9 +419,9 @@ mod rule_tests {
         let test_word = setup_word("dak");
         assert_eq!(test_rule.apply(test_word).unwrap().render().unwrap(), "dak.e12");
 
-        // let test_rule = setup_rule("k > k%=1e1");
-        // let test_word = setup_word("dak");
-        // assert_eq!(test_rule.apply(test_word).unwrap().render().unwrap(), "dake");   // TODO: this errs
+        let test_rule = setup_rule("k > k%=1e1");
+        let test_word = setup_word("dak");
+        assert_eq!(test_rule.apply(test_word).unwrap().render().unwrap(), "dak.e");
     }
 
     #[test]
@@ -583,6 +589,25 @@ mod rule_tests {
         let test_rule = setup_rule("t > *  / _#");
         let test_word = setup_word("kat.kat");
         assert_eq!(test_rule.apply(test_word).unwrap().render().unwrap(), "kat.ka");
+
+        let test_rule = setup_rule("[] > *  / _[]#");
+        let test_word = setup_word("kat.kat");
+        assert_eq!(test_rule.apply(test_word).unwrap().render().unwrap(), "kat.kt");
+    }
+
+    #[test]
+    fn test_del_ipa_after_wbound() {
+        let test_rule = setup_rule("[] > *  / #_");
+        let test_word = setup_word("kat.kat");
+        assert_eq!(test_rule.apply(test_word).unwrap().render().unwrap(), "at.kat");
+
+        let test_rule = setup_rule("[] > *  / #C_");
+        let test_word = setup_word("kat.kat");
+        assert_eq!(test_rule.apply(test_word).unwrap().render().unwrap(), "kt.kat");
+
+        let test_rule = setup_rule("[] > *  / #[]_[]");
+        let test_word = setup_word("kat.kat");
+        assert_eq!(test_rule.apply(test_word).unwrap().render().unwrap(), "kt.kat");
     }
 
     #[test]
@@ -831,8 +856,8 @@ mod rule_tests {
 
         for word in &test_words {
             let mut w = word.clone();
-            for rule in &test_rules {
-                println!("---");
+            for (i, rule) in test_rules.iter().enumerate() {
+                println!("--{}--", i+1);
                 println!("{}", w.render().unwrap());
                 w = rule.apply(w).unwrap();
             }
