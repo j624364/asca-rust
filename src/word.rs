@@ -384,6 +384,18 @@ impl Word {
     pub fn apply_seg_mods(&mut self, alphas: &RefCell<HashMap<char, Alpha>>, mods: &Modifiers, start_pos: SegPos, err_pos: Position) -> Result<i8, RuleRuntimeError> {
         self.syllables[start_pos.syll_index].apply_seg_mods(alphas, mods, start_pos.seg_index, err_pos)
     }
+    
+    // This is not efficient in the slightest
+    // but it allows us to properly bounds check when matching the before context
+    pub fn reverse(&self) -> Self {
+        let mut word = self.clone();
+        for syll in &mut word.syllables {
+            syll.segments.make_contiguous().reverse();
+        }
+        word.syllables.reverse();
+
+        word
+    }
 }
 
 #[cfg(test)]
