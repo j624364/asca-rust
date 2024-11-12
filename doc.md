@@ -421,8 +421,11 @@ Rule Example: Malay Nasalisation
 ```
 Rule Example: Turkish Vowel Harmony
 
-V:[+hi] > [αbk, βfr, γrnd] / V:[αbk, βfr, γrnd] (C,0) _ (C) #"
+V:[+hi] > [αbk, βfr, γrnd] / V:[αbk, βfr, γrnd] (C,0) _ (C) #
 ```
+
+Alphas are processed first in the input, then the context, and lastly the output. Alphas are done left to right within each block. 
+Any alpha in the output must be prior set in either the input or context.
 
 ### Node and Subnodes
 
@@ -449,7 +452,7 @@ It would be nice if we were able to join them into one rule. To accomplish this,
 O:[-voi, Acont] > [-cons, As.g., -Ac.g., -place, -strid] / _#
 (pat, pas > paʔ, pah)
 ```
-When matching an obstruent that is `[-cont]`, the output becomes `[-s.g., +c.g.]`. While when the obstruent is `[+cont]`, the ouput is `[+s.g., -c.g.]`
+When matching an obstruent that is `[-cont]`, the output becomes `[-s.g., +c.g.]`. While when the obstruent is `[+cont]`, the output is `[+s.g., -c.g.]`
 
 This can be used with nodes for conditional clustering:
 ```
