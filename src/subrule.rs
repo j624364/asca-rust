@@ -232,12 +232,43 @@ impl SubRule {
             ParseElement::Variable(vt, mods) => self.context_match_var(vt, mods, word, pos, forwards, state.position),
             ParseElement::Set(s) => self.context_match_set(s, word, pos, forwards),
             ParseElement::Optional(opt_states, min, max) => self.context_match_option(states, state_index, word, pos, forwards, &opt_states, *min, *max),
-            ParseElement::Ellipsis => todo!(),
+            ParseElement::Ellipsis => self.context_match_ellipsis(states, state_index, word, pos, forwards),
             
             
             ParseElement::EmptySet | ParseElement::Metathesis |
             ParseElement::Environment(_, _) => unreachable!(),
         }
+    }
+
+    fn context_match_ellipsis(&self, states: &[Item], state_index: &mut usize, word: &Word, pos: &mut SegPos, forwards: bool) -> Result<bool, RuleRuntimeError> {
+        if *state_index >= states.len() {
+            return Ok(true)
+        }
+
+        *state_index += 1;
+        pos.increment(word);
+
+        while word.in_bounds(*pos) {
+            let back_pos = *pos;
+            let back_state = *state_index;
+
+            let mut m = true;
+            while *state_index < states.len() {
+                if !self.context_match(states, state_index, word, pos, forwards)? {
+                    m = false;
+                    break;
+                }
+                *state_index += 1;
+            }
+            if m {
+                return Ok(true)
+            }
+            *state_index = back_state;
+            *pos = back_pos;
+            pos.increment(word);
+        }
+        
+        Ok(false)
     }
 
     fn match_opt_states(&self, opt_states: &[Item], word: &Word, pos: &mut SegPos, forwards: bool) -> Result<bool, RuleRuntimeError> {
