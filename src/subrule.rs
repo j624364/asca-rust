@@ -128,7 +128,7 @@ impl SubRule {
 
     fn match_before_context_and_exception(&self, word: &Word, pos: SegPos) -> Result<bool, RuleRuntimeError> {
         let empty_env = Item::new(ParseElement::Environment(vec![], vec![]), Position { line: 0, start: 0, end: 0 });
-        let ParseElement::Environment(states, _) = &match &self.context {
+        let ParseElement::Environment(context_states, _) = &match &self.context {
             Some(s) => s,
             None => match &self.except {
                 Some(_) => &empty_env,
@@ -142,22 +142,34 @@ impl SubRule {
                 None => unreachable!(),
             },
         }.kind else { unreachable!() };
-
         let word_rev = word.reverse();
-        let mut start_pos = SegPos::new(word.syllables.len() - 1 - pos.syll_index, word.syllables[pos.syll_index].segments.len() - 1 - pos.seg_index);
+        let mut context_states = context_states.clone();
+        let mut except_states = except_states.clone();
+        context_states.reverse();
+        except_states.reverse();
+
+
+
+        let mut start_pos = pos.reversed(word);
+        start_pos.increment(&word_rev);
         let mut is_context_match = true;
-        for (i, state) in states.iter().rev().enumerate() {
-            if !self.context_match(&word_rev, state, &mut start_pos, false, i)? {
+        let mut si = 0;
+        while si < context_states.len() {
+            if !self.context_match(&context_states, &mut si, &word_rev, &mut start_pos, false)? {
                 is_context_match = false;
                 break;
             }
+            si += 1;
         }
-        let mut start_pos = SegPos::new(word.syllables.len() - 1 - pos.syll_index, word.syllables[pos.syll_index].segments.len() - 1 - pos.seg_index);
+        let mut start_pos = pos.reversed(word);
+        start_pos.increment(&word_rev);
         let mut is_except_match = !except_states.is_empty();
-        for (si, state) in except_states.iter().rev().enumerate() {
-            if !self.context_match(&word_rev, state, &mut start_pos, false, si)? {
+        let mut si = 0;
+        while si < except_states.len() {
+            if !self.context_match(&except_states, &mut si, &word_rev, &mut start_pos, false)? {
                 is_except_match = false;
             }
+            si += 1;
         }
         Ok(!is_except_match && is_context_match)
     }
@@ -165,7 +177,7 @@ impl SubRule {
     fn match_after_context_and_exception(&self, word: &Word, pos: SegPos) -> Result<bool, RuleRuntimeError> {
         const EMPTY_ENV: Item = Item{ kind: ParseElement::Environment(vec![], vec![]), position: Position { line: 0, start: 0, end: 0 }};
         let binding = EMPTY_ENV;
-        let ParseElement::Environment(_, states) = &match &self.context {
+        let ParseElement::Environment(_, context_states) = &match &self.context {
             Some(s) => s,
             None => match &self.except {
                 Some(_) => &binding,
@@ -181,30 +193,33 @@ impl SubRule {
         }.kind else { unreachable!() };
 
         let mut start_pos = pos;
+        start_pos.increment(word);
         let mut is_context_match = true;
-        for (si, state) in states.iter().enumerate() {
-            if !self.context_match(word, state, &mut start_pos, true, si)? {
+        let mut si = 0;
+        while si < context_states.len() {
+            if !self.context_match(context_states, &mut si, word, &mut start_pos, true)? {
                 is_context_match = false;
                 break;
             }
+            si += 1;
         }
         let mut start_pos = pos;
+        start_pos.increment(word);
         let mut is_except_match = !except_states.is_empty();
-        for (si, state) in except_states.iter().enumerate() {
-            if !self.context_match(word, state, &mut start_pos, true, si)? {
-                println!("{} {}", word.render().unwrap(), state);
+        let mut si = 0;
+        while si < except_states.len() {
+            if !self.context_match(except_states, &mut si, word, &mut start_pos, true)? {
+                // println!("{} {}", word.render().unwrap(), except_states[si]);
                 is_except_match = false;
             }
+            si += 1;
         }
 
         Ok(!is_except_match && is_context_match)
     }
 
-    fn context_match(&self, word: &Word, state: &Item, pos: &mut SegPos, forwards: bool, state_index: usize) -> Result<bool, RuleRuntimeError> {
-        // Really, this should be outside this function
-        if state_index == 0 {
-                pos.increment(word);
-        }
+    fn context_match(&self, states: &[Item], state_index: &mut usize, word: &Word, pos: &mut SegPos, forwards: bool) -> Result<bool, RuleRuntimeError> {
+        let state = &states[*state_index];
         match &state.kind {
             ParseElement::WordBound => Ok(word.out_of_bounds(*pos)),
             ParseElement::SyllBound => Ok(pos.at_syll_start()),
@@ -216,12 +231,111 @@ impl SubRule {
             ParseElement::Syllable(s, t, v) => self.context_match_syll(s, t, v, word, pos, forwards),
             ParseElement::Variable(vt, mods) => self.context_match_var(vt, mods, word, pos, forwards, state.position),
             ParseElement::Set(s) => self.context_match_set(s, word, pos, forwards),
-            ParseElement::Optional(_, _, _) => todo!(),
+            ParseElement::Optional(opt_states, min, max) => self.context_match_option(states, state_index, word, pos, forwards, &opt_states, *min, *max),
             ParseElement::Ellipsis => todo!(),
             
             
             ParseElement::EmptySet | ParseElement::Metathesis |
             ParseElement::Environment(_, _) => unreachable!(),
+        }
+    }
+
+    fn match_opt_states(&self, opt_states: &[Item], word: &Word, pos: &mut SegPos, forwards: bool) -> Result<bool, RuleRuntimeError> {
+        let mut si = 0;
+        while si < opt_states.len() {
+            if !self.context_match(opt_states, &mut si, word, pos, forwards)? {
+                return Ok(false)
+            }
+            si += 1;
+        }
+        Ok(true)
+    }
+
+    fn context_match_option(&self, states: &[Item], state_index: &mut usize, word: &Word, pos: &mut SegPos, forwards: bool, opt_states: &[Item], match_min: usize, match_max: usize) -> Result<bool, RuleRuntimeError> {
+        // should work like regex (...){min, max}? 
+        let match_max = if match_max == 0 { None } else { Some(match_max) };
+        let back_pos = *pos;
+        
+        let mut index = 0;
+        while index < match_min {
+            if !self.match_opt_states(opt_states, word, pos, forwards)? {
+                *pos = back_pos;
+                return Ok(false)
+
+            }
+            // if word.out_of_bounds(*pos) {
+            //     *pos = back_pos;
+            //     return Ok(false)
+            // }
+            index += 1;
+        }
+
+        *state_index +=1;
+        let back_state = *state_index;
+        let back_pos = *pos;
+
+        let mut m = true;
+        while *state_index < states.len() {
+            if !self.context_match(states, state_index, word, pos, forwards)? {
+                m = false;
+                break;
+            }
+            *state_index += 1;
+        }
+        if m {
+            return Ok(true)
+        }
+
+        // println!("Up to here!");
+        *pos = back_pos;
+        *state_index = back_state;
+        
+
+        // (X, 0,2)
+        // _ , _X, _XX
+        
+        // opt  states
+        // opt opt states
+        // opt opt opt states
+        // opt opt opt opt states
+        // if let Some(max) = match_max {
+        //     let num_iters = max-match_min;
+        //     let arr: Vec<bool> = Vec::with_capacity(num_iters);
+        //     println!("min: {}", match_min); println!("max: {}", max);
+        //     println!("cap: {}", arr.capacity());
+        // }
+
+
+        if let Some(max) = match_max {
+            while index < max {
+                *state_index = back_state;
+                if self.match_opt_states(opt_states, word, pos, forwards)? {
+                    let mut m = true;
+                    while *state_index < states.len() {
+                        if !self.context_match(states, state_index, word, pos, forwards)? {
+                            m = false;
+                            break;
+                        }
+                        *state_index += 1;
+                    }
+                    if m {
+                        return Ok(true)
+                    } else {
+                        index +=1;
+                        continue;
+                    }
+                } else {
+                    // println!("dfgsgnsdgfkj;kj");
+                    // *pos = back_pos;
+                    // *state_index = back_state;
+                    return Ok(true)
+                }
+            }
+            // println!("state ind: {}", state_index);
+            return Ok(false)
+        } else {
+            
+            todo!()
         }
     }
 
@@ -1420,13 +1534,15 @@ impl SubRule {
             } else { Ok(false) },
             ParseElement::Syllable(s, t, v) => self.input_match_syll(captures, state_index, s, t, v, word, seg_pos),
             ParseElement::Ellipsis => self.input_match_ellipsis(captures, word, seg_pos, states, state_index),
-            ParseElement::Optional(opt_states, match_min, match_max) => self.input_match_optionals(captures, word, seg_pos, states, opt_states, *match_min, *match_max),            
+
+            // ParseElement::Optional(opt_states, match_min, match_max) => self.input_match_optionals(captures, word, seg_pos, states, opt_states, *match_min, *match_max),            
+            ParseElement::Optional(..) => unimplemented!("Optionals make no sense in input, need to update parsing disallow"),
             ParseElement::EmptySet | ParseElement::WordBound | ParseElement::Metathesis | ParseElement::Environment(_, _) => unreachable!(),
         }
     }
 
     fn input_match_optionals(&self, captures: &mut [MatchElement], word: &Word, pos: &mut SegPos, states: &[Item], opt_states: &[Item], match_min: usize, match_max: usize) -> Result<bool, RuleRuntimeError> {
-        // should work like regex (...){min, max}? 
+        // should work like regex (...){min, max}?
         let max = if match_max == 0 {None} else{ Some(match_max)};
         self.input_match_multiple(captures, word, pos,  states, &mut 0, match_min, max, opt_states, true)
     }

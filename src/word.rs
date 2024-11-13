@@ -31,6 +31,14 @@ impl SegPos {
         Self { syll_index, seg_index }
     }
 
+    pub fn reversed(&self, word: &Word) -> Self {
+        debug_assert!(word.in_bounds(*self));
+        SegPos::new(
+            word.syllables.len() - 1 - self.syll_index, 
+            word.syllables[self.syll_index].segments.len() - 1 - self.seg_index
+        )
+    }
+
     pub fn increment(&mut self, word: &Word) {
         // NOTE: Does not guarantee that the resulting position is within the bounds of the word
         // debug_assert!(self.syll_index < word.syllables.len(), "error incrementing");
