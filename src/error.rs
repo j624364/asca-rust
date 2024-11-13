@@ -147,7 +147,6 @@ impl ASCAError for WordRuntimeError {
     }
 }
 
-
 #[derive(Debug, Clone)]
 pub enum RuleRuntimeError { 
     DeletionOnlySeg,
@@ -231,6 +230,7 @@ type Pos = usize;
 
 #[derive(Debug, Clone)]
 pub enum RuleSyntaxError {
+    OptLocError(Position),
     OptMathError(Token, LineNum, usize),
     UnknownIPA(Token),
     UnknownGrouping(Token),
@@ -253,9 +253,6 @@ pub enum RuleSyntaxError {
     ExpectedUnderline(Token),
     ExpectedRightBracket(Token),
     BadSyllableMatrix(Token),
-    // BadVariableAssignment(Item),
-    // AlreadyInitialisedVariable(Item, Item, usize),
-    // WrongModNode(LineNum, Pos),
     WrongModTone(LineNum, Pos),
     OutsideBrackets(LineNum, Pos),
     NestedBrackets(LineNum, Pos),
@@ -283,6 +280,7 @@ pub enum RuleSyntaxError {
 impl ASCAError for RuleSyntaxError {
     fn get_error_message(&self) -> String {
         match self {
+            Self::OptLocError(_)                  => "Optionals can only be used in environments".to_string(),
             Self::OptMathError(_, low, high)      => format!("An Option's second argument '{high}' must be greater than or equal to it's first argument '{low}'"),
             Self::UnknownIPA(token)               => format!("Could not get value of IPA '{}'.", token.value),
             Self::UnknownGrouping(token)          => format!("Unknown grouping '{}'. Known groupings are (C)onsonant, (O)bstruent, (S)onorant, (P)losive, (F)ricative, (L)iquid, (N)asal, (G)lide, and (V)owel", token.value),
@@ -310,7 +308,6 @@ impl ASCAError for RuleSyntaxError {
             Self::ExpectedTokenFeature(token)     => format!("{} cannot be placed inside a matrix. An element inside `[]` must a distinctive feature", token.value),
             Self::ExpectedVariable(token)         => format!("Expected number, but received {} ", token.value),
             Self::BadSyllableMatrix(_)            => "A syllable can only have parameters stress and tone".to_string(),
-            // Self::WrongModNode(..)                => "Nodes cannot be ±; they can only be used in Alpha Notation expressions.".to_string(),
             Self::WrongModTone(..)                => "Tones cannot be ±; they can only be used with numeric values.".to_string(),
             Self::NestedBrackets(..)              => "Cannot have nested brackets of the same type".to_string(),
             Self::OutsideBrackets(..)             => "Features must be inside square brackets".to_string(),
@@ -373,7 +370,6 @@ impl ASCAError for RuleSyntaxError {
                 " ".repeat(*pos) + "^" + "\n", 
                 *line
             ),
-            // Self::WrongModNode   (line, pos) |
             Self::WrongModTone   (line, pos) |
             Self::EmptyInput     (line, pos) | 
             Self::EmptyEnv       (line, pos) |
@@ -404,6 +400,7 @@ impl ASCAError for RuleSyntaxError {
                     first_item.position.line
                 )
             },
+            Self::OptLocError(pos) |
             Self::EmptySet(pos) => {
                 (
                     " ".repeat(pos.start) + &"^".repeat(pos.end-pos.start) + "\n",

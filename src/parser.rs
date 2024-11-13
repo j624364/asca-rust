@@ -307,7 +307,7 @@ impl Parser {
     }
 
     fn get_env_elements(&mut self, is_after: bool) -> Result<Vec<Item>, RuleSyntaxError> {
-        // returns (('WBOUND')? ( SBOUND / ELLIPSS / TERM )+) / (( SBOUND / ELLIPSS / TERM )+ ('WBOUND')?)
+        // returns (('WBOUND')? ( SBOUND / ELLIPSS / OPT / TERM )+) / (( SBOUND / ELLIPSS / OPT / TERM )+ ('WBOUND')?)
         let mut els = Vec::new();
         let mut contains_word_bound = false;
         let mut word_bound_pos = Position::new(0, 0, 0);
@@ -330,18 +330,23 @@ impl Parser {
                 els.push(Item::new(ParseElement::Ellipsis, el.position));
                 continue;
             }
+            if let Some(x) = self.get_opt()? {
+                // NOTE: This must go above self.get_term() as that func returns an error for options
+                els.push(x);
+                continue;
+            }
             if let Some(x) = self.get_term()? {
                 els.push(x);
                 continue;
             }
             break;
         }
-        // We can safely unwrap here as if `contains_word_bound` is true, els can't be empty
-        if contains_word_bound && els.first().unwrap().kind != ParseElement::WordBound && els.last().unwrap().kind != ParseElement::WordBound {
-            if is_after {
+        if contains_word_bound {
+            if !is_after && els.first().expect("contains wbound").kind != ParseElement::WordBound {
+                return Err(RuleSyntaxError::StuffBeforeWordBound(word_bound_pos))
+            } else if is_after && els.last().expect("contains wbound").kind != ParseElement::WordBound {
                 return Err(RuleSyntaxError::StuffAfterWordBound(word_bound_pos))
             }
-            return Err(RuleSyntaxError::StuffBeforeWordBound(word_bound_pos))
         }
         
         Ok(els)
@@ -838,8 +843,8 @@ impl Parser {
         if let Some(x) = self.get_syll()? { return Ok(Some(x)) }
         if let Some(x) = self.get_set()?  { return Ok(Some(x)) }
         if let Some(x) = self.get_seg()?  { return Ok(Some(x)) }
-        if let Some(x) = self.get_opt()?  { return Ok(Some(x)) }
         if let Some(x) = self.get_var()?  { return Ok(Some(x)) }
+        if let Some(x) = self.get_opt()?  { return Err(RuleSyntaxError::OptLocError(x.position)) }
 
         Ok(None)
     }

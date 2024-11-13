@@ -11,15 +11,15 @@ OUT_EL  ←   SYL / SET / SEG / VAR / SBOUND                  // NOTE: 'SET' her
 
 ENV     ←   ENV_SPC / ENV_TRM  (',' ENV_TRM)*               // e.g. _,# ==> #_ , _#
 ENV_TRM ←   ('WBOUND')? ENV_ELS? '_' ENV_ELS? ('WBOUND')?   //
-ENV_ELS ←   ( SBOUND / ELLIPSS / TERM )+                    //
+ENV_ELS ←   ( SBOUND / ELLIPSS / OPT / TERM )+              //
 ENV_SPC ←   '_' ',' ENV_EL                                  //
 
-TERM    ←   SYL / SET / SEG / OPT / VAR                     //
+TERM    ←   SYL / SET / SEG / VAR                           //
 SYL     ←   '%' (':' PARAMS)? VAR_ASN?                      //
 SET     ←   '{' SET_TRM (',' SET_TRM)* '}'                  // NOTE: At the moment, we can't have multi-segment sets i.e. "{nd}" is not allowed 
 SET_TRM ←   SEG / BOUND                                     // NOTE: To be expanded
 OPT     ←   '(' OPT_TRM+ (',' [0-9]+ (':' [1-9]+)?)? ')'    // NOTE: (C) === (C,1) === (C, 0:1)
-OPT_TRM ←   BOUND / SYL / SET / SEG / VAR                   // FIXME: WBOUND in Input/Output shouldn't be allowed
+OPT_TRM ←   BOUND / SYL / SET / SEG / VAR                   //
 SEG     ←   IPA (':' PARAMS)? / MATRIX VAR_ASN?             //
 MATRIX  ←   GROUP (':' PARAMS)? / PARAMS                    //
 VAR     ←   [0-9]+ (':' PARAMS)?                            //
@@ -29,7 +29,7 @@ GROUP	←   'C' / 'O' / 'S' / 'L' / 'N' / 'G' / 'V'         //
 PARAMS  ←   '[' ARG (',' ARG)* ']'                          //
 ARG     ←   ARG_MOD [a-zA-Z]+ / TONE                        //
 TONE    ←   [a-zA-Z]+ ':' [0-9]+                            //
-ARG_MOD ←   '+' / '-' / [α-ω] / '-'[α-ω]                    //
+ARG_MOD ←   '+' / '-' / [α-ωA-Z] / '-'[α-ωA-Z]              //
 
 EMP     ←   '*' / '∅'                                       //
 MET     ←   '&'                                             //
@@ -37,8 +37,8 @@ BOUND	←   WBOUND / SBOUND                                 //
 WBOUND  ←   '#'                                             //
 SBOUND  ←   '$'                                             //
 ELLIPSS ←   '...' / '..' / …                                //
-IPA     ←   IPA_CAR (^ IPA_CAR)? IPA_DIA*                   //
-IPA_CAR ←   [Unicode-IPA-character]                         // NOTE: As defined in `cardinals.json`
+IPA     ←   IPA_CHR (^ IPA_CHR)? IPA_DIA*                   //
+IPA_CHR ←   [Unicode-IPA-character]                         // NOTE: As defined in `cardinals.json`
 IPA_DIA ←   [Unicode-DIACRITIC-character]                   // NOTE: As defined in `diacritics.json`
 ARR     ←   ('='/'-')? '>'                                  //
 PIPE    ←   '|' / '//'                                      //
