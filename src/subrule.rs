@@ -1042,15 +1042,11 @@ impl SubRule {
                             debug_assert!(res_word.in_bounds(sp));
                             let lc = self.apply_seg_mods(&mut res_word, sp, m, v, out_state.position)?;
                             total_len_change[sp.syll_index] += lc;
-                            // if let Some(pos) = next_pos { 
-                                // if pos.syll_index == sp.syll_index {
-                                    match lc.cmp(&0) {
-                                        std::cmp::Ordering::Greater =>  last_pos.seg_index += lc.unsigned_abs() as usize,
-                                        std::cmp::Ordering::Less    =>  last_pos.seg_index -= lc.unsigned_abs() as usize,
-                                        _ => {},
-                                    }
-                                // }
-                            // }
+                            match lc.cmp(&0) {
+                                std::cmp::Ordering::Greater =>  last_pos.seg_index += lc.unsigned_abs() as usize,
+                                std::cmp::Ordering::Less    =>  last_pos.seg_index -= lc.unsigned_abs() as usize,
+                                _ => {},
+                            }
                         },
                         MatchElement::Syllable(sp, _)  => {
                             last_pos.syll_index = sp;
@@ -1380,7 +1376,6 @@ impl SubRule {
                         if res_word.syllables[sp.syll_index].segments.is_empty() {
                             res_word.syllables.remove(sp.syll_index);
                         }
-                        
                         if pos.seg_index > 0 {
                             pos.seg_index -= 1; 
                         }
@@ -1535,84 +1530,55 @@ impl SubRule {
             ParseElement::Syllable(s, t, v) => self.input_match_syll(captures, state_index, s, t, v, word, seg_pos),
             ParseElement::Ellipsis => self.input_match_ellipsis(captures, word, seg_pos, states, state_index),
 
-            // ParseElement::Optional(opt_states, match_min, match_max) => self.input_match_optionals(captures, word, seg_pos, states, opt_states, *match_min, *match_max),            
-            ParseElement::Optional(..) => unimplemented!("Optionals make no sense in input, need to update parsing disallow"),
-            ParseElement::EmptySet | ParseElement::WordBound | ParseElement::Metathesis | ParseElement::Environment(_, _) => unreachable!(),
+            ParseElement::Optional(..) | ParseElement::Environment(_, _) |
+            ParseElement::EmptySet | ParseElement::WordBound | ParseElement::Metathesis  => unreachable!(),
         }
     }
 
-    fn input_match_optionals(&self, captures: &mut [MatchElement], word: &Word, pos: &mut SegPos, states: &[Item], opt_states: &[Item], match_min: usize, match_max: usize) -> Result<bool, RuleRuntimeError> {
-        // should work like regex (...){min, max}?
-        let max = if match_max == 0 {None} else{ Some(match_max)};
-        self.input_match_multiple(captures, word, pos,  states, &mut 0, match_min, max, opt_states, true)
-    }
+    // fn input_match_optionals(&self, captures: &mut [MatchElement], word: &Word, pos: &mut SegPos, states: &[Item], opt_states: &[Item], match_min: usize, match_max: usize) -> Result<bool, RuleRuntimeError> {
+    //     // should work like regex (...){min, max}?
+    //     let max = if match_max == 0 {None} else{ Some(match_max)};
+    //     self.input_match_multiple(captures, word, pos,  states, &mut 0, match_min, max, opt_states, true)
+    // }
     
-    fn input_match_ellipsis(&self, captures: &mut [MatchElement], word: &Word, pos: &mut SegPos, states: &[Item], state_index: &mut usize) -> Result<bool, RuleRuntimeError> {
+    fn input_match_ellipsis(&self, captures: &mut Vec<MatchElement>, word: &Word, pos: &mut SegPos, states: &[Item], state_index: &mut usize) -> Result<bool, RuleRuntimeError> {
         // should work akin to '.+?' in Regex, that is, a lazy-match of one-or-more elements
-        // this should not capture, however
-        self.input_match_multiple(captures, word, pos, states, state_index, 1, None, &[], false)
-    }
-
-    fn input_match_multiple(
-        &self, captures: &mut [MatchElement], 
-        word: &Word, seg_index: &mut SegPos, 
-        states: &[Item], state_index: &mut usize, 
-        match_min: usize, match_max: Option<usize>,
-        inner_states: &[Item], capture_wanted: bool    
-    ) -> Result<bool, RuleRuntimeError> {
-
-        let back_state = *state_index;
-        let back_seg = *seg_index;
-        let mut caps: Vec<MatchElement> = vec![];
-
-        let mut i = 0;
-        while i < match_min {
-            if inner_states.is_empty() {
-                // TODO(girv): test for OB1 error
-
-                if word.out_of_bounds(*seg_index) {
-                // if *seg_index >= word.seg_count() {
-                    return Ok(false)
-                }
-                
-                if capture_wanted {
-                    // add to caps
-                    caps.push(MatchElement::Segment(*seg_index, None))
-                }
-
-                seg_index.increment(word);
-                i += 1;
-            } else {
-                // NOTE: segs are captured here regardless of the `capture_wanted` check
-                let mut inner_state_index = 0;
-
-                while word.in_bounds(*seg_index) && inner_state_index < inner_states.len() {
-                    if !self.input_match_item(&mut caps, seg_index, &mut inner_state_index, word, inner_states)? {
-                        *seg_index = back_seg;
-                        *state_index = back_state;
-                        return Ok(false)
-                    }
-                }
-                if word.out_of_bounds(*seg_index) {
-                // if *seg_index >= word.seg_count() {
-                    return Ok(false)
-                }
-                i += 1;
-            }
+        // increment seg_pos
+        // save position
+        // try to match rest of states
+        // if match, return true
+        // else return to saved position
+        // increment seg_pos
+        // repeat until end of word
+        
+        if *state_index >= states.len() {
+            return Ok(true)
         }
 
-        todo!()
+        *state_index += 1;
+        pos.increment(word);
+
+        while word.in_bounds(*pos) {
+            let back_pos = *pos;
+            let back_state = *state_index;
+
+            let mut m = true;
+            while *state_index < states.len() {
+                if !self.input_match_item(captures, pos, state_index, word, states)? {
+                    m = false;
+                    break;
+                }
+                *state_index += 1;
+            }
+            if m {
+                return Ok(true)
+            }
+            *state_index = back_state;
+            *pos = back_pos;
+            pos.increment(word);
+        }
         
-        // for i < match_max {
-        // 
-        //
-        //
-        // 
-        // }
-        
-        
-        // add caps to captures
-        // return Ok(true)
+        Ok(false)
     }
 
     fn input_match_syll(&self, captures: &mut Vec<MatchElement>, state_index: &mut usize, stress: &[Option<ModKind>;2], tone: &Option<String>, var: &Option<usize>, word: &Word, pos: &mut SegPos) -> Result<bool, RuleRuntimeError> {
