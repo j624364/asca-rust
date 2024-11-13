@@ -76,11 +76,11 @@ impl Syllable {
         let mut seg_len = self.get_seg_length_at(pos);
         while seg_len > 0 {
             let seg = self.segments.get_mut(pos).expect("position is in bounds");
-            seg.apply_seg_mods(alphas, mods.nodes, mods.feats, err_pos)?;
+            seg.apply_seg_mods(alphas, mods.nodes, mods.feats, err_pos, false)?;
             seg_len -= 1;
             pos +=1;
         }
-        // TODO(girv): Really, this should be first so that we don't have to needlessly apply mods if we apply -long
+        // Really, this should be first so that we don't have to needlessly apply mods if we apply -long
         self.apply_supras(alphas, &mods.suprs, start_pos, err_pos)
     }
 

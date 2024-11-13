@@ -152,14 +152,13 @@ impl NodeKind {
 }
 
 // pub fn test_node_variants() {
-
-//     fn asdf(cache: HashMap<u8, u8>) -> Vec<String> {
+//     fn asdf(cache: HashMap<u8, u64>) -> Vec<String> {
 //         let mut v: Vec<_> = cache.into_iter().collect();
 //         v.sort_by(|x, y| x.0.cmp(&y.0));
 //         let width = 8 - v.last().unwrap().0.leading_zeros() as usize;
 //         v.iter().map(|(x, v)| format!("{:0width$b} : {}", x, v)).collect()
 //     }
-//     fn qwer(cache: HashMap<Option<u8>, u8>) -> Vec<String> {
+//     fn qwer(cache: HashMap<Option<u8>, u64>) -> Vec<String> {
 //         let mut v: Vec<_> = cache.into_iter().collect();
 //         v.sort_by(|x, y| x.0.cmp(&y.0));
 //         let width = 8 - v.last().unwrap().0.unwrap().leading_zeros() as usize;
@@ -172,13 +171,13 @@ impl NodeKind {
 //         }).collect()
 //     }
     
-//     let mut rut_cache = std::collections::HashMap::<u8, u8>::new();
-//     let mut man_cache = std::collections::HashMap::<u8, u8>::new();
-//     let mut lar_cache = std::collections::HashMap::<u8, u8>::new();
-//     let mut lab_cache = std::collections::HashMap::<Option<u8>, u8>::new();
-//     let mut cor_cache = std::collections::HashMap::<Option<u8>, u8>::new();
-//     let mut dor_cache = std::collections::HashMap::<Option<u8>, u8>::new();
-//     let mut phr_cache = std::collections::HashMap::<Option<u8>, u8>::new();
+//     let mut rut_cache = std::collections::HashMap::<u8, u64>::new();
+//     let mut man_cache = std::collections::HashMap::<u8, u64>::new();
+//     let mut lar_cache = std::collections::HashMap::<u8, u64>::new();
+//     let mut lab_cache = std::collections::HashMap::<Option<u8>, u64>::new();
+//     let mut cor_cache = std::collections::HashMap::<Option<u8>, u64>::new();
+//     let mut dor_cache = std::collections::HashMap::<Option<u8>, u64>::new();
+//     let mut phr_cache = std::collections::HashMap::<Option<u8>, u64>::new();
 
 //     let mut count = 0;
     
@@ -194,14 +193,14 @@ impl NodeKind {
 //         *phr_cache.entry(seg.pharyngeal).or_default() += 1;
 //         count += 1;
 //     });
-
-//     println!("rut: {} of {count} - {:#?}", rut_cache.len(), asdf(rut_cache));
-//     println!("man: {} of {count} - {:#?}", man_cache.len(), asdf(man_cache));
-//     println!("lar: {} of {count} - {:#?}", lar_cache.len(), asdf(lar_cache));
-//     println!("lab: {} of {count} - {:#?}", lab_cache.len(), qwer(lab_cache));
-//     println!("cor: {} of {count} - {:#?}", cor_cache.len(), qwer(cor_cache));
-//     println!("dor: {} of {count} - {:#?}", dor_cache.len(), qwer(dor_cache));
-//     println!("phr: {} of {count} - {:#?}", phr_cache.len(), qwer(phr_cache));
+//     println!("Of {count} cardinals:");
+//     println!("rut: - {:#?}", asdf(rut_cache));
+//     println!("man: - {:#?}", asdf(man_cache));
+//     println!("lar: - {:#?}", asdf(lar_cache));
+//     println!("lab: - {:#?}", qwer(lab_cache));
+//     println!("cor: - {:#?}", qwer(cor_cache));
+//     println!("dor: - {:#?}", qwer(dor_cache));
+//     println!("phr: - {:#?}", qwer(phr_cache));
 // }
 
 
@@ -283,28 +282,6 @@ impl fmt::Debug for Segment {
 
 impl Segment {
     pub fn get_as_grapheme(&self) -> Option<String> {
-        // fn match_from_modifiers(seg: &Segment, mods:&DiaMods) -> bool {
-        //     for (i, md) in mods.feats.iter().enumerate() {
-        //         let positive = match md {
-        //             Some(SegMKind::Binary(b)) => match b {
-        //                 BinMod::Negative => false,
-        //                 BinMod::Positive => true,
-        //             }
-        //             Some(SegMKind::Alpha(_)) => todo!(),
-        //             None => continue,
-        //         };
-        //         let (node, mask) = modifier_index_to_node_mask(i);
-        //         if seg.feat_match(node, mask, positive) {
-        //             continue;
-        //         }
-        //         return false
-        //     }
-        //     for (i, md) in mods.nodes.iter().enumerate() {
-        //         todo!()
-        //     }
-        //     true
-        // }
-
         // test against all cardinal values for a match
         for c_grapheme in CARDINALS_VEC.iter() {
             let x = CARDINALS_MAP.get(c_grapheme).unwrap();
@@ -556,7 +533,7 @@ impl Segment {
         Ok(())
     }
 
-    pub fn apply_seg_mods(&mut self, alphas: &RefCell<HashMap<char, Alpha>> , nodes: [Option<ModKind>; NodeType::count()], feats: [Option<ModKind>; FType::count()], err_pos: Position) -> Result<(), RuleRuntimeError>{
+    pub fn apply_seg_mods(&mut self, alphas: &RefCell<HashMap<char, Alpha>> , nodes: [Option<ModKind>; NodeType::count()], feats: [Option<ModKind>; FType::count()], err_pos: Position, is_matching_ipa: bool) -> Result<(), RuleRuntimeError>{
         for (i, m) in nodes.iter().enumerate() { 
             let node = NodeKind::from_usize(i);
             if let Some(kind) = m {
@@ -590,8 +567,9 @@ impl Segment {
                         },
                     },
                     ModKind::Alpha(am) => match am {
-                        AlphaMod::Alpha(a) => {
-                            if let Some(alpha) = alphas.borrow().get(a) {
+                        AlphaMod::Alpha(ch) => {
+                        let mut alpha_assigned = false; // needed because of borrow checker weirdness. See: https://github.com/rust-lang/rust/issues/113792
+                            if let Some(alpha) = alphas.borrow().get(ch) {
                                 if let Some((n, m)) = alpha.as_node() {
                                     if n == node {
                                         self.set_node(n, m);
@@ -619,11 +597,27 @@ impl Segment {
                                 } else {
                                     return Err(RuleRuntimeError::AlphaIsNotNode(err_pos))
                                 }
-                            } else {
-                                return Err(RuleRuntimeError::AlphaUnknown(err_pos))
+                                alpha_assigned = true;
+                            }
+                            if !alpha_assigned {
+                                if is_matching_ipa {
+                                    if node == NodeKind::Place {
+                                        let pm = crate::PlaceMod { 
+                                            lab: self.get_node(NodeKind::Labial), 
+                                            cor: self.get_node(NodeKind::Coronal), 
+                                            dor: self.get_node(NodeKind::Dorsal), 
+                                            phr: self.get_node(NodeKind::Pharyngeal) 
+                                        };
+                                        alphas.borrow_mut().insert(*ch, Alpha::Place(pm));
+                                    } else {
+                                        alphas.borrow_mut().insert(*ch, Alpha::Node(node, self.get_node(node)));
+                                    }
+                                } else {
+                                    return Err(RuleRuntimeError::AlphaUnknown(err_pos))
+                                }
                             }
                         },
-                        AlphaMod::InvAlpha(_) => todo!("Err: Nodes cannot be inverse alpha"), // I don't think this makes sense for applying nodes 
+                        AlphaMod::InvAlpha(_) => todo!("Err: Nodes cannot be assigned by an inverse alpha"), // I don't think this makes sense for applying nodes 
                     },
                 }
             }
@@ -637,20 +631,40 @@ impl Segment {
                         BinMod::Positive => self.set_feat(n, f, true),
                     },
                     ModKind::Alpha(am) => match am {
-                        AlphaMod::Alpha(a) => {
-                            if let Some(alpha) = alphas.borrow().get(a) {
+                        AlphaMod::Alpha(ch) => {
+                            let mut alpha_assigned = false;
+                            if let Some(alpha) = alphas.borrow().get(ch) {
                                 let tp = alpha.as_binary();
                                 self.set_feat(n, f, tp);
-                            } else {
-                                return Err(RuleRuntimeError::AlphaUnknown(err_pos))
+                                alpha_assigned = true;
+                            } 
+                            if !alpha_assigned {
+                                if is_matching_ipa {
+                                    let x = if let Some(feat) = self.get_feat(n, f) {
+                                        feat != 0
+                                    } else {false};
+                                    alphas.borrow_mut().insert(*ch, Alpha::Feature(x));
+                                } else {
+                                    return Err(RuleRuntimeError::AlphaUnknown(err_pos))
+                                }
                             }
                         },
-                        AlphaMod::InvAlpha(ia) => {
-                            if let Some(alpha) = alphas.borrow().get(ia) {
+                        AlphaMod::InvAlpha(ch) => {
+                            let mut alpha_assigned = false;
+                            if let Some(alpha) = alphas.borrow().get(ch) {
                                 let tp = alpha.as_binary();
-                                    self.set_feat(n, f, !tp);
-                            } else {
-                                return Err(RuleRuntimeError::AlphaUnknown(err_pos))
+                                self.set_feat(n, f, !tp);
+                                alpha_assigned = true;
+                            }
+                            if !alpha_assigned {
+                                if is_matching_ipa {
+                                    let x = if let Some(feat) = self.get_feat(n, f) {
+                                        feat != 0
+                                    } else {false};
+                                    alphas.borrow_mut().insert(*ch, Alpha::Feature(!x));
+                                } else {
+                                    return Err(RuleRuntimeError::AlphaUnknown(err_pos))
+                                }
                             }
                         },
                     },
@@ -659,20 +673,4 @@ impl Segment {
         }
         Ok(())
     } 
-
-    // pub fn inv_feat(&mut self, node: NodeKind, feat: u8) {
-    //     let n = match self.get_node(&node) {
-    //         Some(x) => x,
-    //         None => 0u8, // todo: maybe we should just return (or error) in this case?
-    //     };
-    //     self.set_node(node, Some(n ^ feat))
-    // }
-
-    // pub fn inv_node(&mut self, node: NodeKind) {
-    //     let n = match self.get_node(&node) {
-    //         Some(x) => x,
-    //         None => 0u8, // todo: again maybe we should just return/error
-    //     };
-    //     self.set_node(node, Some(!n))   
-    // }
 }
