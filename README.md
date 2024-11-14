@@ -7,6 +7,7 @@ This repo contains the logic for the applier which will be connected to a web fr
 - Out of the box Distinctive Features and Alpha Notation
 - Manipulation of Syllables, Stress, and Tone
 - Metathesis and Hyperthesis
+- Optional/Repeating Segments
 - Syntax which adheres to conventional standard notation
 - Digraph and Diacritic Support
 
@@ -14,9 +15,9 @@ This repo contains the logic for the applier which will be connected to a web fr
 ## Progress
 - [x] Parsing Words
 - [x] Parsing Rules
-- [ ] Matching Input
+- [x] Matching Input
     - [x] Simple segments
-    - [ ] Ellipsis and Optional Segments
+    - [X] Ellipsis
 - [ ] Applying Output
     - [x] Metathesis
     - [x] Deletion
@@ -25,7 +26,7 @@ This repo contains the logic for the applier which will be connected to a web fr
         - [x] Same length Substitution 
         - [x] Longer Input Substitution
         - [x] Longer Output Substitution
-- [ ] Matching Environment and Exceptions
+- [x] Matching Environment and Exceptions
     - [x] Simple segments
-    - [ ] Ellipsis and Optional Segments
+    - [x] Ellipsis and Optional Segments
 - [ ] WASM Bindgen
