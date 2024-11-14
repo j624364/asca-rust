@@ -280,18 +280,28 @@ mod rule_tests {
 
     #[test]
     fn test_germanic_a_mutation() {
-        let test_rule = setup_rule("V:[+hi] > [-hi] / _CCV:[+lo] // _NO");
-        // let test_rule = setup_rule("V:[+hi] > [-hi] / _ (C,2) V:[+lo]");
+        let test_rule = setup_rule("V:[+hi] > [-hi] / _ (C,1:2) V:[+lo] | _{j, N}");
+        // let test_rule = setup_rule("V:[+hi] > [-hi] / _ (C,1:2) V:[+lo] | _{j, NC}");
         let test_word = setup_word("ˈwur.ðɑ̃");
         assert_eq!(test_rule.apply(test_word).unwrap().render().unwrap(), "ˈwor.ðɑ̃");
         let test_word = setup_word("ˈne.stɑz");
         assert_eq!(test_rule.apply(test_word).unwrap().render().unwrap(), "ˈne.stɑz");
-        // let test_word = setup_word("ˈwi.rɑz");
-        // assert_eq!(test_rule.apply(test_word).unwrap().render().unwrap(), "ˈwe.rɑz");
+        let test_word = setup_word("ˈwi.rɑz");
+        assert_eq!(test_rule.apply(test_word).unwrap().render().unwrap(), "ˈwe.rɑz");
         let test_word = setup_word("ˈhur.nɑ̃");
         assert_eq!(test_rule.apply(test_word).unwrap().render().unwrap(), "ˈhor.nɑ̃");
         let test_word = setup_word("ˈnun.dɑz");
         assert_eq!(test_rule.apply(test_word).unwrap().render().unwrap(), "ˈnun.dɑz");
+        let test_word = setup_word("ˈswem.mɑ.nɑ̃");
+        assert_eq!(test_rule.apply(test_word).unwrap().render().unwrap(), "ˈswem.mɑ.nɑ̃");
+        let test_word = setup_word("ˈgul.ðɑ̃");
+        assert_eq!(test_rule.apply(test_word).unwrap().render().unwrap(), "ˈɡol.ðɑ̃");
+
+        let test_word = setup_word("ˈgul.ði.jɑ.nɑ");
+        assert_eq!(test_rule.apply(test_word).unwrap().render().unwrap(), "ˈɡul.ði.jɑ.nɑ");
+        
+        let test_word = setup_word("ˈwird.pɑz");
+        assert_eq!(test_rule.apply(test_word).unwrap().render().unwrap(), "ˈwird.pɑz");
     }
 
     #[test]
@@ -439,12 +449,31 @@ mod rule_tests {
     }
 
     #[test]
-    fn test_sub_assim_turk_contrived() {
-        let test_rule = setup_rule("[+syll, +hi] > [αbk, βfr, γrnd] / [αbk, βfr, γrnd] CC _C #");
+    fn test_sub_turkish_suffix_vowel_harmony() {
+        let test_rule = setup_rule("V:[+hi] > [αbk, βfr, γrnd] / V:[αbk, βfr, γrnd] (C,2) _(C) #");
+        let test_word = setup_word("desun");
+        assert_eq!(test_rule.apply(test_word).unwrap().render().unwrap(), "desin");
         let test_word = setup_word("røstin");
         assert_eq!(test_rule.apply(test_word).unwrap().render().unwrap(), "røstyn");
         let test_word = setup_word("kɨzlik");
         assert_eq!(test_rule.apply(test_word).unwrap().render().unwrap(), "kɨzlɨk");
+        let test_word = setup_word("sɨdyn");
+        assert_eq!(test_rule.apply(test_word).unwrap().render().unwrap(), "sɨdɨn");
+        let test_word = setup_word("sodɨn");
+        assert_eq!(test_rule.apply(test_word).unwrap().render().unwrap(), "sodun");
+        let test_word = setup_word("dasin");
+        assert_eq!(test_rule.apply(test_word).unwrap().render().unwrap(), "dasɨn");
+    }
+
+    #[test]
+    fn test_optional() {
+        let test_rule = setup_rule("a > e / _(C,3:6)");
+        let test_word = setup_word("ak.ka.k.k.k");
+        assert_eq!(test_rule.apply(test_word).unwrap().render().unwrap(), "ak.ke.k.k.k");
+
+        let test_rule = setup_rule("a > e / (C,3:6)_");
+        let test_word = setup_word("k.k.k.ak.ka");
+        assert_eq!(test_rule.apply(test_word).unwrap().render().unwrap(), "k.k.k.ek.ka");
     }
 
     #[test]
@@ -522,12 +551,12 @@ mod rule_tests {
         assert_eq!(test_rule.apply(test_word).unwrap().render().unwrap(), "ˈhors");
     }
 
-    // #[test]
-    // fn test_met_long_dist_ipa() {
-    //     let test_rule = setup_rule("r...l > &");
-    //     let test_word = setup_word("ˈpa.ra.bo.la");
-    //     assert_eq!(test_rule.apply(test_word).unwrap().render().unwrap(), "ˈpa.la.bo.ra");
-    // }
+    #[test]
+    fn test_met_long_dist_ipa() {
+        let test_rule = setup_rule("r...l > &");
+        let test_word = setup_word("ˈpa.ra.bo.la");
+        assert_eq!(test_rule.apply(test_word).unwrap().render().unwrap(), "ˈpa.la.bo.ra");
+    }
 
     #[test]
     fn test_met_syll_bound() {
@@ -593,6 +622,10 @@ mod rule_tests {
         let test_rule = setup_rule("[] > *  / _[]#");
         let test_word = setup_word("kat.kat");
         assert_eq!(test_rule.apply(test_word).unwrap().render().unwrap(), "kat.kt");
+
+        let test_rule = setup_rule("[] > *  / []_[]#");
+        let test_word = setup_word("kat.kat");
+        assert_eq!(test_rule.apply(test_word).unwrap().render().unwrap(), "kat.kt");
     }
 
     #[test]
@@ -608,6 +641,10 @@ mod rule_tests {
         let test_rule = setup_rule("[] > *  / #[]_[]");
         let test_word = setup_word("kat.kat");
         assert_eq!(test_rule.apply(test_word).unwrap().render().unwrap(), "kt.kat");
+
+        let test_rule = setup_rule("[] > e  / #[]_[]");
+        let test_word = setup_word("kat.kat");
+        assert_eq!(test_rule.apply(test_word).unwrap().render().unwrap(), "ket.kat");
     }
 
     #[test]
@@ -1065,8 +1102,8 @@ mod rule_tests {
         // V > [α front, β back] / _...V:[α front, β back]#
         // /sinotehu/ becomes /sɯnotɤhu/, as expected
 
-        // let test_rule = setup_rule("V > [α front, β back] / _...V:[α front, β back]#");
-        // assert_eq!(test_rule.apply(setup_word("si.no.te.hu")).unwrap().render().unwrap(), "sɯ.no.tɤ.hu");
+        let test_rule = setup_rule("V > [α front, β back] / _...V:[α front, β back]#");
+        assert_eq!(test_rule.apply(setup_word("si.no.te.hu")).unwrap().render().unwrap(), "sɯ.no.tɤ.hu");
     }
 
     #[test]
