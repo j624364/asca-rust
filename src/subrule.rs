@@ -227,11 +227,11 @@ impl SubRule {
                 pos.increment(word); 
                 Ok(true)
             } else { Ok(false) },
-            ParseElement::Matrix(m, v) => self.context_match_matrix(m, v, word, pos, forwards, state.position),
+            ParseElement::Matrix(m, v) => self.context_match_matrix(m, v, word, pos, state.position),
             ParseElement::Syllable(s, t, v) => self.context_match_syll(s, t, v, word, pos, forwards),
             ParseElement::Variable(vt, mods) => self.context_match_var(vt, mods, word, pos, forwards, state.position),
             ParseElement::Set(s) => self.context_match_set(s, word, pos, forwards),
-            ParseElement::Optional(opt_states, min, max) => self.context_match_option(states, state_index, word, pos, forwards, &opt_states, *min, *max),
+            ParseElement::Optional(opt_states, min, max) => self.context_match_option(states, state_index, word, pos, forwards, opt_states, *min, *max),
             ParseElement::Ellipsis => self.context_match_ellipsis(states, state_index, word, pos, forwards),
             
             
@@ -363,7 +363,7 @@ impl SubRule {
                 }
             }
             // println!("state ind: {}", state_index);
-            return Ok(false)
+            Ok(false)
         } else {
             
             todo!()
@@ -373,13 +373,13 @@ impl SubRule {
     fn context_match_set(&self, set: &[Item], word: &Word, pos: &mut SegPos, forwards: bool) -> Result<bool, RuleRuntimeError> {
         for s in set {
             let res = match &s.kind {
-                ParseElement::Variable(vt, m) => self.context_match_var(vt, m, word, pos, forwards, s.position),
-                ParseElement::Ipa(seg, m) => if self.context_match_ipa(seg, m, word, *pos, s.position)? {
+                ParseElement::Variable(vt, mods) => self.context_match_var(vt, mods, word, pos, forwards, s.position),
+                ParseElement::Ipa(seg, mods) => if self.context_match_ipa(seg, mods, word, *pos, s.position)? {
                     pos.increment(word);
                     Ok(true)
                 } else {Ok(false)},
-                ParseElement::Matrix(m, v) => self.context_match_matrix(m, v, word, pos, forwards, s.position),
-                ParseElement::Syllable(..) => todo!(),
+                ParseElement::Matrix(mods, var) => self.context_match_matrix(mods, var, word, pos, s.position),
+                ParseElement::Syllable(stress, tone, var) => self.context_match_syll(stress, tone, var, word, pos, forwards),
                 ParseElement::WordBound => Ok(word.out_of_bounds(*pos)),
                 ParseElement::SyllBound => Ok(pos.at_syll_start()),
                 _ => unimplemented!(),
@@ -471,7 +471,7 @@ impl SubRule {
         Ok(true)
     }
 
-    fn context_match_matrix(&self, mods: &Modifiers, var: &Option<usize>, word: &Word, pos: &mut SegPos, forwards: bool, err_pos: Position) -> Result<bool, RuleRuntimeError> {        
+    fn context_match_matrix(&self, mods: &Modifiers, var: &Option<usize>, word: &Word, pos: &mut SegPos, err_pos: Position) -> Result<bool, RuleRuntimeError> {        
         if word.out_of_bounds(*pos) {
             return Ok(false)
         }
@@ -479,7 +479,7 @@ impl SubRule {
             if let Some(v) = var {
                 self.variables.borrow_mut().insert(*v, VarKind::Segment(word.get_seg_at(*pos).unwrap()));
             }
-            pos.increment(word);
+            pos.increment(word); // TODO: Probably have to do what we do for input and account for long segments
             Ok(true)
         } else {
             Ok(false)
@@ -1194,7 +1194,11 @@ impl SubRule {
                                         }
                                         last_pos.seg_index +=1;
                                     }
-                                    _ => todo!("`Syllable` is not implemented in `Sets` yet")
+                                    ParseElement::Matrix(..) => {todo!()},
+                                    ParseElement::Variable(..) => {todo!()},
+                                    ParseElement::Syllable(..) => {todo!()},
+                                    ParseElement::SyllBound => {todo!()},
+                                    _ => unimplemented!(),
                                 }
                             } else {
                                 unimplemented!()
@@ -1534,7 +1538,6 @@ impl SubRule {
         let err_pos = states[*state_index].position;
         match &states[*state_index].kind {
             ParseElement::Variable(vt, m) => if self.input_match_var(captures, state_index, vt, m, word, seg_pos, err_pos)? {
-                seg_pos.increment(word);
                 *state_index += 1;
                 Ok(true)
             } else { Ok(false) },
@@ -1549,7 +1552,6 @@ impl SubRule {
                 Ok(true) 
             } else { Ok(false) },
             ParseElement::Set(s) => if self.input_match_set(captures, state_index, s, word, seg_pos)? {
-                seg_pos.increment(word); // TODO(girv): when we allow boundaries within sets, this will have to be incremented within the match_set function
                 *state_index += 1;
                 Ok(true)
             } else { Ok(false) },
@@ -1755,12 +1757,18 @@ impl SubRule {
     fn input_match_set(&self, captures: &mut Vec<MatchElement>, state_index: &mut usize, set: &[Item], word: &Word, pos: &mut SegPos) -> Result<bool, RuleRuntimeError> {
         for (i,s) in set.iter().enumerate() {
             let res = match &s.kind {
-                ParseElement::Variable(vt, m) => self.input_match_var(captures, state_index, vt, m, word, pos, s.position),
-                ParseElement::Ipa(seg, m)     => self.input_match_ipa(captures, seg, m, word, *pos, s.position),
-                ParseElement::Matrix(m, v)    => self.input_match_matrix(captures, m, v, word, pos, s.position),
-                ParseElement::Syllable(..) => todo!(),
-                ParseElement::WordBound => todo!(),
-                ParseElement::SyllBound => todo!(),
+                ParseElement::Variable(vt, mods) => self.input_match_var(captures, state_index, vt, mods, word, pos, s.position),
+                ParseElement::Ipa(seg, mods) => if self.input_match_ipa(captures, seg, mods, word, *pos, s.position)? {
+                    pos.increment(word);
+                    Ok(true)
+                } else { Ok(false) },
+                ParseElement::Matrix(mods, var) => if self.input_match_matrix(captures, mods, var, word, pos, s.position)? {
+                    pos.increment(word);
+                    Ok(true)
+                } else { Ok(false) },
+                ParseElement::Syllable(stress, tone, var) => self.input_match_syll(captures, state_index, stress, tone, var, word, pos),
+                ParseElement::SyllBound => Ok(pos.at_syll_start()),
+                ParseElement::WordBound => todo!("Err: WordBound not valid in input"),
                 _ => unimplemented!(),
             };
             if res? {
@@ -1820,9 +1828,9 @@ impl SubRule {
 
         // Because we are incrementing in the parent function in the case of a match
         // We must jump to the next syllable but not skip the segment at index 0
-        if pos.syll_index < word.syllables.len() {
-            pos.decrement(word);
-        }
+        // if pos.syll_index < word.syllables.len() {
+        //     pos.decrement(word);
+        // }
         
         Ok(true)
         
@@ -1831,7 +1839,10 @@ impl SubRule {
     fn input_match_var(&self, captures: &mut Vec<MatchElement>, state_index: &mut usize, vt: &Token, mods: &Option<Modifiers>, word: &Word, pos: &mut SegPos, err_pos: Position) -> Result<bool, RuleRuntimeError> {
         match self.variables.borrow_mut().get(&vt.value.parse::<usize>().unwrap()) {
             Some(var) => match var {
-                VarKind::Segment(s)  => self.input_match_ipa(captures, s, mods, word, *pos, err_pos),
+                VarKind::Segment(s)  => if self.input_match_ipa(captures, s, mods, word, *pos, err_pos)? {
+                    pos.increment(word);
+                    Ok(true)
+                } else { Ok(false) },
                 VarKind::Syllable(s) => self.input_match_syll_var(captures, state_index , s, mods, word, pos),
             },
             None => Err(RuleRuntimeError::UnknownVariable(vt.clone())),
@@ -1865,7 +1876,7 @@ impl SubRule {
     fn match_ipa_with_modifiers(&self, s: &Segment, mods: &Modifiers, word: &Word, pos: &SegPos, err_pos: Position) -> Result<bool, RuleRuntimeError> {
         let mut seg = word.get_seg_at(*pos).expect("Segment Position should be within bounds");
 
-        seg.apply_seg_mods(&self.alphas, mods.nodes, mods.feats, err_pos)?;
+        seg.apply_seg_mods(&self.alphas, mods.nodes, mods.feats, err_pos, true)?;
 
         if *s == seg {
             Ok(self.match_supr_mod_seg(word, &mods.suprs, pos)?)
