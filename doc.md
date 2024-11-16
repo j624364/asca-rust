@@ -367,18 +367,18 @@ V -> Vowels                                         (equiv. to [-cons, +son, +sy
 Note that purely glottalic consonants such as `/h/ and /ʔ/` are considered `[-cons, -son, -syll]` and are therefore not captured by any grouping other than `C`. 
 
 ## Sets
-Sets are defined between curly brackets `{}` and can contain IPA, Groups, Matrices or Boundaries.  
+Sets are defined between curly brackets `{}` and can contain IPA, Groups, Matrices, Syllables, or Boundaries.  
 Currently, sets cannot contain sequences (i.e. cannot have `{nd, NC}`).
 
 ```
 p, t, k > b, d, g       (3 Rules)   
 {p, t, k} > {b, d, g}   (1 Rule)
 ```
-A set in the output if matched to a set in the input must contain the same number of segments.
-
+A set in the output if matched to a set in the input must contain the same number of segments. 
 ```
 {p, t} > {b, d, g}      (ERROR)
 ```
+A set in the input or output also cannot contain word boundaries.
 
 ## Gemination
 Geminating a consonant is as simple as making a vowel long.
@@ -419,7 +419,7 @@ Rule Example: Malay Nasalisation
 [+son] > [α nasal] / [α nasal]_
 ```
 ```
-Rule Example: Turkish Vowel Harmony
+Rule Example: Turkish Suffix Vowel Harmony
 
 V:[+hi] > [αbk, βfr, γrnd] / V:[αbk, βfr, γrnd] (C,0) _ (C) #
 ```
@@ -465,10 +465,10 @@ In the rule above, plosives and nasals cluster only if they are of a different p
 Variables allow us to invoke a previously matched element. Variables are declared by using the `=` operator, followed by a number. This number can then be used later in the rule to invoke the variable.
 Currently; matrices, groups, and syllables can be assigned to a variable.
 
-Using variables, we can implement basic metathesis without need of the `&` operator.
+Using variables, we can implement metathesis without need of the `&` operator.
 ```
 Old English R metathesis (hros > hors)
-[+rho]=1 V=2 > 2 1  / _s
+[+rho]=1 V=2 > 2 1 / _s
 ```
 
 It can also be used to define a simple haplology rule.
@@ -523,6 +523,9 @@ $ > * / _C# (the two syllables are merged by deleting the boundary between them)
 `A syllable added to the beginning of a word in a substitution rule steals stress`
 
 `Sequence of identical segments (e.g. VV_) are parsed differently to long segments (e.g. V:[+long]) in before_context`
+
+`Cannot use "'" within words as an alias for "ʼ" as "'" is used to mark primary stress`
+
 
 `Special Environment` 
 
