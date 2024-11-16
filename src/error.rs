@@ -70,6 +70,7 @@ pub enum WordSyntaxError {
     DiacriticDoesNotMeetPreReqsFeat(String, usize, String, bool),
     DiacriticDoesNotMeetPreReqsNode(String, usize, String, bool),
     CouldNotParse(String),
+    CouldNotParseEjective(String)
 }
 
 impl ASCAError for WordSyntaxError {
@@ -79,6 +80,7 @@ impl ASCAError for WordSyntaxError {
             WordSyntaxError::NoSegmentBeforeColon(_, _)             => "No Segment Before Colon".to_string(),
             WordSyntaxError::DiacriticBeforeSegment(_, _)           => "Diacritic Before Segment".to_string(),
             WordSyntaxError::CouldNotParse(_)                       => "Unable to parse word".to_string(),
+            WordSyntaxError::CouldNotParseEjective(_)               => "Unable to parse word. If you meant to have an ejective, you must use ʼ".to_string(),
             WordSyntaxError::DiacriticDoesNotMeetPreReqsFeat(txt, i, t, pos) |
             WordSyntaxError::DiacriticDoesNotMeetPreReqsNode(txt, i, t, pos) => {
                 format!("Segment does not have prerequisite properties to have diacritic `{}`. Must be {}{}", txt.chars().nth(*i).unwrap_or_default(), if *pos { '+' } else { '-' },t)
@@ -86,12 +88,16 @@ impl ASCAError for WordSyntaxError {
         }
     }
 
-    fn format_error(&self, _rules: &[String]) -> String {
+    fn format_error(&self, _: &[String]) -> String {
         const MARG: &str = "\n    |     ";
         let mut result = format!("{} {}", "Word Syntax Error".bright_red().bold(), self.get_error_message().bold());
         let (arrows, text) = match self {
             Self::CouldNotParse(text) => (
                 "^".repeat(text.chars().count()) + "\n", 
+                text
+            ),
+            Self::CouldNotParseEjective(text) => (
+                " ".repeat(text.chars().count() - 1) + "^\n",
                 text
             ),
             Self::UnknownChar(text, i)            |

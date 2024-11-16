@@ -389,6 +389,13 @@ impl Word {
         }
         if sy.segments.is_empty() {
             if !sy.tone.is_empty() || sy.stress != StressKind::Unstressed {
+                if sy.stress == StressKind::Primary {
+                    if let Some(syll) = self.syllables.last() {
+                        if !syll.segments.is_empty() {
+                            return Err(WordSyntaxError::CouldNotParseEjective(input_txt))
+                        }
+                    }
+                }
                 return Err(WordSyntaxError::CouldNotParse(input_txt));
             } 
         } else {
