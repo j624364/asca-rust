@@ -34,7 +34,7 @@ lazy_static! {
             /*RUT*/ Consonantal, Sonorant, Syllabic,      
             /*MAN*/ Continuant, Approximant, Lateral, Nasal, DelayedRelease, Strident, Rhotic, Click,          
             /*LAR*/ Voice, SpreadGlottis, ConstrGlottis,   
-            /*LAB*/ Bilabial, Round,          
+            /*LAB*/ Labiodental, Round,          
             /*COR*/ Anterior, Distributed,     
             /*DOR*/ Front, Back, High, Low, Tense, Reduced,        
             /*PHR*/ AdvancedTongueRoot, RetractedTongueRoot, 
