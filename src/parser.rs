@@ -501,9 +501,28 @@ impl Parser {
 
             // TODO(girv): possible other groups
             // "B"  // Bilabial
-            // "P"  // Palatal
-            // "K"  // Velar
-            // "Q"  // Uvular
+            // "T"  // Palatal  [+dist, +fr, -bk, +hi, -lo]
+            // "K"  // Velar    [-fr, +bk, +hi, -lo]
+            // "Q"  // Uvular   [-fr, +bk, -hi, -lo]
+
+            
+            // [+fr, +bk, +hi, +lo] > �
+            // [+fr, +bk, +hi, -lo] > � [+dist] Velarised Palatal
+            // [+fr, +bk, -hi, +lo] > �
+            // [+fr, +bk, -hi, -lo] > �
+            // [+fr, -bk, +hi, +lo] > �
+            // [+fr, -bk, +hi, -lo] > �  [+dist] Palatal
+            // [+fr, -bk, -hi, +lo] > �
+            // [+fr, -bk, -hi, -lo] > �
+            // [-fr, +bk, +hi, +lo] > �
+            // [-fr, +bk, +hi, -lo] > Velar
+            // [-fr, +bk, -hi, +lo] > �
+            // [-fr, +bk, -hi, -lo] > Uvular
+            // [-fr, -bk, +hi, +lo] > �
+            // [-fr, -bk, +hi, -lo] > Palatal Velar
+            // [-fr, -bk, -hi, +lo] > �
+            // [-fr, -bk, -hi, -lo] > �
+
             _ => return Err(RuleSyntaxError::UnknownGrouping(chr)),
         }).into_iter().for_each(|(feature, value)| {
             args.feats[feature as usize] = Some(value)
@@ -790,8 +809,11 @@ impl Parser {
                 terms.push(x);
                 continue;
             }
+            if let Some(x) = self.get_syll()? {
+                terms.push(x);
+                continue;
+            }
 
-            // TODO(girv): allow more than just segments and boundaries
             return Err(RuleSyntaxError::ExpectedSegment(self.curr_tkn.clone()))
         }
 
