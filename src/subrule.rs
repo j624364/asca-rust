@@ -1482,8 +1482,8 @@ impl SubRule {
 
         while word.in_bounds(cur_index) {
             if self.input_match_item(&mut captures, &mut cur_index, &mut state_index, word, &self.input)? {
+                // if we have a full match
                 if state_index > self.input.len() - 1 { 
-                    // if we have a full match
 
                     // As matching a syllbound doesn't increment, this is to avoid an infinite loop
                     if self.input.last().unwrap().kind == ParseElement::SyllBound {
@@ -1493,7 +1493,11 @@ impl SubRule {
                 }
                 if match_begin.is_none() { 
                     // if we haven't started matching, we have now
-                    match_begin = Some(cur_index)
+                    match captures.last().expect("") {
+                        MatchElement::Segment(sp, _) => match_begin = Some(*sp),
+                        MatchElement::Syllable(sp, _) |
+                        MatchElement::SyllBound(sp, _) => match_begin = Some(SegPos { syll_index: *sp, seg_index: 0 }),
+                    }
                 }
                 // else continue 
             } else if let Some (x) = match_begin { 
