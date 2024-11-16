@@ -115,6 +115,7 @@ impl Word {
                     .replace(';',  "ː.")
                     .replace('g',  "ɡ")
                     .replace('?',  "ʔ")
+                    .replace('!',  "ǃ")
                     .replace('ǝ',  "ə");
         w.setup(t)?;
 
@@ -319,6 +320,14 @@ impl Word {
                             continue;
                         }
                     }
+                    // if a click consonant
+                    if let Some('ʘ' | 'ǀ' | 'ǁ' | 'ǃ'  | '‼' | 'ǂ') = txt.get(i+1) {
+                        tmp.pop();
+                        tmp.push(txt[i]);
+                        i += 1;
+                        continue;
+                    }
+
                     break;
                 }
                 let maybe_seg = CARDINALS_MAP.get(&buffer);

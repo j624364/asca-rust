@@ -535,16 +535,27 @@ impl<'a> Lexer<'a> {
             .to_string()
             .replace('g',  "ɡ")
             .replace('?',  "ʔ")
+            .replace('!',  "ǃ")
             .replace('ǝ',  "ə");
 
         if CARDINALS_TRIE.contains_prefix(buffer.as_str()) {
             self.advance();
             loop {
-                let mut tmp = buffer.clone(); tmp.push(self.curr_char());
+                let mut tmp = buffer.clone(); 
+                tmp.push(self.curr_char());
                 if CARDINALS_TRIE.contains_prefix(tmp.as_str()) {
                     buffer.push(self.curr_char());
                     self.advance();
                     continue;
+                }
+                if self.curr_char() == '!' {
+                    tmp.pop();
+                    tmp.push('ǃ');
+                    if CARDINALS_TRIE.contains_prefix(tmp.as_str()) {
+                        buffer.push('ǃ');
+                        self.advance();
+                        continue;
+                    }
                 }
                 if self.curr_char() == '^' {
                     tmp.pop();
@@ -554,11 +565,17 @@ impl<'a> Lexer<'a> {
                         self.advance();
                         continue;
                     }
-
                     tmp.pop();
                     tmp.push('\u{035C}');
                     if CARDINALS_TRIE.contains_prefix(tmp.as_str()) {
                         buffer.push('\u{035C}');
+                        self.advance();
+                        continue;
+                    }
+                    // if a click consonant
+                    if let 'ʘ' | 'ǀ' | 'ǁ' | 'ǃ' | '!' | '‼' | 'ǂ' = self.next_char() {
+                        tmp.pop();
+                        tmp.push(self.curr_char());
                         self.advance();
                         continue;
                     }
