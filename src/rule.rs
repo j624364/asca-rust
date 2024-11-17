@@ -233,7 +233,6 @@ mod rule_tests {
 
     #[test]
     fn test_semivowel_syllabication() {
-        // let test_rule = setup_rule("q > [+dist, +fr, -bk, -hi, +lo]");
         let test_rule = setup_rule("[-syll, +approx, -lat, Ahi] > [+syll, +son, -cons, +lab, - PHR, Atense]");
         let test_word = setup_word("ʕ̞.w.ʟ");
         assert_eq!(test_rule.apply(test_word).unwrap().render().unwrap(), "ɑ.u.ʟ");
@@ -291,7 +290,7 @@ mod rule_tests {
 
     #[test]
     fn test_germanic_a_mutation() {
-        let test_rule = setup_rule("V:[+hi] > [-hi] / _ (C,1:2) V:[+lo] | _{j, N}");
+        let test_rule = setup_rule("V:[+hi] > [-hi] / _ (C,2) V:[+lo] | _{j, N}");
         // let test_rule = setup_rule("V:[+hi] > [-hi] / _ (C,1:2) V:[+lo] | _{j, NC}");
         let test_word = setup_word("ˈwur.ðɑ̃");
         assert_eq!(test_rule.apply(test_word).unwrap().render().unwrap(), "ˈwor.ðɑ̃");
@@ -426,7 +425,7 @@ mod rule_tests {
         assert_eq!(test_rule.apply(test_word).unwrap().render().unwrap(), "da.k12.emo");  // weird, but makes sense
         let test_rule = setup_rule("a > a%:[tone:12]=1e1");
         let test_word = setup_word("dak");
-        assert_eq!(test_rule.apply(test_word).unwrap().render().unwrap(), "da.ke12.k12"); // also weird
+        assert_eq!(test_rule.apply(test_word).unwrap().render().unwrap(), "da.ke12.k12"); // also weird but makes sense
 
         let test_rule = setup_rule("k > k%");
         let test_word = setup_word("dak");
@@ -461,7 +460,7 @@ mod rule_tests {
 
     #[test]
     fn test_sub_turkish_suffix_vowel_harmony() {
-        let test_rule = setup_rule("V:[+hi] > [αbk, βfr, γrnd] / V:[αbk, βfr, γrnd] (C,2) _(C) #");
+        let test_rule = setup_rule("V:[+hi] > [αbk, βfr, γrnd] / V:[αbk, βfr, γrnd] (C,0) _ (C) #");
         let test_word = setup_word("desun");
         assert_eq!(test_rule.apply(test_word).unwrap().render().unwrap(), "desin");
         let test_word = setup_word("røstin");
@@ -477,7 +476,7 @@ mod rule_tests {
     }
 
     #[test]
-    fn test_optional() {
+    fn test_optional_bounded() {
         let test_rule = setup_rule("a > e / _(C,3:6)");
         let test_word = setup_word("ak.ka.k.k.k");
         assert_eq!(test_rule.apply(test_word).unwrap().render().unwrap(), "ak.ke.k.k.k");
@@ -485,6 +484,15 @@ mod rule_tests {
         let test_rule = setup_rule("a > e / (C,3:6)_");
         let test_word = setup_word("k.k.k.ak.ka");
         assert_eq!(test_rule.apply(test_word).unwrap().render().unwrap(), "k.k.k.ek.ka");
+    }
+
+    #[test]
+    fn test_optional_unbounded() {
+        let test_rule = setup_rule("V > [-back, +front, +tense] / _([],0) V:[+hi, -back]");
+        let test_word = setup_word("aki");
+        assert_eq!(test_rule.apply(test_word).unwrap().render().unwrap(), "æki");
+        let test_word = setup_word("ak.k.k.ki");
+        assert_eq!(test_rule.apply(test_word).unwrap().render().unwrap(), "æk.k.k.ki");
     }
 
     #[test]
@@ -881,10 +889,17 @@ mod rule_tests {
 
     #[test]
     fn test_nasal_assim() {
-        let test_rule = setup_rule("[+nasal] > [αPLACE] / _C:[αPLACE]");
+        let test_rule = setup_rule("[+nasal] > [αPLACE] / _C:[αPLACE] | _[-place]");
         assert_eq!(test_rule.apply(setup_word("ˈsɑm.dɑz")).unwrap().render().unwrap(), "ˈsɑn.dɑz");
         assert_eq!(test_rule.apply(setup_word("ˈhʊng")).unwrap().render().unwrap(), "ˈhʊŋɡ");
         assert_eq!(test_rule.apply(setup_word("ˈɪn.pʊt")).unwrap().render().unwrap(), "ˈɪm.pʊt");
+
+        assert_eq!(test_rule.apply(setup_word("samk")).unwrap().render().unwrap(), "saŋk");
+        assert_eq!(test_rule.apply(setup_word("sang")).unwrap().render().unwrap(), "saŋɡ");
+        assert_eq!(test_rule.apply(setup_word("sanp")).unwrap().render().unwrap(), "samp");
+        assert_eq!(test_rule.apply(setup_word("sanf")).unwrap().render().unwrap(), "saɱf");
+        assert_eq!(test_rule.apply(setup_word("sanq")).unwrap().render().unwrap(), "saɴq");
+        assert_eq!(test_rule.apply(setup_word("san?")).unwrap().render().unwrap(), "sanʔ");
     }
 
     #[test]
@@ -1056,6 +1071,16 @@ mod rule_tests {
         assert_eq!(test_rule.apply(setup_word("a.ba.ki.noː")).unwrap().render().unwrap(), "aˈba.ki.noː"); 
         assert_eq!(test_rule.apply(setup_word("sep.ti.mus")).unwrap().render().unwrap(), "ˈsep.ti.mus"); 
         assert_eq!(test_rule.apply(setup_word("sep.tem.ber")).unwrap().render().unwrap(), "sepˈtem.ber"); 
+    }
+
+    #[test]
+    fn test_haplology() {
+        let test_rule = setup_rule("%=1 > * / 1_");
+        assert_eq!(test_rule.apply(setup_word("hap.lo.lo.ɡi")).unwrap().render().unwrap(), "hap.lo.ɡi");
+        assert_eq!(test_rule.apply(setup_word("nu.tri.tri")).unwrap().render().unwrap(), "nu.tri");
+        assert_eq!(test_rule.apply(setup_word("tra.ɡi.co.co.mi.co")).unwrap().render().unwrap(), "tra.ɡi.co.mi.co");
+        assert_eq!(test_rule.apply(setup_word("nar.si.si.zm")).unwrap().render().unwrap(), "nar.si.zm");
+        assert_eq!(test_rule.apply(setup_word("mor.fo.fo.no.lo.ɡi")).unwrap().render().unwrap(), "mor.fo.no.lo.ɡi");
     }
 
     #[test]
