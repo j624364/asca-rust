@@ -1028,7 +1028,7 @@ impl SubRule {
     }
 
     fn apply_syll_mods(&self, word: &mut Word, syll_index: usize, mods: &SupraSegs, var: &Option<usize>, err_pos: Position) -> Result<(), RuleRuntimeError> {
-        word.syllables.get_mut(syll_index).unwrap().apply_syll_mods(&self.alphas, &mods, err_pos)?;
+        word.syllables.get_mut(syll_index).unwrap().apply_syll_mods(&self.alphas, mods, err_pos)?;
         
         if let Some(v) = var {
             self.variables.borrow_mut().insert(*v, VarKind::Syllable(word.syllables[syll_index].clone()));
@@ -1073,10 +1073,8 @@ impl SubRule {
                             debug_assert!(res_word.in_bounds(sp));
                             let lc = self.apply_seg_mods(&mut res_word, sp, m, v, out_state.position)?;
                             total_len_change[sp.syll_index] += lc;
-                            match lc.cmp(&0) {
-                                std::cmp::Ordering::Greater =>  last_pos.seg_index += lc.unsigned_abs() as usize,
-                                // std::cmp::Ordering::Less    =>  last_pos.seg_index -= lc.unsigned_abs() as usize,
-                                _ => {},
+                            if lc > 0 {
+                                last_pos.seg_index += lc.unsigned_abs() as usize;
                             }
                         },
                         MatchElement::Syllable(sp, _)  => {
@@ -1099,10 +1097,8 @@ impl SubRule {
                         // "Replace with output IPA.
                         let lc = res_word.syllables[sp.syll_index].replace_segment(sp.seg_index, seg, mods, &self.alphas, out_state.position)?;
                         total_len_change[sp.syll_index] += lc;
-                        match lc.cmp(&0) {
-                            std::cmp::Ordering::Greater => last_pos.seg_index += lc.unsigned_abs() as usize,
-                            // std::cmp::Ordering::Less    =>  last_pos.seg_index -= lc.unsigned_abs() as usize,
-                            _ => {},
+                        if lc > 0 {
+                            last_pos.seg_index += lc.unsigned_abs() as usize;
                         }
                         last_pos.seg_index +=1;
                     },    
@@ -1123,10 +1119,8 @@ impl SubRule {
                                 if let Some(m) = mods {
                                     let lc = res_word.apply_seg_mods(&self.alphas, m, sp, num.position)?;
                                     total_len_change[sp.syll_index] += lc;
-                                    match lc.cmp(&0) {
-                                        std::cmp::Ordering::Greater =>  last_pos.seg_index += lc.unsigned_abs() as usize,
-                                        // std::cmp::Ordering::Less    =>  last_pos.seg_index -= lc.unsigned_abs() as usize,
-                                        _ => {},
+                                    if lc > 0 {
+                                        last_pos.seg_index += lc.unsigned_abs() as usize;
                                     }
                                 }
                                 last_pos.seg_index +=1;
@@ -1170,10 +1164,8 @@ impl SubRule {
                                             if let Some(m) = mods {
                                                 let lc = res_word.apply_seg_mods(&self.alphas, m, sp, set_output[i].position)?;
                                                 total_len_change[sp.syll_index] += lc;
-                                                match lc.cmp(&0) {
-                                                    std::cmp::Ordering::Greater =>  last_pos.seg_index += lc.unsigned_abs() as usize,
-                                                    // std::cmp::Ordering::Less    =>  last_pos.seg_index -= lc.unsigned_abs() as usize,
-                                                    _ => {},
+                                                if lc > 0 {
+                                                    last_pos.seg_index += lc.unsigned_abs() as usize;
                                                 }
                                             }
                                             last_pos.seg_index +=1;
@@ -1181,10 +1173,8 @@ impl SubRule {
                                         ParseElement::Matrix(mods, var) => {
                                             let lc = self.apply_seg_mods(&mut res_word, sp, mods, var, out_state.position)?;
                                             total_len_change[sp.syll_index] += lc;
-                                            match lc.cmp(&0) {
-                                                std::cmp::Ordering::Greater =>  last_pos.seg_index += lc.unsigned_abs() as usize,
-                                                // std::cmp::Ordering::Less    =>  last_pos.seg_index -= lc.unsigned_abs() as usize,
-                                                _ => {},
+                                            if lc > 0 {
+                                                last_pos.seg_index += lc.unsigned_abs() as usize;
                                             }
                                             last_pos.seg_index +=1;
                                         },
@@ -1196,10 +1186,8 @@ impl SubRule {
                                                         if let Some(m) = mods {
                                                             let lc = res_word.apply_seg_mods(&self.alphas, m, sp, num.position)?;
                                                             total_len_change[sp.syll_index] += lc;
-                                                            match lc.cmp(&0) {
-                                                                std::cmp::Ordering::Greater =>  last_pos.seg_index += lc.unsigned_abs() as usize,
-                                                                // std::cmp::Ordering::Less    =>  last_pos.seg_index -= lc.unsigned_abs() as usize,
-                                                                _ => {},
+                                                            if lc > 0 {
+                                                                last_pos.seg_index += lc.unsigned_abs() as usize;
                                                             }
                                                         }
                                                         last_pos.seg_index +=1;
@@ -1301,11 +1289,8 @@ impl SubRule {
                         }          
                         if let Some(m) = mods {
                             let lc = res_word.apply_seg_mods(&self.alphas, m, pos, z.position)?;
-    
-                            match lc.cmp(&0) {
-                                std::cmp::Ordering::Greater => pos.seg_index += lc.unsigned_abs() as usize,
-                                // std::cmp::Ordering::Less    => pos.seg_index -= lc.unsigned_abs() as usize,
-                                _ => {}
+                            if lc > 0 {
+                                pos.seg_index += lc.unsigned_abs() as usize;
                             }
                         }          
                         
