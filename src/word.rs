@@ -333,13 +333,20 @@ impl Word {
                             i += 1;
                             continue;
                         }
-                    }
-                    // if a click consonant
-                    if let Some('ʘ' | 'ǀ' | 'ǁ' | 'ǃ'  | '‼' | 'ǂ') = txt.get(i+1) {
-                        tmp.pop();
-                        tmp.push(txt[i]);
-                        i += 1;
-                        continue;
+                        // if a click consonant
+                        if let Some('ʘ' | 'ǀ' | 'ǁ' | 'ǃ'  | '‼' | 'ǂ') = txt.get(i+1) {
+                            tmp.pop(); tmp.push(txt[i]);
+                            i += 1;
+                            continue;
+                        }
+                        // if a contour click
+                        if let Some('q'| 'ɢ' | 'ɴ' | 'χ' | 'ʁ') = txt.get(i+1) {
+                            if let Some('ʘ' | 'ǀ' | 'ǁ' | 'ǃ' | '‼' | 'ǂ') = tmp.chars().next() {
+                                tmp.pop(); tmp.push(txt[i]);
+                                i += 1;
+                                continue;
+                            }
+                        }
                     }
 
                     break;
@@ -439,6 +446,8 @@ impl Word {
 #[cfg(test)]
 mod word_tests {
 
+    use crate::ASCAError;
+
     use super::*;
 
     #[test]
@@ -487,4 +496,38 @@ mod word_tests {
         assert_eq!(w.render().unwrap(), "ˈpʰiːkʲ");
     }
 
+    #[test]
+    fn test_render_aliases() {
+        match Word::new("'GAN;CEUN!e".to_owned()) {
+            Ok(w) => assert_eq!(w.render().unwrap(), "ˈɢɐɴː.ɕɛʊɴǃe"),
+            Err(e) => {
+                println!("{}", e.format_error(&[]));
+                assert!(false);
+            }
+        } 
+    }
+
+
+    // .replace(',',  "ˌ")
+    //                 .replace(':',  "ː")
+    //                 .replace(';',  "ː.")
+    //                 .replace('g',  "ɡ")
+    //                 .replace('?',  "ʔ")
+    //                 .replace('!',  "ǃ")
+    //                 .replace('S',  "ʃ")
+    //                 .replace('Z',  "ʒ")
+    //                 .replace('C',  "ɕ")
+    //                 .replace('G',  "ɢ")
+    //                 .replace('N',  "ɴ")
+    //                 .replace('B',  "ʙ")
+    //                 .replace('R',  "ʀ")
+    //                 .replace('X',  "χ")
+    //                 .replace('H',  "ʜ")
+    //                 .replace('A',  "ɐ")
+    //                 .replace('E',  "ɛ")
+    //                 .replace('I',  "ɪ")
+    //                 .replace('O',  "ɔ")
+    //                 .replace('U',  "ʊ")
+    //                 .replace('Y',  "ʏ")
+    //                 .replace('ǝ',  "ə");
 }
