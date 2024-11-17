@@ -72,7 +72,7 @@ impl SegPos {
     pub fn at_word_start(&self) -> bool {
         self.syll_index == 0 && self.seg_index == 0
     }
-
+    #[allow(unused)]
     pub fn at_word_end(&self, word: &Word) -> bool {
         self.syll_index == word.syllables.len() - 1 && self.seg_index >= word.syllables[self.syll_index].segments.len() - 1
     }
@@ -81,11 +81,10 @@ impl SegPos {
         // NOTE: does not account for out_of_bounds
         self.seg_index == 0
     }
-
+    #[allow(unused)]
     pub fn at_syll_end(&self, word: &Word) -> bool {
         // NOTE: returns false if out_of_bounds
         self.syll_index < word.syllables.len() && self.seg_index >= word.syllables[self.syll_index].segments.len() - 1
-
     }
 }
 
@@ -142,12 +141,12 @@ impl Word {
         }
         Ok(buffer)
     }
-
+    #[allow(unused)]
     pub fn get_syll_segments(&self, syll_index: usize) -> &VecDeque<Segment> {
         debug_assert!(syll_index < self.syllables.len());
         &self.syllables[syll_index].segments
     } 
-
+    #[allow(unused)]
     pub fn get_syll_segments_mut(&mut self, syll_index: usize) -> &mut VecDeque<Segment> {
         debug_assert!(syll_index < self.syllables.len());
         &mut self.syllables[syll_index].segments
