@@ -1027,9 +1027,8 @@ impl SubRule {
         }
     }
 
-    fn apply_syll_mods(&self, word: &mut Word, syll_index: usize, mods: &Modifiers, var: &Option<usize>, err_pos: Position) -> Result<(), RuleRuntimeError> {
-        // NOTE(girv): Maybe we should give a warning if we have non-syllable features 
-        word.syllables.get_mut(syll_index).unwrap().apply_syll_mods(&self.alphas, /*&self.variables,*/ &mods.suprs, err_pos)?;
+    fn apply_syll_mods(&self, word: &mut Word, syll_index: usize, mods: &SupraSegs, var: &Option<usize>, err_pos: Position) -> Result<(), RuleRuntimeError> {
+        word.syllables.get_mut(syll_index).unwrap().apply_syll_mods(&self.alphas, &mods, err_pos)?;
         
         if let Some(v) = var {
             self.variables.borrow_mut().insert(*v, VarKind::Syllable(word.syllables[syll_index].clone()));
@@ -1047,6 +1046,7 @@ impl SubRule {
         Ok(lc)
     }
     
+    // TODO: break this up
     fn substitution(&self, word: &Word, input: Vec<MatchElement>, next_pos: &mut Option<SegPos>) -> Result<Word, RuleRuntimeError> {
         // the SegPositions captured in input will not be correct if we change the length of a segment
         // therefore we must keep track of a change in a syllable's length and update the SegPositions accordingly
@@ -1075,14 +1075,14 @@ impl SubRule {
                             total_len_change[sp.syll_index] += lc;
                             match lc.cmp(&0) {
                                 std::cmp::Ordering::Greater =>  last_pos.seg_index += lc.unsigned_abs() as usize,
-                                std::cmp::Ordering::Less    =>  last_pos.seg_index -= lc.unsigned_abs() as usize,
+                                // std::cmp::Ordering::Less    =>  last_pos.seg_index -= lc.unsigned_abs() as usize,
                                 _ => {},
                             }
                         },
                         MatchElement::Syllable(sp, _)  => {
                             last_pos.syll_index = sp;
-                            self.apply_syll_mods(&mut res_word, sp, m, v, out_state.position)?;
-                            
+                            last_pos.seg_index = 0;
+                            self.apply_syll_mods(&mut res_word, sp, &m.suprs, v, out_state.position)?;                            
                         },
                         MatchElement::SyllBound(..)  => todo!("Err: Can't apply matrix to syllable boundary"),
                     }
@@ -1095,25 +1095,16 @@ impl SubRule {
                             _ => {},
                         }
                         last_pos = sp;
-                        println!("LP1: {:?}", last_pos);
                         debug_assert!(res_word.in_bounds(sp));
                         // "Replace with output IPA.
                         let lc = res_word.syllables[sp.syll_index].replace_segment(sp.seg_index, seg, mods, &self.alphas, out_state.position)?;
                         total_len_change[sp.syll_index] += lc;
-                        println!("LP2: {:?}", last_pos);
-                        println!("LC: {}", lc);
-                        // if let Some(pos) = next_pos { 
-                            match lc.cmp(&0) {
-                                std::cmp::Ordering::Greater =>  last_pos.seg_index += lc.unsigned_abs() as usize,
-                                // std::cmp::Ordering::Less    =>  last_pos.seg_index -= lc.unsigned_abs() as usize,
-                                _ => {},
-                            }
-                        // }
-                        println!("LP3: {:?}", last_pos);
+                        match lc.cmp(&0) {
+                            std::cmp::Ordering::Greater => last_pos.seg_index += lc.unsigned_abs() as usize,
+                            // std::cmp::Ordering::Less    =>  last_pos.seg_index -= lc.unsigned_abs() as usize,
+                            _ => {},
+                        }
                         last_pos.seg_index +=1;
-                        println!("LP4: {:?}", last_pos);
-
-                        
                     },    
                     MatchElement::Syllable(..) | MatchElement::SyllBound(..) => todo!("Err"),
                 },
@@ -1132,28 +1123,22 @@ impl SubRule {
                                 if let Some(m) = mods {
                                     let lc = res_word.apply_seg_mods(&self.alphas, m, sp, num.position)?;
                                     total_len_change[sp.syll_index] += lc;
-                                    // if let Some(pos) = next_pos { 
-                                        match lc.cmp(&0) {
-                                            std::cmp::Ordering::Greater =>  last_pos.seg_index += lc.unsigned_abs() as usize,
-                                            // std::cmp::Ordering::Less    =>  last_pos.seg_index -= lc.unsigned_abs() as usize,
-                                            _ => {},
-                                        }
-                                    // }
+                                    match lc.cmp(&0) {
+                                        std::cmp::Ordering::Greater =>  last_pos.seg_index += lc.unsigned_abs() as usize,
+                                        // std::cmp::Ordering::Less    =>  last_pos.seg_index -= lc.unsigned_abs() as usize,
+                                        _ => {},
+                                    }
                                 }
                                 last_pos.seg_index +=1;
                             },
                             (VarKind::Syllable(syll), MatchElement::Syllable(sp, _)) => {
+                                res_word.syllables[sp] = syll.clone();
                                 last_pos.syll_index = sp;
                                 last_pos.seg_index = 0;
-                                res_word.syllables[sp] = syll.clone();
                                 if let Some(m) = mods {
                                     res_word.syllables[sp].apply_syll_mods(&self.alphas, &m.suprs, num.position)?;
                                 }
-                                total_len_change.insert(sp, 0);
-                                println!("LPB: {:?}", last_pos);
-                                last_pos.syll_index +=1;
-                                last_pos.seg_index = 0;
-                                println!("LPA: {:?}", last_pos);
+                                // total_len_change.insert(sp, 0);
                             },
                             (VarKind::Segment(_), MatchElement::Syllable(..)) |
                             (VarKind::Segment(_), MatchElement::SyllBound(..)) |
@@ -1170,38 +1155,112 @@ impl SubRule {
                     // See which one of the input set matched and use the corresponding in output to substitute
                     match &in_state.kind {
                         ParseElement::Set(set_input) => if set_input.len() == set_output.len() {
-                            if let MatchElement::Segment(mut sp, Some(i)) = input[state_index] {
-                                match total_len_change[sp.syll_index].cmp(&0) {
-                                    std::cmp::Ordering::Greater => sp.seg_index += total_len_change[sp.syll_index].unsigned_abs() as usize,
-                                    std::cmp::Ordering::Less    => sp.seg_index -= total_len_change[sp.syll_index].unsigned_abs() as usize,
-                                    _ => {},
-                                }
-                                last_pos = sp;
-                                debug_assert!(res_word.in_bounds(sp));
-                                match &set_output[i].kind {
-                                    ParseElement::Ipa(seg, mods) => {
-                                        res_word.syllables[sp.syll_index].segments[sp.seg_index] = *seg;
-                                        if let Some(m) = mods {
-                                            let lc = res_word.apply_seg_mods(&self.alphas, m, sp, set_output[i].position)?;
-                                            total_len_change[sp.syll_index] += lc;
-                                            // if let Some(pos) = next_pos { 
+                            match input[state_index] {
+                                MatchElement::Segment(mut sp, set_index) => {
+                                    let Some(i) = set_index else {todo!("Err: no matching set")};
+                                    match total_len_change[sp.syll_index].cmp(&0) {
+                                        std::cmp::Ordering::Greater => sp.seg_index += total_len_change[sp.syll_index].unsigned_abs() as usize,
+                                        std::cmp::Ordering::Less    => sp.seg_index -= total_len_change[sp.syll_index].unsigned_abs() as usize,
+                                        _ => {},
+                                    }
+                                    last_pos = sp;
+                                    match &set_output[i].kind {
+                                        ParseElement::Ipa(seg, mods) => {
+                                            res_word.syllables[sp.syll_index].segments[sp.seg_index] = *seg;
+                                            if let Some(m) = mods {
+                                                let lc = res_word.apply_seg_mods(&self.alphas, m, sp, set_output[i].position)?;
+                                                total_len_change[sp.syll_index] += lc;
                                                 match lc.cmp(&0) {
                                                     std::cmp::Ordering::Greater =>  last_pos.seg_index += lc.unsigned_abs() as usize,
                                                     // std::cmp::Ordering::Less    =>  last_pos.seg_index -= lc.unsigned_abs() as usize,
                                                     _ => {},
                                                 }
-                                            // }
+                                            }
+                                            last_pos.seg_index +=1;
                                         }
-                                        last_pos.seg_index +=1;
+                                        ParseElement::Matrix(mods, var) => {
+                                            let lc = self.apply_seg_mods(&mut res_word, sp, mods, var, out_state.position)?;
+                                            total_len_change[sp.syll_index] += lc;
+                                            match lc.cmp(&0) {
+                                                std::cmp::Ordering::Greater =>  last_pos.seg_index += lc.unsigned_abs() as usize,
+                                                // std::cmp::Ordering::Less    =>  last_pos.seg_index -= lc.unsigned_abs() as usize,
+                                                _ => {},
+                                            }
+                                            last_pos.seg_index +=1;
+                                        },
+                                        ParseElement::Variable(num, mods) => { 
+                                            if let Some(var) = self.variables.borrow_mut().get(&num.value.parse().unwrap()) {
+                                                match var {
+                                                    VarKind::Segment(seg) => {
+                                                        res_word.syllables[sp.syll_index].segments[sp.seg_index] = *seg;
+                                                        if let Some(m) = mods {
+                                                            let lc = res_word.apply_seg_mods(&self.alphas, m, sp, num.position)?;
+                                                            total_len_change[sp.syll_index] += lc;
+                                                            match lc.cmp(&0) {
+                                                                std::cmp::Ordering::Greater =>  last_pos.seg_index += lc.unsigned_abs() as usize,
+                                                                // std::cmp::Ordering::Less    =>  last_pos.seg_index -= lc.unsigned_abs() as usize,
+                                                                _ => {},
+                                                            }
+                                                        }
+                                                        last_pos.seg_index +=1;
+                                                    },
+                                                    VarKind::Syllable(_) => todo!("Err"),
+                                                }
+                                            } else {
+                                                return Err(RuleRuntimeError::UnknownVariable(num.clone()))
+                                            }
+                                        },
+                                        ParseElement::SyllBound => {todo!("Either remove the segment and insert syllbound at that position, or error")},
+                                        ParseElement::WordBound => todo!("Err"),
+                                        ParseElement::Syllable(..) => todo!("Err"),
+                                        _ => unreachable!(),
                                     }
-                                    ParseElement::Matrix(..) => {todo!()},
-                                    ParseElement::Variable(..) => {todo!()},
-                                    ParseElement::Syllable(..) => {todo!()},
-                                    ParseElement::SyllBound => {todo!()},
-                                    _ => unimplemented!(),
-                                }
-                            } else {
-                                unimplemented!()
+                                },
+                                MatchElement::Syllable(sp, set_index) => {
+                                    let Some(i) = set_index else {todo!("Err: no matching set")};
+                                    last_pos.syll_index = sp;
+                                    last_pos.seg_index = 0;
+
+                                    match &set_output[i].kind {
+                                        ParseElement::Matrix(mods, var) => {
+                                            self.apply_syll_mods(&mut res_word, sp, &mods.suprs, var, out_state.position)?;
+                                        },
+                                        ParseElement::Syllable(stress, tone, var) => {
+                                            let sups = SupraSegs::new(*stress, [None, None], tone.clone());
+                                            self.apply_syll_mods(&mut res_word, sp, &sups, var, out_state.position)?;
+                                        },
+                                        ParseElement::Variable(num, mods) => {
+                                            if let Some(var) = self.variables.borrow_mut().get(&num.value.parse().unwrap()) {
+                                                match var {
+                                                    VarKind::Syllable(syll) => {
+                                                        res_word.syllables[sp] = syll.clone();
+                                                        if let Some(m) = mods {
+                                                            res_word.syllables[sp].apply_syll_mods(&self.alphas, &m.suprs, num.position)?;
+                                                        }
+                                                    },
+                                                    VarKind::Segment(_) => todo!("Err"),
+                                                }
+                                            } else {
+                                                return Err(RuleRuntimeError::UnknownVariable(num.clone()))
+                                            }
+                                        },
+
+                                        ParseElement::Ipa(..) => todo!("Err"),
+                                        ParseElement::SyllBound => todo!("Err"),
+                                        ParseElement::WordBound => todo!("Err"),
+                                        _ => unreachable!(),
+                                    }
+                                },
+                                MatchElement::SyllBound(sp, set_index) => {
+                                    let Some(i) = set_index else {todo!("Err: no matching set")};
+                                    last_pos.syll_index = sp;
+                                    last_pos.seg_index = 0;
+
+                                    match &set_output[i].kind {
+                                        ParseElement::SyllBound => continue,
+                                        _ => todo!("Err: Syllbound can only match to syllbound")
+                                    }
+                                },
                             }
                         } else { todo!("Err: Matched sets must be the same size") },
                         _ => return Err(RuleRuntimeError::LonelySet(out_state.position))
@@ -1230,9 +1289,6 @@ impl SubRule {
                 match &z.kind {
                     ParseElement::Ipa(seg, mods) => {
                         if res_word.in_bounds(pos) {
-                            println!("{:?}", res_word.render());
-                            println!("POS: {:?}", pos);
-                            println!("TLC: {:?}", total_len_change[0]);
                             res_word.syllables[pos.syll_index].segments.insert(pos.seg_index, *seg);
                         } else if let Some(syll) = res_word.syllables.get_mut(pos.syll_index) { 
                             if pos.seg_index >= syll.segments.len() {
