@@ -115,6 +115,21 @@ impl Word {
                     .replace('g',  "ɡ")
                     .replace('?',  "ʔ")
                     .replace('!',  "ǃ")
+                    .replace('S',  "ʃ")
+                    .replace('Z',  "ʒ")
+                    .replace('C',  "ɕ")
+                    .replace('G',  "ɢ")
+                    .replace('N',  "ɴ")
+                    .replace('B',  "ʙ")
+                    .replace('R',  "ʀ")
+                    .replace('X',  "χ")
+                    .replace('H',  "ʜ")
+                    .replace('A',  "ɐ")
+                    .replace('E',  "ɛ")
+                    .replace('I',  "ɪ")
+                    .replace('O',  "ɔ")
+                    .replace('U',  "ʊ")
+                    .replace('Y',  "ʏ")
                     .replace('ǝ',  "ə");
         w.setup(t)?;
 

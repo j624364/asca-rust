@@ -525,48 +525,57 @@ impl<'a> Lexer<'a> {
             }
         }
         None
-    } 
+    }
+    
+    fn cur_as_ipa(&self) -> char {
+        match self.curr_char() {
+            'g' => 'ɡ',
+            '?' => 'ʔ',
+            '!' => 'ǃ',
+            'S' => 'ʃ',
+            'Z' => 'ʒ',
+            'C' => 'ɕ',
+            'G' => 'ɢ',
+            'N' => 'ɴ',
+            'B' => 'ʙ',
+            'R' => 'ʀ',
+            'X' => 'χ',
+            'H' => 'ʜ',
+            'A' => 'ɐ',
+            'E' => 'ɛ',
+            'I' => 'ɪ',
+            'O' => 'ɔ',
+            'U' => 'ʊ',
+            'Y' => 'ʏ',
+            'ǝ' => 'ə',
+            other => other,
+        }
+    }
 
     fn get_ipa(&mut self) -> Option<Token> {
         if self.inside_matrix { return None }
         let start = self.pos;
 
-        let mut buffer = self.curr_char()
-            .to_string()
-            .replace('g',  "ɡ")
-            .replace('?',  "ʔ")
-            .replace('!',  "ǃ")
-            .replace('ǝ',  "ə");
-
+        let mut buffer = self.cur_as_ipa().to_string();
+        
         if CARDINALS_TRIE.contains_prefix(buffer.as_str()) {
             self.advance();
             loop {
                 let mut tmp = buffer.clone(); 
-                tmp.push(self.curr_char());
+                tmp.push(self.cur_as_ipa());
                 if CARDINALS_TRIE.contains_prefix(tmp.as_str()) {
-                    buffer.push(self.curr_char());
+                    buffer.push(self.cur_as_ipa());
                     self.advance();
                     continue;
                 }
-                if self.curr_char() == '!' {
-                    tmp.pop();
-                    tmp.push('ǃ');
-                    if CARDINALS_TRIE.contains_prefix(tmp.as_str()) {
-                        buffer.push('ǃ');
-                        self.advance();
-                        continue;
-                    }
-                }
                 if self.curr_char() == '^' {
-                    tmp.pop();
-                    tmp.push('\u{0361}');
+                    tmp.pop(); tmp.push('\u{0361}');
                     if CARDINALS_TRIE.contains_prefix(tmp.as_str()) {
                         buffer.push('\u{0361}');
                         self.advance();
                         continue;
                     }
-                    tmp.pop();
-                    tmp.push('\u{035C}');
+                    tmp.pop(); tmp.push('\u{035C}');
                     if CARDINALS_TRIE.contains_prefix(tmp.as_str()) {
                         buffer.push('\u{035C}');
                         self.advance();
@@ -574,10 +583,17 @@ impl<'a> Lexer<'a> {
                     }
                     // if a click consonant
                     if let 'ʘ' | 'ǀ' | 'ǁ' | 'ǃ' | '!' | '‼' | 'ǂ' = self.next_char() {
-                        tmp.pop();
-                        tmp.push(self.curr_char());
+                        tmp.pop(); tmp.push(self.cur_as_ipa());
                         self.advance();
                         continue;
+                    }
+                    // if a contour click
+                    if let 'q'| 'ɢ' | 'ɴ' | 'χ' | 'ʁ' = self.next_char() {
+                        if let Some('ʘ' | 'ǀ' | 'ǁ' | 'ǃ' | '!' | '‼' | 'ǂ') = tmp.chars().next() {
+                            tmp.pop(); tmp.push(self.cur_as_ipa());
+                            self.advance();
+                            continue;
+                        }
                     }
                 }
 
