@@ -1771,9 +1771,12 @@ impl SubRule {
                     Ok(true)
                 } else { Ok(false) },
                 ParseElement::Syllable(stress, tone, var) => self.input_match_syll(captures, state_index, stress, tone, var, word, pos),
-                ParseElement::SyllBound => Ok(pos.at_syll_start()),
+                ParseElement::SyllBound => if pos.at_syll_start() {
+                    captures.push(MatchElement::SyllBound(pos.syll_index, Some(i))); // FIXME: `i` is being unnecessarily reassigned
+                    Ok(true)
+                } else { Ok(false) },
                 ParseElement::WordBound => todo!("Err: WordBound not valid in input"),
-                _ => unimplemented!(),
+                _ => unreachable!(),
             };
             if res? {
                 captures.last_mut().unwrap().set_ind(Some(i));
