@@ -337,37 +337,31 @@ impl SubRule {
         // }
 
 
-        if let Some(max) = match_max {
-            while index < max {
-                *state_index = back_state;
-                if self.match_opt_states(opt_states, word, pos, forwards)? {
-                    let mut m = true;
-                    while *state_index < states.len() {
-                        if !self.context_match(states, state_index, word, pos, forwards)? {
-                            m = false;
-                            break;
-                        }
-                        *state_index += 1;
+        let max = match_max.unwrap_or(usize::MAX);
+        while index < max {
+            *state_index = back_state;
+            if self.match_opt_states(opt_states, word, pos, forwards)? {
+                let mut m = true;
+                while *state_index < states.len() {
+                    if !self.context_match(states, state_index, word, pos, forwards)? {
+                        m = false;
+                        break;
                     }
-                    if m {
-                        return Ok(true)
-                    } else {
-                        index +=1;
-                        continue;
-                    }
-                } else {
-                    // println!("dfgsgnsdgfkj;kj");
-                    // *pos = back_pos;
-                    // *state_index = back_state;
-                    return Ok(true)
+                    *state_index += 1;
                 }
+                if m {
+                    return Ok(true)
+                } else {
+                    index +=1;
+                    continue;
+                }
+            } else {
+                // *pos = back_pos;
+                // *state_index = back_state;
+                return Ok(true)
             }
-            // println!("state ind: {}", state_index);
-            Ok(false)
-        } else {
-            
-            todo!()
         }
+        Ok(false)
     }
 
     fn context_match_set(&self, set: &[Item], word: &Word, pos: &mut SegPos, forwards: bool) -> Result<bool, RuleRuntimeError> {
