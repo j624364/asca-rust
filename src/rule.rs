@@ -220,7 +220,15 @@ mod rule_tests {
     }
 
     fn setup_word(test_str: &str) -> Word {
-        Word::new(String::from(test_str)).unwrap()
+        let maybe_word = Word::new(String::from(test_str));
+        match maybe_word {
+            Ok(w) => return w,
+            Err(e) => {
+                println!("{}", e.format_error(&Vec::new()));
+                assert!(false);
+            },
+        }
+        unreachable!();
     }
 
     #[test]
@@ -273,9 +281,12 @@ mod rule_tests {
 
     #[test]
     fn test_greek_regressive_voicing() {
-        let test_rule = setup_rule("O > [Avoice] / _O:[Avoice]");
+        let test_rule = setup_rule("O > [Alar] / _O:[Alar]");
         let test_word = setup_word("at.ba");
         assert_eq!(test_rule.apply(test_word).unwrap().render().unwrap(), "ad.ba");
+        let test_rule = setup_rule("O > [Alar] / _O:[Alar]");
+        let test_word = setup_word("ktʰoːn");
+        assert_eq!(test_rule.apply(test_word).unwrap().render().unwrap(), "kʰtʰoːn");
     }
 
     #[test]
@@ -508,6 +519,20 @@ mod rule_tests {
         let test_rule = setup_rule("{p, t, k} > {b, d, g}");
         let test_word = setup_word("pa.ta.ka");
         assert_eq!(test_rule.apply(test_word).unwrap().render().unwrap(), "ba.da.ɡa");
+
+        let test_rule = setup_rule("{%} > {[tone:5]}");
+        let test_word = setup_word("pa.ta.ka");
+        assert_eq!(test_rule.apply(test_word).unwrap().render().unwrap(), "pa5.ta5.ka5");
+
+        let test_rule = setup_rule("{%,C} > {[tone:5],C}");
+        let test_word = setup_word("pa.ta.ka");
+        assert_eq!(test_rule.apply(test_word).unwrap().render().unwrap(), "pa5.ta5.ka5");
+
+        let test_rule = setup_rule("{C, %} > {C, [tone:5]}");
+        let test_word = setup_word("pa.at.ka");
+        assert_eq!(test_rule.apply(test_word).unwrap().render().unwrap(), "pa.at5.ka");
+
+        
     }
 
     #[test]
@@ -597,6 +622,33 @@ mod rule_tests {
         let test_rule = setup_rule("o > *");
         let test_word = setup_word("o.so.on.o");
         assert_eq!(test_rule.apply(test_word).unwrap().render().unwrap(), "s.n");
+    }
+
+    #[test]
+    fn test_del_mult_ipa() {
+        let test_rule = setup_rule("ta > *");
+        let test_word = setup_word("pa.ta.ka");
+        assert_eq!(test_rule.apply(test_word).unwrap().render().unwrap(), "pa.ka");
+
+        let test_rule = setup_rule("ata > *");
+        let test_word = setup_word("pa.ta.ka");
+        assert_eq!(test_rule.apply(test_word).unwrap().render().unwrap(), "p.ka");
+
+        let test_rule = setup_rule("pata > *");
+        let test_word = setup_word("pa.ta.ka");
+        assert_eq!(test_rule.apply(test_word).unwrap().render().unwrap(), "ka");
+
+        let test_rule = setup_rule("patak > *");
+        let test_word = setup_word("pa.ta.ka");
+        assert_eq!(test_rule.apply(test_word).unwrap().render().unwrap(), "a");
+
+        let test_rule = setup_rule("pata...a > *");
+        let test_word = setup_word("pa.ta.ka");
+        assert_eq!(test_rule.apply(test_word).unwrap().render().unwrap(), "k");
+
+        let test_rule = setup_rule("p...a > *");
+        let test_word = setup_word("pa.ta.ka");
+        assert_eq!(test_rule.apply(test_word).unwrap().render().unwrap(), "a.t.ka");
     }
 
     #[test]
