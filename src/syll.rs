@@ -59,8 +59,23 @@ impl Syllable {
         Ok(lc)
     }
 
+    pub fn insert_segment(&mut self, pos: usize, seg: &Segment, mods: &Option<Modifiers>, alphas: &RefCell<HashMap<char, Alpha>>, err_pos: Position) -> Result<i8, RuleRuntimeError> {
+        let mut lc = 0;
+        if pos > self.segments.len() {
+            self.segments.push_back(*seg);
+        } else {
+            self.segments.insert(pos, *seg);
+        }
+
+        if let Some(m) = mods {
+            lc += self.apply_seg_mods(alphas, m, pos, err_pos)?;
+        }
+
+        Ok(lc)
+    }
+
     pub fn get_seg_length_at(&self, pos: usize) -> usize {
-        assert!(pos < self.segments.len());
+        debug_assert!(pos < self.segments.len());
         let mut s_i = pos + 1;
         let mut len = 1;
         while s_i < self.segments.len() && self.segments[pos] == self.segments[s_i] {
