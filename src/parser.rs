@@ -881,6 +881,8 @@ impl Parser {
                 els.push(s_bound);
             } else if let Some(trm) = self.get_term()? {
                 els.push(trm)
+            } else if let Some(w_bound) = self.get_word_bound() {
+                return Err(RuleSyntaxError::WordBoundLoc(w_bound.position))
             } else {
                 break
             }

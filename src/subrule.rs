@@ -217,7 +217,7 @@ impl SubRule {
         
         let (_, cont_states) = self.get_context();
         let (_, expt_states) = self.get_exceptions();
-        
+
         if cont_states.is_empty() && expt_states.is_empty() {
             return Ok(true)
         }
@@ -547,14 +547,20 @@ impl SubRule {
                                 res_word.syllables.remove(si.syll_index);
                             }
                         },
-                        // TODO(girv): I think we're just gonna disallow these, I can't think of a valid rule where these make sense
-                        (MatchElement::Segment(..), MatchElement::Syllable(..)) => todo!(),
-                        (MatchElement::Syllable(..), MatchElement::Segment(..)) => todo!(),
-                        (MatchElement::Syllable(..), MatchElement::SyllBound(..)) => todo!(),
-                        (MatchElement::SyllBound(..), MatchElement::Syllable(..)) => todo!(),
+                        // I think we're just gonna disallow these, I can't think of a valid rule where these make sense
+                        (MatchElement::Segment(..), MatchElement::Syllable(..)) |
+                        (MatchElement::Syllable(..), MatchElement::Segment(..)) => {
+                            let end = input.len()-1-z;
+                            return Err(RuleRuntimeError::MetathSyllSegment(self.input[z].position, self.input[end].position))
+                        },
+                        (MatchElement::Syllable(..), MatchElement::SyllBound(..)) |
+                        (MatchElement::SyllBound(..), MatchElement::Syllable(..)) => {
+                            let end = input.len()-1-z;
+                            return Err(RuleRuntimeError::MetathSyllBoundary(self.input[z].position, self.input[end].position))
+                        },
                     }
                 }
-                // TODO: Update current position
+                // TODO: Update current position?
                 Ok(res_word)
             },
             RuleType::Deletion => {
@@ -653,7 +659,6 @@ impl SubRule {
                                     }         
                                     let prev = res_word.render().unwrap();
                                     println!("Match! {} at {:?}", res_word.render().unwrap(), ins);
-                                    // TODO: EXCEPTIONS
                                     let (res, next_pos) = self.insert(&res_word, ins, false)?;
                                     res_word = res;
                                     println!("{} => {}", prev, res_word.render().unwrap());
@@ -692,7 +697,6 @@ impl SubRule {
                                     }
                                     let prev = res_word.render().unwrap();
                                     println!("Match! {} at {:?}", res_word.render().unwrap(), ins);
-                                    // TODO: EXCEPTIONS
                                     let (res, next_pos) = self.insert(&res_word, ins, true)?;
                                     res_word = res;
                                     println!("{} => {}", prev, res_word.render().unwrap());
@@ -731,7 +735,6 @@ impl SubRule {
                                     }
                                     let prev = res_word.render().unwrap();
                                     println!("Match! {} at {:?}", res_word.render().unwrap(), ins);
-                                    // TODO: EXCEPTIONS
                                     let (res, next_pos) = self.insert(&res_word, ins, false)?;
                                     res_word = res;
                                     println!("{} => {}", prev, res_word.render().unwrap());
@@ -1206,14 +1209,13 @@ impl SubRule {
         let mut res_word = word.clone();
         for (state_index, (in_state, out_state)) in self.input.iter().zip(&self.output).enumerate() {
             match &out_state.kind {
-                ParseElement::Syllable(_, _, _) => todo!(), // error??
+                ParseElement::Syllable(..) => return Err(RuleRuntimeError::SubstitutionSyll(out_state.position)),
                 ParseElement::Matrix(m, v) => {
                     // get match at index and check it's a segment/or syllable and not a boundary and apply changes
                     // if a syllable, make sure to only do Syllable Suprs
                     match input[state_index] {
                         MatchElement::Segment(mut sp, _)   => {
-                            // TODO: since it's reversed syll index should only change on insertion ???
-                            // inserting a syll_bound will complicate this
+                            // inserting a syll_bound may complicate this
                             match total_len_change[sp.syll_index].cmp(&0) {
                                 std::cmp::Ordering::Greater => sp.seg_index += total_len_change[sp.syll_index].unsigned_abs() as usize,
                                 std::cmp::Ordering::Less    => sp.seg_index -= total_len_change[sp.syll_index].unsigned_abs() as usize, // Should not underflow
@@ -1232,7 +1234,7 @@ impl SubRule {
                             last_pos.seg_index = 0;
                             self.apply_syll_mods(&mut res_word, sp, &m.suprs, v, out_state.position)?;                            
                         },
-                        MatchElement::SyllBound(..)  => todo!("Err: Can't apply matrix to syllable boundary"),
+                        MatchElement::SyllBound(..)  => return Err(RuleRuntimeError::SubstitutionBoundMod(in_state.position, out_state.position)),
                     }
                 },
                 ParseElement::Ipa(seg, mods) => match input[state_index] {
@@ -1252,7 +1254,7 @@ impl SubRule {
                         }
                         last_pos.seg_index +=1;
                     },    
-                    MatchElement::Syllable(..) | MatchElement::SyllBound(..) => todo!("Err"),
+                    MatchElement::Syllable(..) | MatchElement::SyllBound(..) => return Err(RuleRuntimeError::SubstitutionSylltoMatrix(in_state.position, out_state.position)),
                 },
                 ParseElement::Variable(num, mods) => {
                     if let Some(var) = self.variables.borrow_mut().get(&num.value.parse().unwrap()) {
@@ -1282,12 +1284,11 @@ impl SubRule {
                                 if let Some(m) = mods {
                                     res_word.syllables[sp].apply_syll_mods(&self.alphas, &m.suprs, num.position)?;
                                 }
-                                // total_len_change.insert(sp, 0);
                             },
                             (VarKind::Segment(_), MatchElement::Syllable(..)) |
                             (VarKind::Segment(_), MatchElement::SyllBound(..)) |
-                            (VarKind::Syllable(_), MatchElement::Segment(..)) |
-                            (VarKind::Syllable(_), MatchElement::SyllBound(..)) => todo!("Err"),
+                            (VarKind::Syllable(_), MatchElement::Segment(..)) => return Err(RuleRuntimeError::SubstitutionSegtoSyll(in_state.position, out_state.position)),
+                            (VarKind::Syllable(_), MatchElement::SyllBound(..)) => return Err(RuleRuntimeError::SubstitutionSylltoBound(in_state.position, out_state.position)),
                         }
                     } else {
                         return Err(RuleRuntimeError::UnknownVariable(num.clone()))
@@ -1301,7 +1302,7 @@ impl SubRule {
                         ParseElement::Set(set_input) => if set_input.len() == set_output.len() {
                             match input[state_index] {
                                 MatchElement::Segment(mut sp, set_index) => {
-                                    let Some(i) = set_index else {todo!("Err: no matching set")};
+                                    let Some(i) = set_index else { return Err(RuleRuntimeError::LonelySet(in_state.position)) };
                                     match total_len_change[sp.syll_index].cmp(&0) {
                                         std::cmp::Ordering::Greater => sp.seg_index += total_len_change[sp.syll_index].unsigned_abs() as usize,
                                         std::cmp::Ordering::Less    => sp.seg_index -= total_len_change[sp.syll_index].unsigned_abs() as usize,
@@ -1321,7 +1322,7 @@ impl SubRule {
                                             last_pos.seg_index +=1;
                                         }
                                         ParseElement::Matrix(mods, var) => {
-                                            let lc = self.apply_seg_mods(&mut res_word, sp, mods, var, out_state.position)?;
+                                            let lc = self.apply_seg_mods(&mut res_word, sp, mods, var, set_output[i].position)?;
                                             total_len_change[sp.syll_index] += lc;
                                             if lc > 0 {
                                                 last_pos.seg_index += lc.unsigned_abs() as usize;
@@ -1342,30 +1343,30 @@ impl SubRule {
                                                         }
                                                         last_pos.seg_index +=1;
                                                     },
-                                                    VarKind::Syllable(_) => todo!("Err"),
+                                                    VarKind::Syllable(_) => return Err(RuleRuntimeError::SubstitutionSegtoSyll(in_state.position, set_output[i].position)),
                                                 }
                                             } else {
                                                 return Err(RuleRuntimeError::UnknownVariable(num.clone()))
                                             }
                                         },
-                                        ParseElement::SyllBound => {todo!("Either remove the segment and insert syllbound at that position, or error")},
-                                        ParseElement::WordBound => todo!("Err"),
-                                        ParseElement::Syllable(..) => todo!("Err"),
+                                        ParseElement::SyllBound |
+                                        ParseElement::Syllable(..) => return Err(RuleRuntimeError::SubstitutionSegtoSyll(in_state.position, set_output[i].position)),
+                                        ParseElement::WordBound => return Err(RuleRuntimeError::WordBoundSetLocError(set_output[i].position)),
                                         _ => unreachable!(),
                                     }
                                 },
                                 MatchElement::Syllable(sp, set_index) => {
-                                    let Some(i) = set_index else {todo!("Err: no matching set")};
+                                    let Some(i) = set_index else { return Err(RuleRuntimeError::LonelySet(in_state.position)) };
                                     last_pos.syll_index = sp;
                                     last_pos.seg_index = 0;
 
                                     match &set_output[i].kind {
                                         ParseElement::Matrix(mods, var) => {
-                                            self.apply_syll_mods(&mut res_word, sp, &mods.suprs, var, out_state.position)?;
+                                            self.apply_syll_mods(&mut res_word, sp, &mods.suprs, var, set_output[i].position)?;
                                         },
                                         ParseElement::Syllable(stress, tone, var) => {
                                             let sups = SupraSegs::new(*stress, [None, None], tone.clone());
-                                            self.apply_syll_mods(&mut res_word, sp, &sups, var, out_state.position)?;
+                                            self.apply_syll_mods(&mut res_word, sp, &sups, var, set_output[i].position)?;
                                         },
                                         ParseElement::Variable(num, mods) => {
                                             if let Some(var) = self.variables.borrow_mut().get(&num.value.parse().unwrap()) {
@@ -1376,43 +1377,42 @@ impl SubRule {
                                                             res_word.syllables[sp].apply_syll_mods(&self.alphas, &m.suprs, num.position)?;
                                                         }
                                                     },
-                                                    VarKind::Segment(_) => todo!("Err"),
+                                                    VarKind::Segment(_) => return Err(RuleRuntimeError::SubstitutionSylltoMatrix(in_state.position, num.position)),
                                                 }
                                             } else {
                                                 return Err(RuleRuntimeError::UnknownVariable(num.clone()))
                                             }
                                         },
 
-                                        ParseElement::Ipa(..) => todo!("Err"),
-                                        ParseElement::SyllBound => todo!("Err"),
-                                        ParseElement::WordBound => todo!("Err"),
+                                        ParseElement::Ipa(..) => return Err(RuleRuntimeError::SubstitutionSylltoMatrix(in_state.position, set_output[i].position)),
+                                        ParseElement::SyllBound => return Err(RuleRuntimeError::SubstitutionSylltoBound(in_state.position, set_output[i].position)),
+                                        ParseElement::WordBound => return Err(RuleRuntimeError::WordBoundSetLocError(set_output[i].position)),
                                         _ => unreachable!(),
                                     }
                                 },
                                 MatchElement::SyllBound(sp, set_index) => {
-                                    let Some(i) = set_index else {todo!("Err: no matching set")};
+                                    let Some(i) = set_index else { return Err(RuleRuntimeError::LonelySet(in_state.position)) };
                                     last_pos.syll_index = sp;
                                     last_pos.seg_index = 0;
 
                                     match &set_output[i].kind {
                                         ParseElement::SyllBound => continue,
-                                        _ => todo!("Err: Syllbound can only match to syllbound")
+                                        _ => return Err(RuleRuntimeError::SubstitutionSyllBound(in_state.position, out_state.position))
                                     }
                                 },
                             }
-                        } else { todo!("Err: Matched sets must be the same size") },
+                        } else { return Err(RuleRuntimeError::UnevenSet(in_state.position, out_state.position)) },
                         _ => return Err(RuleRuntimeError::LonelySet(out_state.position))
                     }
                 },
                 ParseElement::SyllBound => {
                     // if !pos.at_syll_start() && !pos.at_syll_end(word) {
                     //     // split current syll into two at insert_pos
-                    //     todo!("Split")
                     // }
                     if let MatchElement::SyllBound(..) = input[state_index] {
                         continue
                     } else {
-                        todo!("ERR")
+                        return Err(RuleRuntimeError::SubstitutionSyllBound(in_state.position, out_state.position))
                     }
                 },
                 ParseElement::EmptySet   | ParseElement::Metathesis    | 
@@ -1466,7 +1466,7 @@ impl SubRule {
                             // } else {
                             //     continue;
                             // }
-                            // TODO: Possibly err if out of bounds, as it leads to unexpected behaviour (see rule::test_sub_insert_syll())
+                            // Possibly err if out of bounds, as it leads to unexpected behaviour (see rule::test_sub_insert_syll())
                             continue;
                         } 
                         // else if pos.at_syll_end(&res_word) {
@@ -1502,7 +1502,7 @@ impl SubRule {
                                 }
                                 continue;
                             } else {
-                                // TODO: Possibly err as out of bounds leads to unexpected behaviour (see rule::test_sub_insert_syll())
+                                // Possibly err as out of bounds leads to unexpected behaviour (see rule::test_sub_insert_syll())
                                 continue;
                             }
                         } 
@@ -1672,10 +1672,6 @@ impl SubRule {
         }
         Ok(res_word)
     }
-
-    // fn deletion(&self, word: &Word, els: Vec<MatchElement>) -> Result<Word, RuleRuntimeError> {
-    //     todo!()
-    // }
 
     fn input_match_at(&self, word: &Word, start_index: SegPos) -> Result<(Vec<MatchElement>, Option<SegPos>), RuleRuntimeError> {
         let mut cur_index = start_index;
@@ -1977,7 +1973,7 @@ impl SubRule {
                     captures.push(MatchElement::SyllBound(pos.syll_index, Some(i))); // FIXME: `i` is being unnecessarily reassigned
                     Ok(true)
                 } else { Ok(false) },
-                ParseElement::WordBound => todo!("Err: WordBound not valid in input"),
+                ParseElement::WordBound => Err(RuleRuntimeError::WordBoundSetLocError(s.position)),
                 _ => unreachable!(),
             };
             if res? {
@@ -2246,7 +2242,7 @@ impl SubRule {
                             if n == node {
                                 return Ok(seg.node_match(n, m))
                             } else {
-                                todo!("Err: node alpha must be matched to same node")
+                                return Err(RuleRuntimeError::AlphaIsNotSameNode(err_pos))
                             }
                         } else if let Some(place) = alph.as_place() {
                             return Ok(
@@ -2278,7 +2274,7 @@ impl SubRule {
                             if n == node {
                                 Ok(!seg.node_match(n, m))
                             } else {
-                                todo!("Err: node alpha must be matched to same node")
+                                return Err(RuleRuntimeError::AlphaIsNotNode(err_pos))
                             }
                         } else if let Some(place) = alph.as_place() {
                             Ok(

@@ -158,6 +158,7 @@ pub enum RuleRuntimeError {
     DeletionOnlySeg,
     DeletionOnlySyll,
     LonelySet(Position),
+    UnevenSet(Position, Position),
     UnknownVariable(Token),
     InsertionNoContextOrException(Position),
     InsertionMatrix(Position),
@@ -168,12 +169,22 @@ pub enum RuleRuntimeError {
     NodeCannotBeSome(String, Position),
     NodeCannotBeNone(String, Position),
     NodeCannotBeSet(String, Position),
+    MetathSyllSegment(Position, Position),
+    MetathSyllBoundary(Position, Position),
+    SubstitutionSyll(Position),
+    SubstitutionSyllBound(Position, Position),
+    SubstitutionSylltoMatrix(Position, Position),
+    SubstitutionSylltoBound(Position, Position),
+    SubstitutionSegtoSyll(Position, Position),
+    SubstitutionBoundMod(Position, Position),
+    WordBoundSetLocError(Position),
 }
 
 impl ASCAError for RuleRuntimeError {
     fn get_error_message(&self) -> String {
         match self {
             Self::LonelySet(_)                     => "A Set in output must have a matching Set in input".to_string(),
+            Self::UnevenSet(..)                    => "Two matched sets must have the same number of elements".to_string(),
             Self::DeletionOnlySeg                  => "Can't delete a word's only segment".to_string(),
             Self::DeletionOnlySyll                 => "Can't delete a word's only syllable".to_string(),
             Self::UnknownVariable(token)           => format!("Unknown variable '{}' at {}", token.value, token.position.start),
@@ -181,11 +192,20 @@ impl ASCAError for RuleRuntimeError {
             Self::InsertionMatrix(_)               => "An incomplete matrix cannot be inserted".to_string(),
             Self::AlphaUnknown(_)                  => "Alpha has not be assigned before applying".to_string(),
             Self::AlphaUnknownInv(_)               => "First occurence of a node alpha must not be inverted".to_string(),
-            Self::AlphaIsNotSameNode(_)            => "Node alphas must only be applied to the same node".to_string(),
+            Self::AlphaIsNotSameNode(_)            => "Node alphas must only be used on the same node".to_string(),
             Self::AlphaIsNotNode(_)                => "Node alphas cannot be used on binary features".to_string(),
             Self::NodeCannotBeSome(node, _)        => format!("{} node cannot arbitrarily positive", node),
             Self::NodeCannotBeNone(node, _)        => format!("{} node cannot be removed", node),
-            Self::NodeCannotBeSet(node, _)         => format!("{} node cannot be assigned using PLACE alpha", node)
+            Self::NodeCannotBeSet(node, _)         => format!("{} node cannot be assigned using PLACE alpha", node),
+            Self::MetathSyllSegment(..)            => "Cannot swap a syllable with a segment".to_string(),
+            Self::MetathSyllBoundary(..)           => "Cannot swap a syllable with a syllable".to_string(),
+            Self::SubstitutionSyll(_)              => "Syllables cannot be in substitution output. If you wish to modify a syllable, use a matrix.".to_string(),
+            Self::SubstitutionSyllBound(..)        => "Syllable boundaries cannot be substituted.".to_string(),
+            Self::SubstitutionSylltoMatrix(..)     => "Syllables and boundaries cannot be substituted by a segment".to_string(),
+            Self::SubstitutionSylltoBound(..)      => "Syllables cannot be substituted by a boundary".to_string(),
+            Self::SubstitutionSegtoSyll(..)        => "Segments cannot be substituted by a syllable or a boundary".to_string(),
+            Self::SubstitutionBoundMod(..)         => "Syllable boundaries cannot be modified by a matrix.".to_string(),
+            Self::WordBoundSetLocError(_)          => "Word Boundaries cannot be in the input or output".to_string(),
         }
     }
 
@@ -203,18 +223,32 @@ impl ASCAError for RuleRuntimeError {
                 " ".repeat(pos.end) + "^" + "\n", 
                 pos.line
             ),
-            Self::AlphaUnknown(pos)        |
-            Self::AlphaUnknownInv(pos)     |
-            Self::LonelySet(pos)           | 
-            Self::NodeCannotBeSome(_, pos) |
-            Self::NodeCannotBeNone(_, pos) |
-            Self::NodeCannotBeSet(_, pos)  |
-            Self::AlphaIsNotSameNode(pos)  |
-            Self::AlphaIsNotNode(pos)      |
-            Self::InsertionMatrix(pos)  => (
+            Self::WordBoundSetLocError(pos) |
+            Self::SubstitutionSyll(pos)     |
+            Self::AlphaUnknown(pos)         |
+            Self::AlphaUnknownInv(pos)      |
+            Self::LonelySet(pos)            | 
+            Self::NodeCannotBeSome(_, pos)  |
+            Self::NodeCannotBeNone(_, pos)  |
+            Self::NodeCannotBeSet(_, pos)   |
+            Self::AlphaIsNotSameNode(pos)   |
+            Self::AlphaIsNotNode(pos)       |
+            Self::InsertionMatrix(pos)  =>  (
                 " ".repeat(pos.start) + &"^".repeat(pos.end-pos.start) + "\n",
                 pos.line
-            )
+            ),
+            Self::UnevenSet (a, b) |
+            Self::MetathSyllSegment (a, b) |
+            Self::MetathSyllBoundary(a, b) |
+            Self::SubstitutionSegtoSyll (a, b) |
+            Self::SubstitutionSyllBound (a, b) |
+            Self::SubstitutionSylltoBound (a, b) |
+            Self::SubstitutionSylltoMatrix(a, b) |
+            Self::SubstitutionBoundMod(a, b) => (
+                   " ".repeat(a.start) + &"^".repeat(a.end - a.start) 
+                + &" ".repeat(b.start) + &"^".repeat(b.end - b.start) + "\n",
+                a.line
+            ),
         };
 
         result.push_str(&format!("{}{}{}{}",  
@@ -278,6 +312,7 @@ pub enum RuleSyntaxError {
     DiacriticDoesNotMeetPreReqsFeat(Position, Position, String, bool),
     DiacriticDoesNotMeetPreReqsNode(Position, Position, String, bool),
     UnexpectedDiacritic(Position, Position),
+    WordBoundLoc(Position),
 }
 
 impl ASCAError for RuleSyntaxError {
@@ -330,6 +365,7 @@ impl ASCAError for RuleSyntaxError {
                 format!("Segment does not have prerequisite properties to have this diacritic. Must be {}{}", if *pos { '+' } else { '-' },t) 
             },
             Self::UnexpectedDiacritic(..) => "Diacritics can only modify IPA Segments".to_string(),
+            Self::WordBoundLoc(_)     => "Wordboundaries are not allowed in the input or output".to_string(),
         }
     }
 
@@ -403,8 +439,9 @@ impl ASCAError for RuleSyntaxError {
                     first_item.position.line
                 )
             },
-            Self::OptLocError(pos) |
-            Self::EmptySet(pos) => {
+            Self::WordBoundLoc(pos) |
+            Self::OptLocError(pos)  |
+            Self::EmptySet(pos)  => {
                 (
                     " ".repeat(pos.start) + &"^".repeat(pos.end-pos.start) + "\n",
                     pos.line
