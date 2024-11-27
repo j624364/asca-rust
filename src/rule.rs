@@ -876,22 +876,52 @@ mod rule_tests {
     fn test_insertion_context_syll() {
         let test_rule = setup_rule("* > e / _%");
         let test_word = setup_word("s.ki");
-        println!();
         println!("* > e / _%");
         assert_eq!(test_rule.apply(test_word).unwrap().render().unwrap(), "se.ki");
     }
 
     #[test]
-    fn test_insertion_context_syll_bound() {
+    fn test_insertion_context_before_syll_bound() {
         let test_rule = setup_rule("* > e / _$");
         let test_word = setup_word("s.ki");
         println!("* > e / _$");
-        assert_eq!(test_rule.apply(test_word).unwrap().render().unwrap(), "se.ki");
+        assert_eq!(test_rule.apply(test_word).unwrap().render().unwrap(), "se.kie");
+        println!();
 
+        let test_rule = setup_rule("* > e / _$ | _#");
+        let test_word = setup_word("s.ki");
+        println!("* > e / _$ | _#");
+        assert_eq!(test_rule.apply(test_word).unwrap().render().unwrap(), "se.ki");
+    }
+
+    #[test]
+    fn test_insertion_context_after_syll_bound() {
         let test_rule = setup_rule("* > e / $_");
         let test_word = setup_word("as.k");
         println!("* > e / $_");
         assert_eq!(test_rule.apply(test_word).unwrap().render().unwrap(), "eas.ek");
+        println!();
+
+        let test_rule = setup_rule("* > e / $_ | #_");
+        let test_word = setup_word("as.k");
+        println!("* > e / $_ | #_");
+        assert_eq!(test_rule.apply(test_word).unwrap().render().unwrap(), "as.ek");
+        println!();
+    }
+
+    #[test]
+    fn test_insertion_exception_before() {
+        let test_rule = setup_rule("* > e / _C | _C#");
+        let test_word = setup_word("as.k");
+        println!("* > e / _C | _C#");
+        assert_eq!(test_rule.apply(test_word).unwrap().render().unwrap(), "aes.k");
+        println!();
+
+        let test_rule = setup_rule("* > e / _C");
+        let test_word = setup_word("as.k");
+        println!("* > e / _C");
+        assert_eq!(test_rule.apply(test_word).unwrap().render().unwrap(), "aes.ek");
+        println!();
     }
 
 
