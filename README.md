@@ -18,10 +18,12 @@ This repo contains the logic for the applier which will be connected to a web fr
 - [x] Matching Input
     - [x] Simple segments
     - [X] Ellipsis
-- [ ] Applying Output
+- [x] Applying Output
     - [x] Metathesis
     - [x] Deletion
-    - [ ] Insertion (borked)
+    - [x] Insertion
+        - [x] Segment Insertion
+        - [x] Syllable and boundary Insertion (NOT YET PROPERLY TESTED)
     - [x] Substitution
         - [x] Same length Substitution 
         - [x] Longer Input Substitution
