@@ -319,12 +319,12 @@ impl Segment {
             let mut buf_str = cand_graph.clone();
             for d in DIACRITS.iter() {
                 if self.match_modifiers(&d.prereqs).is_ok() && self.match_modifiers(&d.payload).is_ok() {
-                        let before = buf_seg;
-                        buf_seg.apply_diacritic_payload(&d.payload);
-                        if buf_seg == before {
-                            buf_seg = before;
-                            continue;
-                        }
+                    let before = buf_seg;
+                    buf_seg.apply_diacritic_payload(&d.payload);
+                    if buf_seg == before {
+                        buf_seg = before;
+                        continue;
+                    }
                     if buf_seg == cand_seg {
                         continue;
                     } else {
