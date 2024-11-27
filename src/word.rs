@@ -72,7 +72,7 @@ impl SegPos {
     pub fn at_word_start(&self) -> bool {
         self.syll_index == 0 && self.seg_index == 0
     }
-    #[allow(unused)]
+
     pub fn at_word_end(&self, word: &Word) -> bool {
         self.syll_index == word.syllables.len() - 1 && self.seg_index >= word.syllables[self.syll_index].segments.len() - 1
     }
@@ -498,36 +498,12 @@ mod word_tests {
 
     #[test]
     fn test_render_aliases() {
-        match Word::new("'GAN;CEUN!e".to_owned()) {
-            Ok(w) => assert_eq!(w.render().unwrap(), "ˈɢɐɴː.ɕɛʊɴǃe"),
+        match Word::new("'GAN;CEUN!eB.gRǝ:S.XOI?,HYZ".to_owned()) {
+            Ok(w) => assert_eq!(w.render().unwrap(), "ˈɢɐɴː.ɕɛʊɴǃeʙ.ɡʀəːʃ.χɔɪʔˌʜʏʒ"),
             Err(e) => {
                 println!("{}", e.format_error(&[]));
                 assert!(false);
             }
         } 
     }
-
-
-    // .replace(',',  "ˌ")
-    //                 .replace(':',  "ː")
-    //                 .replace(';',  "ː.")
-    //                 .replace('g',  "ɡ")
-    //                 .replace('?',  "ʔ")
-    //                 .replace('!',  "ǃ")
-    //                 .replace('S',  "ʃ")
-    //                 .replace('Z',  "ʒ")
-    //                 .replace('C',  "ɕ")
-    //                 .replace('G',  "ɢ")
-    //                 .replace('N',  "ɴ")
-    //                 .replace('B',  "ʙ")
-    //                 .replace('R',  "ʀ")
-    //                 .replace('X',  "χ")
-    //                 .replace('H',  "ʜ")
-    //                 .replace('A',  "ɐ")
-    //                 .replace('E',  "ɛ")
-    //                 .replace('I',  "ɪ")
-    //                 .replace('O',  "ɔ")
-    //                 .replace('U',  "ʊ")
-    //                 .replace('Y',  "ʏ")
-    //                 .replace('ǝ',  "ə");
 }
