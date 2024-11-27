@@ -798,84 +798,101 @@ mod rule_tests {
         assert_eq!(test_rule.apply(test_word).unwrap().render().unwrap(), "rɛ.hɛ.ʍaz");
     }
 
-    // #[test]
-    // fn test_insertion_context_ipa() {
-    //     // let test_rule = setup_rule("* > e / _s");
-    //     // let test_word = setup_word("ski");
-    //     // assert_eq!(test_rule.apply(test_word).unwrap().render().unwrap(), "eski");
+    #[test]
+    fn test_insertion_before_context_ipa() {
+        let test_rule = setup_rule("* > e / _s");
+        let test_word = setup_word("ski");
+        assert_eq!(test_rule.apply(test_word).unwrap().render().unwrap(), "eski");
 
-    //     let test_rule = setup_rule("* > e / s_");
-    //     let test_word = setup_word("ski");
-    //     println!("* > e / s_");
-    //     assert_eq!(test_rule.apply(test_word).unwrap().render().unwrap(), "seki");
+        let test_rule = setup_rule("* > e / _k");
+        let test_word = setup_word("ski");
+        assert_eq!(test_rule.apply(test_word).unwrap().render().unwrap(), "seki");
+    }
 
-    //     let test_rule = setup_rule("* > e / s_");
-    //     let test_word = setup_word("kas");
-    //     assert_eq!(test_rule.apply(test_word).unwrap().render().unwrap(), "kase");
-        
-    //     let test_rule = setup_rule("* > e / _k");
-    //     let test_word = setup_word("ski");
-    //     assert_eq!(test_rule.apply(test_word).unwrap().render().unwrap(), "seki");
+    #[test]
+    fn test_insertion_after_context_ipa() {
+        let test_rule = setup_rule("* > e / s_");
+        let test_word = setup_word("ski");
+        println!("* > e / s_");
+        assert_eq!(test_rule.apply(test_word).unwrap().render().unwrap(), "seki");
 
-    //     let test_rule = setup_rule("* > e / k_");
-    //     let test_word = setup_word("ski");
-    //     assert_eq!(test_rule.apply(test_word).unwrap().render().unwrap(), "skei");
+        let test_rule = setup_rule("* > e / s_");
+        let test_word = setup_word("kas");
+        assert_eq!(test_rule.apply(test_word).unwrap().render().unwrap(), "kase");
 
-    //     let test_rule = setup_rule("* > e / s_k");
-    //     let test_word = setup_word("kskis");
-    //     assert_eq!(test_rule.apply(test_word).unwrap().render().unwrap(), "ksekis");
-    // }
+        let test_rule = setup_rule("* > e / k_");
+        let test_word = setup_word("ski");
+        assert_eq!(test_rule.apply(test_word).unwrap().render().unwrap(), "skei");
+    }
 
-    // #[test]
-    // fn test_insertion_context_set() {
-    //     let test_rule = setup_rule("* > e / _{s,k}");
-    //     let test_word = setup_word("ski");
-    //     println!("* > e / _{{s,k}}");
+    #[test]
+    fn test_insertion_between_context_ipa() {
+        let test_rule = setup_rule("* > e / s_k");
+        let test_word = setup_word("kskis");
+        assert_eq!(test_rule.apply(test_word).unwrap().render().unwrap(), "ksekis");
+    }
 
-    //     assert_eq!(test_rule.apply(test_word).unwrap().render().unwrap(), "eseki");
+    #[test]
+    fn test_insertion_context_before_set() {
+        let test_rule = setup_rule("* > e / _{s,k}");
+        let test_word = setup_word("ski");
+        println!("* > e / _{{s,k}}");
+        assert_eq!(test_rule.apply(test_word).unwrap().render().unwrap(), "eseki");
+    }
 
-    //     let test_rule = setup_rule("* > e / {s,k}_");
-    //     let test_word = setup_word("ski");
-    //     println!("* > e / {{s,k}}_");
-    //     assert_eq!(test_rule.apply(test_word).unwrap().render().unwrap(), "sekei");
-    // }
+    #[test]
+    fn test_insertion_context_after_set() {
+        let test_rule = setup_rule("* > e / {s,k}_");
+        let test_word = setup_word("ski");
+        println!("* > e / {{s,k}}_");
+        assert_eq!(test_rule.apply(test_word).unwrap().render().unwrap(), "sekei");
+    }
 
-    // #[test]
-    // fn test_insertion_context_matrix() {
-    //     let test_rule = setup_rule("* > e / _C");
-    //     let test_word = setup_word("ski");
-    //     println!("* > e / _C");
-    //     assert_eq!(test_rule.apply(test_word).unwrap().render().unwrap(), "eseki");
-    // }
+    #[test]
+    fn test_insertion_context_before_matrix() {
+        let test_rule = setup_rule("* > e / _C");
+        let test_word = setup_word("ski");
+        println!("* > e / _C");
+        assert_eq!(test_rule.apply(test_word).unwrap().render().unwrap(), "eseki");
+    }
 
-    // #[test]
-    // fn test_insertion_spanish() {
-    //     // let test_rule = setup_rule("* > b, d / m_r, n_r");
-    //     let test_rule = setup_rule("* > b:[Aplace] / [+nasal, Aplace]_r");
-    //     let test_word = setup_word("om.re");
-    //     assert_eq!(test_rule.apply(test_word).unwrap().render().unwrap(), "om.bre");
-    // }
+    #[test]
+    fn test_insertion_context_after_matrix() {
+        let test_rule = setup_rule("* > e / C_");
+        let test_word = setup_word("ski");
+        println!("* > e / C_");
+        assert_eq!(test_rule.apply(test_word).unwrap().render().unwrap(), "sekei");
+    }
 
-    // #[test]
-    // fn test_insertion_context_syll() {
-    //     let test_rule = setup_rule("* > e / _%");
-    //     let test_word = setup_word("s.ki");
-    //     println!("* > e / _%");
-    //     assert_eq!(test_rule.apply(test_word).unwrap().render().unwrap(), "se.ki");
-    // }
+    #[test]
+    fn test_insertion_spanish() {
+        // let test_rule = setup_rule("* > b, d / m_r, n_r");
+        let test_rule = setup_rule("* > b:[Aplace] / [+nasal, Aplace]_r");
+        let test_word = setup_word("om.re");
+        assert_eq!(test_rule.apply(test_word).unwrap().render().unwrap(), "om.bre");
+    }
 
-    // #[test]
-    // fn test_insertion_context_syll_bound() {
-    //     let test_rule = setup_rule("* > e / _$");
-    //     let test_word = setup_word("s.ki");
-    //     println!("* > e / _$");
-    //     assert_eq!(test_rule.apply(test_word).unwrap().render().unwrap(), "se.kie");
+    #[test]
+    fn test_insertion_context_syll() {
+        let test_rule = setup_rule("* > e / _%");
+        let test_word = setup_word("s.ki");
+        println!();
+        println!("* > e / _%");
+        assert_eq!(test_rule.apply(test_word).unwrap().render().unwrap(), "se.ki");
+    }
 
-    //     let test_rule = setup_rule("* > e / $_");
-    //     let test_word = setup_word("as.k");
-    //     println!("* > e / $_");
-    //     assert_eq!(test_rule.apply(test_word).unwrap().render().unwrap(), "eas.ek");
-    // }
+    #[test]
+    fn test_insertion_context_syll_bound() {
+        let test_rule = setup_rule("* > e / _$");
+        let test_word = setup_word("s.ki");
+        println!("* > e / _$");
+        assert_eq!(test_rule.apply(test_word).unwrap().render().unwrap(), "se.ki");
+
+        let test_rule = setup_rule("* > e / $_");
+        let test_word = setup_word("as.k");
+        println!("* > e / $_");
+        assert_eq!(test_rule.apply(test_word).unwrap().render().unwrap(), "eas.ek");
+    }
 
 
     #[test]
