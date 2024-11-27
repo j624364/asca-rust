@@ -54,6 +54,7 @@ pub const fn feature_to_node_mask(feat: FType) -> (NodeKind, u8) {
 
 #[derive(Debug, Clone)]
 pub struct Diacritic {
+    #[allow(unused)]
     pub name: String,
     pub diacrit: char,
     pub prereqs: DiaMods,
@@ -203,6 +204,32 @@ impl NodeKind {
 //     println!("phr: - {:#?}", qwer(phr_cache));
 // }
 
+// pub fn test_vowel_variants() {
+//     let mut errs = 0;
+//     let mut count = 0;
+//     let root = 0b011;
+//     let manner = 0b11000000;
+//     let laryngeal = 0b100;
+//     let labial = [0b11, 0b10, 0b1, 0b0];
+//     let coronal = None;
+//     let pharyngeal = None;
+
+//     for l in labial {
+//         for d in 0..=0b111111 {
+//             let seg = Segment {root, manner, laryngeal, labial : Some(l), coronal, dorsal: Some(d), pharyngeal };
+//             count += 1;
+//             if let Some(g) = seg.get_as_grapheme() {
+//                 if g == "�".to_string() {
+//                     errs += 1;
+//                 }
+//                 println!("{g}")
+//             } else {
+//                 errs += 1;
+//             }
+//         }
+//     }
+//     println!("Total {errs} out of {count}");
+// }
 
 // More than 246172 legal variants
 // pub fn test_variants() {
@@ -617,7 +644,7 @@ impl Segment {
                                 }
                             }
                         },
-                        AlphaMod::InvAlpha(_) => todo!("Err: Nodes cannot be assigned by an inverse alpha"), // I don't think this makes sense for applying nodes 
+                        AlphaMod::InvAlpha(_) => return Err(RuleRuntimeError::AlphaNodeAssignInv(err_pos))
                     },
                 }
             }

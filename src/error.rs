@@ -164,6 +164,7 @@ pub enum RuleRuntimeError {
     InsertionMatrix(Position),
     AlphaUnknown(Position),
     AlphaUnknownInv(Position),
+    AlphaNodeAssignInv(Position),
     AlphaIsNotSameNode(Position),
     AlphaIsNotNode(Position),
     NodeCannotBeSome(String, Position),
@@ -191,8 +192,9 @@ impl ASCAError for RuleRuntimeError {
             Self::InsertionNoContextOrException(_) => "Insertion rules must have a context".to_string(),
             Self::InsertionMatrix(_)               => "An incomplete matrix cannot be inserted".to_string(),
             Self::AlphaUnknown(_)                  => "Alpha has not be assigned before applying".to_string(),
-            Self::AlphaUnknownInv(_)               => "First occurence of a node alpha must not be inverted".to_string(),
-            Self::AlphaIsNotSameNode(_)            => "Node alphas must only be used on the same node".to_string(),
+            Self::AlphaUnknownInv(_)               => "First occurence of a node alpha must not be inverted.".to_string(),
+            Self::AlphaNodeAssignInv(_)            => "Node alphas cannot be assigned inverse. First occurrence of a node alpha must be positive.".to_string(),
+            Self::AlphaIsNotSameNode(_)            => "Node alphas must only be used on the same node.".to_string(),
             Self::AlphaIsNotNode(_)                => "Node alphas cannot be used on binary features".to_string(),
             Self::NodeCannotBeSome(node, _)        => format!("{} node cannot arbitrarily positive", node),
             Self::NodeCannotBeNone(node, _)        => format!("{} node cannot be removed", node),
@@ -227,6 +229,7 @@ impl ASCAError for RuleRuntimeError {
             Self::SubstitutionSyll(pos)     |
             Self::AlphaUnknown(pos)         |
             Self::AlphaUnknownInv(pos)      |
+            Self::AlphaNodeAssignInv(pos)   |
             Self::LonelySet(pos)            | 
             Self::NodeCannotBeSome(_, pos)  |
             Self::NodeCannotBeNone(_, pos)  |
