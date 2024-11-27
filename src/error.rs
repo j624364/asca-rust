@@ -203,6 +203,8 @@ impl ASCAError for RuleRuntimeError {
                 " ".repeat(pos.end) + "^" + "\n", 
                 pos.line
             ),
+            Self::AlphaUnknown(pos)        |
+            Self::AlphaUnknownInv(pos)     |
             Self::LonelySet(pos)           | 
             Self::NodeCannotBeSome(_, pos) |
             Self::NodeCannotBeNone(_, pos) |
@@ -212,12 +214,7 @@ impl ASCAError for RuleRuntimeError {
             Self::InsertionMatrix(pos)  => (
                 " ".repeat(pos.start) + &"^".repeat(pos.end-pos.start) + "\n",
                 pos.line
-            ),
-            Self::AlphaUnknown(pos) |
-            Self::AlphaUnknownInv(pos) => (
-                " ".repeat(pos.start) + "^^" + "\n", 
-                pos.line
-            ),
+            )
         };
 
         result.push_str(&format!("{}{}{}{}",  
