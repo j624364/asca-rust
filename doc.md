@@ -1,29 +1,27 @@
 # ASCA Documentation and User Guide
-[Defining Sound Changes](#defining-sound-changes) | [The Basics](#the-basics) | [Condensed Rules](#condensed-rules) 
+[Defining Words](#defining-words) | [Defining Sound Changes](#defining-sound-changes)
 | [Distinctive Features](#distinctive-features) | [Suprasegmental Features](#suprasegmental-features)
-| [Groupings](#groupings) | [Metathesis](#metathesis) | [Gemination](#gemination) | [Optional Segments](#optional-segments) | [Alpha Notation](#alpha-notation) | [Variables](#variables) | [Propagation](#propagation) 
- | [Saving and Loading Files](#saving-and-loading-files) | [Limitations](#limitations)
+| [Groupings](#groupings) | [Sets](#sets) | [Gemination](#gemination) | [Optional Segments](#optional-segments) | [Alpha Notation](#alpha-notation) | [Variables](#variables) | [Propagation](#propagation) | [Considerations](#considerations) 
+| [User Interface](#user-interface)
 
 ## Defining Words
 
 ### IPA Characters
 
-ASCA recognises over 300 base IPA phones which can be modified with any of 30 diacritics. Meaning that most commonly used IPA codepoints should be representable.
-
-Types of phones include:
-- Clicks
+ASCA recognises over 300 base IPA phones which can be modified with any of 30 diacritics. Meaning that most commonly used IPA codepoints are representable, including:
+- Clicks (Velar, uvular, and uvular contour)
 - Ejectives & Implosives
-- Voiceless, Creaky, Breathy Phonation
+- Voiceless, Creaky, & Breathy Phonation
 - Syllabic Consonants
 - Affricates
 - Advanced & Retracted Tongue Root
 - Labialised, Glottalised, Velarised, Palatalised, Pharyngealised (etc.) Segments
 
-ASCA supports digraphs; where two characters are joined by a tie (`◌͡◌`or `◌͜◌`) or, if not available, a caret `^` (i.e. `d͡ʒ` can be represented as `d^ʒ`). The tie/caret is not optional, `dʒ` is considered a sequence of two segments `d` and `ʒ`
+ASCA supports digraphs; where two characters are joined by a tie (`◌͡◌`or `◌͜◌`) or, if not available, a caret `^` (i.e. `d͡ʒ` can be represented as `d^ʒ`). The tie/caret is not optional, `dʒ` is considered a sequence of two segments `d` and `ʒ`.
 
-Clicks are preceded by a velar or uvular plosive/nasal, denoting place of rear articulation, voicing, and nasality. These are not joined by a tie (i.e. `ŋʘ` not `ŋ^ʘ` nor `ʘ`).
+Clicks are preceded by a velar or uvular plosive/nasal, denoting place of rear articulation, voicing, and nasality. These do not need to be joined by a tie as it is implicit (i.e. `ŋʘ` not `ŋ^ʘ` nor `ʘ`).
 
-Doubly articulated stops, such as `ɡ͡b`,  are not supported.
+Doubly articulated stops, such as `ɡ͡b`, are not supported.
 
 In the event that ASCA is unable to render a segment in IPA, `�` will be used in its place.
 
@@ -39,7 +37,7 @@ A word with no marked boundaries is considered one syllable. There are no rules 
 Segment length can be represented by either `ː` or `:`. A segment can be followed by multiple length markers, representing overlong segments. Alternatively, length can be represented by repetition of the segment (i.e. `si:m` can be `siim`). Identical segments that are separated by a syllable boundary are not considered one long segment. If a long segment falls at the end of a syllable, `;` can be used a shorthand to also close the syllable (i.e. `si:.tiŋ` can be `si;tiŋ`).
 
 #### Stress
-Primary stress can be represented by either `ˈ` or `'` and secondary stress by either `ˌ` or `,`. These are placed at the start of the syllable. The boundary marker can be omitted if followed by a stressed syllable (i.e. `ə'gəʊ` instead of `ə.'gəʊ`).
+Primary stress can be represented by either `ˈ` or `'` and secondary stress by either `ˌ` or `,`. These are placed at the start of the syllable. The boundary marker can be omitted if followed by a stressed syllable (i.e. `ə'gəʊ` instead of `ə.'gəʊ`). Note that ejective consonants cannot be marked with a `'` as this will be interpreted as stress. `ʼ` must be used instead `i.e. /pʼ/`.
 
 #### Tone
 ASCA does not currently support tone diacritics or tone letters. Tone instead is represented by numbers following the syllable. As of yet, there are no rules regarding the meaning or syntax of these numbers; However, for demonstration we will follow the [Chinese convention](https://en.wikipedia.org/wiki/Tone_letter#Numerical_values), using numbers from 1 (lowest pitch) to 5 (highest pitch). As with stress, either a syllable or a segment can be matched or modified with tone.
@@ -54,7 +52,7 @@ ma => `ma0` or just `ma`
 ```
 Tone is placed at the end of a syllable and therefore automatically closes it. However, you may still mark the boundary for clarity.
 ```
-pu35.jɑʊ̯51.tan55.ɕin55 => pu35jɑʊ̯51tan55ɕin55
+pu35.jɑʊ̯51.tan55.ɕin55 == pu35jɑʊ̯51tan55ɕin55
 ```
 
 ## Defining Sound Changes
@@ -84,11 +82,21 @@ a > e / __      (this is invalid)
 
 ### Special Characters
 
-`%` represents a syllable
+`%` represents a syllable.
 
-`$` represents a syllable boundary
+`$` represents a syllable boundary.
 
-`#` represents a word boundary
+`#` represents a word boundary.
+
+Word boundaries may only be used in environments, and must only be used once on either periphery.
+
+```
+ a > e / #_#    (valid)
+ a > e / _s#    (valid, /a.has/ > /a.hes/)
+
+ a > e / _##    (invalid)
+ a > e / _#s    (invalid)
+```
 
 ### Insertion and Deletion Rules
 
@@ -116,8 +124,10 @@ An ellipsis `…` or double `..` or triple dot `...` can be used to implement lo
 
 ```
 Spanish Hyperthesis (Old Spanish parabla => Spanish palabra)
-r...l > &       
+r...l > &
 ```
+
+Note that the ellipsis must match at least one segment, so a word such as `ar.la` would not change under the above rule.
 
 ### Condensed Rules
 Multiple rules can be condensed into one line. This can be useful when you have two or more sequential rules that share identical inputs, outputs, or environments.
@@ -142,12 +152,11 @@ e > * / #_, _#
 (becomes)
 e > * / _,#
 ```
-
+The before case is always comes first.
 Any elements past the comma are mirrored such that:
 ```
 _,ABC => ABC_ , _CBA
 ```
-
 
 ## Distinctive Features
 ASCA allows for 26 segmental features.  
@@ -164,7 +173,7 @@ A full table of segments and there values can be found [here](https://bit.ly/3sH
 │        │    continuant     │  fricatives, approximants,  │    Plosives, affricates,   │
 │        │                   │       vowels, trills        │        nasals, flaps       │
 │        │    approximant    │   vowels, glides, liquids   │     nasals, obstruents     │
-│        │      lateral      │  lat. and lateralised cons. │             -              │
+│        │      lateral      │ l-like and lateralised segs │             -              │
 │ MANNER │       nasal       │  nasals, nasalised vowels,  │ oral consonants and vowels │
 │        │                   │      prenasalised stops     │                            │
 │        │  delayed release  │     affricate consonants    │       Plosives, etc.       │
@@ -189,9 +198,9 @@ A full table of segments and there values can be found [here](https://bit.ly/3sH
 │        │ DORSAL  │  high   │     velars, high vowels     │             -              │
 │        │         │   low   │   pharyngeals, low vowels   │             -              │
 │        │         │  tense  │     tense vowels & cons.    │         lax vowels         │
-│        │         │ reduced │            schwa            │             -              │
+│        │         │ reduced │    schwa, reduced vowels    │             -              │
 │        ├─────────┼─────────┼─────────────────────────────┼────────────────────────────┤
-│        │ PHARYNG │   atr   │                             │                            │
+│        │ PHARYNG │   atr   │      advanced root segs     │                            │
 │        │         │   rtr   │         pharyngeals         │        epiglottals         │
 └────────┴─────────┴─────────┴─────────────────────────────┴────────────────────────────┘
 ```
@@ -236,6 +245,7 @@ Using Distinctive Features:
 [+cons, -son, -cont, +voice, -sg] > [-voice]
 [+cons, +voice, +sg] > [-sg]
 ```
+An empty matrix `[]` can be used to match any one segment (similar to a Regex wildcard).
 
 ### Node and Subnode features
 #### Matching a subnode
@@ -246,7 +256,7 @@ SubNodes can be used to match segments by place of articulation.
 [+dorsal]  -> vowels & velar, uvular, palatal segments
 [+phargyn] -> epiglottal/pharyngeal segments, and atr/rtr
 [+place]   -> matches all non glottal segments
-[-place]   -> h, ɦ, ʔ, etc. 
+[-place]   -> glottal segments; h, ɦ, ʔ, etc. 
 ```
 The major nodes Root, Manner, and Largyngeal cannot be positive or negative. See [alpha notation](#alpha-notation) for their use cases.
 
@@ -368,17 +378,17 @@ Note that purely glottalic consonants such as `/h/ and /ʔ/` are considered `[-c
 
 ## Sets
 Sets are defined between curly brackets `{}` and can contain IPA, Groups, Matrices, Syllables, or Boundaries.  
-Currently, sets cannot contain sequences (i.e. cannot have `{nd, NC}`).
+Currently, sets cannot contain sequences (i.e. cannot have `{nd, NC, %%}`).
 
 ```
 p, t, k > b, d, g       (3 Rules)   
 {p, t, k} > {b, d, g}   (1 Rule)
 ```
-A set in the output if matched to a set in the input must contain the same number of segments. 
+A set in the output, if matched to a set in the input, must contain the same number of segments. 
 ```
 {p, t} > {b, d, g}      (ERROR)
 ```
-A set in the input or output also cannot contain word boundaries.
+A set in the input or output cannot contain word boundaries.
 
 ## Gemination
 Geminating a consonant is as simple as making a vowel long.
@@ -389,7 +399,7 @@ C > [+long] / V:[-long]_#
 ```
 
 ## Optional Segments
-Optional Segments are declared as ```(S, M:N)``` where: 
+Optional Segments are declared as `(S, M:N)` where: 
 ```
 S = the segment(s) to be repeated
 M = the minimum number of iterations (optional, default = 0)
@@ -402,6 +412,8 @@ For example, ```(C,5)_```  matches up to 5 consonants preceding the target. This
 `(C,0)_` matches any number of consonants preceding the target. This is equal to regex’s Lazy-Zero-Or-More operator (*?)
 
 `(C)_` matches zero or one consonant preceding the target. This is the same as `(C,1)_` or `(C,0:1)_`
+
+`([])_` matches zero or one of *any* segment preceding the target.
 
 ## Alpha Notation
 
@@ -499,42 +511,41 @@ V > [α front, β back] / _...V:[α front, β back]#
 For left-to-right propagation, it may be stylistically justified to do the same, but it will not affect the result.
 
 
-
-
-## Saving and Loading Files
-
-
-
-## Limitations & Considerations
+## Considerations
 
 ### Syllable Structure
-It is up to you to maintain syllable boundaries.
+ASCA does not enforce 'legal' syllables and it is up to you to maintain syllable boundaries.
 This can be done by using metathesising, inserting, and deleting $.
-
 
 For example, imagine a input word of `'si.te`. If we apply the rule `V > * / C_#`, we end up with a floating consonant `'si.t`.
 
-This can be fixed in two ways: 
+This can be fixed in a few ways, including: 
 ```
 $C > & / _# (the consonant is moved into the first syllable, with the now empty second syllable being deleted)
 or
 $ > * / _C# (the two syllables are merged by deleting the boundary between them)
-
-`A syllable added to the beginning of a word in a substitution rule steals stress`
-
-`Sequence of identical segments (e.g. VV_) are parsed differently to long segments (e.g. V:[+long]) in before_context`
-
-`Cannot use "'" within words as an alias for "ʼ" as "'" is used to mark primary stress`
-
-
-`Special Environment` 
-
 ```
-V:[-long] > [+long] > _,ə
-ə > * 
 
-Expected:
-/sa.ə.o/ > /sa:.o/
-Actual:
-/sa.ə.o/ > /sa:.o:/
+### Syllable Stress
+Currently, when a syllable is inserted to the beginning of a word, the added syllable steals the stress/tone of the previously initial syllable.
+This is because the current implementation cannot differentiate between it and the scenario of adding a syllable to the end, or middle, of a word. 
+
+Take this copy vowel insertion rule: 
 ```
+* > 1$ / #_CV=1
+('de.no > 'e.de.no NOT e'de.no)
+```
+To fix this, we can use a syllable instead of a boundary and alpha notation to 'save' the stress.
+```
+* > 1:[-str]%:[Astr] / #_CV:[Astr]=1
+```
+
+
+
+
+
+## User Interface
+
+### Drag and Drop Reordering
+
+### Saving and Loading Files
