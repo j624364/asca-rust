@@ -683,8 +683,8 @@ impl<'a> Lexer<'a> {
             "place"       | "plce"    | "plc"                     => Ok(Feature(Node(Place))),
             // Labial Place Node Features
             "labial"      | "lbl"     | "lab"                     => Ok(Feature(Node(Labial))),
-            "labiodental" | "ldental" | "labiodent" | 
-            "labdent"     | "lbdntl"  | "ldent"     | "ldl"       => Ok(Feature(Feat(Labiodental))),
+            "labiodental" | "ldental" | "labiodent" | "labio" | 
+            "labiod" | "labdent" | "lbdntl" | "ldent" | "ldl"     => Ok(Feature(Feat(Labiodental))),
             "round"       | "rund"    | "rnd"       | "rd"        => Ok(Feature(Feat(Round))),
             // Coronal Place Node Features
             "coronal"     | "coron"   | "crnl" | "cor"            => Ok(Feature(Node(Coronal))),
