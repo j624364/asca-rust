@@ -86,7 +86,6 @@ impl SupraSegs {
     }
 }
 
-// TODO: Look into using IndexMap (or just a plain HashMap) instead of arrays
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Modifiers {
     pub nodes: [Option<ModKind>; NodeType::count()],
@@ -500,28 +499,9 @@ impl Parser {
             "V" => vec![CONS_M, SONR_P, SYLL_P],                 // -cons, +son, +syll                // Vowel
 
             // TODO(girv): possible other groups
-            // "B"  // Bilabial
-            // "T"  // Palatal  [+dist, +fr, -bk, +hi, -lo]
-            // "K"  // Velar    [-fr, +bk, +hi, -lo]
-            // "Q"  // Uvular   [-fr, +bk, -hi, -lo]
-
-            
-            // [+fr, +bk, +hi, +lo] > �
-            // [+fr, +bk, +hi, -lo] > � [+dist] Velarised Palatal
-            // [+fr, +bk, -hi, +lo] > �
-            // [+fr, +bk, -hi, -lo] > �
-            // [+fr, -bk, +hi, +lo] > �
-            // [+fr, -bk, +hi, -lo] > �  [+dist] Palatal
-            // [+fr, -bk, -hi, +lo] > �
-            // [+fr, -bk, -hi, -lo] > �
-            // [-fr, +bk, +hi, +lo] > �
-            // [-fr, +bk, +hi, -lo] > Velar
-            // [-fr, +bk, -hi, +lo] > �
-            // [-fr, +bk, -hi, -lo] > Uvular
-            // [-fr, -bk, +hi, +lo] > �
-            // [-fr, -bk, +hi, -lo] > Palatal Velar
-            // [-fr, -bk, -hi, +lo] > �
-            // [-fr, -bk, -hi, -lo] > �
+            // "T"  // Palatal  [+cons, +dist, +fr, -bk, +hi, -lo]
+            // "K"  // Velar    [+cons, -fr, +bk, +hi, -lo]
+            // "Q"  // Uvular   [+cons, -fr, +bk, -hi, -lo]
 
             _ => return Err(RuleSyntaxError::UnknownGrouping(chr)),
         }).into_iter().for_each(|(feature, value)| {

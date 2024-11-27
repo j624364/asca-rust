@@ -1,5 +1,7 @@
-// NOTE(girv): lots of duplication here atm, focusing on getting things done before optimising
-// TODO
+#![allow(clippy::comparison_chain, clippy::too_many_arguments)]
+
+
+// NOTE(girv): lots of duplication here atm (and starting to look like spaghetti), focusing on getting things done before optimising
 
 use std ::{
     cell::RefCell, 
@@ -131,14 +133,14 @@ impl SubRule {
                     break;
                 }
                 let prev = word.render().unwrap();
-                println!("Match! {:?}", res);
+                // println!("Match! {:?}", res);
                 word = self.transform(&word, res, &mut next_index)?;
                 println!("{} => {}", prev, word.render().unwrap());
                 
                 if let Some(ci) = next_index { 
                     cur_index = ci;
                 } else {
-                    println!("EOW");
+                    // println!("EOW");
                     break;
                 }
             } else {
@@ -152,7 +154,7 @@ impl SubRule {
     fn match_before_env(&self, states: &[Item], word_rev: &Word, pos: &SegPos, ins_match_before: bool, is_context: bool) -> Result<bool, RuleRuntimeError> {
         // NOTE: assumes parent has done reversals
         let mut start_pos = *pos;
-        start_pos.increment(&word_rev);
+        start_pos.increment(word_rev);
         let mut is_match = if is_context {
             true
         } else {
@@ -160,7 +162,7 @@ impl SubRule {
         };
         let mut si = 0;
         while si < states.len() {
-            if !self.context_match(&states, &mut si, &word_rev, &mut start_pos, false, ins_match_before)? {
+            if !self.context_match(states, &mut si, word_rev, &mut start_pos, false, ins_match_before)? {
                 is_match = false;
                 if is_context { break; }
             }
@@ -222,8 +224,8 @@ impl SubRule {
             return Ok(true)
         }
         
-        let is_cont_match = self.match_after_env(&cont_states, word, &pos, false, inc, true)?;
-        let is_expt_match = self.match_after_env(&expt_states, word, &pos, false, inc, false)?;
+        let is_cont_match = self.match_after_env(cont_states, word, &pos, false, inc, true)?;
+        let is_expt_match = self.match_after_env(expt_states, word, &pos, false, inc, false)?;
 
         Ok(!is_expt_match && is_cont_match)
     }
@@ -339,22 +341,6 @@ impl SubRule {
         *pos = back_pos;
         *state_index = back_state;
         
-
-        // (X, 0,2)
-        // _ , _X, _XX
-        
-        // opt  states
-        // opt opt states
-        // opt opt opt states
-        // opt opt opt opt states
-        // if let Some(max) = match_max {
-        //     let num_iters = max-match_min;
-        //     let arr: Vec<bool> = Vec::with_capacity(num_iters);
-        //     println!("min: {}", match_min); println!("max: {}", max);
-        //     println!("cap: {}", arr.capacity());
-        // }
-
-
         let max = match_max.unwrap_or(usize::MAX);
         while index < max {
             *state_index = back_state;
@@ -374,8 +360,6 @@ impl SubRule {
                     continue;
                 }
             } else {
-                // *pos = back_pos;
-                // *state_index = back_state;
                 return Ok(true)
             }
         }
@@ -649,7 +633,7 @@ impl SubRule {
                         while res_word.in_bounds(pos) {
                             self.alphas.borrow_mut().clear();
                             self.variables.borrow_mut().clear();
-                            println!("pos {pos:?}");
+                            // println!("pos {pos:?}");
 
                             match self.insertion_match(&res_word, pos)? {
                                 Some(ins) => {
@@ -658,11 +642,11 @@ impl SubRule {
                                         continue;
                                     }         
                                     let prev = res_word.render().unwrap();
-                                    println!("Match! {} at {:?}", res_word.render().unwrap(), ins);
+                                    // println!("Match! {} at {:?}", res_word.render().unwrap(), ins);
                                     let (res, next_pos) = self.insert(&res_word, ins, false)?;
                                     res_word = res;
                                     println!("{} => {}", prev, res_word.render().unwrap());
-                                    println!("pos: {pos:?} ins: {ins:?} nxt: {next_pos:?}");
+                                    // println!("pos: {pos:?} ins: {ins:?} nxt: {next_pos:?}");
 
                                     if let Some(np) = next_pos {
                                         pos = np;
@@ -670,7 +654,7 @@ impl SubRule {
                                             pos.increment(&res_word);
                                         }
                                     } else {
-                                        println!("EOW");
+                                        // println!("EOW");
                                         break;
                                     }
 
@@ -687,7 +671,7 @@ impl SubRule {
                         while res_word.in_bounds(pos) {
                             self.alphas.borrow_mut().clear();
                             self.variables.borrow_mut().clear();
-                            println!("pos {pos:?}");
+                            // println!("pos {pos:?}");
 
                             match self.insertion_match(&res_word, pos)? {
                                 Some(ins) => {
@@ -696,11 +680,11 @@ impl SubRule {
                                         continue;
                                     }
                                     let prev = res_word.render().unwrap();
-                                    println!("Match! {} at {:?}", res_word.render().unwrap(), ins);
+                                    // println!("Match! {} at {:?}", res_word.render().unwrap(), ins);
                                     let (res, next_pos) = self.insert(&res_word, ins, true)?;
                                     res_word = res;
                                     println!("{} => {}", prev, res_word.render().unwrap());
-                                    println!("pos: {pos:?} ins: {ins:?} nxt: {next_pos:?}");
+                                    // println!("pos: {pos:?} ins: {ins:?} nxt: {next_pos:?}");
 
                                     if let Some(np) = next_pos {
                                         pos = np;
@@ -708,7 +692,7 @@ impl SubRule {
                                         //     pos.increment(&res_word);
                                         // }
                                     } else {
-                                        println!("EOW");
+                                        // println!("EOW");
                                         break;
                                     }
 
@@ -725,7 +709,7 @@ impl SubRule {
                         while res_word.in_bounds(pos) {
                             self.alphas.borrow_mut().clear();
                             self.variables.borrow_mut().clear();
-                            println!("pos {pos:?}");
+                            // println!("pos {pos:?}");
 
                             match self.insertion_match(&res_word, pos)? {
                                 Some(ins) => {
@@ -734,11 +718,11 @@ impl SubRule {
                                         continue;
                                     }
                                     let prev = res_word.render().unwrap();
-                                    println!("Match! {} at {:?}", res_word.render().unwrap(), ins);
+                                    // println!("Match! {} at {:?}", res_word.render().unwrap(), ins);
                                     let (res, next_pos) = self.insert(&res_word, ins, false)?;
                                     res_word = res;
                                     println!("{} => {}", prev, res_word.render().unwrap());
-                                    println!("pos: {pos:?} ins: {ins:?} nxt: {next_pos:?}");
+                                    // println!("pos: {pos:?} ins: {ins:?} nxt: {next_pos:?}");
 
                                     if let Some(np) = next_pos {
                                         pos = np;
@@ -746,7 +730,7 @@ impl SubRule {
                                             pos.increment(&res_word);
                                         }
                                     } else {
-                                        println!("EOW");
+                                        // println!("EOW");
                                         break;
                                     }
 
@@ -762,7 +746,7 @@ impl SubRule {
                         while res_word.in_bounds(pos) {
                             self.alphas.borrow_mut().clear();
                             self.variables.borrow_mut().clear();
-                            println!("pos {pos:?}");
+                            // println!("pos {pos:?}");
 
                             match self.insertion_match(&res_word, pos)? {
                                 Some(ins) => {                                    
@@ -772,11 +756,11 @@ impl SubRule {
                                     }
 
                                     let prev = res_word.render().unwrap();
-                                    println!("Match! {} at {:?}", res_word.render().unwrap(), ins);
+                                    // println!("Match! {} at {:?}", res_word.render().unwrap(), ins);
                                     let (res, next_pos) = self.insert(&res_word, ins, false)?;
                                     res_word = res;
                                     println!("{} => {}", prev, res_word.render().unwrap());
-                                    println!("pos: {pos:?} ins: {ins:?} nxt: {next_pos:?}");
+                                    // println!("pos: {pos:?} ins: {ins:?} nxt: {next_pos:?}");
 
                                     if let Some(np) = next_pos {
                                         pos = np;
@@ -784,7 +768,7 @@ impl SubRule {
                                             pos.increment(&res_word);
                                         }
                                     } else {
-                                        println!("EOW");
+                                        // println!("EOW");
                                         break;
                                     }
 
@@ -823,7 +807,7 @@ impl SubRule {
                 if after_expt.len() == 1 && after_expt[0].kind == ParseElement::WordBound && !ins_pos.at_word_end(word) {
                     return Ok(false)
                 }
-                let match_aft = self.match_after_env(&after_expt, word, &ins_pos, true, false, false)?;
+                let match_aft = self.match_after_env(after_expt, word, &ins_pos, true, false, false)?;
                 Ok(match_aft)
             },
             // #_#
@@ -831,7 +815,7 @@ impl SubRule {
                 let word_rev = &word.reverse();
                 let pos_rev = ins_pos.reversed(word);
                 let match_bef = self.match_before_env(&before_expt, word_rev, &pos_rev, false, false)?;
-                let match_aft = self.match_after_env(&after_expt, word, &ins_pos, false, false, false)?;
+                let match_aft = self.match_after_env(after_expt, word, &ins_pos, false, false, false)?;
 
                 Ok(match_bef && match_aft)
             },
@@ -943,7 +927,7 @@ impl SubRule {
                 if match_begin.is_none() {
                     let mut sp = before_pos;
                     if let ParseElement::Syllable(..) | ParseElement::SyllBound = states.first().unwrap().kind {
-                        sp.decrement(&word);
+                        sp.decrement(word);
                         sp.seg_index +=1;
                     }
                     match_begin = Some(sp);
@@ -1034,7 +1018,6 @@ impl SubRule {
                         second_syll.segments.push_front(first_syll.segments.pop_back().unwrap());
                     }
 
-                    // println!("{:?}", second_syll.segments);
                     res_word.syllables.insert(pos.syll_index+1, second_syll);
 
                     pos.syll_index += 1;
@@ -2274,7 +2257,7 @@ impl SubRule {
                             if n == node {
                                 Ok(!seg.node_match(n, m))
                             } else {
-                                return Err(RuleRuntimeError::AlphaIsNotNode(err_pos))
+                                Err(RuleRuntimeError::AlphaIsNotNode(err_pos))
                             }
                         } else if let Some(place) = alph.as_place() {
                             Ok(
