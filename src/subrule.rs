@@ -646,7 +646,11 @@ impl SubRule {
                             println!("pos {pos:?}");
 
                             match self.insertion_match(&res_word, pos)? {
-                                Some(ins) => {                                    
+                                Some(ins) => {
+                                    if self.insertion_match_exceptions(word, ins)? {
+                                        pos.increment(word);
+                                        continue;
+                                    }         
                                     let prev = res_word.render().unwrap();
                                     println!("Match! {} at {:?}", res_word.render().unwrap(), ins);
                                     // TODO: EXCEPTIONS
@@ -672,6 +676,7 @@ impl SubRule {
                         }
                     },
                     (true, false) => {
+                        // _#
                         let mut pos = SegPos::new(0, 0);
 
                         while res_word.in_bounds(pos) {
@@ -681,6 +686,10 @@ impl SubRule {
 
                             match self.insertion_match(&res_word, pos)? {
                                 Some(ins) => {
+                                    if self.insertion_match_exceptions(word, ins)? {
+                                        pos.increment(word);
+                                        continue;
+                                    }
                                     let prev = res_word.render().unwrap();
                                     println!("Match! {} at {:?}", res_word.render().unwrap(), ins);
                                     // TODO: EXCEPTIONS
@@ -691,9 +700,9 @@ impl SubRule {
 
                                     if let Some(np) = next_pos {
                                         pos = np;
-                                        if pos.at_syll_end(&res_word) {
-                                            pos.increment(&res_word);
-                                        }
+                                        // if pos.at_syll_end(&res_word) {
+                                        //     pos.increment(&res_word);
+                                        // }
                                     } else {
                                         println!("EOW");
                                         break;
@@ -706,6 +715,7 @@ impl SubRule {
                         }
                     },
                     (false, true) => {
+                        // #_
                         let mut pos = SegPos::new(0, 0);
 
                         while res_word.in_bounds(pos) {
@@ -715,6 +725,10 @@ impl SubRule {
 
                             match self.insertion_match(&res_word, pos)? {
                                 Some(ins) => {
+                                    if self.insertion_match_exceptions(word, ins)? {
+                                        pos.increment(word);
+                                        continue;
+                                    }
                                     let prev = res_word.render().unwrap();
                                     println!("Match! {} at {:?}", res_word.render().unwrap(), ins);
                                     // TODO: EXCEPTIONS
@@ -749,9 +763,13 @@ impl SubRule {
 
                             match self.insertion_match(&res_word, pos)? {
                                 Some(ins) => {                                    
+                                    if self.insertion_match_exceptions(word, ins)? {
+                                        pos.increment(word);
+                                        continue;
+                                    }
+
                                     let prev = res_word.render().unwrap();
                                     println!("Match! {} at {:?}", res_word.render().unwrap(), ins);
-                                    // TODO: EXCEPTIONS
                                     let (res, next_pos) = self.insert(&res_word, ins, false)?;
                                     res_word = res;
                                     println!("{} => {}", prev, res_word.render().unwrap());
@@ -781,6 +799,42 @@ impl SubRule {
         }
     }
 
+    fn insertion_match_exceptions(&self, word: &Word, ins_pos: SegPos) -> Result<bool, RuleRuntimeError> {
+        let (before_expt, after_expt) = self.get_exceptions();
+        let mut before_expt = before_expt.clone();
+        before_expt.reverse();
+
+        match (before_expt.is_empty(), after_expt.is_empty()) {
+            // _
+            (true, true) => Ok(false),
+            (false, true) => {
+                // #_
+                let word_rev = &word.reverse();
+                let pos_rev = ins_pos.reversed(word);
+                let match_bef = self.match_before_env(&before_expt, word_rev, &pos_rev, false, false)?;
+                Ok(match_bef)
+            },
+            (true, false) => {
+                // _#
+                // edge case for when insertion position is out of bounds but not at the word end
+                if after_expt.len() == 1 && after_expt[0].kind == ParseElement::WordBound && !ins_pos.at_word_end(word) {
+                    return Ok(false)
+                }
+                let match_aft = self.match_after_env(&after_expt, word, &ins_pos, true, false, false)?;
+                Ok(match_aft)
+            },
+            // #_#
+            (false, false) => {
+                let word_rev = &word.reverse();
+                let pos_rev = ins_pos.reversed(word);
+                let match_bef = self.match_before_env(&before_expt, word_rev, &pos_rev, false, false)?;
+                let match_aft = self.match_after_env(&after_expt, word, &ins_pos, false, false, false)?;
+
+                Ok(match_bef && match_aft)
+            },
+        }
+    }
+
     fn insertion_match(&self, word: &Word, start_pos: SegPos) -> Result<Option<SegPos>, RuleRuntimeError> {
 
         let (before_cont, after_cont) = self.get_context();
@@ -791,19 +845,13 @@ impl SubRule {
         }
 
         let maybe_ins = match (before_cont.is_empty(), after_cont.is_empty()) {
-            (true, true) => Some(start_pos),
-            (true, false) => self.insertion_before(after_cont, word, start_pos)?,
-            (false, true) => self.insertion_after(before_cont, word, start_pos)?,
-            (false, false) => self.insertion_between(before_cont, after_cont, word, start_pos)?,
+            (true, true) => Some(start_pos), // _
+            (false, true) => self.insertion_after(before_cont, word, start_pos)?, // #_
+            (true, false) => self.insertion_before(after_cont, word, start_pos)?, // _#
+            (false, false) => self.insertion_between(before_cont, after_cont, word, start_pos)?, // #_#
         };
 
         Ok(maybe_ins)
-
-        // let Some(ins) = maybe_ins else {
-        //     return Ok(None)
-        // };
-
-        // todo!("exceptions")
     }
 
     fn insertion_between(&self, bef_states: &[Item], aft_states: &[Item], word: &Word, start_pos: SegPos) -> Result<Option<SegPos>, RuleRuntimeError> {
