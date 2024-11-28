@@ -4,14 +4,14 @@ use crate  :: {
     parser :: Item,
 };
 
-pub trait ASCAError: Clone {
+pub(crate) trait ASCAError: Clone {
     fn get_error_message(&self) -> String;
     fn format_error(&self, _: &[String]) -> String;
 
 }
 
 #[derive(Debug, Clone)]
-pub enum Error {
+pub(crate) enum Error {
     WordSyn(WordSyntaxError),
     RuleSyn(RuleSyntaxError),
     WordRun(WordRuntimeError),
@@ -121,7 +121,7 @@ impl ASCAError for WordSyntaxError {
 }
 
 #[derive(Debug, Clone)]
-pub enum WordRuntimeError {
+pub(crate) enum WordRuntimeError {
     UnknownSegment(String, usize,  usize), // (Segs before, Word Pos in list, Segment Pos in Words)
 }
 
@@ -154,7 +154,7 @@ impl ASCAError for WordRuntimeError {
 }
 
 #[derive(Debug, Clone)]
-pub enum RuleRuntimeError { 
+pub(crate) enum RuleRuntimeError { 
     DeletionOnlySeg,
     DeletionOnlySyll,
     LonelySet(Position),
@@ -269,7 +269,7 @@ type LineNum = usize;
 type Pos = usize;
 
 #[derive(Debug, Clone)]
-pub enum RuleSyntaxError {
+pub(crate) enum RuleSyntaxError {
     OptLocError(Position),
     OptMathError(Token, LineNum, usize),
     UnknownIPA(Token),

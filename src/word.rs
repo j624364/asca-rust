@@ -15,9 +15,9 @@ use crate :: {
 };
 
 #[derive(Clone, Copy, PartialEq, Eq)]
-pub struct SegPos {
-    pub syll_index: usize,
-    pub seg_index: usize
+pub(crate) struct SegPos {
+    pub(crate) syll_index: usize,
+    pub(crate) seg_index: usize
 }
 
 impl fmt::Debug for SegPos {
@@ -27,11 +27,11 @@ impl fmt::Debug for SegPos {
 }
 
 impl SegPos {
-    pub fn new(syll_index: usize, seg_index: usize) -> Self {
+    pub(crate) fn new(syll_index: usize, seg_index: usize) -> Self {
         Self { syll_index, seg_index }
     }
 
-    pub fn reversed(&self, word: &Word) -> Self {
+    pub(crate) fn reversed(&self, word: &Word) -> Self {
         debug_assert!(word.in_bounds(*self));
         SegPos::new(
             word.syllables.len() - 1 - self.syll_index, 
@@ -39,7 +39,7 @@ impl SegPos {
         )
     }
 
-    pub fn increment(&mut self, word: &Word) {
+    pub(crate) fn increment(&mut self, word: &Word) {
         // NOTE: Does not guarantee that the resulting position is within the bounds of the word
         // debug_assert!(self.syll_index < word.syllables.len(), "error incrementing");
 
@@ -54,7 +54,7 @@ impl SegPos {
         }
     }
 
-    pub fn decrement(&mut self, word: &Word) {
+    pub(crate) fn decrement(&mut self, word: &Word) {
         // debug_assert!(self.syll_index < word.syllables.len(), "error decrementing");
 
         if self.syll_index > word.syllables.len() {
@@ -69,29 +69,28 @@ impl SegPos {
         // if 0:0, do nothing
     }
 
-    pub fn at_word_start(&self) -> bool {
+    pub(crate) fn at_word_start(&self) -> bool {
         self.syll_index == 0 && self.seg_index == 0
     }
 
-    pub fn at_word_end(&self, word: &Word) -> bool {
+    pub(crate) fn at_word_end(&self, word: &Word) -> bool {
         self.syll_index == word.syllables.len() - 1 && self.seg_index >= word.syllables[self.syll_index].segments.len() - 1
     }
 
-    pub fn at_syll_start(&self) -> bool {
+    pub(crate) fn at_syll_start(&self) -> bool {
         // NOTE: does not account for out_of_bounds
         self.seg_index == 0
     }
     #[allow(unused)]
-    pub fn at_syll_end(&self, word: &Word) -> bool {
+    pub(crate) fn at_syll_end(&self, word: &Word) -> bool {
         // NOTE: returns false if out_of_bounds
         self.syll_index < word.syllables.len() && self.seg_index >= word.syllables[self.syll_index].segments.len() - 1
     }
 }
 
 #[derive(Clone)]
-pub struct Word {
-    // pub segments: Vec<Segment>,
-    pub syllables: Vec<Syllable>,
+pub(crate) struct Word {
+    pub(crate) syllables: Vec<Syllable>,
 }
 
 impl fmt::Debug for Word {
@@ -106,7 +105,7 @@ impl fmt::Debug for Word {
 }
 
 impl Word {
-    pub fn new(text: String) -> Result<Self, WordSyntaxError>  {
+    pub(crate) fn new(text: String) -> Result<Self, WordSyntaxError>  {
         let mut w = Self { syllables: Vec::new() };
         let t = text.replace('\'', "ˈ")
                     .replace(',',  "ˌ")
@@ -136,7 +135,7 @@ impl Word {
         Ok(w)
     }
 
-    pub fn render(&self) -> Result<String, (String, usize)> {
+    pub(crate) fn render(&self) -> Result<String, (String, usize)> {
         let mut buffer = String::new();
         for (i, syll) in self.syllables.iter().enumerate() {
             match syll.stress {
@@ -157,23 +156,23 @@ impl Word {
         Ok(buffer)
     }
     #[allow(unused)]
-    pub fn get_syll_segments(&self, syll_index: usize) -> &VecDeque<Segment> {
+    pub(crate) fn get_syll_segments(&self, syll_index: usize) -> &VecDeque<Segment> {
         debug_assert!(syll_index < self.syllables.len());
         &self.syllables[syll_index].segments
     } 
     #[allow(unused)]
-    pub fn get_syll_segments_mut(&mut self, syll_index: usize) -> &mut VecDeque<Segment> {
+    pub(crate) fn get_syll_segments_mut(&mut self, syll_index: usize) -> &mut VecDeque<Segment> {
         debug_assert!(syll_index < self.syllables.len());
         &mut self.syllables[syll_index].segments
     } 
 
-    pub fn remove_syll(&mut self, syll_index: usize) {
+    pub(crate) fn remove_syll(&mut self, syll_index: usize) {
         debug_assert!(self.syllables.len() > 1);
         debug_assert!(syll_index < self.syllables.len());
         self.syllables.remove(syll_index);
     }
 
-    pub fn swap_syll(&mut self, a_index: usize, b_index: usize) {
+    pub(crate) fn swap_syll(&mut self, a_index: usize, b_index: usize) {
         debug_assert!(a_index < self.syllables.len());
         debug_assert!(b_index < self.syllables.len());
         self.syllables.swap(a_index, b_index)
@@ -190,11 +189,11 @@ impl Word {
     /// assert_eq!(word.seg_length_at(SegPos{0,0}), 2);
     /// assert_eq!(word.seg_length_at(SegPos{1,0}), 1);
     /// ```
-    pub fn seg_length_at(&self, seg_index: SegPos) -> usize {
+    pub(crate) fn seg_length_at(&self, seg_index: SegPos) -> usize {
         self.syllables[seg_index.syll_index].get_seg_length_at(seg_index.seg_index)
     }
 
-    // pub fn find_start_of_long_seg(&self, seg_pos: SegPos) -> SegPos {
+    // pub(crate) fn find_start_of_long_seg(&self, seg_pos: SegPos) -> SegPos {
     //     if seg_pos.seg_index == 0 {
     //         return seg_pos
     //     }
@@ -206,15 +205,15 @@ impl Word {
     //     SegPos { syll_index: seg_pos.syll_index, seg_index: s_i }
     // }
 
-    pub fn in_bounds(&self, seg_pos: SegPos) -> bool {
+    pub(crate) fn in_bounds(&self, seg_pos: SegPos) -> bool {
         seg_pos.syll_index < self.syllables.len() && seg_pos.seg_index < self.syllables[seg_pos.syll_index].segments.len()
     }
 
-    pub fn out_of_bounds(&self, seg_pos: SegPos) -> bool {
+    pub(crate) fn out_of_bounds(&self, seg_pos: SegPos) -> bool {
         seg_pos.syll_index >= self.syllables.len() || seg_pos.seg_index >= self.syllables[seg_pos.syll_index].segments.len()
     }
 
-    pub fn get_seg_at(&self, seg_pos: SegPos) -> Option<Segment> {
+    pub(crate) fn get_seg_at(&self, seg_pos: SegPos) -> Option<Segment> {
         if self.in_bounds(seg_pos) {
             Some(self.syllables[seg_pos.syll_index].segments[seg_pos.seg_index])
         } else {
@@ -222,7 +221,7 @@ impl Word {
         }
     }
 
-    // pub fn first_diff(before: &Word, after: &Word) -> Option<(usize, isize)> {
+    // pub(crate) fn first_diff(before: &Word, after: &Word) -> Option<(usize, isize)> {
     //     let mut first_diff = None;
     //     for (i,( bfr, aft)) in before.syllables.iter().zip(after.syllables.iter()).enumerate() {
     //         print!("{}, ", bfr.segments.len());
@@ -426,13 +425,13 @@ impl Word {
 
     }
 
-    pub fn apply_seg_mods(&mut self, alphas: &RefCell<HashMap<char, Alpha>>, mods: &Modifiers, start_pos: SegPos, err_pos: Position) -> Result<i8, RuleRuntimeError> {
+    pub(crate) fn apply_seg_mods(&mut self, alphas: &RefCell<HashMap<char, Alpha>>, mods: &Modifiers, start_pos: SegPos, err_pos: Position) -> Result<i8, RuleRuntimeError> {
         self.syllables[start_pos.syll_index].apply_seg_mods(alphas, mods, start_pos.seg_index, err_pos)
     }
     
     // This is not efficient in the slightest
     // but it allows us to properly bounds check when matching the before context
-    pub fn reverse(&self) -> Self {
+    pub(crate) fn reverse(&self) -> Self {
         let mut word = self.clone();
         for syll in &mut word.syllables {
             syll.segments.make_contiguous().reverse();

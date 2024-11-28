@@ -13,25 +13,25 @@ use crate :: {
 };
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum BinMod {
+pub(crate) enum BinMod {
     Positive,
     Negative,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum AlphaMod {
+pub(crate) enum AlphaMod {
     Alpha(char),
     InvAlpha(char)
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum ModKind{
+pub(crate) enum ModKind{
     Binary(BinMod),
     Alpha(AlphaMod),
 }
 
 impl ModKind {
-    pub fn as_binary(&self, alphas: &RefCell<HashMap<char, Alpha>>, err_pos: Position) -> Result<bool, RuleRuntimeError> {
+    pub(crate) fn as_binary(&self, alphas: &RefCell<HashMap<char, Alpha>>, err_pos: Position) -> Result<bool, RuleRuntimeError> {
         match self {
             ModKind::Binary(bin_mod) => Ok(*bin_mod == BinMod::Positive),
             ModKind::Alpha(alpha_mod) => match alpha_mod {
@@ -55,46 +55,34 @@ impl ModKind {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub enum Mods {
+pub(crate) enum Mods {
     Binary(BinMod),
     Number(String),
     Alpha(AlphaMod),
 }
 
-// #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-// pub struct Supr {
-//     pub kind: SupraType,
-//     pub modifier: ModKind
-// }
-
-// impl Supr {
-//     pub fn new(kind: SupraType, modifier:ModKind) -> Self {
-//         Self {kind, modifier}
-//     }
-// }
-
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub struct SupraSegs {
-    pub stress: [Option<ModKind>; 2], // [Stress, SecStress]
-    pub length: [Option<ModKind>; 2], // [Long, Overlong]
-    pub tone: Option<String>,
+pub(crate) struct SupraSegs {
+    pub(crate) stress: [Option<ModKind>; 2], // [Stress, SecStress]
+    pub(crate) length: [Option<ModKind>; 2], // [Long, Overlong]
+    pub(crate) tone: Option<String>,
 }
 
 impl SupraSegs {
-    pub fn new(stress: [Option<ModKind>; 2], length: [Option<ModKind>; 2], tone: Option<String>) -> Self {
+    pub(crate) fn new(stress: [Option<ModKind>; 2], length: [Option<ModKind>; 2], tone: Option<String>) -> Self {
         Self { stress, length, tone }
     }
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub struct Modifiers {
-    pub nodes: [Option<ModKind>; NodeType::count()],
-    pub feats: [Option<ModKind>; FType::count()],
-    pub suprs: SupraSegs, 
+pub(crate) struct Modifiers {
+    pub(crate) nodes: [Option<ModKind>; NodeType::count()],
+    pub(crate) feats: [Option<ModKind>; FType::count()],
+    pub(crate) suprs: SupraSegs, 
 }
 
 impl Modifiers {
-    pub fn new() -> Self {
+    pub(crate) fn new() -> Self {
         debug_assert_eq!(NodeType::Pharyngeal as usize + 1, NodeType::count());
         debug_assert_eq!(FType::RetractedTongueRoot as usize + 1, FType::count());
 
@@ -108,7 +96,7 @@ impl Modifiers {
 
 
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub enum ParseElement {
+pub(crate) enum ParseElement {
     EmptySet    ,
     WordBound   ,
     SyllBound   ,
@@ -131,18 +119,6 @@ impl ParseElement {
             None
         }
     }
-
-    // pub fn is_matrix(&self) -> bool {
-    //     matches!(self, Self::Matrix(..))
-    // }
-    //
-    // pub fn is_ipa(&self) -> bool {
-    //     matches!(self, Self::IPA(..))
-    // }
-    //
-    // pub fn is_set(&self) -> bool {
-    //     matches!(self, Self::Set(..))
-    // }
 }
 
 impl fmt::Display for ParseElement {
@@ -208,13 +184,13 @@ impl fmt::Display for ParseElement {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub struct Item {
-    pub kind: ParseElement,
-    pub position: Position,
+pub(crate) struct Item {
+    pub(crate) kind: ParseElement,
+    pub(crate) position: Position,
 }
 
 impl Item {
-    pub fn new(k: ParseElement, p: Position) -> Self {
+    pub(crate) fn new(k: ParseElement, p: Position) -> Self {
         Self { kind: k, position: p }
     }
 }
@@ -225,7 +201,7 @@ impl fmt::Display for Item {
     }
 }
 
-pub struct Parser {
+pub(crate) struct Parser {
     token_list: Vec<Token>,
     line: usize,
     pos: usize,
@@ -233,7 +209,7 @@ pub struct Parser {
 }
 
 impl Parser {
-    pub fn new(lst: Vec<Token>, line: usize) -> Self {
+    pub(crate) fn new(lst: Vec<Token>, line: usize) -> Self {
         let mut s = Self { 
             token_list: lst, 
             line,
@@ -1019,7 +995,7 @@ impl Parser {
 
     }
     
-    pub fn parse(&mut self) -> Result<Rule, RuleSyntaxError> {
+    pub(crate) fn parse(&mut self) -> Result<Rule, RuleSyntaxError> {
         self.rule()
     }
 

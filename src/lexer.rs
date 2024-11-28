@@ -8,7 +8,7 @@ use crate::{
 };
 
 #[derive(Debug, Copy, Clone, PartialEq, Eq, Deserialize, Hash)]
-pub enum NodeType {
+pub(crate) enum NodeType {
     Root,      
     Manner,
     Laryngeal,   
@@ -20,9 +20,9 @@ pub enum NodeType {
 }
 
 impl NodeType {
-    pub const fn count() -> usize { 8 }
+    pub(crate) const fn count() -> usize { 8 }
 
-    pub fn from_usize(value: usize) -> Self {
+    pub(crate) fn from_usize(value: usize) -> Self {
         use NodeType::*;
         match value {
             0 => {debug_assert_eq!(value, Root as usize); Root},
@@ -54,17 +54,13 @@ impl Display for NodeType {
 }
 
 #[derive(Debug, Copy, Clone, PartialEq, Eq, Deserialize, Hash)]
-pub enum SupraType {
+pub(crate) enum SupraType {
     Long,       // ±long
     Overlong,   // ±overlong
     Stress,     // ±stress    (+ matches prim and sec, - matches unstressed)
     SecStress,  // ±secstress (+ matches sec, - matches prim and unstressed)
     Tone,       // Can only be used with : notation (e.g. Tone : 213 )
 }
-
-// impl SupraType {
-//     pub const fn count(&self) -> usize { 7 }
-// }
 
 impl Display for SupraType {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
@@ -79,7 +75,7 @@ impl Display for SupraType {
 }
 
 #[derive(Debug, Copy, Clone, PartialEq, Eq, Deserialize, Hash)]
-pub enum FType { 
+pub(crate) enum FType { 
     // can be ± || α.ω 
     /*RUT*/ Consonantal, Sonorant, Syllabic,      
     /*MAN*/ Continuant, Approximant, Lateral, Nasal, DelayedRelease, Strident, Rhotic, Click,          
@@ -125,9 +121,9 @@ impl Display for FType {
 }
 
 impl FType {
-    pub const fn count() -> usize { 26 }
+    pub(crate) const fn count() -> usize { 26 }
 
-    pub fn from_usize(value: usize) -> Self {
+    pub(crate) fn from_usize(value: usize) -> Self {
         use FType::*;
         match value {
             // ROOT node
@@ -170,7 +166,7 @@ impl FType {
 }
 
 #[derive(Debug, Copy, Clone, PartialEq, Eq, Deserialize, Hash)]
-pub enum FeatType {
+pub(crate) enum FeatType {
     Node(NodeType),
     Feat(FType),
     Supr(SupraType),
@@ -188,7 +184,7 @@ impl Display for FeatType {
 
 // #[derive(Debug, Copy, Clone, PartialEq, Eq, Ord, PartialOrd)]
 #[derive(Debug, Copy, Clone, PartialEq, Eq)]
-pub enum TokenKind {
+pub(crate) enum TokenKind {
     LeftSquare,       // [
     RightSquare,      // ]
     LeftCurly,        // {
@@ -223,7 +219,7 @@ pub enum TokenKind {
 }
 
 impl TokenKind {
-    pub fn as_diacritic(&self) -> Option<&u8> {
+    pub(crate) fn as_diacritic(&self) -> Option<&u8> {
         if let Self::Diacritic(v) = self {
             Some(v)
         } else {
@@ -272,14 +268,14 @@ impl Display for TokenKind {
 }
 
 #[derive(Debug, Copy, Clone, PartialEq, Eq)]
-pub struct Position {
-    pub line: usize,
-    pub start: usize,
-    pub end: usize,
+pub(crate) struct Position {
+    pub(crate) line: usize,
+    pub(crate) start: usize,
+    pub(crate) end: usize,
 }
 
 impl Position {
-    pub fn new(line: usize, start: usize, end: usize) -> Self {
+    pub(crate) fn new(line: usize, start: usize, end: usize) -> Self {
         Self { line, start, end }
     }
 }
@@ -291,14 +287,14 @@ impl Display for Position {
 }
 
 #[derive(Clone, PartialEq, Eq)]
-pub struct Token {
-    pub kind: TokenKind,
-    pub value: String, 
-    pub position: Position,
+pub(crate) struct Token {
+    pub(crate) kind: TokenKind,
+    pub(crate) value: String, 
+    pub(crate) position: Position,
 }
 
 impl Token {
-    pub fn new(kind: TokenKind, value: String, line: usize, start: usize, end: usize) -> Self {
+    pub(crate) fn new(kind: TokenKind, value: String, line: usize, start: usize, end: usize) -> Self {
         Self { kind, value, position: Position::new(line, start, end) }
     }
 }
@@ -316,7 +312,7 @@ impl fmt::Debug for Token {
 }
 
 #[derive(Default)]
-pub struct Lexer<'a> {
+pub(crate) struct Lexer<'a> {
     source: &'a [char],
     line: usize,
     pos: usize,
@@ -326,11 +322,11 @@ pub struct Lexer<'a> {
 }
 
 impl<'a> Lexer<'a> {
-    pub fn new(source: &'a [char], line: usize) -> Self {
+    pub(crate) fn new(source: &'a [char], line: usize) -> Self {
         Self { source, line, pos: 0, inside_matrix: false , inside_option: false, inside_set: false}
     }
 
-    pub fn has_more_chars(&self) -> bool { !self.source.is_empty() }
+    fn has_more_chars(&self) -> bool { !self.source.is_empty() }
 
     fn trim_whitespace(&mut self) {
         while self.has_more_chars() && self.source[0].is_whitespace() {
@@ -361,7 +357,7 @@ impl<'a> Lexer<'a> {
         }
     }
 
-    pub fn next_char(&self) -> char {
+    fn next_char(&self) -> char {
         if self.source.len() > 1 {
             self.source[1]
         } else {
@@ -369,7 +365,7 @@ impl<'a> Lexer<'a> {
         }
     }
 
-    pub fn advance(&mut self) {
+    fn advance(&mut self) {
         self.source = &self.source[1..];
         self.pos += 1;
     }
@@ -716,7 +712,7 @@ impl<'a> Lexer<'a> {
         }
     }
 
-    pub fn get_next_token(&mut self) -> Result<Token, RuleSyntaxError> {
+    fn get_next_token(&mut self) -> Result<Token, RuleSyntaxError> {
         
         self.trim_whitespace();
         
@@ -734,7 +730,7 @@ impl<'a> Lexer<'a> {
         Err(RuleSyntaxError::UnknownCharacter(self.curr_char(), self.line, self.pos))
     }
 
-    pub fn get_line(&mut self) -> Result<Vec<Token>, RuleSyntaxError> {
+    pub(crate) fn get_line(&mut self) -> Result<Vec<Token>, RuleSyntaxError> {
         let mut token_list: Vec<Token> =  Vec::new();
         loop {
             let next_token = self.get_next_token()?;
@@ -746,10 +742,6 @@ impl<'a> Lexer<'a> {
         }
         Ok(token_list)
     }
-
-    // pub fn get_all_lines(&mut self) -> Result<Vec<Vec<Token>>, RuleSyntaxError> {
-    //     todo!()
-    // }
 }
 
 #[cfg(test)]

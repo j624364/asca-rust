@@ -4,20 +4,20 @@ use std::{
 };
 
 #[derive(Clone)]
-pub struct Node {
-    pub key: Option<char>,
-    pub val: Option<String>,
-    pub is_terminal: bool,
-    pub children: Vec<Node>
+struct Node {
+    key: Option<char>,
+    val: Option<String>,
+    is_terminal: bool,
+    children: Vec<Node>
 
 }
 
 impl Node {
-    pub fn new() -> Self {
+    fn new() -> Self {
         Self {key: None, val: None, is_terminal: false, children: Vec::new() }
     }
 
-    pub fn with_key(c: char) -> Self {
+    fn with_key(c: char) -> Self {
         Node { 
             key: Some(c), 
             val: None,
@@ -28,22 +28,22 @@ impl Node {
 }
 
 #[derive(Clone)]
-pub struct Trie {
+pub(crate) struct Trie {
     root: Node,
     elements: usize
 }
 
 impl Trie {
-    pub fn new() -> Self {
+    pub(crate) fn new() -> Self {
         Self { root: Node::new(), elements: 0 }
     }
 
     #[allow(dead_code)]
     /// Returns the number of words in the tree
-    pub fn length(&self) -> usize { self.elements + 1 }
+    pub(crate) fn length(&self) -> usize { self.elements + 1 }
     
     /// Inserts a word into the tree without duplication
-    pub fn insert(&mut self, s: &str) {
+    pub(crate) fn insert(&mut self, s: &str) {
         let mut cur = &mut self.root;
         for c in s.chars() {
             match cur.children.binary_search_by(|f| f.key.cmp(&Some(c))) {
@@ -72,7 +72,7 @@ impl Trie {
     /// assert_eq!(trie.contains_partial("banter"), true);
     /// ```
     #[allow(dead_code)]
-    pub fn contains(&self, s: &str) -> bool { 
+    pub(crate) fn contains(&self, s: &str) -> bool { 
         let mut curr_node = &self.root;
 
         for c in s.chars() {
@@ -100,7 +100,7 @@ impl Trie {
     /// assert_eq!(trie.contains_prefix("ned"), false);
     /// assert_eq!(trie.contains_prefix("banter"), true);
     /// ```
-    pub fn contains_prefix(&self, s: &str) -> bool { 
+    pub(crate) fn contains_prefix(&self, s: &str) -> bool { 
         let mut curr_node = &self.root;
 
         for c in s.chars() {
@@ -127,7 +127,7 @@ impl Trie {
     /// assert_eq!(trie.find("bann"), vec!["banned, banner"]);
     /// ```
     #[allow(dead_code)]
-    pub fn find_all(&self, s: &str) -> Vec<String> { 
+    pub(crate) fn find_all(&self, s: &str) -> Vec<String> { 
         let mut cur = &self.root;
 
         for c in s.chars() {

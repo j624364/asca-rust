@@ -7,7 +7,7 @@ use crate   :: {
 };
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum StressKind {
+pub(crate) enum StressKind {
     Primary,
     Secondary,
     Unstressed
@@ -30,18 +30,18 @@ impl fmt::Display for StressKind {
 }
 
 #[derive(Debug, Clone)]
-pub struct Syllable {
-    pub segments: VecDeque<Segment>,
-    pub stress: StressKind,
-    pub tone: String
+pub(crate) struct Syllable {
+    pub(crate) segments: VecDeque<Segment>,
+    pub(crate) stress: StressKind,
+    pub(crate) tone: String
 }
 
 impl Syllable {
-    pub fn new() -> Self {
+    pub(crate) fn new() -> Self {
         Self {segments: VecDeque::new(), stress: StressKind::default(), tone: String::new()}
     }
 
-    pub fn replace_segment(&mut self, pos: usize, seg: &Segment, mods: &Option<Modifiers>, alphas: &RefCell<HashMap<char, Alpha>>, err_pos: Position) -> Result<i8, RuleRuntimeError> {
+    pub(crate) fn replace_segment(&mut self, pos: usize, seg: &Segment, mods: &Option<Modifiers>, alphas: &RefCell<HashMap<char, Alpha>>, err_pos: Position) -> Result<i8, RuleRuntimeError> {
         let mut seg_len = self.get_seg_length_at(pos);
         let mut lc = 1 - seg_len as i8;
 
@@ -59,7 +59,7 @@ impl Syllable {
         Ok(lc)
     }
 
-    pub fn insert_segment(&mut self, pos: usize, seg: &Segment, mods: &Option<Modifiers>, alphas: &RefCell<HashMap<char, Alpha>>, err_pos: Position) -> Result<i8, RuleRuntimeError> {
+    pub(crate) fn insert_segment(&mut self, pos: usize, seg: &Segment, mods: &Option<Modifiers>, alphas: &RefCell<HashMap<char, Alpha>>, err_pos: Position) -> Result<i8, RuleRuntimeError> {
         let mut lc = 0;
         if pos > self.segments.len() {
             self.segments.push_back(*seg);
@@ -74,7 +74,7 @@ impl Syllable {
         Ok(lc)
     }
 
-    pub fn get_seg_length_at(&self, pos: usize) -> usize {
+    pub(crate) fn get_seg_length_at(&self, pos: usize) -> usize {
         debug_assert!(pos < self.segments.len());
         let mut s_i = pos + 1;
         let mut len = 1;
@@ -84,7 +84,7 @@ impl Syllable {
         len
     }
 
-    pub fn apply_seg_mods(&mut self, alphas: &RefCell<HashMap<char, Alpha>>, mods: &Modifiers, start_pos: usize, err_pos: Position) -> Result<i8, RuleRuntimeError> {
+    pub(crate) fn apply_seg_mods(&mut self, alphas: &RefCell<HashMap<char, Alpha>>, mods: &Modifiers, start_pos: usize, err_pos: Position) -> Result<i8, RuleRuntimeError> {
         // check seg length, if long then we must apply mods to all occurences (we assume that we are at the start)
         // debug_assert!(self.in_bounds(start_pos));
         let mut pos = start_pos;
@@ -99,7 +99,7 @@ impl Syllable {
         self.apply_supras(alphas, &mods.suprs, start_pos, err_pos)
     }
 
-    pub fn apply_supras(&mut self, alphas: &RefCell<HashMap<char, Alpha>>, mods: &SupraSegs, pos: usize, err_pos: Position) -> Result<i8, RuleRuntimeError> {
+    pub(crate) fn apply_supras(&mut self, alphas: &RefCell<HashMap<char, Alpha>>, mods: &SupraSegs, pos: usize, err_pos: Position) -> Result<i8, RuleRuntimeError> {
         let seg = self.segments[pos];
         let mut seg_len = self.get_seg_length_at(pos);
         let mut len_change = 0;
@@ -164,7 +164,7 @@ impl Syllable {
         Ok(len_change)
     }
 
-    pub fn apply_syll_mods(&mut self, alphas: &RefCell<HashMap<char, Alpha>>, mods: &SupraSegs, err_pos: Position) -> Result<(), RuleRuntimeError>{
+    pub(crate) fn apply_syll_mods(&mut self, alphas: &RefCell<HashMap<char, Alpha>>, mods: &SupraSegs, err_pos: Position) -> Result<(), RuleRuntimeError>{
         match mods.stress {
             // [stress, secstress]
             [None, None] => {},

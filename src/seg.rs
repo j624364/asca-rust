@@ -9,7 +9,7 @@ use crate :: {
     CARDINALS_MAP, CARDINALS_VEC, DIACRITS 
 };
 
-pub const fn feature_to_node_mask(feat: FType) -> (NodeKind, u8) {
+pub(crate) const fn feature_to_node_mask(feat: FType) -> (NodeKind, u8) {
     use FType::*;
     match feat {
         Consonantal         => (NodeKind::Root, 0b100),
@@ -53,23 +53,23 @@ pub const fn feature_to_node_mask(feat: FType) -> (NodeKind, u8) {
 // }
 
 #[derive(Debug, Clone)]
-pub struct Diacritic {
+pub(crate) struct Diacritic {
     #[allow(unused)]
-    pub name: String,
-    pub diacrit: char,
-    pub prereqs: DiaMods,
-    pub payload: DiaMods,
+    pub(crate) name: String,
+    pub(crate) diacrit: char,
+    pub(crate) prereqs: DiaMods,
+    pub(crate) payload: DiaMods,
 }
 
 
 #[derive(Clone, Copy, PartialEq, Eq)]
-pub struct DiaMods {
-    pub nodes: [Option<ModKind>; NodeType::Pharyngeal as usize + 1],
-    pub feats: [Option<ModKind>; FType::RetractedTongueRoot as usize + 1],
+pub(crate) struct DiaMods {
+    pub(crate) nodes: [Option<ModKind>; NodeType::Pharyngeal as usize + 1],
+    pub(crate) feats: [Option<ModKind>; FType::RetractedTongueRoot as usize + 1],
 }
 
 impl DiaMods {
-    pub fn new() -> Self {
+    pub(crate) fn new() -> Self {
         Self { 
             nodes: [();NodeType::Pharyngeal as usize + 1].map(|_| None), 
             feats: [();FType::RetractedTongueRoot as usize + 1].map(|_| None), 
@@ -121,7 +121,7 @@ impl fmt::Debug for DiaMods {
 
 
 #[derive(Debug, Copy, Clone, PartialEq)]
-pub enum NodeKind {
+pub(crate) enum NodeKind {
     Root,
     Manner,
     Laryngeal,
@@ -133,9 +133,9 @@ pub enum NodeKind {
 }
 
 impl NodeKind {
-    pub const fn count() -> usize { 8 }
+    pub(crate) const fn count() -> usize { 8 }
 
-    pub fn from_usize(value: usize) -> Self {
+    pub(crate) fn from_usize(value: usize) -> Self {
         debug_assert!(NodeKind::count() == 8);
         use NodeKind::*;
         match value {
@@ -152,7 +152,7 @@ impl NodeKind {
     }
 }
 
-// pub fn test_node_variants() {
+// pub(crate) fn test_node_variants() {
 //     fn asdf(cache: HashMap<u8, u64>) -> Vec<String> {
 //         let mut v: Vec<_> = cache.into_iter().collect();
 //         v.sort_by(|x, y| x.0.cmp(&y.0));
@@ -204,7 +204,7 @@ impl NodeKind {
 //     println!("phr: - {:#?}", qwer(phr_cache));
 // }
 
-// pub fn test_vowel_variants() {
+// pub(crate) fn test_vowel_variants() {
 //     let mut errs = 0;
 //     let mut count = 0;
 //     let root = 0b011;
@@ -232,7 +232,7 @@ impl NodeKind {
 // }
 
 // More than 246172 legal variants
-// pub fn test_variants() {
+// pub(crate) fn test_variants() {
 //     let mut errs = 0;
 //     let mut count = 0;
 //
@@ -264,14 +264,14 @@ impl NodeKind {
 // }
 
 #[derive(Default, Clone, Copy, PartialEq, Eq, Deserialize)]
-pub struct Segment {
-    pub root      : u8,
-    pub manner    : u8,
-    pub laryngeal : u8,
-    pub labial    : Option<u8>,
-    pub coronal   : Option<u8>,
-    pub dorsal    : Option<u8>,
-    pub pharyngeal: Option<u8>,
+pub(crate) struct Segment {
+    pub(crate) root      : u8,
+    pub(crate) manner    : u8,
+    pub(crate) laryngeal : u8,
+    pub(crate) labial    : Option<u8>,
+    pub(crate) coronal   : Option<u8>,
+    pub(crate) dorsal    : Option<u8>,
+    pub(crate) pharyngeal: Option<u8>,
 }
  
 impl fmt::Debug for Segment {
@@ -308,7 +308,7 @@ impl fmt::Debug for Segment {
 }
 
 impl Segment {
-    pub fn get_as_grapheme(&self) -> Option<String> {
+    pub(crate) fn get_as_grapheme(&self) -> Option<String> {
         // test against all cardinal values for a match
         for c_grapheme in CARDINALS_VEC.iter() {
             let x = CARDINALS_MAP.get(c_grapheme).unwrap();
@@ -367,7 +367,7 @@ impl Segment {
         Some("�".to_string())
     }
 
-    pub fn match_modifiers(&self, mods: &DiaMods) -> Result<(), (usize, bool)> {
+    pub(crate) fn match_modifiers(&self, mods: &DiaMods) -> Result<(), (usize, bool)> {
         for (i, m) in mods.feats.iter().enumerate() {
             if !self.match_feat_mod(m, i) {
                 return Err((i, false))
@@ -381,7 +381,7 @@ impl Segment {
         Ok(())
     }
 
-    pub fn match_node_mod(&self, md: &Option<ModKind>, node_index: usize) -> bool {
+    pub(crate) fn match_node_mod(&self, md: &Option<ModKind>, node_index: usize) -> bool {
         if let Some(kind) = md {
             let node = NodeKind::from_usize(node_index);
             return self.match_node_mod_kind(kind, node)
@@ -389,7 +389,7 @@ impl Segment {
         true
     }
 
-    pub fn match_node_mod_kind(&self, kind: &ModKind, node: NodeKind) -> bool {
+    pub(crate) fn match_node_mod_kind(&self, kind: &ModKind, node: NodeKind) -> bool {
         match kind {
             ModKind::Binary(bt) => match bt {
                 BinMod::Negative => self.is_node_none(node),
@@ -401,7 +401,7 @@ impl Segment {
         }
     }
 
-    pub fn match_feat_mod(&self, md: &Option<ModKind>, feat_index: usize) -> bool {
+    pub(crate) fn match_feat_mod(&self, md: &Option<ModKind>, feat_index: usize) -> bool {
         if let Some(kind) = md {
             let (node, mask) = feature_to_node_mask(FType::from_usize(feat_index));
             return self.match_feat_mod_kind(kind, node, mask)
@@ -409,7 +409,7 @@ impl Segment {
         true
     }
 
-    pub fn match_feat_mod_kind(&self, kind: &ModKind, node: NodeKind, mask: u8) -> bool {
+    pub(crate) fn match_feat_mod_kind(&self, kind: &ModKind, node: NodeKind, mask: u8) -> bool {
         match kind {
             ModKind::Binary(bt) => match bt {
                 BinMod::Negative => self.feat_match(node, mask, false),
@@ -451,7 +451,7 @@ impl Segment {
         + diff.pharyngeal.unwrap_or(0).count_ones() as usize
     }
 
-    pub fn get_node(&self, node: NodeKind) -> Option<u8> {
+    pub(crate) fn get_node(&self, node: NodeKind) -> Option<u8> {
         match node {
             NodeKind::Root       => Some(self.root),
             NodeKind::Manner     => Some(self.manner),
@@ -464,13 +464,7 @@ impl Segment {
         }
     }
 
-    // pub fn set_place_nodes(&mut self, vals: [Option<u8>; 4]) {
-    //     for (i, val) in vals.iter().enumerate() {
-    //         self.set_node(NodeKind::from_usize(i+3), *val);
-    //     }
-    // }
-
-    pub fn set_node(&mut self, node: NodeKind, val: Option<u8>) {
+    pub(crate) fn set_node(&mut self, node: NodeKind, val: Option<u8>) {
         match node {
             NodeKind::Root       => self.root = val.expect("RootNode cannot be null"),
             NodeKind::Manner     => self.manner = val.expect("MannerNode cannot be null"),
@@ -483,11 +477,11 @@ impl Segment {
         }
     }
 
-    pub fn get_feat(&self, node: NodeKind, feat: u8) -> Option<u8> {
+    pub(crate) fn get_feat(&self, node: NodeKind, feat: u8) -> Option<u8> {
         Some(self.get_node(node)? & feat)
     }
 
-    pub fn set_feat(&mut self, node: NodeKind, feat: u8, to_positive: bool) {
+    pub(crate) fn set_feat(&mut self, node: NodeKind, feat: u8, to_positive: bool) {
         debug_assert_ne!(node, NodeKind::Place);
         let n = self.get_node(node).unwrap_or(0u8);
         if to_positive {
@@ -497,7 +491,7 @@ impl Segment {
         }
     }
 
-    pub fn feat_match(&self, node: NodeKind, mask: u8, positive: bool) -> bool {
+    pub(crate) fn feat_match(&self, node: NodeKind, mask: u8, positive: bool) -> bool {
         let Some(n) = self.get_node(node) else {
             return false
         };
@@ -508,15 +502,15 @@ impl Segment {
         }
     }
 
-    pub fn is_node_some(&self, node: NodeKind) -> bool {
+    pub(crate) fn is_node_some(&self, node: NodeKind) -> bool {
         self.get_node(node).is_some()
     }
 
-    pub fn is_node_none(&self, node: NodeKind) -> bool {
+    pub(crate) fn is_node_none(&self, node: NodeKind) -> bool {
         self.get_node(node).is_none()
     }
 
-    pub fn node_match(&self, node: NodeKind, match_value: Option<u8>) -> bool {
+    pub(crate) fn node_match(&self, node: NodeKind, match_value: Option<u8>) -> bool {
         debug_assert_ne!(node, NodeKind::Place);
         let Some(n) = self.get_node(node) else {
             return match_value.is_none()
@@ -554,13 +548,13 @@ impl Segment {
         }
     }
 
-    pub fn check_and_apply_diacritic(&mut self, d: &Diacritic) -> Result<(), (usize, bool)> {
+    pub(crate) fn check_and_apply_diacritic(&mut self, d: &Diacritic) -> Result<(), (usize, bool)> {
         self.match_modifiers(&d.prereqs)?;
         self.apply_diacritic_payload(&d.payload);
         Ok(())
     }
 
-    pub fn apply_seg_mods(&mut self, alphas: &RefCell<HashMap<char, Alpha>> , nodes: [Option<ModKind>; NodeType::count()], feats: [Option<ModKind>; FType::count()], err_pos: Position, is_matching_ipa: bool) -> Result<(), RuleRuntimeError>{
+    pub(crate) fn apply_seg_mods(&mut self, alphas: &RefCell<HashMap<char, Alpha>> , nodes: [Option<ModKind>; NodeType::count()], feats: [Option<ModKind>; FType::count()], err_pos: Position, is_matching_ipa: bool) -> Result<(), RuleRuntimeError>{
         for (i, m) in nodes.iter().enumerate() { 
             let node = NodeKind::from_usize(i);
             if let Some(kind) = m {

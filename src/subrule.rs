@@ -23,14 +23,14 @@ type BndPos = usize;            // the index of the syllable that has the bounda
 type SetInd = Option<usize>;    // if matched in a set, the index within that set that was matched
 
 #[derive(Debug, Clone, Copy)]
-pub enum MatchElement {
+pub(crate) enum MatchElement {
     Segment  (SegPos, SetInd),
     Syllable (SylPos, SetInd),
     SyllBound(BndPos, SetInd)
 }
 
 impl MatchElement {
-    pub fn set_ind(&mut self, si: SetInd) {
+    pub(crate) fn set_ind(&mut self, si: SetInd) {
         *self = match self {
             MatchElement::Segment(sp, _) => MatchElement::Segment(*sp, si),
             MatchElement::Syllable(sp, _) => MatchElement::Syllable(*sp, si),
@@ -40,25 +40,25 @@ impl MatchElement {
 }
 
 #[derive(Debug)]
-pub enum VarKind {
+pub(crate) enum VarKind {
     Segment(Segment),
     Syllable(Syllable)
 }
 
 #[derive(Debug)]
-pub struct SubRule {
-    pub input    : Vec<Item>,
-    pub output   : Vec<Item>,
-    pub context  : Option<Item>,
-    pub except   : Option<Item>,
-    pub rule_type: RuleType,
-    pub variables: RefCell<HashMap<usize, VarKind>>,
-    pub alphas   : RefCell<HashMap<char, Alpha>>
+pub(crate) struct SubRule {
+    pub(crate) input    : Vec<Item>,
+    pub(crate) output   : Vec<Item>,
+    pub(crate) context  : Option<Item>,
+    pub(crate) except   : Option<Item>,
+    pub(crate) rule_type: RuleType,
+    pub(crate) variables: RefCell<HashMap<usize, VarKind>>,
+    pub(crate) alphas   : RefCell<HashMap<char, Alpha>>
 }
 
 impl SubRule {
 
-    pub fn get_context(&self) -> (&Vec<Item>, &Vec<Item>) {
+    fn get_context(&self) -> (&Vec<Item>, &Vec<Item>) {
         static EMPTY_ENV: Vec<Item> = Vec::new();
         match &self.context {
             Some(x) => match &x.kind {
@@ -69,7 +69,7 @@ impl SubRule {
         }
     }
 
-    pub fn get_exceptions(&self) -> (&Vec<Item>, &Vec<Item>) {
+    fn get_exceptions(&self) -> (&Vec<Item>, &Vec<Item>) {
         static EMPTY_ENV: Vec<Item> = Vec::new();
         match &self.except {
             Some(x) => match &x.kind {
@@ -80,7 +80,7 @@ impl SubRule {
         }
     }
 
-    pub fn apply(&self, word: Word) -> Result<Word, RuleRuntimeError> {
+    pub(crate) fn apply(&self, word: Word) -> Result<Word, RuleRuntimeError> {
         // RuleType::Substitution  => {/* input>env>output */},
         // RuleType::Metathesis    => {/* skip calc output */},
         // RuleType::Deletion      => {/* skip calc output */},
@@ -132,10 +132,10 @@ impl SubRule {
                     // end of word
                     break;
                 }
-                let prev = word.render().unwrap();
+                // let prev = word.render().unwrap();
                 // println!("Match! {:?}", res);
                 word = self.transform(&word, res, &mut next_index)?;
-                println!("{} => {}", prev, word.render().unwrap());
+                // println!("{} => {}", prev, word.render().unwrap());
                 
                 if let Some(ci) = next_index { 
                     cur_index = ci;

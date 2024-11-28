@@ -14,7 +14,7 @@ use crate   :: {
 };
 
 #[derive(Debug, Copy, Clone, PartialEq, Eq)]
-pub enum RuleType {
+pub(crate) enum RuleType {
     Substitution,
     Metathesis,
     Deletion,
@@ -22,21 +22,21 @@ pub enum RuleType {
 }
 
 #[derive(Debug)]
-pub struct PlaceMod {
-    pub lab: Option<u8>,
-    pub cor: Option<u8>,
-    pub dor: Option<u8>,
-    pub phr: Option<u8>,
+pub(crate) struct PlaceMod {
+    pub(crate) lab: Option<u8>,
+    pub(crate) cor: Option<u8>,
+    pub(crate) dor: Option<u8>,
+    pub(crate) phr: Option<u8>,
 }
 
 impl PlaceMod {
-    pub fn new(lab: Option<u8>, cor: Option<u8>, dor: Option<u8>, phr: Option<u8>) -> Self {
+    pub(crate) fn new(lab: Option<u8>, cor: Option<u8>, dor: Option<u8>, phr: Option<u8>) -> Self {
         Self { lab, cor, dor, phr }
     }
 }
 
 #[derive(Debug)]
-pub enum Alpha {
+pub(crate) enum Alpha {
     Node(NodeKind, Option<u8>),
     Place(PlaceMod),
     Feature(bool),
@@ -44,12 +44,7 @@ pub enum Alpha {
 }
 
 impl Alpha {
-    // /// Returns `true` if the alpha is `Feature`.
-    // pub fn is_feature(&self) -> bool {
-    //     matches!(self, Self::Feature(..))
-    // }
-
-    pub fn as_node(&self) -> Option<(NodeKind, Option<u8>)> {
+    pub(crate) fn as_node(&self) -> Option<(NodeKind, Option<u8>)> {
         if let Self::Node(n, m) = self {
             Some((*n, *m))
         } else {
@@ -57,15 +52,7 @@ impl Alpha {
         }
     }
 
-    // pub fn as_feature(&self) -> Option<&bool> {
-    //     if let Self::Feature(pos) = self {
-    //         Some(pos)
-    //     } else {
-    //         None
-    //     }
-    // }
-
-    pub fn as_place(&self) -> Option<&PlaceMod> {
+    pub(crate) fn as_place(&self) -> Option<&PlaceMod> {
         if let Self::Place(place) = self {
             Some(place)
         } else {
@@ -73,15 +60,7 @@ impl Alpha {
         }
     }
 
-    // pub fn as_supra(&self) -> Option<(&SupraType, &bool)> {
-    //     if let Self::Supra(st, pos) = self {
-    //         Some((st, pos))
-    //     } else {
-    //         None
-    //     }
-    // }
-
-    pub fn as_binary(&self) -> bool {
+    pub(crate) fn as_binary(&self) -> bool {
         match self {
             Alpha::Feature(pos) | Alpha::Supra(pos) => *pos,
             Alpha::Node(_, node_mod) => node_mod.is_some(),
@@ -90,19 +69,19 @@ impl Alpha {
     }
 }
 
-pub struct Rule {
-    pub input:     Vec<Vec<Item>>,    // to support multirules
-    pub output:    Vec<Vec<Item>>,    // these need to be Vec<Vec<Item>>
-    pub context:   Vec<Item>,
-    pub except:    Vec<Item>,
+pub(crate) struct Rule {
+    pub(crate) input:     Vec<Vec<Item>>,    // to support multirules
+    pub(crate) output:    Vec<Vec<Item>>,    // these need to be Vec<Vec<Item>>
+    pub(crate) context:   Vec<Item>,
+    pub(crate) except:    Vec<Item>,
 }
 
 impl Rule {
-    pub fn new(i: Vec<Vec<Item>>, o: Vec<Vec<Item>>, c :Vec<Item>, e :Vec<Item>) -> Self {
+    pub(crate) fn new(i: Vec<Vec<Item>>, o: Vec<Vec<Item>>, c :Vec<Item>, e :Vec<Item>) -> Self {
         Self { input: i, output: o, context: c, except: e }
     }
 
-    pub fn split_into_subrules(&self) -> Result<Vec<SubRule>, RuleSyntaxError> {
+    pub(crate) fn split_into_subrules(&self) -> Result<Vec<SubRule>, RuleSyntaxError> {
         // check that input, output, context, except are the same length
         // and if any are not, that they are length == 1
         // context and except can be length == 0
@@ -149,7 +128,7 @@ impl Rule {
         Ok(sub_vec)
     }
 
-    pub fn apply(&self, word: Word /*, trace: bool*/) -> Result<Word, Error> {
+    pub(crate) fn apply(&self, word: Word /*, trace: bool*/) -> Result<Word, Error> {
         
         let sub_rules = self.split_into_subrules()?;
         
@@ -1137,58 +1116,70 @@ mod rule_tests {
     }
 
     #[test]
-    fn test_engala() {
+    fn test_engala_new() {
         let test_rules = [
             // 1) Copy Vowel Insertion
-            // setup_rule("* > 1:[-str]%:[+str] / #_O:[+nas]V=1"),
-            setup_rule("* > 1 / #_O:[+nas]V=1"),
-            setup_rule("* > %:[Astr] / #V_O:[+nas, Astr]"),
-            setup_rule("%:[+str] > [-str] / _%:[+str]"),
+            setup_rule("* > 1:[-str]%:[Astr] / #_O:[+nas]V:[Astr]=1"),
             // 2) Nasal Assimilation
             setup_rule("[+nas] > [Aplace] / _C:[Aplace]"),
-            // 3) Pre-nasalised Cons Simp
+            // 3) Voicing Assim
+            setup_rule("s > [+voi] / _{P:[+voi], F:[+voi]}"),
+            // 4) Spirant Lenitin
+            setup_rule("s > h / _C:[-voi]"),
+            // 5) Obstruent Assim
+            setup_rule("h > 1 / _C=1"),
+            // 6) Pre-nasalised Cons Simp
             setup_rule("O:[+nas, Aplace]=1 > n:[Aplace]1:[-nas]"),
             setup_rule("$N > & / V_C"),
-            // 4) Hiatus Res
+            // 7) Hiatus Res
             setup_rule("$ > * / V_V"),
             setup_rule("ai, au, əi, əu > aj, aw, e, o"),
             setup_rule("i, u > [-syl] / _V:[-hi]"),
             setup_rule("əa, aə > ə:[+long], a:[+long]"),
-            // 5) Pre-nasal Raising
+            // 8) Pre-nasal Raising
             // setup_rule("{ə, a, e, o} > {ɨ, ə, i, u} / _N{O,#}"),
             setup_rule("V:[-hi, -lo] > [+hi, +tense -red] / _N{O,#}"),
             setup_rule("V:[-hi, +lo] > [-lo, +red] / _N{O,#}"),
-            // 6) Central Vowel Annihilation Part Un
+            // 9) Central Vowel Annihilation Part Un
             setup_rule("V:[-fr, -bk, +str] > [+fr, +tens, -red]"),
-    //         // 7) Progressive Assimilation
-    //         setup_rule("V:[-lo] > [Abk, Bfr, +tens] / V:[Abk, Bfr]..._"),
-    //         // 8) Post-Nasal Lenition
-    //         setup_rule("O:[-cont, +voi] > * / N_"),
-    //         setup_rule("O:[-cont, -voi] > [+voi] / N_"),
-    //         setup_rule("* > t:[Avoi] / n_C:[+cont, Avoi, +cor]"), // n_{s,z,l}
-    //         setup_rule("{m, x} > h / N_"),
-    //         // 9) Weak Fricative Lenition
-    //         setup_rule("{m, x} > [+voi] / V_V"),
-    //         // 10) Voiceless Stop Lenition 
-    //         setup_rule("C:[-cont] > [+voi] / V_V"),
-    //         // 11) Central Vowel Annihilation Part Deux
-    //         setup_rule("V:[-fr, -bk] > [+fr, +tens, -red]"),
+            // 10) Progressive Assimilation
+            setup_rule("V:[-lo, -bk, -fr] > [Abk, Bfr, +tens] / V:[Abk, Bfr]=1..._"),
+            // 11) Post-Nasal Lenition
+            setup_rule("O:[-cont, +voi] > * / N_"),
+            setup_rule("N$ > & / V_V"),
+            setup_rule("O:[-cont, -voi] > [+voi] / N_"),
+            setup_rule("* > t:[Avoi] / n_C:[+cont, Avoi, +cor]"), // n_{s,z,l}
+            setup_rule("{f, x} > h / N_"),
+            // 12) Weak Fricative Lenition
+            setup_rule("{f, x} > [+voi] / V_V"),
+            // 13) Voiceless Stop Lenition 
+            setup_rule("C:[-cont] > [+voi] / [+syll]_[+syll]"),
+            // 14) Velarisation
+            setup_rule("C:[+cor] > [Aplace, -lab] / _w:[Aplace]"),
+            // 11) Central Vowel Annihilation Part Deux
+            setup_rule("V:[-fr, -bk, -lo] > [+fr, +tens, -red]"),
             
         ];
 
         let test_words = [
-            setup_word("'ᵐbo"),
-            setup_word("'ᵐba"),
-            setup_word("'ᵐbə"),
-            setup_word("'mo"),
             setup_word("'ᵑɡa.la"),
+            // setup_word("ᵑɡa'la"),
+            // setup_word("'ᵐbo"),
+            // setup_word("'ᵐba"),
+            // setup_word("'ᵐbə"),
+            // setup_word("'mo"),
+            // setup_word("'ha.mi"),
+            // setup_word("at.wa"),
             ];
-            let output_matchs = [
-            setup_word("umˈbo"),
-            setup_word("əmˈbæ"),
-            setup_word("ɨmˈbe"),
-            setup_word("ˈmo"),
-            setup_word("əŋˈɡæ.la"),
+        let output_matchs = [
+            setup_word("eˈŋæ.la"),
+            // setup_word("e.ŋaˈlæ"),
+            // setup_word("uˈmo"),
+            // setup_word("eˈmæ"),
+            // setup_word("iˈme"),
+            // setup_word("ˈmo"),
+            // setup_word("'hæ.mi"),
+            // setup_word("ak.wa"),
         ];
 
         let mut output_words: Vec<Word> = vec![];
@@ -1198,7 +1189,14 @@ mod rule_tests {
             for (ri, rule) in test_rules.iter().enumerate() {
                 println!("-- {} --", ri+1);
                 println!("{}", w.render().unwrap());
-                w = rule.apply(w).unwrap();
+                w = match rule.apply(w) {
+                    Ok(w) => w,
+                    Err(e) => {
+                        println!("{}", e.format_error(&["* > t:[Avoi] / n_C:[+cont, Avoi, +cor]".to_string()]));
+                        assert!(false);
+                        unreachable!()
+                    },
+                }
             }
             output_words.push(w)
         }
@@ -1207,6 +1205,83 @@ mod rule_tests {
             assert_eq!(w.render().unwrap(), m.render().unwrap());
         }
     }
+
+    // #[test]
+    // fn test_engala_old() {
+    //     let test_rules = [
+    //         // 1) Copy Vowel Insertion
+    //         setup_rule("* > 1:[-str]%:[Astr] / #_O:[+nas]V:[Astr]=1"),
+    //         // setup_rule("* > 1 / #_O:[+nas]V=1"),
+    //         // setup_rule("* > %:[Astr] / #V_O:[+nas, Astr]"),
+    //         // setup_rule("%:[+str] > [-str] / _%:[+str]"),
+    //         // 2) Nasal Assimilation
+    //         setup_rule("[+nas] > [Aplace] / _C:[Aplace]"),
+    //         // 3) Pre-nasalised Cons Simp
+    //         setup_rule("O:[+nas, Aplace]=1 > n:[Aplace]1:[-nas]"),
+    //         setup_rule("$N > & / V_C"),
+    //         // 4) Hiatus Res
+    //         setup_rule("$ > * / V_V"),
+    //         setup_rule("ai, au, əi, əu > aj, aw, e, o"),
+    //         setup_rule("i, u > [-syl] / _V:[-hi]"),
+    //         setup_rule("əa, aə > ə:[+long], a:[+long]"),
+    //         // 5) Pre-nasal Raising
+    //         // setup_rule("{ə, a, e, o} > {ɨ, ə, i, u} / _N{O,#}"),
+    //         setup_rule("V:[-hi, -lo] > [+hi, +tense -red] / _N{O,#}"),
+    //         setup_rule("V:[-hi, +lo] > [-lo, +red] / _N{O,#}"),
+    //         // 6) Central Vowel Annihilation Part Un
+    //         setup_rule("V:[-fr, -bk, +str] > [+fr, +tens, -red]"),
+    //         // 7) Progressive Assimilation
+    //         setup_rule("V:[-lo, -bk, -fr] > [Abk, Bfr, +tens] / V:[Abk, Bfr]=1..._"),
+    //         // 8) Post-Nasal Lenition
+    //         setup_rule("O:[-cont, +voi] > * / N_"),
+    //         setup_rule("N$ > & / V_V"),
+    //         setup_rule("O:[-cont, -voi] > [+voi] / N_"),
+    //         setup_rule("* > t:[Avoi] / n_C:[+cont, Avoi, +cor]"), // n_{s,z,l}
+    //         setup_rule("{f, x} > h / N_"),
+    //         // 9) Weak Fricative Lenition
+    //         setup_rule("{f, x} > [+voi] / V_V"),
+    //         // 10) Voiceless Stop Lenition 
+    //         setup_rule("C:[-cont] > [+voi] / V_V"),
+    //         // 11) Central Vowel Annihilation Part Deux
+    //         setup_rule("V:[-fr, -bk, -lo] > [+fr, +tens, -red]"),
+            
+    //     ];
+
+    //     let test_words = [
+    //         setup_word("'ᵑɡa.la"),
+    //         setup_word("ᵑɡa'la"),
+    //         setup_word("'ᵐbo"),
+    //         setup_word("'ᵐba"),
+    //         setup_word("'ᵐbə"),
+    //         setup_word("'mo"),
+    //         setup_word("'ha.mi"),
+    //     ];
+    //     let output_matchs = [
+    //         setup_word("eˈŋæ.la"),
+    //         setup_word("e.ŋaˈlæ"),
+    //         setup_word("uˈmo"),
+    //         setup_word("eˈmæ"),
+    //         setup_word("iˈme"),
+    //         setup_word("ˈmo"),
+    //         setup_word("'hæ.mi"),
+    //     ];
+
+    //     let mut output_words: Vec<Word> = vec![];
+
+    //     for word in &test_words {
+    //         let mut w = word.clone();
+    //         for (ri, rule) in test_rules.iter().enumerate() {
+    //             println!("-- {} --", ri+1);
+    //             println!("{}", w.render().unwrap());
+    //             w = rule.apply(w).unwrap();
+    //         }
+    //         output_words.push(w)
+    //     }
+
+    //     for (w, m) in output_words.iter().zip(output_matchs) {
+    //         assert_eq!(w.render().unwrap(), m.render().unwrap());
+    //     }
+    // }
 
     #[test]
     fn test_prop() {
@@ -1237,5 +1312,204 @@ mod rule_tests {
         assert_eq!(test_rule.apply(test_word).unwrap().render().unwrap(), "sanː");
         let test_word = setup_word("san");
         assert_eq!(test_rule.apply(test_word).unwrap().render().unwrap(), "saːn");
+    }
+
+
+    #[test]
+    fn test_proto_anaki() {
+        let test_rules = [
+            // 1) Low Vowel Reduction
+            setup_rule("a > ɐ"),
+            setup_rule("ɐ:[-str] > ə | ɐ{h, ʔ}_"),
+            // 2) Glottal Deletion
+            setup_rule("h, ʔ > *"),
+            // 3) Clustering I
+            setup_rule("ə$ > * / s_[+cons, -son, -cont, -voice]"),
+            // 4) Sonorant Syllabication
+            setup_rule("[+son, -syll]=1 > 1:[+syll] / Cə_əC , Cə_ə#, #ə_əC"),
+            setup_rule("ə > * / _,[+cons, +syll]"),
+            // 5) Clustering II
+            setup_rule("ə > * / s_[+cons, +son]"),
+            setup_rule("s$ > & / _[+cons, +son]"),
+            // 6) Clustering IV
+            setup_rule("ə > * / [+cons, -syll]_[+son, +cont]V"),
+            setup_rule("[+cons, -syll]$ > & / _[+son, +cont]"),
+            setup_rule("ə > * / VC:[+son, +cont]_C"),
+            setup_rule("$C:[+son, +cont] > & / _$"),
+            // 7) _
+            setup_rule("ə > * / VC_s"),
+            setup_rule("$ > * / V_Cs"),
+            // 8) Clustering III
+            setup_rule("ə > * / VC:[+nas]_C:[-nas]"),
+            setup_rule("$C:[+nas] > & / V_$C:[-nas]"),
+            // Clustering V
+            // String::from("ə$ > * / C:[-cont, -nas, αPLACE]_C:[+nasal, -αPLACE]"),
+            setup_rule("ə$ > * / P:[-nas, αPLACE]_N:[-αPLACE]"),
+            // Schwa Hiatus Lengthening
+            setup_rule("V:[-str] > [+long] / _,ə"),
+            setup_rule("ə > * / _,V:[-str]"),
+            // String::from("ə > 1 / _,V:[-str]=1"),
+            // String::from("V:[-str]=1ə > 1:[+long] / _"),
+            // Vowel Hiatus Merger
+            setup_rule("$ > * / V:[-long]=1_1"),
+            // Schwa Fronting
+            setup_rule("{ɐ, ə} > e / _,i"),
+            // Height Assimilation I
+            setup_rule("{ɐ, ə} > [-low, +tense, -red, αhigh, -βback, -γfront, -δround] / _,V:[-low, αhigh, βback, γfront, δround]"),
+            // Height Assimilation II
+            setup_rule("V:[-low, +front] > [αhigh] / _,V:[-low, +back, αhigh]"),
+            // Catalan-ish Vowel Reduction
+            setup_rule("V:[-lo, -str, -long, -red] > [+hi] | C:[-fr, +bk, -hi, -lo]_"),
+            // 2nd Vowel Hiatus Merger
+            setup_rule("$ > * / V:[-long]=1_1"),
+            // Uvular Lowering
+            setup_rule("{ɐ, ə}, i, u > ɑ, e, o / [+cons, -high, +back]_"),
+            // Loss of Schwa
+            setup_rule("ə > * / _#"),
+            setup_rule("$C > & / _#"),
+            // Dorsal Nasal Merger
+            setup_rule("ɴ, ɴʷ > ŋ, ŋʷ / _"),
+            // Intervocalic Gliding
+            setup_rule("V:[+hi, +tens] > [-syll, -tens] / V_V"),
+            setup_rule("$ > * / V$G_V"),
+            // A-Lowering
+            setup_rule("ɐ:[+stress, Along], ə > [-tens], ɐ"),
+            // Geminate Avoidance
+            setup_rule("V=1 C:[+long]=2 > 1:[+long]2:[-long]"),
+            // // OR
+            // String::from("V:[-long] > [+long] / _C:[+long]"), 
+            // String::from("C:[+long] > [-long]"), 
+            // Cluster Simplification
+            // String::from("V=1 C=2 > 1:[+long] / _s2"),
+            setup_rule("V > [+long] / _C=1s1"),
+            setup_rule("C=1 > * / _s1"),
+            // Hap(lo)logy
+            setup_rule("$ > * / C=1 V:[-str]=2 _ 1 2"), 
+            setup_rule("C=1 > * / 1V:[-str]=2_2"),
+            // Labialisation
+            setup_rule("C:[+hi, +bk] > [+rnd] / _w"),
+            setup_rule("w > * / C:[+hi, +bk, +rnd]_"),
+            
+        ];
+
+        let test_words = [
+            setup_word("'ra.ka.sa"),
+            setup_word("'gʷe.la.sa"),
+            setup_word("'su.ma.qo"),
+            setup_word("sa'mu.ha.la"),
+            setup_word("sa'mi.ha.la"),
+            setup_word("sa'mo.ha.la"),
+            setup_word("sa'me.ha.la"),
+            setup_word("sa'ma.ha.la"),
+            setup_word("'me.hu"),
+            setup_word("ka're.hu"),
+            setup_word("'re.ka.re.hu"),
+            setup_word("'ku.ŋe"),
+            setup_word("qo'?e.ta"),
+            setup_word("pa'mo"),
+            setup_word("pa'no"),
+            setup_word("pa'ŋo"),
+            setup_word("pa'ɴo"),
+            setup_word("'da.ra.sa.ri"),
+            setup_word("'dars.ri"),
+            setup_word("'se.re.re"),
+            setup_word("'ba.ka.wi"),
+            setup_word("'se.ra"),
+            setup_word("'se.se.ra"),
+            setup_word("'se.ra.e.he.ma"),
+            setup_word("'se.ra.ka.ra"),
+            setup_word("'se.se.ra.ka.ra"),
+            setup_word("ˈse.ra.ɢo.ta"),
+            setup_word("se.ra'te.?e"),
+            setup_word("sa'qa.la"),
+            setup_word("sa.ma'pi"),
+            setup_word("so'?a.ma"),
+            setup_word("'?a.so.?a.ma"),
+            setup_word("sa'we.na"),
+            setup_word("sa.we.na'te.?e"),
+            setup_word("sa.we.na'lo.?a"),
+            setup_word("sa.we.na'lo.?o.sa"),
+            setup_word("sa.we.na'lo.?o.na"),
+            setup_word("sa.we.na'lo.?o.ta"),
+            setup_word("sa.we.na'lo.?a.hi.sa"),
+            setup_word("sa.we.na'lo.?e.hi.sa"),
+            setup_word("sa.we.na'lo.?u.hi.sa"),
+            setup_word("sa.we.na'lo.?o.hi.sa"),
+            setup_word("'la.hi.sa"),
+            setup_word("'la.hi.hu"),
+            setup_word("'ra.ke.sa.sa"),
+            setup_word("'ra.ka.sa.sa"),
+        ];
+        let output_matchs = [
+            setup_word("ˈraks"),
+            setup_word("ˈɡʷels"),
+            setup_word("ˈsum.qo"),
+            setup_word("ˈsmu.il"),
+            setup_word("ˈsmiːl"),
+            setup_word("ˈsmo.il"),
+            setup_word("ˈsme.ul"),
+            setup_word("ˈsmaːl"),
+            setup_word("ˈmi.u"),
+            setup_word("ˈkri.u"),
+            setup_word("ˈre.kri.u"),
+            setup_word("ˈku.ŋi"),
+            setup_word("qoˈet"),
+            setup_word("pɐˈmo"),
+            setup_word("ˈpno"),
+            setup_word("ˈpŋo"),
+            setup_word("ˈpŋo"),
+            setup_word("ˈdaː.sri"),
+            setup_word("ˈdaː.sri"),
+            setup_word("ˈse.riː"),
+            setup_word("ˈba.kʷi"),
+            setup_word("ˈser"),
+            setup_word("ˈse.sir"),
+            setup_word("ˈse.reːm"),
+            setup_word("ˈser.kr̩"),
+            setup_word("ˈse.sir.kr̩"),
+            setup_word("ˈser.ɢot"),
+            setup_word("sirˈteː"),
+            setup_word("ˈsqɑl"),
+            setup_word("sm̩ˈpi"),
+            setup_word("suˈem"),
+            setup_word("ˈa.soːm"),
+            setup_word("ˈswen"),
+            setup_word("swinˈteː"),
+            setup_word("swinˈlo.i"),
+            setup_word("swinˈloːs"),
+            setup_word("swinˈloːn"),
+            setup_word("swinˈloːt"),
+            setup_word("swinˈlo.eːs"),
+            setup_word("swinˈlo.iːs"),
+            setup_word("swinˈlo.wis"),
+            setup_word("swinˈloː.is"),
+            setup_word("ˈle.is"),
+            setup_word("ˈle.ju"),
+            setup_word("ˈra.kiːs"),
+            setup_word("ˈrak.sɐs"),
+        ];
+
+        let mut output_words: Vec<Word> = vec![];
+
+        for word in &test_words {
+            let mut w = word.clone();
+            for (_ri, rule) in test_rules.iter().enumerate() {
+                // println!("-- {} --", _ri+1);
+                // println!("{}", w.render().unwrap());
+                w = match rule.apply(w) {
+                    Ok(w) => w,
+                    Err(e) => {
+                        println!("{}", e.format_error(&["      ".to_string()]));
+                        assert!(false);
+                        unreachable!()
+                    },
+                }
+            }
+            output_words.push(w)
+        }
+
+        for (w, m) in output_words.iter().zip(output_matchs) {
+            assert_eq!(w.render().unwrap(), m.render().unwrap());
+        }   
     }
 }
