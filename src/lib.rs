@@ -11,6 +11,7 @@ mod subrule;
 use serde::Deserialize;
 use std::collections::HashMap;
 use lazy_static::lazy_static;
+use wasm_bindgen::prelude::*;
 
 use lexer ::*;
 use parser::*;
@@ -171,8 +172,9 @@ fn r(unparsed_rules: &[String], unparsed_words: &[String]) -> Result<Vec<String>
 
 
 
-pub fn run(unparsed_rules: &[String], unparsed_words: &[String]) -> Vec<String> {
-    parse_result(r(unparsed_rules, unparsed_words), unparsed_rules, unparsed_words)
+#[wasm_bindgen]
+pub fn run(unparsed_rules: Vec<String>, unparsed_words: Vec<String>) -> Vec<String> {
+    parse_result(r(&unparsed_rules, &unparsed_words), &unparsed_rules, &unparsed_words)
 }
 
 fn parse_result(unparsed_result: Result<Vec<String>, Error>, rules: &[String], words: &[String]) -> Vec<String> {

@@ -1,11 +1,4 @@
-// mod lib;
-
-// use asca;
-
 fn main() {
-
-    // seg::test_node_variants();
-
     let unparsed_rules: Vec<String> = vec![
         // Proto-Anaki to Anaki
         // Low Vowel Reduction        
@@ -79,18 +72,6 @@ fn main() {
         // Labialisation
         String::from("C:[+hi, +bk] > [+rnd] / _w"),
         String::from("w > * / C:[+hi, +bk, +rnd]_"),
-
-        // String::from("C:[+cor] > [Aplace, -lab] / _w:[Aplace]"),
-
-        // String::from("% > 1:[-str] / %:[+str]=1_"),
-        // String::from("% => [+str] / _%:[-str]%#"),
-
-        // String::from("* > 1 / #_O:[+nas]V=1"),
-        // String::from("* > %:[Astr] / #V_O:[+nas, Astr]"),
-        // String::from("%:[+str] > [-str] / _%:[+str]"),
-
-        // String::from("* > 1:[-str]%:[Astr] / #_O:[+nas]V:[Astr]=1")
-
     ];
         
     let unparsed_words: Vec<String> = vec![
@@ -154,14 +135,10 @@ fn main() {
         String::from("'ra.ka.sa.sa"),
     ];
 
-    // let trace = false;
-
-    let res = asca::run(&unparsed_rules, &unparsed_words);
+    let res = asca::run(unparsed_rules, unparsed_words);
 
     for r in res {
         println!("{r}");
     }
 
-
-    // seg::test_vowel_variants();
 }
