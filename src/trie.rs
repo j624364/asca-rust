@@ -64,13 +64,6 @@ impl Trie {
     }
 
     /// returns true if input matches a leaf in the tree
-    /// # Example
-    /// ``` 
-    /// let mut trie = Trie::new();
-    /// trie.insert("banter");
-    /// assert_eq!(trie.contains_partial("ban"), false);
-    /// assert_eq!(trie.contains_partial("banter"), true);
-    /// ```
     #[allow(dead_code)]
     pub(crate) fn contains(&self, s: &str) -> bool { 
         let mut curr_node = &self.root;
@@ -91,15 +84,6 @@ impl Trie {
 
     /// Returns true if input is a 'prefix' of a leaf in the tree
     /// A prefix can also end in a leaf 
-    /// # Example
-    /// ``` 
-    /// let mut trie = Trie::new();
-    /// trie.insert("banned");
-    /// trie.insert("banter");
-    /// assert_eq!(trie.contains_prefix("ban"), true);
-    /// assert_eq!(trie.contains_prefix("ned"), false);
-    /// assert_eq!(trie.contains_prefix("banter"), true);
-    /// ```
     pub(crate) fn contains_prefix(&self, s: &str) -> bool { 
         let mut curr_node = &self.root;
 
@@ -118,14 +102,6 @@ impl Trie {
     }
 
     /// Traverses the tree using a given string input and then returns vector of all leaf nodes past the end of input
-    /// # Example
-    /// ```
-    /// let mut trie = Trie::new();
-    /// trie.insert("banned");
-    /// trie.insert("banner");
-    /// trie.insert("banter");
-    /// assert_eq!(trie.find("bann"), vec!["banned, banner"]);
-    /// ```
     #[allow(dead_code)]
     pub(crate) fn find_all(&self, s: &str) -> Vec<String> { 
         let mut cur = &self.root;

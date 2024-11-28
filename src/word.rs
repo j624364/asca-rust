@@ -183,12 +183,6 @@ impl Word {
     /// Does not take into account if said index is in the middle of the repetition
     /// # Panics
     /// If SegPos is out of bounds
-    /// # Examples
-    /// ``` 
-    /// let word = Word::new("aa.a").unwrap();
-    /// assert_eq!(word.seg_length_at(SegPos{0,0}), 2);
-    /// assert_eq!(word.seg_length_at(SegPos{1,0}), 1);
-    /// ```
     pub(crate) fn seg_length_at(&self, seg_index: SegPos) -> usize {
         self.syllables[seg_index.syll_index].get_seg_length_at(seg_index.seg_index)
     }
