@@ -1,7 +1,6 @@
-# Logic for ASCA
+# ASCA
 
-ASCA is a Sound Change Applier written in Rust.
-This repo contains the logic for the applier which will be connected to a web front-end.
+ASCA is a Sound Change Applier written in Rust with WASM.
 
 ## Notable Features
 - Out of the box Distinctive Features and Alpha Notation
@@ -21,9 +20,9 @@ This repo contains the logic for the applier which will be connected to a web fr
 - [x] Applying Output
     - [x] Metathesis
     - [x] Deletion
-    - [x] Insertion
+    - [ ] Insertion
         - [x] Segment Insertion
-        - [x] Syllable and boundary Insertion (NOT YET PROPERLY TESTED)
+        - [ ] Syllable and boundary Insertion (NOT YET PROPERLY TESTED)
     - [x] Substitution
         - [x] Same length Substitution 
         - [x] Longer Input Substitution
@@ -31,4 +30,14 @@ This repo contains the logic for the applier which will be connected to a web fr
 - [x] Matching Environment and Exceptions
     - [x] Simple segments
     - [x] Ellipsis and Optional Segments
-- [ ] WASM Bindgen
+- [x] WASM Bindgen
+
+
+
+## Dev
+
+Install `wasm-pack` and `wasm-bindgen-cli`.
+
+```
+wasm-pack build --release --target web --out-dir libasca
+```

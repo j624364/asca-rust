@@ -8,15 +8,15 @@
 <body>
     <script type="module">
     import init, { run } from './pkg/asca.js'
-
     await init()
 
-    let r = ["r...l > &"]
+    let rules = ["r...l:[-Aplace] > &"];
+    let words = ["rul"];
 
-    let w = ["rul"]
-
-    console.log(run(r, w))
-
+    run(rules, words).forEach(element => {
+        console.log(element);
+        
+    });
     </script>
 </body>
 </html>
