@@ -559,12 +559,12 @@ Input words and rules can be saved to desktop and loaded into asca using JSON fo
         {
             "name": "Rule 1",
             "rule": ["First subrule", "Second subrule"],
-            "description": ["Does something"]
+            "description": "Does something"
         },
         {
             "name": "Rule 2",
             "rule": ["First subrule", "Second subrule"],
-            "description": ["Does something"]
+            "description": "Does something"
         }
     ]
 }
