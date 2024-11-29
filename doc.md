@@ -8,12 +8,12 @@
 
 ### IPA Characters
 
-ASCA recognises over 300 base IPA phones which can be modified with any of 30 diacritics. Meaning that most commonly used IPA codepoints are representable, including:
+ASCA recognises over 360 base IPA phones which can be modified with any of 30 diacritics. Meaning that most commonly used IPA codepoints are representable, including:
 - Clicks (Velar, uvular, and uvular contour)
 - Ejectives & Implosives
 - Voiceless, Creaky, & Breathy Phonation
 - Syllabic Consonants
-- Affricates
+- Affricates and Pre-nasalised stops
 - Advanced & Retracted Tongue Root
 - Labialised, Glottalised, Velarised, Palatalised, Pharyngealised (etc.) Segments
 
@@ -541,11 +541,32 @@ To fix this, we can use a syllable instead of a boundary and alpha notation to '
 ```
 
 
-
-
-
 ## User Interface
 
+ASCA organises rules such that you can optionally document your sound changes in situ. In the future, this could lead to the ability to automatically generate a sound change document from your work in ASCA. This also allows you to group a multi-stage sound change (such as a chain shift) together, and clearly demarcate them from the potentially long list of sound changes you may have. These rule blocks can then be collapsed so that you can forget about them once completed.
+
 ### Drag and Drop Reordering
+This structure allows for the ability to easily reorder rules to test certain orderings without accidentally reordering dependant rules. In ASCA, this is achieved through dragging and dropping the rules into the desired order. This feature currently does not work on mobile, but is as priority for the future.
 
 ### Saving and Loading Files
+
+Input words and rules can be saved to desktop and loaded into asca using JSON format:
+
+``` JSON
+{
+    "words": ["words", "go", "here"],
+    "rules": [
+        {
+            "name": "Rule 1",
+            "rule": ["First subrule", "Second subrule"],
+            "description": ["Does something"]
+        },
+        {
+            "name": "Rule 2",
+            "rule": ["First subrule", "Second subrule"],
+            "description": ["Does something"]
+        }
+    ]
+}
+```
+On each run, the current words and rules are saved to local storage. This affords you the ability to quit out and not lose progess.
