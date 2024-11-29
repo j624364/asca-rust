@@ -7,11 +7,11 @@
 </head>
 <body>
     <script type="module">
-    import init, { run } from './pkg/asca.js'
+    import init, { run } from './libasca/asca.js'
     await init()
 
-    let rules = ["r...l:[-Aplace] > &"];
-    let words = ["rul"];
+    let rules = ["r...l > &", "rV > & / _s"];
+    let words = ["parabla", "hros"];
 
     run(rules, words).forEach(element => {
         console.log(element);
