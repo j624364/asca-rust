@@ -474,6 +474,12 @@ mod word_tests {
 
         let w = Word::new("ˈt^saa".to_owned()).unwrap();
         assert_eq!(w.render().unwrap(), "ˈt͡saː");
+
+        let w = Word::new("ɴǃa".to_owned()).unwrap();
+        assert_eq!(w.render().unwrap(), "ɴǃa");
+
+        let w = Word::new("ǃɴa".to_owned()).unwrap();
+        assert_eq!(w.render().unwrap(), "ǃɴa");
     }
 
     #[test]

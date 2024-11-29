@@ -1512,4 +1512,12 @@ mod rule_tests {
             assert_eq!(w.render().unwrap(), m.render().unwrap());
         }   
     }
+
+
+    #[test]
+    fn test_clicks() {
+        let test_rule = setup_rule("[+clk] > [+dr]");
+        
+        assert_eq!(test_rule.apply(setup_word("ɴǃa")).unwrap().render().unwrap(), "ǃɴa");
+    }
 }
