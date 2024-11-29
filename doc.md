@@ -34,7 +34,7 @@ Syllables are separated by `.`.
 A word with no marked boundaries is considered one syllable. There are no rules regarding internal syllable structure.
 
 #### Length
-Segment length can be represented by either `ː` or `:`. A segment can be followed by multiple length markers, representing overlong segments. Alternatively, length can be represented by repetition of the segment (i.e. `si:m` can be `siim`). Identical segments that are separated by a syllable boundary are not considered one long segment. If a long segment falls at the end of a syllable, `;` can be used a shorthand to also close the syllable (i.e. `si:.tiŋ` can be `si;tiŋ`).
+Segment length can be represented by either `ː` or `:`. A segment can be followed by multiple length markers, representing overlong segments. Alternatively, length can be represented by repetition of the segment (i.e. `si:m` can be `siim`). Identical segments that are separated by a syllable boundary are not considered one long segment. If a long segment falls at the end of a syllable, `;` can be used as shorthand to also close the syllable (i.e. `si:.tiŋ` can be `si;tiŋ`).
 
 #### Stress
 Primary stress can be represented by either `ˈ` or `'` and secondary stress by either `ˌ` or `,`. These are placed at the start of the syllable. The boundary marker can be omitted if followed by a stressed syllable (i.e. `ə'gəʊ` instead of `ə.'gəʊ`). Note that ejective consonants cannot be marked with a `'` as this will be interpreted as stress. `ʼ` must be used instead `i.e. /pʼ/`.
@@ -515,7 +515,7 @@ For left-to-right propagation, it may be stylistically justified to do the same,
 
 ### Syllable Structure
 ASCA does not enforce 'legal' syllables and it is up to you to maintain syllable boundaries.
-This can be done by using metathesising, inserting, and deleting $.
+This can be done by metathesising, inserting, and deleting $.
 
 For example, imagine a input word of `'si.te`. If we apply the rule `V > * / C_#`, we end up with a floating consonant `'si.t`.
 
