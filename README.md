@@ -1,6 +1,6 @@
 # ASCA
 
-ASCA is a Sound Change Applier written in Rust with WASM.
+[ASCA](https://asca.girv.dev) is a Sound Change Applier written in Rust with WASM.
 
 ## Notable Features
 - Out of the box Distinctive Features and Alpha Notation
@@ -31,13 +31,3 @@ ASCA is a Sound Change Applier written in Rust with WASM.
     - [x] Simple segments
     - [x] Ellipsis and Optional Segments
 - [x] WASM Bindgen
-
-
-
-## Dev
-
-Install `wasm-pack` and `wasm-bindgen-cli`.
-
-```
-wasm-pack build --release --target web --out-dir libasca
-```
