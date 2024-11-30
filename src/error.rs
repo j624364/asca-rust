@@ -83,14 +83,14 @@ impl ASCAError for WordSyntaxError {
             WordSyntaxError::CouldNotParseEjective(_)               => "Unable to parse word. If you meant to have an ejective, you must use ʼ".to_string(),
             WordSyntaxError::DiacriticDoesNotMeetPreReqsFeat(txt, i, t, pos) |
             WordSyntaxError::DiacriticDoesNotMeetPreReqsNode(txt, i, t, pos) => {
-                format!("Segment does not have prerequisite properties to have diacritic `{}`. Must be {}{}", txt.chars().nth(*i).unwrap_or_default(), if *pos { '+' } else { '-' },t)
+                format!("Segment does not have prerequisite properties to have diacritic `{}`. Must be [{} {}]", txt.chars().nth(*i).unwrap_or_default(), if *pos { '+' } else { '-' },t)
             },
         }
     }
 
     fn format_error(&self, _: &[String]) -> String {
         const MARG: &str = "\n    |     ";
-        let mut result = format!("{} {}", "Word Syntax Error".bright_red().bold(), self.get_error_message().bold());
+        let mut result = format!("{} {}", "Word Syntax Error:".bright_red().bold(), self.get_error_message().bold());
         let (arrows, text) = match self {
             Self::CouldNotParse(text) => (
                 "^".repeat(text.chars().count()) + "\n", 
@@ -134,7 +134,7 @@ impl ASCAError for WordRuntimeError {
 
     fn format_error(&self, words: &[String]) -> String {
         const MARG: &str = "\n    |     ";
-        let mut result = format!("{} {}", "Runtime Error".bright_red().bold(), self.get_error_message().bold());
+        let mut result = format!("{} {}", "Runtime Error:".bright_red().bold(), self.get_error_message().bold());
 
         match self {
             Self::UnknownSegment(buffer, word, seg) => {
@@ -213,7 +213,7 @@ impl ASCAError for RuleRuntimeError {
 
     fn format_error(&self, rules: &[String]) -> String {
         const MARG: &str = "\n    |     ";
-        let mut result = format!("{} {}", "Runtime Error".bright_red().bold(), self.get_error_message().bold());
+        let mut result = format!("{} {}", "Runtime Error:".bright_red().bold(), self.get_error_message().bold());
         
         let (arrows, line) =  match self {
             Self::DeletionOnlySyll | Self::DeletionOnlySeg => return result,
@@ -374,7 +374,7 @@ impl ASCAError for RuleSyntaxError {
 
     fn format_error(&self, rules: &[String]) -> String {
         const MARG: &str = "\n    |     ";
-        let mut result = format!("{} {}", "Syntax Error".bright_red().bold(), self.get_error_message().bold()); 
+        let mut result = format!("{} {}", "Syntax Error:".bright_red().bold(), self.get_error_message().bold()); 
 
         let (arrows, line) = match self {
             Self::OptMathError(t, _, _)   | 
