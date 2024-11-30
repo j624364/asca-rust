@@ -73,7 +73,7 @@ input (=)> output / context (| or //) exception
 e.g. ei > ie | c_ (/ei/ changes to /ie/, except when directly after /c/)
 ```
 
-A environment can only contain one underline `_`. An empty environment can be omitted:
+An environment can only contain one underline `_`. An empty environment can be omitted:
 ```
 a > e           (/saj/ > /sej/)
 a > e / _       (this is equivalent to the above)
