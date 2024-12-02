@@ -967,7 +967,6 @@ impl SubRule {
     fn insert(&self, word: &Word, pos: SegPos, is_context_after: bool) -> Result<(Word, Option<SegPos>), RuleRuntimeError> {
         let mut res_word = word.clone();
         let mut pos = pos;
-        let mut next_pos = Some(pos);
         for state in &self.output {
             match &state.kind {
                 ParseElement::Ipa(seg, mods) => {
@@ -986,10 +985,6 @@ impl SubRule {
                         } 
                     };
                     pos.increment(&res_word);
-
-                    // if is_context_after {
-                    //     pos.increment(&res_word);
-                    // }
                 },
                 ParseElement::SyllBound => {
                     // FIXME(girv): Issue
@@ -1005,14 +1000,6 @@ impl SubRule {
                     // split current syll into two at pos
                     let mut second_syll = Syllable::new();
                     let first_syll = res_word.syllables.get_mut(pos.syll_index).unwrap();
-                    
-
-                    // if pos.syll_index == 0  {
-                    //     second_syll.stress = first_syll.stress;
-                    //     second_syll.tone = first_syll.tone.clone();
-                    //     first_syll.stress = StressKind::Unstressed;
-                    //     first_syll.tone = String::new();
-                    // }
 
                     while first_syll.segments.len() > pos.seg_index {
                         second_syll.segments.push_front(first_syll.segments.pop_back().unwrap());
@@ -1075,33 +1062,6 @@ impl SubRule {
                                     } 
                                 };
                                 pos.increment(&res_word);
-            
-                                // if is_context_after {
-                                //     pos.increment(&res_word);
-                                // }
-
-                                // if res_word.in_bounds(pos) {
-                                //     res_word.syllables[pos.syll_index].segments.insert(pos.seg_index, *seg);
-                                // } else if let Some(syll) = res_word.syllables.get_mut(pos.syll_index) { 
-                                //     if pos.seg_index >= syll.segments.len() {
-                                //         syll.segments.push_back(*seg);
-                                //     } else {
-                                //         syll.segments.insert(pos.seg_index, *seg);
-                                //     }
-                                // } else {
-                                //     res_word.syllables.last_mut().unwrap().segments.push_back(*seg);
-                                // }
-                                // if let Some(m) = mods {
-                                //     let lc = res_word.apply_seg_mods(&self.alphas, m, pos, num.position)?;
-                                //     match lc.cmp(&0) {
-                                //         std::cmp::Ordering::Greater => pos.seg_index += lc.unsigned_abs() as usize,
-                                //         // std::cmp::Ordering::Less    => pos.seg_index -= lc.unsigned_abs() as usize,
-                                //         _ => {}
-                                //     }
-                                // }          
-                                // if res_word.in_bounds(pos) {
-                                //     pos.increment(&res_word);
-                                // }
                             },
                             VarKind::Syllable(syll) => {
                                 let mut new_syll = syll.clone();
@@ -1139,16 +1099,12 @@ impl SubRule {
                 ParseElement::WordBound | ParseElement::Environment(..) => unreachable!(),
             }
         }
-        if let Some(ref mut next) = next_pos {
-            // if pos.at_syll_end(&res_word) {
-            //     pos.increment(&res_word);
-            // }
-            if is_context_after {
-                pos.increment(&res_word);
-            }
-            *next = pos;
+
+        if is_context_after {
+            pos.increment(&res_word);
         }
-        Ok((res_word, next_pos))
+        
+        Ok((res_word, Some(pos)))
     }
 
     fn context_match_ipa(&self, s: &Segment, mods: &Option<Modifiers>, word: &Word, pos: SegPos, err_pos: Position) -> Result<bool, RuleRuntimeError> {
@@ -1752,12 +1708,6 @@ impl SubRule {
             ParseElement::EmptySet | ParseElement::WordBound | ParseElement::Metathesis  => unreachable!(),
         }
     }
-
-    // fn input_match_optionals(&self, captures: &mut [MatchElement], word: &Word, pos: &mut SegPos, states: &[Item], opt_states: &[Item], match_min: usize, match_max: usize) -> Result<bool, RuleRuntimeError> {
-    //     // should work like regex (...){min, max}?
-    //     let max = if match_max == 0 {None} else{ Some(match_max)};
-    //     self.input_match_multiple(captures, word, pos,  states, &mut 0, match_min, max, opt_states, true)
-    // }
     
     fn input_match_ellipsis(&self, captures: &mut Vec<MatchElement>, word: &Word, pos: &mut SegPos, states: &[Item], state_index: &mut usize) -> Result<bool, RuleRuntimeError> {
         // should work akin to '.+?' in Regex, that is, a lazy-match of one-or-more elements
