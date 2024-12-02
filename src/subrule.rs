@@ -475,7 +475,11 @@ impl SubRule {
             if let Some(v) = var {
                 self.variables.borrow_mut().insert(*v, VarKind::Segment(word.get_seg_at(*pos).unwrap()));
             }
-            pos.increment(word); // TODO: Probably have to do what we do for input and account for long segments
+            let mut seg_length = word.seg_length_at(*pos);            
+            while seg_length >= 1 {
+                pos.increment(word);
+                seg_length -= 1;
+            }
             Ok(true)
         } else {
             Ok(false)
