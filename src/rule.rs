@@ -210,6 +210,18 @@ mod rule_tests {
         unreachable!();
     }
 
+    // FIXME: currently fails on second test
+    // #[test]
+    // fn test_wildcard() {
+    //     let test_rule = setup_rule("[] > x");
+    //     let test_word = setup_word("a.r.i.s.a.n");
+    //     assert_eq!(test_rule.apply(test_word).unwrap().render().unwrap(), "x.x.x.x.x.x");
+    //
+    //     let test_word = setup_word("arisan");
+    //     assert_eq!(test_rule.apply(test_word).unwrap().render().unwrap(), "xxxxxx");
+    // }
+
+
     #[test]
     fn test_semivowel_syllabication() {
         let test_rule = setup_rule("[-syll, +approx, -lat, Ahi] > [+syll, +son, -cons, +lab, - PHR, Atense]");
@@ -778,7 +790,7 @@ mod rule_tests {
     }
 
     #[test]
-    fn test_insertion_before_context_ipa() {
+    fn test_insertion_segment_before_ipa() {
         let test_rule = setup_rule("* > e / _s");
         let test_word = setup_word("ski");
         assert_eq!(test_rule.apply(test_word).unwrap().render().unwrap(), "eski");
@@ -789,7 +801,7 @@ mod rule_tests {
     }
 
     #[test]
-    fn test_insertion_after_context_ipa() {
+    fn test_insertion_segment_after_ipa() {
         let test_rule = setup_rule("* > e / s_");
         let test_word = setup_word("ski");
         println!("* > e / s_");
@@ -805,14 +817,14 @@ mod rule_tests {
     }
 
     #[test]
-    fn test_insertion_between_context_ipa() {
+    fn test_insertion_segment_between_ipa() {
         let test_rule = setup_rule("* > e / s_k");
         let test_word = setup_word("kskis");
         assert_eq!(test_rule.apply(test_word).unwrap().render().unwrap(), "ksekis");
     }
 
     #[test]
-    fn test_insertion_context_before_set() {
+    fn test_insertion_segment_before_set() {
         let test_rule = setup_rule("* > e / _{s,k}");
         let test_word = setup_word("ski");
         println!("* > e / _{{s,k}}");
@@ -820,7 +832,7 @@ mod rule_tests {
     }
 
     #[test]
-    fn test_insertion_context_after_set() {
+    fn test_insertion_segment_after_set() {
         let test_rule = setup_rule("* > e / {s,k}_");
         let test_word = setup_word("ski");
         println!("* > e / {{s,k}}_");
@@ -828,7 +840,7 @@ mod rule_tests {
     }
 
     #[test]
-    fn test_insertion_context_before_matrix() {
+    fn test_insertion_segment_before_matrix() {
         let test_rule = setup_rule("* > e / _C");
         let test_word = setup_word("ski");
         println!("* > e / _C");
@@ -836,11 +848,48 @@ mod rule_tests {
     }
 
     #[test]
-    fn test_insertion_context_after_matrix() {
+    fn test_insertion_segment_after_matrix() {
         let test_rule = setup_rule("* > e / C_");
         let test_word = setup_word("ski");
         println!("* > e / C_");
         assert_eq!(test_rule.apply(test_word).unwrap().render().unwrap(), "sekei");
+    }
+
+    #[test]
+    fn test_insertion_syllable_before_segment() {
+        let test_rule = setup_rule("* > % / _k");
+        let test_word = setup_word("ski");
+        println!("* > e / C_");
+        assert_eq!(test_rule.apply(test_word).unwrap().render().unwrap(), "s.ki");
+    }
+
+    #[test]
+    fn test_insertion_syllable_after_segment() {
+        let test_rule = setup_rule("* > % / s_");
+        let test_word = setup_word("ski");
+        println!("* > e / C_");
+        assert_eq!(test_rule.apply(test_word).unwrap().render().unwrap(), "s.ki");
+    }
+
+    #[test]
+    fn test_insertion_bound_before_segment() {
+        let test_rule = setup_rule("* > $ / _k");
+        let test_word = setup_word("ski");
+        println!("* > e / C_");
+        assert_eq!(test_rule.apply(test_word).unwrap().render().unwrap(), "s.ki");
+
+        // let test_rule = setup_rule("* > $ / _k");
+        // let test_word = setup_word("skki");
+        // println!("* > e / C_");
+        // assert_eq!(test_rule.apply(test_word).unwrap().render().unwrap(), "skːi");
+    }
+
+    #[test]
+    fn test_insertion_bound_after_segment() {
+        let test_rule = setup_rule("* > $ / s_");
+        let test_word = setup_word("ski");
+        println!("* > e / C_");
+        assert_eq!(test_rule.apply(test_word).unwrap().render().unwrap(), "s.ki");
     }
 
     #[test]
