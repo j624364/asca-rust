@@ -1171,6 +1171,13 @@ impl SubRule {
                             if lc > 0 {
                                 last_pos.seg_index += lc.unsigned_abs() as usize;
                             }
+                            if self.input.len() == self.output.len() {
+                                if state_index < self.input.len() -1 {
+                                    last_pos.seg_index +=1;
+                                }
+                            } else {
+                                last_pos.seg_index +=1;
+                            }
                         },
                         MatchElement::Syllable(sp, _)  => {
                             last_pos.syll_index = sp;
@@ -1195,7 +1202,13 @@ impl SubRule {
                         if lc > 0 {
                             last_pos.seg_index += lc.unsigned_abs() as usize;
                         }
-                        last_pos.seg_index +=1;
+                        if self.input.len() == self.output.len() {
+                            if state_index < self.input.len() -1 {
+                                last_pos.seg_index +=1;
+                            }
+                        } else {
+                            last_pos.seg_index +=1;
+                        }
                     },    
                     MatchElement::Syllable(..) | MatchElement::SyllBound(..) => return Err(RuleRuntimeError::SubstitutionSylltoMatrix(in_state.position, out_state.position)),
                 },
@@ -1218,7 +1231,13 @@ impl SubRule {
                                         last_pos.seg_index += lc.unsigned_abs() as usize;
                                     }
                                 }
-                                last_pos.seg_index +=1;
+                                if self.input.len() == self.output.len() {
+                                    if state_index < self.input.len() -1 {
+                                        last_pos.seg_index +=1;
+                                    }
+                                } else {
+                                    last_pos.seg_index +=1;
+                                }
                             },
                             (VarKind::Syllable(syll), MatchElement::Syllable(sp, _)) => {
                                 res_word.syllables[sp] = syll.clone();
@@ -1262,7 +1281,13 @@ impl SubRule {
                                                     last_pos.seg_index += lc.unsigned_abs() as usize;
                                                 }
                                             }
-                                            last_pos.seg_index +=1;
+                                            if self.input.len() == self.output.len() {
+                                                if state_index < self.input.len() -1 {
+                                                    last_pos.seg_index +=1;
+                                                }
+                                            } else {
+                                                last_pos.seg_index +=1;
+                                            }
                                         }
                                         ParseElement::Matrix(mods, var) => {
                                             let lc = self.apply_seg_mods(&mut res_word, sp, mods, var, set_output[i].position)?;
@@ -1270,7 +1295,13 @@ impl SubRule {
                                             if lc > 0 {
                                                 last_pos.seg_index += lc.unsigned_abs() as usize;
                                             }
-                                            last_pos.seg_index +=1;
+                                            if self.input.len() == self.output.len() {
+                                                if state_index < self.input.len() -1 {
+                                                    last_pos.seg_index +=1;
+                                                }
+                                            } else {
+                                                last_pos.seg_index +=1;
+                                            }
                                         },
                                         ParseElement::Variable(num, mods) => { 
                                             if let Some(var) = self.variables.borrow_mut().get(&num.value.parse().unwrap()) {
@@ -1284,7 +1315,13 @@ impl SubRule {
                                                                 last_pos.seg_index += lc.unsigned_abs() as usize;
                                                             }
                                                         }
-                                                        last_pos.seg_index +=1;
+                                                        if self.input.len() == self.output.len() {
+                                                            if state_index < self.input.len() -1 {
+                                                                last_pos.seg_index +=1;
+                                                            }
+                                                        } else {
+                                                            last_pos.seg_index +=1;
+                                                        }
                                                     },
                                                     VarKind::Syllable(_) => return Err(RuleRuntimeError::SubstitutionSegtoSyll(in_state.position, set_output[i].position)),
                                                 }
@@ -1606,7 +1643,6 @@ impl SubRule {
         };
         if let Some(next) = next_pos {
             pos.increment(&res_word);
-            // pos.increment(&res_word);
             *next = pos;
         }
 

@@ -210,16 +210,36 @@ mod rule_tests {
         unreachable!();
     }
 
-    // FIXME: currently fails on second test
-    // #[test]
-    // fn test_wildcard() {
-    //     let test_rule = setup_rule("[] > x");
-    //     let test_word = setup_word("a.r.i.s.a.n");
-    //     assert_eq!(test_rule.apply(test_word).unwrap().render().unwrap(), "x.x.x.x.x.x");
-    //
-    //     let test_word = setup_word("arisan");
-    //     assert_eq!(test_rule.apply(test_word).unwrap().render().unwrap(), "xxxxxx");
-    // }
+    #[test]
+    fn test_wildcard() {
+        let test_rule = setup_rule("[] > x");
+        let test_word = setup_word("a.r.i.s.a.n");
+        assert_eq!(test_rule.apply(test_word).unwrap().render().unwrap(), "x.x.x.x.x.x");
+    
+        let test_word = setup_word("arisan");
+        assert_eq!(test_rule.apply(test_word).unwrap().render().unwrap(), "xːːːːː");
+
+        let test_rule = setup_rule("{[], []} > {x,w}");
+        let test_word = setup_word("a.r.i.s.a.n");
+        assert_eq!(test_rule.apply(test_word).unwrap().render().unwrap(), "x.x.x.x.x.x");
+    
+        let test_word = setup_word("arisan");
+        assert_eq!(test_rule.apply(test_word).unwrap().render().unwrap(), "xːːːːː");
+
+        let test_rule = setup_rule("[]=1 > 1:[+red]");
+        let test_word = setup_word("a.r.i.s.a.n");
+        assert_eq!(test_rule.apply(test_word).unwrap().render().unwrap(), "aᵊ.rᵊ.iᵊ.sᵊ.aᵊ.nᵊ");
+    
+        let test_word = setup_word("arisan");
+        assert_eq!(test_rule.apply(test_word).unwrap().render().unwrap(), "aᵊrᵊiᵊsᵊaᵊnᵊ");
+
+        let test_rule = setup_rule("[] > [+red]");
+        let test_word = setup_word("a.r.i.s.a.n");
+        assert_eq!(test_rule.apply(test_word).unwrap().render().unwrap(), "aᵊ.rᵊ.iᵊ.sᵊ.aᵊ.nᵊ");
+    
+        let test_word = setup_word("arisan");
+        assert_eq!(test_rule.apply(test_word).unwrap().render().unwrap(), "aᵊrᵊiᵊsᵊaᵊnᵊ");
+    }
 
 
     #[test]
