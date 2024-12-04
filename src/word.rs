@@ -91,6 +91,7 @@ impl SegPos {
 #[derive(Clone)]
 pub(crate) struct Word {
     pub(crate) syllables: Vec<Syllable>,
+    americanist: bool
 }
 
 impl fmt::Debug for Word {
@@ -106,37 +107,43 @@ impl fmt::Debug for Word {
 
 impl Word {
     pub(crate) fn new(text: String) -> Result<Self, WordSyntaxError>  {
-        let mut w = Self { syllables: Vec::new() };
-        let t = text.replace('\'', "ˈ")
-                    .replace(',',  "ˌ")
-                    .replace(':',  "ː")
-                    .replace(';',  "ː.")
-                    .replace('g',  "ɡ")
-                    .replace('?',  "ʔ")
-                    .replace('!',  "ǃ")
-                    .replace('S',  "ʃ")
-                    .replace('Z',  "ʒ")
-                    .replace('C',  "ɕ")
-                    .replace('G',  "ɢ")
-                    .replace('N',  "ɴ")
-                    .replace('B',  "ʙ")
-                    .replace('R',  "ʀ")
-                    .replace('X',  "χ")
-                    .replace('H',  "ʜ")
-                    .replace('A',  "ɐ")
-                    .replace('E',  "ɛ")
-                    .replace('I',  "ɪ")
-                    .replace('O',  "ɔ")
-                    .replace('U',  "ʊ")
-                    .replace('Y',  "ʏ")
-                    .replace('ñ',  "ɲ")
-                    .replace('¢',  "t͡s")
-                    .replace('ƛ',  "t͡ɬ")
-                    .replace('λ',  "d͡ɮ")
-                    .replace('ł',  "ɬ")
-                    .replace('φ',  "ɸ")
-                    .replace('ǝ',  "ə");
-        w.setup(t)?;
+        let mut w = Self { syllables: Vec::new(), americanist: false };
+        let t_norm = text.replace('\'', "ˈ")
+                    .replace(',', "ˌ")
+                    .replace(':', "ː")
+                    .replace(';', "ː.")
+                    .replace('g', "ɡ")
+                    .replace('?', "ʔ")
+                    .replace('!', "ǃ")
+                    .replace('S', "ʃ")
+                    .replace('Z', "ʒ")
+                    .replace('C', "ɕ")
+                    .replace('G', "ɢ")
+                    .replace('N', "ɴ")
+                    .replace('B', "ʙ")
+                    .replace('R', "ʀ")
+                    .replace('X', "χ")
+                    .replace('H', "ʜ")
+                    .replace('A', "ɐ")
+                    .replace('E', "ɛ")
+                    .replace('I', "ɪ")
+                    .replace('O', "ɔ")
+                    .replace('U', "ʊ")
+                    .replace('Y', "ʏ")
+                    .replace('ǝ', "ə");
+
+        let t_amer = t_norm
+                        .replace('¢', "t͡s")
+                        .replace('ƛ', "t͡ɬ")
+                        .replace('λ', "d͡ɮ")
+                        .replace('ł', "ɬ")
+                        .replace('ñ', "ɲ")
+                        .replace('φ', "ɸ");
+
+        if t_amer != t_norm {
+            w.americanist = true
+        }
+        w.setup(t_amer)?;
 
         Ok(w)
     }
@@ -159,7 +166,21 @@ impl Word {
             }
             buffer.push_str(&syll.tone);
         }
-        Ok(buffer)
+
+        if self.americanist {
+            let buffer = buffer
+                .replace("t͡s", "¢")
+                .replace("t͡ɬ",  "ƛ")
+                .replace("d͡ɮ", "λ")
+                .replace("ɬ",  "ł")
+                .replace("ɲ",  "ñ")
+                .replace("ɸ",  "φ");
+
+            Ok(buffer)
+        } else {
+            Ok(buffer)
+        }
+
     }
     #[allow(unused)]
     pub(crate) fn get_syll_segments(&self, syll_index: usize) -> &VecDeque<Segment> {
@@ -515,11 +536,11 @@ mod word_tests {
     #[test]
     fn test_americanist_aliases() {
         match Word::new("¢añ.λełƛ".to_owned()) {
-            Ok(w) => assert_eq!(w.render().unwrap(), "t͡saɲ.d͡ɮeɬt͡ɬ"),
+            Ok(w) => assert_eq!(w.render().unwrap(), "¢añ.λełƛ"),
             Err(e) => {
                 println!("{}", e.format_error(&[]));
                 assert!(false);
             }
-        } 
+        }
     }
 }

@@ -83,7 +83,10 @@ O => ɔ
 U => ʊ
 Y => ʏ
 ```
-A few common americanist characters can be used:
+Aliases are rendered as their target IPA characters in the output.
+
+
+A few common americanist characters can also be used:
 ```
 ł => ɬ
 ñ => ɲ
@@ -92,8 +95,7 @@ A few common americanist characters can be used:
 ƛ => t͡ɬ
 λ => d͡ɮ
 ```
-
-Aliases are rendered as their target IPA characters in the output.
+Unlike with regular aliases, if a input word contains americanist characters, the output will be be rendered with these characters.
 
 ## Defining Sound Changes
 
