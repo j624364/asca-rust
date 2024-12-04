@@ -129,6 +129,11 @@ impl Word {
                     .replace('O',  "ɔ")
                     .replace('U',  "ʊ")
                     .replace('Y',  "ʏ")
+                    .replace('ñ',  "ɲ")
+                    .replace('¢',  "t͡s")
+                    .replace('ƛ',  "t͡ɬ")
+                    .replace('λ',  "d͡ɮ")
+                    .replace('ł',  "ɬ")
                     .replace('ǝ',  "ə");
         w.setup(t)?;
 
@@ -499,6 +504,17 @@ mod word_tests {
     fn test_render_aliases() {
         match Word::new("'GAN;CEUN!eB.gRǝ:S.XOI?,HYZ".to_owned()) {
             Ok(w) => assert_eq!(w.render().unwrap(), "ˈɢɐɴː.ɕɛʊɴǃeʙ.ɡʀəːʃ.χɔɪʔˌʜʏʒ"),
+            Err(e) => {
+                println!("{}", e.format_error(&[]));
+                assert!(false);
+            }
+        } 
+    }
+
+    #[test]
+    fn test_americanist_aliases() {
+        match Word::new("¢añ.λełƛ".to_owned()) {
+            Ok(w) => assert_eq!(w.render().unwrap(), "t͡saɲ.d͡ɮeɬt͡ɬ"),
             Err(e) => {
                 println!("{}", e.format_error(&[]));
                 assert!(false);
