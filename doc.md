@@ -64,6 +64,7 @@ g => ɡ
 ? => ʔ
 ! => ǃ
 ǝ => ə
+φ => ɸ
 
 (The following cannot be used inside a rule)
 
@@ -90,7 +91,6 @@ A few common americanist characters can also be used:
 ```
 ł => ɬ
 ñ => ɲ
-φ => ɸ
 ¢ => t͡s
 ƛ => t͡ɬ
 λ => d͡ɮ
