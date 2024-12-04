@@ -104,8 +104,9 @@ lazy_static! {
 fn parse_rules(unparsed_rules: &[String]) -> Result<Vec<Rule>,RuleSyntaxError> {
     let mut rules: Vec<Rule> = vec![];
     for (l, r) in unparsed_rules.iter().enumerate() {
-        // FIXME(James): We are creating/dropping/reallocating the Lexer & Parser every loop
-        rules.push(Parser:: new(Lexer::new(&r.chars().collect::<Vec<_>>(), l).get_line()?, l).parse()?);
+        if let Some(rule) = Parser:: new(Lexer::new(&r.chars().collect::<Vec<_>>(), l).get_line()?, l).parse()? {
+            rules.push(rule);
+        }
     }
     Ok(rules)
 }

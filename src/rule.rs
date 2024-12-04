@@ -183,7 +183,7 @@ mod rule_tests {
         match maybe_lex {
             Ok(lexed) => {
                 match Parser::new(lexed, 0).parse() {
-                    Ok(rule) => return rule,
+                    Ok(rule) => return rule.unwrap(),
                     Err(e) => {
                         println!("{}", e.format_error(&vec![test_str.to_owned()]));
                         assert!(false);

@@ -995,8 +995,12 @@ impl Parser {
 
     }
     
-    pub(crate) fn parse(&mut self) -> Result<Rule, RuleSyntaxError> {
-        self.rule()
+    pub(crate) fn parse(&mut self) -> Result<Option<Rule>, RuleSyntaxError> {
+        if self.curr_tkn.kind == TokenKind::Eol {
+            Ok(None)
+        } else {
+            Ok(Some(self.rule()?))
+        }
     }
 
 }
@@ -1021,7 +1025,7 @@ mod parser_tests {
 
         assert!(maybe_result.is_ok());
 
-        let result = maybe_result.unwrap();
+        let result = maybe_result.unwrap().unwrap();
 
         assert_eq!(result.input.len(), 2);
         assert_eq!(result.output.len(), 2);
@@ -1064,7 +1068,7 @@ mod parser_tests {
 
         assert!(maybe_result.is_ok());
 
-        let result = maybe_result.unwrap();
+        let result = maybe_result.unwrap().unwrap();
 
         assert_eq!(result.input.len(), 1);
         assert_eq!(result.output.len(), 1);
@@ -1101,7 +1105,7 @@ mod parser_tests {
 
         assert!(maybe_result.is_ok());
 
-        let result = maybe_result.unwrap();
+        let result = maybe_result.unwrap().unwrap();
 
         assert_eq!(result.input.len(), 1);
         assert_eq!(result.output.len(), 1);
@@ -1121,7 +1125,7 @@ mod parser_tests {
 
         let maybe_result = Parser::new(setup("%:[tone: 123] > [tone: 321]"),0).parse();
         assert!(maybe_result.is_ok());
-        let result = maybe_result.unwrap();
+        let result = maybe_result.unwrap().unwrap();
 
         let exp_input = Item::new(ParseElement::Syllable([None, None], Some("123".to_string()), None), Position::new(0, 0, 13));
 
@@ -1140,7 +1144,7 @@ mod parser_tests {
         // Double Slash
         let maybe_res = Parser::new(setup("a > e / _ // _u"), 0).parse();
         assert!(maybe_res.is_ok());
-        let result = maybe_res.unwrap();
+        let result = maybe_res.unwrap().unwrap();
 
         let itm = Item::new(ParseElement::Ipa(CARDINALS_MAP.get("u").unwrap().clone(), None),Position::new(0, 14, 15));
         let exp_cont = Item::new(ParseElement::Environment(vec![], vec![]), Position::new(0, 8, 9));
@@ -1152,7 +1156,7 @@ mod parser_tests {
         // Pipe
         let maybe_res = Parser::new(setup("a > e / _ | _u"), 0).parse();
         assert!(maybe_res.is_ok());
-        let result = maybe_res.unwrap();
+        let result = maybe_res.unwrap().unwrap();
 
         let itm = Item::new(ParseElement::Ipa(CARDINALS_MAP.get("u").unwrap().clone(), None),Position::new(0, 13, 14));
         let exp_cont = Item::new(ParseElement::Environment(vec![], vec![]), Position::new(0, 8, 9));
@@ -1164,7 +1168,7 @@ mod parser_tests {
         // No Context
         let maybe_res = Parser::new(setup("a > e | _u"), 0).parse();
         assert!(maybe_res.is_ok());
-        let result = maybe_res.unwrap();
+        let result = maybe_res.unwrap().unwrap();
 
         let itm = Item::new(ParseElement::Ipa(CARDINALS_MAP.get("u").unwrap().clone(), None),Position::new(0, 9, 10));
         let exp_expt = Item::new(ParseElement::Environment(vec![], vec![itm]), Position::new(0, 8, 10));
