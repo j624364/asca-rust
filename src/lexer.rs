@@ -530,6 +530,7 @@ impl<'a> Lexer<'a> {
             '!' => 'ǃ',
             'ł' => 'ɬ',
             'ñ' => 'ɲ',
+            'φ' => 'ɸ',
             // 'S' => 'ʃ', Can't have any of these in rules as they will be parsed as groups
             // 'Z' => 'ʒ',
             // 'C' => 'ɕ',

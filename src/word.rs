@@ -134,6 +134,7 @@ impl Word {
                     .replace('ƛ',  "t͡ɬ")
                     .replace('λ',  "d͡ɮ")
                     .replace('ł',  "ɬ")
+                    .replace('φ',  "ɸ")
                     .replace('ǝ',  "ə");
         w.setup(t)?;
 
