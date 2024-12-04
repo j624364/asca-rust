@@ -130,15 +130,15 @@ impl Word {
                     .replace('O', "ɔ")
                     .replace('U', "ʊ")
                     .replace('Y', "ʏ")
-                    .replace('ǝ', "ə");
+                    .replace('ǝ', "ə")
+                    .replace('φ', "ɸ");
 
         let t_amer = t_norm
                         .replace('¢', "t͡s")
                         .replace('ƛ', "t͡ɬ")
                         .replace('λ', "d͡ɮ")
                         .replace('ł', "ɬ")
-                        .replace('ñ', "ɲ")
-                        .replace('φ', "ɸ");
+                        .replace('ñ', "ɲ");
 
         if t_amer != t_norm {
             w.americanist = true
@@ -173,8 +173,7 @@ impl Word {
                 .replace("t͡ɬ",  "ƛ")
                 .replace("d͡ɮ", "λ")
                 .replace("ɬ",  "ł")
-                .replace("ɲ",  "ñ")
-                .replace("ɸ",  "φ");
+                .replace("ɲ",  "ñ");
 
             Ok(buffer)
         } else {
@@ -524,8 +523,8 @@ mod word_tests {
 
     #[test]
     fn test_render_aliases() {
-        match Word::new("'GAN;CEUN!eB.gRǝ:S.XOI?,HYZ".to_owned()) {
-            Ok(w) => assert_eq!(w.render().unwrap(), "ˈɢɐɴː.ɕɛʊɴǃeʙ.ɡʀəːʃ.χɔɪʔˌʜʏʒ"),
+        match Word::new("'GAN;CEUN!eB.gRǝ:S.φXOI?,HYZ".to_owned()) {
+            Ok(w) => assert_eq!(w.render().unwrap(), "ˈɢɐɴː.ɕɛʊɴǃeʙ.ɡʀəːʃ.ɸχɔɪʔˌʜʏʒ"),
             Err(e) => {
                 println!("{}", e.format_error(&[]));
                 assert!(false);
@@ -535,8 +534,8 @@ mod word_tests {
 
     #[test]
     fn test_americanist_aliases() {
-        match Word::new("¢añ.λełƛ".to_owned()) {
-            Ok(w) => assert_eq!(w.render().unwrap(), "¢añ.λełƛ"),
+        match Word::new("¢añ.φλełƛ".to_owned()) {
+            Ok(w) => assert_eq!(w.render().unwrap(), "¢añ.ɸλełƛ"),
             Err(e) => {
                 println!("{}", e.format_error(&[]));
                 assert!(false);
