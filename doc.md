@@ -25,7 +25,7 @@ Doubly articulated stops, such as `ɡ͡b`, are not supported.
 
 In the event that ASCA is unable to render a segment in IPA, `�` will be used in its place.
 
-Unless the diacritic is inherent to the base phone (e.g. `𝼆̬`) then diacritic order does not matter. ASCA also does not currently normalise all UNICODE code points (though many are aliased), so precomposed code points such as `ẽ (U+1EBD)` are invalid. When generating the output word list, ASCA tries to adhere to [PHOIBLE conventions](https://phoible.org/conventions#ordering-of-diacritics-and-modifier-letters) where possible. Meaning that the segments in the output may be in a different order than was input. Additionally, if a base phoneme with combination of diacritics is equal in value to another base phoneme (or can be composed with less diacritics), then it shall be generated as such (i.e. `ɢ̃` will become `ᶰɢ`). 
+Unless the diacritic is inherent to the base phone (e.g. `𝼆̬`) then diacritic order does not matter. When generating the output word list, ASCA tries to adhere to [PHOIBLE conventions](https://phoible.org/conventions#ordering-of-diacritics-and-modifier-letters) where possible. Meaning that the segments in the output may be in a different order than was input. Additionally, if a base phoneme with a combination of diacritics is equal in value to another base phoneme (or can be composed with less diacritics), then it shall be generated as such (i.e. `ɢ̃` will become `ᶰɢ`). 
 
 A full list of supported base phones and diacritics (with their values) can be found [here](https://bit.ly/3sHjqvA).
 

@@ -101,10 +101,37 @@ lazy_static! {
     };    
 }
 
+// We are only decomposing a few characters as most would be invalid anyway.
+pub(crate) fn normalise(s: &str) -> String {
+    let s = s
+        .replace('ã', "ã")
+        .replace('ẽ', "ẽ")
+        .replace('ĩ', "ĩ")
+        .replace('õ', "õ")
+        .replace('ũ', "ũ")
+        .replace('ỹ', "ỹ")
+        .replace('ℇ', "ɛ")
+        .replace('ꭤ', "ɑ")
+        .replace('ǝ', "ə")
+        .replace('ɚ', "ə˞")
+        .replace('ɝ', "ɜ˞")
+        .replace('ℎ', "h")
+        .replace('ℏ', "ħ")
+        // .replace('ǳ', "d͡z")
+        // .replace('ǆ', "d͡ʒ")
+        // cause why not?
+        .replace('ﬁ', "fi")
+        .replace('ﬂ', "fl")
+        .replace('ĳ', "ij")
+        .replace('ǌ', "nj")
+        .replace('ǉ', "lj");
+    s
+}
+
 fn parse_rules(unparsed_rules: &[String]) -> Result<Vec<Rule>,RuleSyntaxError> {
     let mut rules: Vec<Rule> = vec![];
     for (l, r) in unparsed_rules.iter().enumerate() {
-        if let Some(rule) = Parser:: new(Lexer::new(&r.chars().collect::<Vec<_>>(), l).get_line()?, l).parse()? {
+        if let Some(rule) = Parser:: new(Lexer::new(&normalise(r).chars().collect::<Vec<_>>(), l).get_line()?, l).parse()? {
             rules.push(rule);
         }
     }
@@ -114,7 +141,7 @@ fn parse_rules(unparsed_rules: &[String]) -> Result<Vec<Rule>,RuleSyntaxError> {
 fn parse_words(unparsed_words: &[String]) -> Result<Vec<Word>,WordSyntaxError> {
     let mut words: Vec<Word> = vec![];
     for w in unparsed_words {
-        words.push(Word::new(w.clone())?);
+        words.push(Word::new(normalise(w))?);
     }
     Ok(words)
 }
@@ -197,22 +224,3 @@ fn parse_result(unparsed_result: Result<Vec<String>, Error>, rules: &[String], w
 
     res
 }
-
-// pub fn deal_with_result(res: Result<(Vec<String>, Vec<Vec<String>>), Error>, rules: &[String], words: &[String]) {
-//     match res {
-//         Ok((output, _)) => {
-//             debug_assert_eq!(output.len(), words.len());
-//             println!("\n--- OUTPUT ---");
-//             for (w, o) in words.iter().zip(output.iter()) {
-//                 println!("{} => {}", w, o);
-//             }
-//         },
-//         Err(err) => match err {
-//             Error::WordSyn(e) => println!("{}", e.format_error(words)),
-//             Error::WordRun(e) => println!("{}", e.format_error(words)),
-//             Error::RuleSyn(e) => println!("{}", e.format_error(rules)),
-//             Error::RuleRun(e) => println!("{}", e.format_error(rules)),
-//         },
-//     }
-// }
-

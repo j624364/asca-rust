@@ -130,7 +130,6 @@ impl Word {
                     .replace('O', "ɔ")
                     .replace('U', "ʊ")
                     .replace('Y', "ʏ")
-                    .replace('ǝ', "ə")
                     .replace('φ', "ɸ");
 
         let t_amer = t_norm
@@ -465,7 +464,7 @@ impl Word {
 #[cfg(test)]
 mod word_tests {
 
-    use crate::ASCAError;
+    use crate::{normalise, ASCAError};
 
     use super::*;
 
@@ -477,53 +476,53 @@ mod word_tests {
 
     #[test]
     fn test_render_word() {
-        let w = Word::new("ˌna.kiˈsa".to_owned()).unwrap();
+        let w = Word::new(normalise("ˌna.kiˈsa")).unwrap();
         assert_eq!(w.render().unwrap(), "ˌna.kiˈsa");
 
-        let w = Word::new(",na.ki'sa".to_owned()).unwrap();
+        let w = Word::new(normalise(",na.ki'sa")).unwrap();
         assert_eq!(w.render().unwrap(), "ˌna.kiˈsa");
 
-        let w = Word::new("ˈna.ki.sa123".to_owned()).unwrap();
+        let w = Word::new(normalise("ˈna.ki.sa123")).unwrap();
         assert_eq!(w.render().unwrap(), "ˈna.ki.sa123");
 
-        let w = Word::new("aɫ.ɫa:h".to_owned()).unwrap();
+        let w = Word::new(normalise("aɫ.ɫa:h")).unwrap();
         assert_eq!(w.render().unwrap(), "aɫ.ɫaːh");
 
-        let w = Word::new("aɫ.ɫa;hu".to_owned()).unwrap();
+        let w = Word::new(normalise("aɫ.ɫa;hu")).unwrap();
         assert_eq!(w.render().unwrap(), "aɫ.ɫaː.hu");
 
-        let w = Word::new("ˈɫɫaa".to_owned()).unwrap();
+        let w = Word::new(normalise("ˈɫɫaa")).unwrap();
         assert_eq!(w.render().unwrap(), "ˈɫːaː");
 
-        let w = Word::new("ˈt͡saa".to_owned()).unwrap();
+        let w = Word::new(normalise("ˈt͡saa")).unwrap();
         assert_eq!(w.render().unwrap(), "ˈt͡saː");
 
-        let w = Word::new("ˈt^saa".to_owned()).unwrap();
+        let w = Word::new(normalise("ˈt^saa")).unwrap();
         assert_eq!(w.render().unwrap(), "ˈt͡saː");
 
-        let w = Word::new("ɴǃa".to_owned()).unwrap();
+        let w = Word::new(normalise("ɴǃa")).unwrap();
         assert_eq!(w.render().unwrap(), "ɴǃa");
 
-        let w = Word::new("ǃɴa".to_owned()).unwrap();
+        let w = Word::new(normalise("ǃɴa")).unwrap();
         assert_eq!(w.render().unwrap(), "ǃɴa");
     }
 
     #[test]
     fn test_render_diacritics() {
         // TODO: Test other diacritic combinations
-        let w = Word::new("ˈmu.ðr̩".to_owned()).unwrap(); 
+        let w = Word::new(normalise("ˈmu.ðr̩")).unwrap(); 
         assert_eq!(w.render().unwrap(), "ˈmu.ðr̩");
 
-        let w = Word::new("ˈpʰiːkʲ".to_owned()).unwrap(); 
+        let w = Word::new(normalise("ˈpʰiːkʲ")).unwrap(); 
         assert_eq!(w.render().unwrap(), "ˈpʰiːkʲ");
 
-        let w = Word::new("ˈpʰiikʲ".to_owned()).unwrap(); 
+        let w = Word::new(normalise("ˈpʰiikʲ")).unwrap(); 
         assert_eq!(w.render().unwrap(), "ˈpʰiːkʲ");
     }
 
     #[test]
     fn test_render_aliases() {
-        match Word::new("'GAN;CEUN!eB.gRǝ:S.φXOI?,HYZ".to_owned()) {
+        match Word::new(normalise("'GAN;CEUN!eB.gRǝ:S.φXOI?,HYZ")) {
             Ok(w) => assert_eq!(w.render().unwrap(), "ˈɢɐɴː.ɕɛʊɴǃeʙ.ɡʀəːʃ.ɸχɔɪʔˌʜʏʒ"),
             Err(e) => {
                 println!("{}", e.format_error(&[]));
@@ -534,7 +533,7 @@ mod word_tests {
 
     #[test]
     fn test_americanist_aliases() {
-        match Word::new("¢añ.φλełƛ".to_owned()) {
+        match Word::new(normalise("¢añ.φλełƛ")) {
             Ok(w) => assert_eq!(w.render().unwrap(), "¢añ.ɸλełƛ"),
             Err(e) => {
                 println!("{}", e.format_error(&[]));

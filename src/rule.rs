@@ -172,14 +172,14 @@ impl fmt::Debug for Rule {
 
 #[cfg(test)]
 mod rule_tests {
-    use crate::ASCAError;
+    use crate::{normalise, ASCAError};
 
     use super::*;
     
     fn setup_rule(test_str: &str) -> Rule {
         use crate::{Lexer, Parser};
 
-        let maybe_lex = Lexer::new(&test_str.chars().collect::<Vec<_>>(),0).get_line();
+        let maybe_lex = Lexer::new(&normalise(test_str).chars().collect::<Vec<_>>(),0).get_line();
         match maybe_lex {
             Ok(lexed) => {
                 match Parser::new(lexed, 0).parse() {
@@ -199,7 +199,7 @@ mod rule_tests {
     }
 
     fn setup_word(test_str: &str) -> Word {
-        let maybe_word = Word::new(String::from(test_str));
+        let maybe_word = Word::new(String::from(normalise(test_str)));
         match maybe_word {
             Ok(w) => return w,
             Err(e) => {
