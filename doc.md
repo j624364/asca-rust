@@ -581,7 +581,33 @@ To fix this, we can use a syllable instead of a boundary and alpha notation to '
 ```
 * > 1:[-str]%:[Astr] / #_CV:[Astr]=1
 ```
+### Substituting Long IPA
 
+When doing IPA substitution, you may come across behaviour such as this
+```
+a > e
+
+hat  > het (expected, current behaviour)
+ha:t > het (unexpected, current behaviour)
+```
+This doesn't happen with matrices.
+```
+a > [+fr, -lo, +tns]
+
+hat  > het  (expected, current behaviour)
+ha:t > he:t (expected, current behaviour)
+```
+This is a consequence of how we currently iterate through a word, and what we consider a single segment. 
+Whether/How this behaviour will change in future releases is being debated. 
+For now, it is best to think of any ipa character in the output as being inherently `[-long]`. 
+
+The 'fix' for this is to use alpha notation:
+
+```
+a:[Along] > e:[Along]   ([Along, Aoverlong] if you have overlong vowels)
+hat  > het
+ha:t > he:t
+```
 
 ## User Interface
 
