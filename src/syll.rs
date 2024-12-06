@@ -47,9 +47,10 @@ impl Syllable {
 
         while seg_len > 1 {
             self.segments.remove(pos+1);
+            // TODO: we should really do this instead of removing, but it brakes inserting after subbing
+            // self.segments[pos+1] = *seg;
             seg_len -= 1;
         }
-        // let mut lc = 0;
         self.segments[pos] = *seg;
 
         if let Some(m) = mods {
