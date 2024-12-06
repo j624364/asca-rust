@@ -731,7 +731,8 @@ impl<'a> Lexer<'a> {
             "r.tr" | "rt.r" | "rtr"                               => Ok(Feature(Feat(RetractedTongueRoot))),
             // Suprasegmental Features
             "long"     | "lng"                                    => Ok(Feature(Supr(Long))),
-            "overlong" | "overlng" | "ovrlng" | "vlng"            => Ok(Feature(Supr(Overlong))),
+            "overlong" | "overlng" | "ovrlng" | "vlong" | 
+            "olong" | "vlng" | "olng"                             => Ok(Feature(Supr(Overlong))),
             "stress"   | "str"                                    => Ok(Feature(Supr(Stress))),
             "secondarystress"| "sec.stress" | "secstress" |
             "sec.str."       | "sec.str"    | "secstr"    | "sec" => Ok(Feature(Supr(SecStress))),
