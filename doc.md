@@ -200,6 +200,19 @@ Any elements past the comma are mirrored such that:
 _,ABC => ABC_ , _CBA
 ```
 
+### Syllable Structure
+ASCA does not enforce 'legal' syllables and it is up to you to maintain syllable boundaries.
+This can be done by metathesising, inserting, and deleting `$`.
+
+For example, imagine a input word of `'si.tu`. If we apply the rule `V > * / C_#`, we end up with a floating consonant `'si.t`.
+
+This can be repaired in a few ways, including: 
+```
+$C > & / _# (the consonant is moved into the preceding syllable, with the now empty second syllable being deleted)
+or
+$ > * / _C# (the two syllables are merged by deleting the boundary between them)
+```
+
 ## Distinctive Features
 ASCA allows for 26 segmental features.  
 A full table of segments and there values can be found [here](https://bit.ly/3sHjqvA).
@@ -493,8 +506,6 @@ Rule Example: Nasal Assimilation
 ```
 An alpha assigned to a subnode can be +/- when used on a binary feature. The place node is positive when any subnode is.
 
-
-
 ### Inversion
 Imagine we have two debuccalisation rules, one for plosives and one for fricatives
 ```
@@ -554,19 +565,6 @@ For left-to-right propagation, it may be stylistically justified to do the same,
 
 
 ## Considerations
-
-### Syllable Structure
-ASCA does not enforce 'legal' syllables and it is up to you to maintain syllable boundaries.
-This can be done by metathesising, inserting, and deleting $.
-
-For example, imagine a input word of `'si.te`. If we apply the rule `V > * / C_#`, we end up with a floating consonant `'si.t`.
-
-This can be fixed in a few ways, including: 
-```
-$C > & / _# (the consonant is moved into the first syllable, with the now empty second syllable being deleted)
-or
-$ > * / _C# (the two syllables are merged by deleting the boundary between them)
-```
 
 ### Syllable Stress
 Currently, when a syllable is inserted to the beginning of a word, the added syllable steals the stress/tone of the previously initial syllable.
