@@ -1,5 +1,6 @@
 mod cli; 
 use cli::args::*;
+use colored::Colorize;
 
 use std::{fs, io, path::PathBuf, process::exit};
 use clap::Parser;
@@ -52,13 +53,23 @@ fn run_cli(rules: Option<PathBuf>, input: Option<PathBuf>, output: Option<PathBu
     let word: Vec<String> = fs::read_to_string(word_file_path)?.lines().map(|s| s.to_owned()).collect();
     
 
-    let res = asca::run(rules, word);
+    let res = asca::run(rules, word.clone());
 
-
-    for r in res {
-        println!("{r}");
+    if res.len() == 1 && res[0].contains("Error") {
+        println!("{}", res[0])
+    } else {
+        for (i, r) in res.iter().enumerate() {
+            if r.is_empty() {
+                println!();
+            } else {
+                println!("{} {} {}", word[i].bright_blue().bold(), "=>".bright_red().bold(), r.bright_green().bold());
+            }
+        }
     }
 
+    if let Some(out_path) = output {
+        // validate path and then write to file
+    }
 
     Ok(())
 }
