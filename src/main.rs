@@ -1,12 +1,11 @@
-mod cli;
-
-use std::{path::PathBuf, process::exit};
-
-use clap::Parser;
+mod cli; 
 use cli::args::*;
 
-fn get_current_dir_files(extension: &str) -> Vec<PathBuf> {
-    std::fs::read_dir(".").expect("Current directory exists and we have permission to view contents")
+use std::{fs, io, path::PathBuf, process::exit};
+use clap::Parser;
+
+fn get_dir_files(path: &str, extension: &str) -> Result<Vec<PathBuf>, io::Error> {
+    Ok(fs::read_dir(path)?
         // Filter out entries which we couldn't read
         .filter_map(|res| res.ok())
         // Turn entries to paths
@@ -19,37 +18,49 @@ fn get_current_dir_files(extension: &str) -> Vec<PathBuf> {
                 None
             }
         })
-    .collect::<Vec<_>>()
+    .collect::<Vec<_>>())
 }
 
-
-fn get_file(maybe_path: Option<PathBuf>, extension: &str) -> PathBuf {
+// TODO: better errors
+fn validate_file_exists(maybe_path: Option<PathBuf>, extension: &str) -> Result<PathBuf, io::Error> {
     match maybe_path {
-        Some(path) => {
-            // Probably don't have to check if path exists as checking if it has an extension should be enough
-            match path.extension() {
-                Some(ext) => {
-                    if ext == extension {
-                        return path
-                    } else {
-                        println!("File is not of the right type. Must be .{extension}");
-                    }
-                },
-                None => println!("Given path is not a file"),
-            }
-            exit(1);
+        // Probably don't have to check if path exists as checking if it has an extension should be enough
+        Some(path) => match path.extension() {
+            Some(ext) => match ext == extension {
+                true => return Ok(path),
+                false => println!("File is not of the right type. Must be .{extension}"),
+            },
+            None => println!("Given path is not a file"),
         },
         None => {
-            let files = get_current_dir_files(extension);
-
+            let files = get_dir_files(".", extension)?;
             match files.len().cmp(&1) {
                 std::cmp::Ordering::Greater => println!("More than one .{extension} file found in current directory. Please specify."),
                 std::cmp::Ordering::Less    => println!("No .{extension} files found in current directory"),
-                std::cmp::Ordering::Equal   => return files[0].clone(),
+                std::cmp::Ordering::Equal   => return Ok(files[0].clone()),
             }
-            exit(1)
-        },
+        }
     }
+    exit(1);
+}
+
+fn run_cli(rules: Option<PathBuf>, input: Option<PathBuf>, output: Option<PathBuf>) -> Result<(), io::Error> {
+
+    let rule_file_path = validate_file_exists(rules, "asca")?;
+    let word_file_path = validate_file_exists(input, "txt")?;
+    let rules: Vec<String> = fs::read_to_string(rule_file_path)?.lines().map(|s| s.to_owned()).collect();
+    let word: Vec<String> = fs::read_to_string(word_file_path)?.lines().map(|s| s.to_owned()).collect();
+    
+
+    let res = asca::run(rules, word);
+
+
+    for r in res {
+        println!("{r}");
+    }
+
+
+    Ok(())
 }
 
 fn main() {
@@ -57,10 +68,10 @@ fn main() {
 
     match args.cmd {
         Command::Run { rules, input, output } => {
-            let rule_file = get_file(rules, "asca");
-            println!("{:?}", rule_file);
-            let word_file = get_file(input, "txt");
-            println!("{:?}", word_file);
+            if let Err(e) = run_cli(rules, input, output) {
+                println!("{e}");
+                exit(1);
+            }
         },
         Command::Tui => todo!(),
     }
