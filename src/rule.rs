@@ -369,24 +369,29 @@ mod rule_tests {
     fn test_long_vowel_breaking() {
         let test_rule = setup_rule("e > ie");
         let test_word = setup_word("'pe.ma");
+        println!("e > ie");
         assert_eq!(test_rule.apply(test_word).unwrap().render().unwrap(), "ˈpie.ma");
 
         let test_rule = setup_rule("e:[+long] > ie");
         let test_word = setup_word("'pe:.ma");
+        println!("e:[+long] > ie");
         assert_eq!(test_rule.apply(test_word).unwrap().render().unwrap(), "ˈpie.ma");
 
         let test_rule = setup_rule("V:[-long, -hi, -lo]=1 > 1:[+hi] 1");
         let test_word = setup_word("'pe.ma");
+        println!("V:[-long, -hi, -lo]=1 > 1:[+hi] 1");
         assert_eq!(test_rule.apply(test_word).unwrap().render().unwrap(), "ˈpie.ma");
 
 
         let test_rule = setup_rule("V:[+long, -hi, -lo]=1 > 1:[+hi, -long] 1:[-long]");
+        println!("V:[+long, -hi, -lo]=1 > 1:[+hi, -long] 1:[-long]");
         let test_word = setup_word("'pe:.ma");
         assert_eq!(test_rule.apply(test_word).unwrap().render().unwrap(), "ˈpie.ma");
         let test_word = setup_word("'po:.ma");
         assert_eq!(test_rule.apply(test_word).unwrap().render().unwrap(), "ˈpuo.ma");
 
         let test_rule = setup_rule("V:[+hi, +long]=1 > ə1:[-long]");
+        println!("V:[+hi, +long]=1 > ə1:[-long]");
         let test_word = setup_word("'i:s");
         assert_eq!(test_rule.apply(test_word).unwrap().render().unwrap(), "ˈəis");
         let test_word = setup_word("'hu:s");
