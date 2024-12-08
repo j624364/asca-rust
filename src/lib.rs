@@ -170,6 +170,9 @@ fn r(unparsed_rules: &[String], unparsed_words: &[String]) -> Result<Vec<String>
     Ok(words_to_string(&res)?)
 }
 
+pub fn run_cli(unparsed_rules: &[String], unparsed_words: &[String]) -> Vec<String> {
+    parse_result(r(unparsed_rules, unparsed_words), unparsed_rules, unparsed_words)
+}
 
 
 #[wasm_bindgen]
