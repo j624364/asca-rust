@@ -2,7 +2,7 @@ mod cli;
 use cli::args::*;
 use colored::Colorize;
 
-use std::{fs, io, path::PathBuf, process::exit};
+use std::{ffi::OsStr, fs, io, path::PathBuf, process::exit};
 use clap::Parser;
 
 #[cfg(windows)]
@@ -23,7 +23,7 @@ fn ask(question: &str) -> bool {
     }
 }
 
-fn get_dir_files(path: &str, extension: &str) -> Result<Vec<PathBuf>, io::Error> {
+fn get_dir_files(path: &str, valid_extensions: &[&str]) -> Result<Vec<PathBuf>, io::Error> {
     Ok(fs::read_dir(path)?
         // Filter out entries which we couldn't read
         .filter_map(|res| res.ok())
@@ -31,7 +31,7 @@ fn get_dir_files(path: &str, extension: &str) -> Result<Vec<PathBuf>, io::Error>
         .map(|dir_entry| dir_entry.path())
         // Filter out files with the wrong extension
         .filter_map(|path| {
-            if path.extension().map_or(false, |ext| ext == extension) {
+            if path.extension().map_or(false, |ext| match_exts(ext, valid_extensions)) {
                 Some(path)
             } else {
                 None
@@ -40,22 +40,31 @@ fn get_dir_files(path: &str, extension: &str) -> Result<Vec<PathBuf>, io::Error>
     .collect::<Vec<_>>())
 }
 
+fn match_exts(ext: &OsStr, valid_extensions: &[&str]) -> bool {
+    for &ve in valid_extensions {
+        if ve == ext {
+            return true
+        }
+    }
+    false
+}
+
 // TODO: better errors
-fn validate_file_exists(maybe_path: Option<PathBuf>, extension: &str) -> Result<PathBuf, io::Error> {
+fn validate_file_exists(maybe_path: Option<PathBuf>, valid_extensions: &[&str]) -> Result<PathBuf, io::Error> {
     match maybe_path {
         // Probably don't have to check if path exists as checking if it has an extension should be enough
         Some(path) => match path.extension() {
-            Some(ext) => match ext == extension {
+            Some(ext) => match match_exts(ext, valid_extensions) {
                 true => return Ok(path),
-                false => println!("File is not of the right type. Must be .{extension}"),
+                false => println!("File is not of the right type. Must be .txt or .asca"), // TODO: programatically print valid extensions
             },
             None => println!("Given path is not a file"),
         },
         None => {
-            let files = get_dir_files(".", extension)?;
+            let files = get_dir_files(".", valid_extensions)?;
             match files.len().cmp(&1) {
-                std::cmp::Ordering::Greater => println!("More than one .{extension} file found in current directory. Please specify."),
-                std::cmp::Ordering::Less    => println!("No .{extension} files found in current directory"),
+                std::cmp::Ordering::Greater => println!("More than one matching file found in current directory. Please specify."),
+                std::cmp::Ordering::Less    => println!("No matching files found in current directory"),
                 std::cmp::Ordering::Equal   => return Ok(files[0].clone()),
             }
         }
@@ -65,8 +74,8 @@ fn validate_file_exists(maybe_path: Option<PathBuf>, extension: &str) -> Result<
 
 fn cli(rules: Option<PathBuf>, input: Option<PathBuf>, output: Option<PathBuf>) -> Result<(), io::Error> {
 
-    let rule_file_path = validate_file_exists(rules, "asca")?;
-    let word_file_path = validate_file_exists(input, "txt")?;
+    let rule_file_path = validate_file_exists(rules, &["asca", "txt"])?;
+    let word_file_path = validate_file_exists(input, &["txt"])?;
     let rules: Vec<String> = fs::read_to_string(rule_file_path)?.lines().map(|s| s.to_owned()).collect();
     let word: Vec<String> = fs::read_to_string(word_file_path)?.lines().map(|s| s.to_owned()).collect();
     
