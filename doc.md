@@ -25,6 +25,8 @@ Doubly articulated stops, such as `ɡ͡b`, are not supported.
 
 In the event that ASCA is unable to render a segment in IPA, `�` will be used in its place.
 
+Unless the diacritic is inherent to the base phone (e.g. `𝼆̬`) then diacritic order does not matter. When generating the output word list, ASCA tries to adhere to [PHOIBLE conventions](https://phoible.org/conventions#ordering-of-diacritics-and-modifier-letters) where possible. Meaning that the segments in the output may be in a different order than was input. Additionally, if a base phoneme with a combination of diacritics is equal in value to another base phoneme (or can be composed with less diacritics), then it shall be generated as such (i.e. `ɢ̃` will become `ᶰɢ`). 
+
 A full list of supported base phones and diacritics (with their values) can be found [here](https://bit.ly/3sHjqvA).
 
 ### Suprasegmentals
@@ -54,6 +56,46 @@ Tone is placed at the end of a syllable and therefore automatically closes it. H
 ```
 pu35.jɑʊ̯51.tan55.ɕin55 == pu35jɑʊ̯51tan55ɕin55
 ```
+
+### Aliases
+Some common IPA characters that may be annoying to type without an IPA keyboard have aliases:
+```
+g => ɡ
+? => ʔ
+! => ǃ
+ǝ => ə
+φ => ɸ
+
+(The following cannot be used inside a rule)
+
+S => ʃ
+Z => ʒ
+C => ɕ
+G => ɢ
+N => ɴ
+B => ʙ
+R => ʀ
+X => χ (voiceless uvular fricative)
+H => ʜ
+A => ɐ
+E => ɛ
+I => ɪ
+O => ɔ
+U => ʊ
+Y => ʏ
+```
+Aliases are rendered as their target IPA characters in the output.
+
+
+A few common americanist characters can also be used:
+```
+ł => ɬ
+ñ => ɲ
+¢ => t͡s
+ƛ => t͡ɬ
+λ => d͡ɮ
+```
+Unlike with regular aliases, if a input word contains americanist characters, the output will be be rendered with these characters.
 
 ## Defining Sound Changes
 
@@ -156,6 +198,19 @@ The before case is always comes first.
 Any elements past the comma are mirrored such that:
 ```
 _,ABC => ABC_ , _CBA
+```
+
+### Syllable Structure
+ASCA does not enforce 'legal' syllables and it is up to you to maintain syllable boundaries.
+This can be done by metathesising, inserting, and deleting `$`.
+
+For example, imagine a input word of `'si.tu`. If we apply the rule `V > * / C_#`, we end up with a floating consonant `'si.t`.
+
+This can be repaired in a few ways, including: 
+```
+$C > & / _# (the consonant is moved into the preceding syllable, with the now empty second syllable being deleted)
+or
+$ > * / _C# (the two syllables are merged by deleting the boundary between them)
 ```
 
 ## Distinctive Features
@@ -451,8 +506,6 @@ Rule Example: Nasal Assimilation
 ```
 An alpha assigned to a subnode can be +/- when used on a binary feature. The place node is positive when any subnode is.
 
-
-
 ### Inversion
 Imagine we have two debuccalisation rules, one for plosives and one for fricatives
 ```
@@ -513,19 +566,6 @@ For left-to-right propagation, it may be stylistically justified to do the same,
 
 ## Considerations
 
-### Syllable Structure
-ASCA does not enforce 'legal' syllables and it is up to you to maintain syllable boundaries.
-This can be done by metathesising, inserting, and deleting $.
-
-For example, imagine a input word of `'si.te`. If we apply the rule `V > * / C_#`, we end up with a floating consonant `'si.t`.
-
-This can be fixed in a few ways, including: 
-```
-$C > & / _# (the consonant is moved into the first syllable, with the now empty second syllable being deleted)
-or
-$ > * / _C# (the two syllables are merged by deleting the boundary between them)
-```
-
 ### Syllable Stress
 Currently, when a syllable is inserted to the beginning of a word, the added syllable steals the stress/tone of the previously initial syllable.
 This is because the current implementation cannot differentiate between it and the scenario of adding a syllable to the end, or middle, of a word. 
@@ -539,7 +579,33 @@ To fix this, we can use a syllable instead of a boundary and alpha notation to '
 ```
 * > 1:[-str]%:[Astr] / #_CV:[Astr]=1
 ```
+### Substituting Long IPA
 
+When doing IPA substitution, you may come across behaviour such as this
+```
+a > e
+
+hat  > het (expected, current behaviour)
+ha:t > het (unexpected, current behaviour)
+```
+This doesn't happen with matrices.
+```
+a > [+fr, -lo, +tns]
+
+hat  > het  (expected, current behaviour)
+ha:t > he:t (expected, current behaviour)
+```
+This is a consequence of how we currently iterate through a word, and what we consider a single segment. 
+Whether/How this behaviour will change in future releases is being debated. 
+For now, it is best to think of any ipa character in the output as being inherently `[-long]`. 
+
+The 'fix' for this is to use alpha notation:
+
+```
+a:[Along] > e:[Along]   ([Along, Aoverlong] if you have overlong vowels)
+hat  > het
+ha:t > he:t
+```
 
 ## User Interface
 

@@ -172,14 +172,14 @@ impl fmt::Debug for Rule {
 
 #[cfg(test)]
 mod rule_tests {
-    use crate::{ASCAError, RuleGroup};
+    use crate::{ASCAError, normalise, RuleGroup};
 
     use super::*;
     
     fn setup_rule(test_str: &str) -> Rule {
         use crate::{Lexer, Parser};
 
-        let maybe_lex = Lexer::new(&test_str.chars().collect::<Vec<_>>(), 0, 0).get_line();
+        let maybe_lex = Lexer::new(&normalise(test_str).chars().collect::<Vec<_>>(),0 ,0).get_line();
         match maybe_lex {
             Ok(lexed) => {
                 match Parser::new(lexed, 0, 0).parse() {
@@ -201,7 +201,7 @@ mod rule_tests {
     }
 
     fn setup_word(test_str: &str) -> Word {
-        let maybe_word = Word::new(String::from(test_str));
+        let maybe_word = Word::new(String::from(normalise(test_str)));
         match maybe_word {
             Ok(w) => return w,
             Err(e) => {
@@ -371,24 +371,29 @@ mod rule_tests {
     fn test_long_vowel_breaking() {
         let test_rule = setup_rule("e > ie");
         let test_word = setup_word("'pe.ma");
+        println!("e > ie");
         assert_eq!(test_rule.apply(test_word).unwrap().render().unwrap(), "ˈpie.ma");
 
         let test_rule = setup_rule("e:[+long] > ie");
         let test_word = setup_word("'pe:.ma");
+        println!("e:[+long] > ie");
         assert_eq!(test_rule.apply(test_word).unwrap().render().unwrap(), "ˈpie.ma");
 
         let test_rule = setup_rule("V:[-long, -hi, -lo]=1 > 1:[+hi] 1");
         let test_word = setup_word("'pe.ma");
+        println!("V:[-long, -hi, -lo]=1 > 1:[+hi] 1");
         assert_eq!(test_rule.apply(test_word).unwrap().render().unwrap(), "ˈpie.ma");
 
 
         let test_rule = setup_rule("V:[+long, -hi, -lo]=1 > 1:[+hi, -long] 1:[-long]");
+        println!("V:[+long, -hi, -lo]=1 > 1:[+hi, -long] 1:[-long]");
         let test_word = setup_word("'pe:.ma");
         assert_eq!(test_rule.apply(test_word).unwrap().render().unwrap(), "ˈpie.ma");
         let test_word = setup_word("'po:.ma");
         assert_eq!(test_rule.apply(test_word).unwrap().render().unwrap(), "ˈpuo.ma");
 
         let test_rule = setup_rule("V:[+hi, +long]=1 > ə1:[-long]");
+        println!("V:[+hi, +long]=1 > ə1:[-long]");
         let test_word = setup_word("'i:s");
         assert_eq!(test_rule.apply(test_word).unwrap().render().unwrap(), "ˈəis");
         let test_word = setup_word("'hu:s");

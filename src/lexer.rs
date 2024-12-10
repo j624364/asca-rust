@@ -530,6 +530,9 @@ impl<'a> Lexer<'a> {
             'g' => 'ɡ',
             '?' => 'ʔ',
             '!' => 'ǃ',
+            'ł' => 'ɬ',
+            'ñ' => 'ɲ',
+            'φ' => 'ɸ',
             // 'S' => 'ʃ', Can't have any of these in rules as they will be parsed as groups
             // 'Z' => 'ʒ',
             // 'C' => 'ɕ',
@@ -545,7 +548,6 @@ impl<'a> Lexer<'a> {
             // 'O' => 'ɔ',
             // 'U' => 'ʊ',
             // 'Y' => 'ʏ',
-            'ǝ' => 'ə',
             other => other,
         }
     }
@@ -555,6 +557,16 @@ impl<'a> Lexer<'a> {
         let start = self.pos;
 
         let mut buffer = self.cur_as_ipa().to_string();
+
+        // For americanist notation
+        // TODO: This wont work with the pre-nasalised diacritic
+        if buffer == "¢" {
+            buffer = "t͡s".to_string()
+        } else if buffer == "ƛ" {
+            buffer = "t͡ɬ".to_string()
+        } else if buffer == "λ" {
+            buffer = "d͡ɮ".to_string()
+        }
         
         if CARDINALS_TRIE.contains_prefix(buffer.as_str()) {
             self.advance();
@@ -566,6 +578,22 @@ impl<'a> Lexer<'a> {
                     self.advance();
                     continue;
                 }
+
+                // for prenasalisation to work with americanist chars
+                if self.curr_char() == '¢' {
+                    buffer.push_str("t͡s");
+                    self.advance();
+                    continue;
+                } else if self.curr_char() == 'ƛ' {
+                    buffer.push_str("t͡ɬ");
+                    self.advance();
+                    continue;
+                } else if self.curr_char() == 'λ' {
+                    buffer.push_str("d͡ɮ");
+                    self.advance();
+                    continue;
+                }
+
                 if self.curr_char() == '^' {
                     tmp.pop(); tmp.push('\u{0361}');
                     if CARDINALS_TRIE.contains_prefix(tmp.as_str()) {
@@ -705,7 +733,8 @@ impl<'a> Lexer<'a> {
             "r.tr" | "rt.r" | "rtr"                               => Ok(Feature(Feat(RetractedTongueRoot))),
             // Suprasegmental Features
             "long"     | "lng"                                    => Ok(Feature(Supr(Long))),
-            "overlong" | "overlng" | "ovrlng" | "vlng"            => Ok(Feature(Supr(Overlong))),
+            "overlong" | "overlng" | "ovrlng" | "vlong" | 
+            "olong" | "vlng" | "olng"                             => Ok(Feature(Supr(Overlong))),
             "stress"   | "str"                                    => Ok(Feature(Supr(Stress))),
             "secondarystress"| "sec.stress" | "secstress" |
             "sec.str."       | "sec.str"    | "secstr"    | "sec" => Ok(Feature(Supr(SecStress))),
@@ -761,6 +790,31 @@ mod lexer_tests {
 
         assert_eq!(result.kind, expected_result);
         assert_eq!(result.value, test_input);
+    }
+
+    #[test]
+    fn test_americanist_aliases() {
+        let test_input= String::from("¢ ñ λ ł ƛ ⁿ¢ ⁿλ ⁿƛ");
+        //                                    t͡s ɲ d͡ɮ ɬ t͡ɬ ⁿt͡s ⁿd͡ɮ ⁿt͡ɬ 
+        let expected_result = vec![
+            Token::new(TokenKind::Cardinal, "t͡s".to_owned(), 0, 0,  0,  1),
+            Token::new(TokenKind::Cardinal,  "ɲ".to_owned(), 0, 0,  2,  3),
+            Token::new(TokenKind::Cardinal,  "d͡ɮ".to_owned(),0,  0,  4,  5),
+            Token::new(TokenKind::Cardinal,  "ɬ".to_owned(), 0, 0, 6, 7),
+            Token::new(TokenKind::Cardinal,  "t͡ɬ".to_owned(), 0, 0, 8, 9),
+            Token::new(TokenKind::Cardinal,  "ⁿt͡s".to_owned(), 0, 0, 10, 12),
+            Token::new(TokenKind::Cardinal,  "ⁿd͡ɮ".to_owned(), 0, 0, 13, 15),
+            Token::new(TokenKind::Cardinal,  "ⁿt͡ɬ".to_owned(), 0, 0, 16, 18),
+            Token::new(TokenKind::Eol,        String::new(), 0, 0, 18, 19),
+        ];
+
+        let result = Lexer::new(&test_input.chars().collect::<Vec<_>>(), 0, 0).get_line().unwrap();        
+
+        // assert_eq!(result.len(), expected_result.len());
+
+        for i in 0..result.len() {
+            assert_eq!(result[i], expected_result[i]);
+        }
     }
 
     #[test]
