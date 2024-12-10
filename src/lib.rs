@@ -119,35 +119,39 @@ impl RuleGroup {
     }
 }
 
-
-// We are only decomposing a few characters as most would be invalid anyway.
-pub(crate) fn normalise(s: &str) -> String {
-    let s = s
-        .replace('ã', "ã")
-        .replace('ẽ', "ẽ")
-        .replace('ĩ', "ĩ")
-        .replace('õ', "õ")
-        .replace('ũ', "ũ")
-        .replace('ỹ', "ỹ")
-        .replace('ℇ', "ɛ")
-        .replace('ꭤ', "ɑ")
-        .replace('ǝ', "ə")
-        .replace('ɚ', "ə˞")
-        .replace('ɝ', "ɜ˞")
-        .replace('ℎ', "h")
-        .replace('ℏ', "ħ")
-        // .replace('ǳ', "d͡z")
-        // .replace('ǆ', "d͡ʒ")
-        // cause why not?
-        .replace('ﬁ', "fi")
-        .replace('ﬂ', "fl")
-        .replace('ĳ', "ij")
-        .replace('ǌ', "nj")
-        .replace('ǉ', "lj");
-    s
+impl Default for RuleGroup {
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
-fn apply_rule_groups(rules: &Vec<Vec<Rule>>, words: &[Word]) -> Result<Vec<Word>, Error> {
+
+// We are only normalising a few characters as most would be invalid anyway.
+pub(crate) fn normalise(s: &str) -> String {
+    s.replace('ã', "ã")
+     .replace('ẽ', "ẽ")
+     .replace('ĩ', "ĩ")
+     .replace('õ', "õ")
+     .replace('ũ', "ũ")
+     .replace('ỹ', "ỹ")
+     .replace('ℇ', "ɛ")
+     .replace('ꭤ', "ɑ")
+     .replace('ǝ', "ə")
+     .replace('ɚ', "ə˞")
+     .replace('ɝ', "ɜ˞")
+     // cause why not?
+     .replace('ℎ', "h")
+     .replace('ℏ', "ħ")
+     .replace('ﬁ', "fi")
+     .replace('ﬂ', "fl")
+     .replace('ĳ', "ij")
+     .replace('ǌ', "nj")
+     .replace('ǉ', "lj")
+     // .replace('ǳ', "d͡z")
+     // .replace('ǆ', "d͡ʒ")
+}
+
+fn apply_rule_groups(rules: &[Vec<Rule>], words: &[Word]) -> Result<Vec<Word>, Error> {
     let mut transformed_words: Vec<Word> = vec![];
 
     for word in words {
