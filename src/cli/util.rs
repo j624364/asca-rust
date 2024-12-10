@@ -49,7 +49,7 @@ fn match_exts(ext: &OsStr, valid_extensions: &[&str]) -> bool {
 }
 
 fn create_ext_list(valid_extensions: &[&str]) -> String {
-    if valid_extensions.len() == 0 {
+    if valid_extensions.is_empty() {
         unreachable!()
     } else if valid_extensions.len() == 1 {
         format!(".{}", valid_extensions[0])
