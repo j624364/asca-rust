@@ -277,11 +277,13 @@ impl ASCAError for RuleRuntimeError {
             ),
         };
 
-        result.push_str(&format!("{}{}{}{}",  
+        result.push_str(&format!("{}{}{}{}Rule {}, Line {}",  
             MARG.bright_cyan().bold(), 
             rules[group].rule[line],
             MARG.bright_cyan().bold(), 
-            arrows.bright_red().bold()
+            arrows.bright_red().bold(),
+            group+1,
+            line+1,
         ));
 
         result
@@ -508,11 +510,13 @@ impl ASCAError for RuleSyntaxError {
             ),
         };
 
-        result.push_str(&format!("{}{}{}{}",  
+        result.push_str(&format!("{}{}{}{}Rule {}, Line {}",  
             MARG.bright_cyan().bold(), 
-            rules[group].rule[line], // TODO: fix 
+            rules[group].rule[line],
             MARG.bright_cyan().bold(), 
-            arrows.bright_red().bold()
+            arrows.bright_red().bold(),
+            group+1,
+            line+1,
         ));
 
         result
