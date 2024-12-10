@@ -172,26 +172,28 @@ impl fmt::Debug for Rule {
 
 #[cfg(test)]
 mod rule_tests {
-    use crate::ASCAError;
+    use crate::{ASCAError, RuleGroup};
 
     use super::*;
     
     fn setup_rule(test_str: &str) -> Rule {
         use crate::{Lexer, Parser};
 
-        let maybe_lex = Lexer::new(&test_str.chars().collect::<Vec<_>>(),0).get_line();
+        let maybe_lex = Lexer::new(&test_str.chars().collect::<Vec<_>>(), 0, 0).get_line();
         match maybe_lex {
             Ok(lexed) => {
-                match Parser::new(lexed, 0).parse() {
-                    Ok(rule) => return rule,
+                match Parser::new(lexed, 0, 0).parse() {
+                    Ok(rule) => return rule.unwrap(),
                     Err(e) => {
-                        println!("{}", e.format_error(&vec![test_str.to_owned()]));
+                        let rg = RuleGroup { name: String::new(), rule: vec![test_str.to_owned()], description: String::new() };
+                        println!("{}", e.format_rule_error(&vec![rg]));
                         assert!(false);
                     },
                 }
             },
             Err(e) => {
-                println!("{}", e.format_error(&vec![test_str.to_owned()]));
+                let rg = RuleGroup { name: String::new(), rule: vec![test_str.to_owned()], description: String::new() };
+                println!("{}", e.format_rule_error(&vec![rg]));
                 assert!(false);
             },
         } 
@@ -203,7 +205,7 @@ mod rule_tests {
         match maybe_word {
             Ok(w) => return w,
             Err(e) => {
-                println!("{}", e.format_error(&Vec::new()));
+                println!("{}", e.format_word_error(&Vec::new()));
                 assert!(false);
             },
         }
@@ -1261,7 +1263,7 @@ mod rule_tests {
                 w = match rule.apply(w) {
                     Ok(w) => w,
                     Err(e) => {
-                        println!("{}", e.format_error(&["* > t:[Avoi] / n_C:[+cont, Avoi, +cor]".to_string()]));
+                        // println!("{}", e.format_error(&["* > t:[Avoi] / n_C:[+cont, Avoi, +cor]".to_string()]));
                         assert!(false);
                         unreachable!()
                     },
@@ -1567,8 +1569,8 @@ mod rule_tests {
                 // println!("{}", w.render().unwrap());
                 w = match rule.apply(w) {
                     Ok(w) => w,
-                    Err(e) => {
-                        println!("{}", e.format_error(&["      ".to_string()]));
+                    Err(_) => {
+                        // println!("{}", e.format_error(&["      ".to_string()]));
                         assert!(false);
                         unreachable!()
                     },

@@ -500,7 +500,7 @@ mod word_tests {
         match Word::new("'GAN;CEUN!eB.gRǝ:S.XOI?,HYZ".to_owned()) {
             Ok(w) => assert_eq!(w.render().unwrap(), "ˈɢɐɴː.ɕɛʊɴǃeʙ.ɡʀəːʃ.χɔɪʔˌʜʏʒ"),
             Err(e) => {
-                println!("{}", e.format_error(&[]));
+                println!("{}", e.format_word_error(&[]));
                 assert!(false);
             }
         } 

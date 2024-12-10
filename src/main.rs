@@ -1,4 +1,5 @@
 mod cli; 
+use asca::{error::ASCAError, RuleGroup};
 use cli::args::*;
 use colored::Colorize;
 
@@ -56,7 +57,7 @@ fn validate_file_exists(maybe_path: Option<PathBuf>, valid_extensions: &[&str]) 
         Some(path) => match path.extension() {
             Some(ext) => match match_exts(ext, valid_extensions) {
                 true => return Ok(path),
-                false => println!("File is not of the right type. Must be .txt or .asca"), // TODO: programatically print valid extensions
+                false => println!("File is not of the right type. Must be .txt, .wasca, or .rasca"), // TODO: programatically print valid extensions
             },
             None => println!("Given path is not a file"),
         },
@@ -72,57 +73,150 @@ fn validate_file_exists(maybe_path: Option<PathBuf>, valid_extensions: &[&str]) 
     exit(1);
 }
 
-fn cli(rules: Option<PathBuf>, input: Option<PathBuf>, output: Option<PathBuf>) -> Result<(), io::Error> {
+#[derive(Debug, serde::Deserialize)]
+struct AscaJson {
+    pub words: Vec<String>,
+    pub rules: Vec<RuleGroup>,
+}
 
-    let rule_file_path = validate_file_exists(rules, &["asca", "txt"])?;
-    let word_file_path = validate_file_exists(input, &["txt"])?;
-    let rules: Vec<String> = fs::read_to_string(rule_file_path)?.lines().map(|s| s.to_owned()).collect();
-    let word: Vec<String> = fs::read_to_string(word_file_path)?.lines().map(|s| s.to_owned()).collect();
-    
+// TODO: We can do better
+fn parse_rasca(rule_file_path: PathBuf) -> Result<Vec<RuleGroup>, io::Error> {
+    let mut rules = Vec::new();
+    let mut r = RuleGroup::new();
+    for line in fs::read_to_string(rule_file_path)?.lines() {
+        if line.starts_with('@') {
+            if !r.is_empty() {
+                rules.push(r);
+            }
+            r = RuleGroup::new();
 
-    let res = asca::run_cli(&rules, &word);
+            let mut chars = line.chars();
+            chars.next();
+            r.name = chars.as_str().trim().to_string();
 
-    if res.len() == 1 && res[0].contains("Error") {
-        println!("{}", res[0])
+            continue;
+        }
+        if line.starts_with('#') {
+            let mut chars = line.chars();
+            chars.next();
+            if !r.description.is_empty() {
+                r.description.push('\n');
+            }
+            r.description += chars.as_str().trim();
+            continue;
+        }
+
+        let line = line.trim();
+
+        if line.is_empty() {
+            if !r.is_empty() && !r.description.is_empty() {
+                rules.push(r);
+                r = RuleGroup::new();
+            }
+            continue;
+        }
+
+        if r.description.is_empty() {
+            r.rule.push(line.to_string());
+            continue;
+        } 
+
+        rules.push(r);
+        r = RuleGroup::new();
+        r.rule.push(line.to_string());
+
+    }
+
+    println!("{:#?}", rules);
+
+    Ok(rules)
+}
+
+fn parse_wasca(word_file_path: PathBuf) -> Result<Vec<String>, io::Error> {
+    Ok(fs::read_to_string(word_file_path)?.lines().map(|s| s.to_owned()).collect::<Vec<String>>())
+}
+
+fn get_input(i_group: InGroup, input: Option<PathBuf>) -> Result<(Vec<String>, Vec<RuleGroup>), io::Error> {
+    let InGroup {from_json, rules} = i_group;
+    if let Some(json) = from_json {
+        let json_file_path = validate_file_exists(Some(json), &["json"])?;
+
+        let file = fs::File::open(json_file_path).expect("file should open read only");
+        let json: AscaJson = serde_json::from_reader(file).expect("file should be proper JSON");
+
+        if input.is_some() {
+            let words = parse_wasca(validate_file_exists(input, &["wasca", "txt"])?)?;
+            Ok((words, json.rules))
+        } else {
+            Ok((json.words, json.rules))
+        }
     } else {
-        for (i, r) in res.iter().enumerate() {
+        let words = parse_wasca(validate_file_exists(input, &["wasca", "txt"])?)?;
+        let rules = parse_rasca(validate_file_exists(rules, &["rasca", "txt"])?)?;
+
+        Ok((words, rules))
+    }
+}
+
+fn deal_with_output(o_group: OutGroup, words: &[String], rules: &[String]) {
+
+}
+
+fn cli(i_group: InGroup, input: Option<PathBuf>, o_group: OutGroup) -> Result<(), io::Error> {
+
+    let OutGroup {to_json, output} = o_group;
+
+    let (words, rules) = get_input(i_group, input)?;
+
+    println!("{:#?}", rules);
+
+    let res = asca::run_cli(&rules, &words);
+
+    match res {
+        Ok(rs) => for (i, r) in rs.iter().enumerate() {
             if r.is_empty() {
                 println!();
             } else {
-                println!("{} {} {}", word[i].bright_blue().bold(), "=>".bright_red().bold(), r.bright_green().bold());
+                println!("{} {} {}", words[i].bright_blue().bold(), "=>".bright_red().bold(), r.bright_green().bold());
             }
-        }
+        },
+        Err(err) => match err {
+            asca::error::Error::WordSyn(e) => println!("{}", e.format_word_error(&words)),
+            asca::error::Error::WordRun(e) => println!("{}", e.format_word_error(&words)),
+            asca::error::Error::RuleSyn(e) => println!("{}", e.format_rule_error(&rules)),
+            asca::error::Error::RuleRun(e) => println!("{}", e.format_rule_error(&rules)),
+        },
     }
 
     println!();
 
-    if let Some(out_path) = output {
-        if out_path.is_file() {
-            // if path is an extant file, overwrite on accept
-            if ask(&(format!("File {out_path:?} already exists, do you wish to overwrite it? [y/n]"))) {
-                fs::write(&out_path, res.join(LINE_ENDING)).expect("Unable to write file");
-                println!("Written to file {:?}", out_path);
-            }
-        } else if out_path.is_dir() {
-            // if path is dir, write to file of <dir>/out.txt
-            let p = PathBuf::from("out.txt");
-            if p.exists() {
-                if ask(&(format!("File {p:?} already exists, do you wish to overwrite it? [y/n]"))) {
-                    fs::write(&out_path, res.join(LINE_ENDING)).expect("Unable to write file");
-                    println!("Written to file {:?}", out_path);
-                }
-            } else {
-                fs::write(&p, res.join(LINE_ENDING)).expect("Unable to write file");
-                println!("Written to file 'out.txt'");
-            }
-        } else if out_path.extension().map_or(false, |ext| ext == "txt") {
-            // create file <out_path> and write to it
-            fs::write(&out_path, res.join(LINE_ENDING)).expect("Unable to write file");
-            println!("Written to file {:?}", out_path);
-        } else {
-            // Wrong file type?
-        }
-    }
+    // if let Some(out_path) = output {
+    //     if out_path.is_file() {
+    //         // if path is an extant file, overwrite on accept
+    //         if ask(&(format!("File {out_path:?} already exists, do you wish to overwrite it? [y/n]"))) {
+    //             fs::write(&out_path, res.join(LINE_ENDING)).expect("Unable to write file");
+    //             println!("Written to file {:?}", out_path);
+    //         }
+    //     } else if out_path.is_dir() {
+    //         // if path is dir, write to file of <dir>/out.txt
+    //         let p = PathBuf::from("out.txt");
+    //         if p.exists() {
+    //             if ask(&(format!("File {p:?} already exists, do you wish to overwrite it? [y/n]"))) {
+    //                 fs::write(&out_path, res.join(LINE_ENDING)).expect("Unable to write file");
+    //                 println!("Written to file {:?}", out_path);
+    //             }
+    //         } else {
+    //             fs::write(&p, res.join(LINE_ENDING)).expect("Unable to write file");
+    //             println!("Written to file 'out.txt'");
+    //         }
+    //     } else if out_path.extension().map_or(false, |ext| ext == "txt") {
+    //         // create file <out_path> and write to it
+    //         fs::write(&out_path, res.join(LINE_ENDING)).expect("Unable to write file");
+    //         println!("Written to file {:?}", out_path);
+    //     } else {
+    //         // Wrong file type?
+    //     }
+    // }
 
     Ok(())
 }
@@ -130,12 +224,12 @@ fn cli(rules: Option<PathBuf>, input: Option<PathBuf>, output: Option<PathBuf>) 
 fn main() {
     let args = CliArgs::parse();
     match args.cmd {
-        Command::Run { rules, input, output } => {
-            if let Err(e) = cli(rules, input, output) {
+        Command::Run { i_group, input, o_group } => {
+            if let Err(e) = cli(i_group, input, o_group) {
                 println!("{e}");
                 exit(1);
             }
         },
-        Command::Tui => todo!("tui coming soon"),
+        Command::Tui => println!("tui coming soon..."),
     }
 }

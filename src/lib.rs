@@ -5,7 +5,7 @@ mod word;
 mod syll;
 mod seg;
 mod rule;
-mod error;
+pub mod error;
 mod subrule;
 
 use serde::Deserialize;
@@ -105,8 +105,11 @@ fn parse_rules(unparsed_rules: &[String]) -> Result<Vec<Rule>,RuleSyntaxError> {
     let mut rules: Vec<Rule> = vec![];
     for (l, r) in unparsed_rules.iter().enumerate() {
         // FIXME(James): We are creating/dropping/reallocating the Lexer & Parser every loop
-        rules.push(Parser:: new(Lexer::new(&r.chars().collect::<Vec<_>>(), l).get_line()?, l).parse()?);
+        if let Some(rule) = Parser:: new(Lexer::new(&r.chars().collect::<Vec<_>>(), 0, l).get_line()?, 0, l).parse()? {
+            rules.push(rule);
+        }
     }
+
     Ok(rules)
 }
 
@@ -125,7 +128,7 @@ fn apply_rules(rules: &[Rule], words: &[Word], /*is_traced: bool*/) -> Result<Ve
     let mut transformed_words: Vec<Word> = vec![];
     // let mut traced_words: Vec<Vec<String>> = vec![];
 
-    for (_i, word) in words.iter().enumerate() {
+    for word in words {
         let mut res_word = word.clone();
 
         for rule in rules.iter() {
@@ -139,6 +142,23 @@ fn apply_rules(rules: &[Rule], words: &[Word], /*is_traced: bool*/) -> Result<Ve
     }
 
     // Ok((transformed_words, traced_words))
+    Ok(transformed_words)
+}
+
+fn apply_rule_groups(rules: &Vec<Vec<Rule>>, words: &[Word]) -> Result<Vec<Word>, Error> {
+    let mut transformed_words: Vec<Word> = vec![];
+
+    for word in words {
+        let mut res_word = word.clone();
+
+        for rule_group in rules.iter() {
+            for rule in rule_group {
+                res_word = rule.apply(res_word)?;
+            }
+        }
+        transformed_words.push(res_word);
+    }
+
     Ok(transformed_words)
 }
 
@@ -170,8 +190,39 @@ fn r(unparsed_rules: &[String], unparsed_words: &[String]) -> Result<Vec<String>
     Ok(words_to_string(&res)?)
 }
 
-pub fn run_cli(unparsed_rules: &[String], unparsed_words: &[String]) -> Vec<String> {
-    parse_result(r(unparsed_rules, unparsed_words), unparsed_rules, unparsed_words)
+// fn parse_rules(unparsed_rules: &[String]) -> Result<Vec<Rule>,RuleSyntaxError> {
+//     let mut rules: Vec<Rule> = vec![];
+//     for (l, r) in unparsed_rules.iter().enumerate() {
+//         // FIXME(James): We are creating/dropping/reallocating the Lexer & Parser every loop
+//         rules.push(Parser:: new(Lexer::new(&r.chars().collect::<Vec<_>>(), l).get_line()?, l).parse()?);
+//     }
+//     Ok(rules)
+// }
+
+fn parse_rule_groups(unparsed_rule_groups: &[RuleGroup]) -> Result<Vec<Vec<Rule>>, RuleSyntaxError> {
+    let mut rule_groups = vec![];
+
+    for (rgi, rg) in unparsed_rule_groups.iter().enumerate() {
+        let mut rule_group = vec![];
+        for (ri, r) in rg.rule.iter().enumerate() {
+            if let Some(asdf) = Parser::new(Lexer::new(&r.chars().collect::<Vec<_>>(), rgi, ri).get_line()?, rgi, ri).parse()? {
+                rule_group.push(asdf);
+            }
+            // rule_group.push(Parser::new(Lexer::new(&r.chars().collect::<Vec<_>>(), rgi, ri).get_line()?, rgi, ri).parse()?);
+        }
+        rule_groups.push(rule_group);
+    }
+
+    Ok(rule_groups)
+}
+
+pub fn run_cli(unparsed_rules: &[RuleGroup], unparsed_words: &[String]) -> Result<Vec<String>, Error> {
+    let words = parse_words(unparsed_words)?;
+    let rules = parse_rule_groups(unparsed_rules)?;
+
+    let res = apply_rule_groups(&rules, &words)?;
+    
+    Ok(words_to_string(&res)?)
 }
 
 
@@ -190,31 +241,31 @@ fn parse_result(unparsed_result: Result<Vec<String>, Error>, rules: &[String], w
             }
         },
         Err(err) => match err {
-            Error::WordSyn(e) => res.push(e.format_error(words)),
-            Error::WordRun(e) => res.push(e.format_error(words)),
-            Error::RuleSyn(e) => res.push(e.format_error(rules)),
-            Error::RuleRun(e) => res.push(e.format_error(rules)),
+            Error::WordSyn(e) => res.push(e.format_word_error(words)),
+            Error::WordRun(e) => res.push(e.format_word_error(words)),
+            // Error::RuleSyn(e) => res.push(e.format_rule_error(rules)),
+            // Error::RuleRun(e) => res.push(e.format_rule_error(rules)),
+            _ => todo!()
         },
     }
 
     res
 }
 
-// pub fn deal_with_result(res: Result<(Vec<String>, Vec<Vec<String>>), Error>, rules: &[String], words: &[String]) {
-//     match res {
-//         Ok((output, _)) => {
-//             debug_assert_eq!(output.len(), words.len());
-//             println!("\n--- OUTPUT ---");
-//             for (w, o) in words.iter().zip(output.iter()) {
-//                 println!("{} => {}", w, o);
-//             }
-//         },
-//         Err(err) => match err {
-//             Error::WordSyn(e) => println!("{}", e.format_error(words)),
-//             Error::WordRun(e) => println!("{}", e.format_error(words)),
-//             Error::RuleSyn(e) => println!("{}", e.format_error(rules)),
-//             Error::RuleRun(e) => println!("{}", e.format_error(rules)),
-//         },
-//     }
-// }
+#[derive(Debug, serde::Deserialize)]
+pub struct RuleGroup {
+    pub name: String,
+    pub rule: Vec<String>,
+    pub description: String, 
+}
 
+impl RuleGroup {
+    pub fn new() -> Self {
+        Self { name: String::new(), rule: Vec::new(), description: String::new() }
+    }
+
+    pub fn is_empty(&self) -> bool {
+        self.name.is_empty() && self.rule.is_empty() && self.description.is_empty()
+    }
+
+}

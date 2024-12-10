@@ -1,17 +1,19 @@
 use colored::Colorize;
 use crate  :: {
     lexer  :: {Position, Token, TokenKind}, 
-    parser :: Item,
+    parser :: Item, RuleGroup,
 };
 
-pub(crate) trait ASCAError: Clone {
+pub trait ASCAError: Clone {
     fn get_error_message(&self) -> String;
-    fn format_error(&self, _: &[String]) -> String;
+    // This really isn't the correct solution
+    fn format_word_error(&self, _: &[String]) -> String;
+    fn format_rule_error(&self, _: &[RuleGroup]) -> String;
 
 }
 
 #[derive(Debug, Clone)]
-pub(crate) enum Error {
+pub enum Error {
     WordSyn(WordSyntaxError),
     RuleSyn(RuleSyntaxError),
     WordRun(WordRuntimeError),
@@ -28,12 +30,19 @@ impl ASCAError for Error {
         }
     }
 
-    fn format_error(&self, s: &[String]) -> String {
+    fn format_word_error(&self, s: &[String]) -> String {
         match self {
-            Error::WordSyn(e) => e.format_error(s),
-            Error::RuleSyn(e) => e.format_error(s),
-            Error::WordRun(e) => e.format_error(s),
-            Error::RuleRun(e) => e.format_error(s),
+            Error::WordSyn(e) => e.format_word_error(s),
+            Error::WordRun(e) => e.format_word_error(s),
+            Error::RuleSyn(_) | Error::RuleRun(_) => unreachable!()
+        }
+    }
+
+    fn format_rule_error(&self, s: &[RuleGroup]) -> String {
+        match self {
+            Error::WordSyn(_) | Error::WordRun(_) => unreachable!(),
+            Error::RuleSyn(e) => e.format_rule_error(s),
+            Error::RuleRun(e) => e.format_rule_error(s),
         }
     }
 }
@@ -88,7 +97,7 @@ impl ASCAError for WordSyntaxError {
         }
     }
 
-    fn format_error(&self, _: &[String]) -> String {
+    fn format_word_error(&self, _: &[String]) -> String {
         const MARG: &str = "\n    |     ";
         let mut result = format!("{} {}", "Word Syntax Error:".bright_red().bold(), self.get_error_message().bold());
         let (arrows, text) = match self {
@@ -118,10 +127,16 @@ impl ASCAError for WordSyntaxError {
 
         result
     }
+
+    fn format_rule_error(&self, _: &[RuleGroup]) -> String {
+        unreachable!()
+    }
+
+
 }
 
 #[derive(Debug, Clone)]
-pub(crate) enum WordRuntimeError {
+pub enum WordRuntimeError {
     UnknownSegment(String, usize,  usize), // (Segs before, Word Pos in list, Segment Pos in Words)
 }
 
@@ -132,7 +147,7 @@ impl ASCAError for WordRuntimeError {
         }
     }
 
-    fn format_error(&self, words: &[String]) -> String {
+    fn format_word_error(&self, words: &[String]) -> String {
         const MARG: &str = "\n    |     ";
         let mut result = format!("{} {}", "Runtime Error:".bright_red().bold(), self.get_error_message().bold());
 
@@ -151,10 +166,14 @@ impl ASCAError for WordRuntimeError {
 
         result
     }
+
+    fn format_rule_error(&self, _: &[RuleGroup]) -> String {
+        unreachable!()
+    }
 }
 
 #[derive(Debug, Clone)]
-pub(crate) enum RuleRuntimeError { 
+pub enum RuleRuntimeError { 
     DeletionOnlySeg,
     DeletionOnlySyll,
     LonelySet(Position),
@@ -211,7 +230,7 @@ impl ASCAError for RuleRuntimeError {
         }
     }
 
-    fn format_error(&self, rules: &[String]) -> String {
+    fn format_rule_error(&self, rules: &[RuleGroup]) -> String {
         const MARG: &str = "\n    |     ";
         let mut result = format!("{} {}", "Runtime Error:".bright_red().bold(), self.get_error_message().bold());
         
@@ -256,12 +275,16 @@ impl ASCAError for RuleRuntimeError {
 
         result.push_str(&format!("{}{}{}{}",  
             MARG.bright_cyan().bold(), 
-            rules[line], 
+            rules[line].name, // TODO: FIX
             MARG.bright_cyan().bold(), 
             arrows.bright_red().bold()
         ));
 
         result
+    }
+
+    fn format_word_error(&self, _: &[String]) -> String {
+        unreachable!()
     }
 }
 
@@ -269,7 +292,7 @@ type LineNum = usize;
 type Pos = usize;
 
 #[derive(Debug, Clone)]
-pub(crate) enum RuleSyntaxError {
+pub enum RuleSyntaxError {
     OptLocError(Position),
     OptMathError(Token, LineNum, usize),
     UnknownIPA(Token),
@@ -372,7 +395,7 @@ impl ASCAError for RuleSyntaxError {
         }
     }
 
-    fn format_error(&self, rules: &[String]) -> String {
+    fn format_rule_error(&self, rules: &[RuleGroup]) -> String {
         const MARG: &str = "\n    |     ";
         let mut result = format!("{} {}", "Syntax Error:".bright_red().bold(), self.get_error_message().bold()); 
 
@@ -474,12 +497,16 @@ impl ASCAError for RuleSyntaxError {
 
         result.push_str(&format!("{}{}{}{}",  
             MARG.bright_cyan().bold(), 
-            rules[line], 
+            rules[line].name, // TODO: fix 
             MARG.bright_cyan().bold(), 
             arrows.bright_red().bold()
         ));
 
         result
+    }
+
+    fn format_word_error(&self, _: &[String]) -> String {
+        unreachable!()
     }
 }
 
