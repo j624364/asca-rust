@@ -525,7 +525,7 @@ mod word_tests {
         match Word::new(normalise("'GAN;CEUN!eB.gRǝ:S.φXOI?,HYZ")) {
             Ok(w) => assert_eq!(w.render().unwrap(), "ˈɢɐɴː.ɕɛʊɴǃeʙ.ɡʀəːʃ.ɸχɔɪʔˌʜʏʒ"),
             Err(e) => {
-                println!("{}", e.format_error(&[]));
+                println!("{}", e.format_word_error(&[]));
                 assert!(false);
             }
         } 
@@ -536,7 +536,7 @@ mod word_tests {
         match Word::new(normalise("¢añ.φλełƛ")) {
             Ok(w) => assert_eq!(w.render().unwrap(), "¢añ.ɸλełƛ"),
             Err(e) => {
-                println!("{}", e.format_error(&[]));
+                println!("{}", e.format_word_error(&[]));
                 assert!(false);
             }
         }

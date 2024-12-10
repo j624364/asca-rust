@@ -101,8 +101,8 @@ impl Rule {
             let except  = if  self.except.is_empty() { None } else if  self.except.len() == 1 { Some( self.except[0].clone()) } else { Some( self.except[i].clone()) };
             let rule_type = {
                 match (&input[0].kind, &output[0].kind) {
-                    (ParseElement::EmptySet, ParseElement::EmptySet) => return Err(RuleSyntaxError::InsertDelete(input[0].position.line, input[0].position.start, output[0].position.start)),
-                    (ParseElement::EmptySet, ParseElement::Metathesis) => return Err(RuleSyntaxError::InsertMetath(input[0].position.line, input[0].position.start, output[0].position.start)),
+                    (ParseElement::EmptySet, ParseElement::EmptySet) => return Err(RuleSyntaxError::InsertDelete(input[0].position.group, input[0].position.line, input[0].position.start, output[0].position.start)),
+                    (ParseElement::EmptySet, ParseElement::Metathesis) => return Err(RuleSyntaxError::InsertMetath(input[0].position.group, input[0].position.line, input[0].position.start, output[0].position.start)),
                     (ParseElement::EmptySet, _) => RuleType::Insertion,
                     (_, ParseElement::EmptySet) => RuleType::Deletion,
                     (_, ParseElement::Metathesis) => RuleType::Metathesis,
@@ -119,8 +119,6 @@ impl Rule {
                     rule_type, 
                     variables: RefCell::new(HashMap::new()), 
                     alphas: RefCell::new(HashMap::new()), 
-                    // pos: SegPos::new(0, 0),
-                    // state_index: 0,
                 }
             );
         }
@@ -172,26 +170,28 @@ impl fmt::Debug for Rule {
 
 #[cfg(test)]
 mod rule_tests {
-    use crate::{normalise, ASCAError};
+    use crate::{ASCAError, normalise, RuleGroup};
 
     use super::*;
     
     fn setup_rule(test_str: &str) -> Rule {
         use crate::{Lexer, Parser};
 
-        let maybe_lex = Lexer::new(&normalise(test_str).chars().collect::<Vec<_>>(),0).get_line();
+        let maybe_lex = Lexer::new(&normalise(test_str).chars().collect::<Vec<_>>(),0 ,0).get_line();
         match maybe_lex {
             Ok(lexed) => {
-                match Parser::new(lexed, 0).parse() {
+                match Parser::new(lexed, 0, 0).parse() {
                     Ok(rule) => return rule.unwrap(),
                     Err(e) => {
-                        println!("{}", e.format_error(&vec![test_str.to_owned()]));
+                        let rg = RuleGroup { name: String::new(), rule: vec![test_str.to_owned()], description: String::new() };
+                        println!("{}", e.format_rule_error(&vec![rg]));
                         assert!(false);
                     },
                 }
             },
             Err(e) => {
-                println!("{}", e.format_error(&vec![test_str.to_owned()]));
+                let rg = RuleGroup { name: String::new(), rule: vec![test_str.to_owned()], description: String::new() };
+                println!("{}", e.format_rule_error(&vec![rg]));
                 assert!(false);
             },
         } 
@@ -203,7 +203,7 @@ mod rule_tests {
         match maybe_word {
             Ok(w) => return w,
             Err(e) => {
-                println!("{}", e.format_error(&Vec::new()));
+                println!("{}", e.format_word_error(&Vec::new()));
                 assert!(false);
             },
         }
@@ -369,24 +369,29 @@ mod rule_tests {
     fn test_long_vowel_breaking() {
         let test_rule = setup_rule("e > ie");
         let test_word = setup_word("'pe.ma");
+        println!("e > ie");
         assert_eq!(test_rule.apply(test_word).unwrap().render().unwrap(), "ˈpie.ma");
 
         let test_rule = setup_rule("e:[+long] > ie");
         let test_word = setup_word("'pe:.ma");
+        println!("e:[+long] > ie");
         assert_eq!(test_rule.apply(test_word).unwrap().render().unwrap(), "ˈpie.ma");
 
         let test_rule = setup_rule("V:[-long, -hi, -lo]=1 > 1:[+hi] 1");
         let test_word = setup_word("'pe.ma");
+        println!("V:[-long, -hi, -lo]=1 > 1:[+hi] 1");
         assert_eq!(test_rule.apply(test_word).unwrap().render().unwrap(), "ˈpie.ma");
 
 
         let test_rule = setup_rule("V:[+long, -hi, -lo]=1 > 1:[+hi, -long] 1:[-long]");
+        println!("V:[+long, -hi, -lo]=1 > 1:[+hi, -long] 1:[-long]");
         let test_word = setup_word("'pe:.ma");
         assert_eq!(test_rule.apply(test_word).unwrap().render().unwrap(), "ˈpie.ma");
         let test_word = setup_word("'po:.ma");
         assert_eq!(test_rule.apply(test_word).unwrap().render().unwrap(), "ˈpuo.ma");
 
         let test_rule = setup_rule("V:[+hi, +long]=1 > ə1:[-long]");
+        println!("V:[+hi, +long]=1 > ə1:[-long]");
         let test_word = setup_word("'i:s");
         assert_eq!(test_rule.apply(test_word).unwrap().render().unwrap(), "ˈəis");
         let test_word = setup_word("'hu:s");
@@ -1260,8 +1265,8 @@ mod rule_tests {
                 println!("{}", w.render().unwrap());
                 w = match rule.apply(w) {
                     Ok(w) => w,
-                    Err(e) => {
-                        println!("{}", e.format_error(&["* > t:[Avoi] / n_C:[+cont, Avoi, +cor]".to_string()]));
+                    Err(_) => {
+                        // println!("{}", e.format_error(&["* > t:[Avoi] / n_C:[+cont, Avoi, +cor]".to_string()]));
                         assert!(false);
                         unreachable!()
                     },
@@ -1567,8 +1572,8 @@ mod rule_tests {
                 // println!("{}", w.render().unwrap());
                 w = match rule.apply(w) {
                     Ok(w) => w,
-                    Err(e) => {
-                        println!("{}", e.format_error(&["      ".to_string()]));
+                    Err(_) => {
+                        // println!("{}", e.format_error(&["      ".to_string()]));
                         assert!(false);
                         unreachable!()
                     },

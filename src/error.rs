@@ -1,17 +1,19 @@
 use colored::Colorize;
 use crate  :: {
     lexer  :: {Position, Token, TokenKind}, 
-    parser :: Item,
+    parser :: Item, RuleGroup,
 };
 
-pub(crate) trait ASCAError: Clone {
+pub trait ASCAError: Clone {
     fn get_error_message(&self) -> String;
-    fn format_error(&self, _: &[String]) -> String;
+    // This really isn't the correct solution
+    fn format_word_error(&self, _: &[String]) -> String;
+    fn format_rule_error(&self, _: &[RuleGroup]) -> String;
 
 }
 
 #[derive(Debug, Clone)]
-pub(crate) enum Error {
+pub enum Error {
     WordSyn(WordSyntaxError),
     RuleSyn(RuleSyntaxError),
     WordRun(WordRuntimeError),
@@ -28,12 +30,19 @@ impl ASCAError for Error {
         }
     }
 
-    fn format_error(&self, s: &[String]) -> String {
+    fn format_word_error(&self, s: &[String]) -> String {
         match self {
-            Error::WordSyn(e) => e.format_error(s),
-            Error::RuleSyn(e) => e.format_error(s),
-            Error::WordRun(e) => e.format_error(s),
-            Error::RuleRun(e) => e.format_error(s),
+            Error::WordSyn(e) => e.format_word_error(s),
+            Error::WordRun(e) => e.format_word_error(s),
+            Error::RuleSyn(_) | Error::RuleRun(_) => unreachable!()
+        }
+    }
+
+    fn format_rule_error(&self, s: &[RuleGroup]) -> String {
+        match self {
+            Error::WordSyn(_) | Error::WordRun(_) => unreachable!(),
+            Error::RuleSyn(e) => e.format_rule_error(s),
+            Error::RuleRun(e) => e.format_rule_error(s),
         }
     }
 }
@@ -88,7 +97,7 @@ impl ASCAError for WordSyntaxError {
         }
     }
 
-    fn format_error(&self, _: &[String]) -> String {
+    fn format_word_error(&self, _: &[String]) -> String {
         const MARG: &str = "\n    |     ";
         let mut result = format!("{} {}", "Word Syntax Error:".bright_red().bold(), self.get_error_message().bold());
         let (arrows, text) = match self {
@@ -118,10 +127,16 @@ impl ASCAError for WordSyntaxError {
 
         result
     }
+
+    fn format_rule_error(&self, _: &[RuleGroup]) -> String {
+        unreachable!()
+    }
+
+
 }
 
 #[derive(Debug, Clone)]
-pub(crate) enum WordRuntimeError {
+pub enum WordRuntimeError {
     UnknownSegment(String, usize,  usize), // (Segs before, Word Pos in list, Segment Pos in Words)
 }
 
@@ -132,7 +147,7 @@ impl ASCAError for WordRuntimeError {
         }
     }
 
-    fn format_error(&self, words: &[String]) -> String {
+    fn format_word_error(&self, words: &[String]) -> String {
         const MARG: &str = "\n    |     ";
         let mut result = format!("{} {}", "Runtime Error:".bright_red().bold(), self.get_error_message().bold());
 
@@ -151,10 +166,14 @@ impl ASCAError for WordRuntimeError {
 
         result
     }
+
+    fn format_rule_error(&self, _: &[RuleGroup]) -> String {
+        unreachable!()
+    }
 }
 
 #[derive(Debug, Clone)]
-pub(crate) enum RuleRuntimeError { 
+pub enum RuleRuntimeError { 
     DeletionOnlySeg,
     DeletionOnlySyll,
     LonelySet(Position),
@@ -211,18 +230,20 @@ impl ASCAError for RuleRuntimeError {
         }
     }
 
-    fn format_error(&self, rules: &[String]) -> String {
+    fn format_rule_error(&self, rules: &[RuleGroup]) -> String {
         const MARG: &str = "\n    |     ";
         let mut result = format!("{} {}", "Runtime Error:".bright_red().bold(), self.get_error_message().bold());
         
-        let (arrows, line) =  match self {
+        let (arrows, group , line) =  match self {
             Self::DeletionOnlySyll | Self::DeletionOnlySeg => return result,
             Self::UnknownVariable(t) => (
                 " ".repeat(t.position.start) + &"^".repeat(t.position.end-t.position.start) + "\n", 
+                t.position.group,
                 t.position.line
             ),
             Self::InsertionNoContextOrException(pos) => (
                 " ".repeat(pos.end) + "^" + "\n", 
+                pos.group,
                 pos.line
             ),
             Self::WordBoundSetLocError(pos) |
@@ -238,6 +259,7 @@ impl ASCAError for RuleRuntimeError {
             Self::AlphaIsNotNode(pos)       |
             Self::InsertionMatrix(pos)  =>  (
                 " ".repeat(pos.start) + &"^".repeat(pos.end-pos.start) + "\n",
+                pos.group,
                 pos.line
             ),
             Self::UnevenSet (a, b) |
@@ -250,36 +272,42 @@ impl ASCAError for RuleRuntimeError {
             Self::SubstitutionBoundMod(a, b) => (
                    " ".repeat(a.start) + &"^".repeat(a.end - a.start) 
                 + &" ".repeat(b.start) + &"^".repeat(b.end - b.start) + "\n",
+                a.group,
                 a.line
             ),
         };
 
         result.push_str(&format!("{}{}{}{}",  
             MARG.bright_cyan().bold(), 
-            rules[line], 
+            rules[group].rule[line],
             MARG.bright_cyan().bold(), 
             arrows.bright_red().bold()
         ));
 
         result
     }
+
+    fn format_word_error(&self, _: &[String]) -> String {
+        unreachable!()
+    }
 }
 
+type GroupNum = usize;
 type LineNum = usize;
 type Pos = usize;
 
 #[derive(Debug, Clone)]
-pub(crate) enum RuleSyntaxError {
+pub enum RuleSyntaxError {
     OptLocError(Position),
-    OptMathError(Token, LineNum, usize),
+    OptMathError(Token, usize, usize),
     UnknownIPA(Token),
     UnknownGrouping(Token),
-    UnknownCharacter(char, LineNum, Pos),
-    ExpectedCharColon(char, LineNum, Pos),
-    ExpectedAlphabetic(char, LineNum, Pos),
-    ExpectedCharArrow(char, LineNum, Pos),
-    ExpectedCharDot(char, LineNum, Pos),
-    ExpectedNumber(char, LineNum, Pos),
+    UnknownCharacter(char, GroupNum, LineNum, Pos),
+    ExpectedCharColon(char, GroupNum, LineNum, Pos),
+    ExpectedAlphabetic(char, GroupNum, LineNum, Pos),
+    ExpectedCharArrow(char, GroupNum, LineNum, Pos),
+    ExpectedCharDot(char, GroupNum, LineNum, Pos),
+    ExpectedNumber(char, GroupNum, LineNum, Pos),
     TooManyUnderlines(Token),
     UnexpectedEol(Token, char),
     ExpectedEndL(Token),
@@ -293,18 +321,18 @@ pub(crate) enum RuleSyntaxError {
     ExpectedUnderline(Token),
     ExpectedRightBracket(Token),
     BadSyllableMatrix(Token),
-    WrongModTone(LineNum, Pos),
-    OutsideBrackets(LineNum, Pos),
-    NestedBrackets(LineNum, Pos),
+    WrongModTone(GroupNum, LineNum, Pos),
+    OutsideBrackets(GroupNum, LineNum, Pos),
+    NestedBrackets(GroupNum, LineNum, Pos),
     InsertErr(Token),
     DeleteErr(Token),
     MetathErr(Token),
-    EmptyInput(LineNum, Pos),
-    EmptyOutput(LineNum, Pos),
-    EmptyEnv(LineNum, Pos),
+    EmptyInput(GroupNum, LineNum, Pos),
+    EmptyOutput(GroupNum, LineNum, Pos),
+    EmptyEnv(GroupNum, LineNum, Pos),
     EmptySet(Position),
-    InsertMetath(LineNum, Pos, Pos),
-    InsertDelete(LineNum, Pos, Pos),
+    InsertMetath(GroupNum, LineNum, Pos, Pos),
+    InsertDelete(GroupNum, LineNum, Pos, Pos),
     StuffAfterWordBound(Position),
     StuffBeforeWordBound(Position),
     TooManyWordBoundaries(Position),
@@ -327,12 +355,12 @@ impl ASCAError for RuleSyntaxError {
             Self::UnknownGrouping(token)          => format!("Unknown grouping '{}'. Known groupings are (C)onsonant, (O)bstruent, (S)onorant, (P)losive, (F)ricative, (L)iquid, (N)asal, (G)lide, and (V)owel", token.value),
             Self::UnknownFeature(feat, pos)       => format!("Unknown feature '{feat}' at {}:{}-{}'. Did you mean {}? ", pos.line, pos.start, pos.end, get_feat_closest(feat)),
             Self::UnknownEnbyFeature(feat, ..)    => format!("Feature '{feat}' has no modifier."),
-            Self::ExpectedAlphabetic(c, l, pos)   => format!("Expected ASCII character, but received '{c}' at {l}:{pos}'."),
-            Self::ExpectedCharColon(c, l, pos)    => format!("Expected ':', but received '{c}' at {l}:{pos}"),
-            Self::ExpectedCharArrow(c, l, pos)    => format!("Expected '->', but received -'{c}' at {l}:{pos}"),
-            Self::ExpectedCharDot(c, l, pos)      => format!("Expected '..', but received .'{c}' at {l}:{pos}"),
-            Self::ExpectedNumber(c, l, pos)       => format!("Expected a number, but received '{c}' at {l}:{pos}"),
-            Self::UnknownCharacter(c, l, pos)     => format!("Unknown character {c} at '{l}:{pos}'."),
+            Self::ExpectedAlphabetic(c, g, l, pos)   => format!("Expected ASCII character, but received '{c}' at {g}:{l}:{pos}'."),
+            Self::ExpectedCharColon(c, g, l, pos)    => format!("Expected ':', but received '{c}' at {g}:{l}:{pos}"),
+            Self::ExpectedCharArrow(c, g, l, pos)    => format!("Expected '->', but received -'{c}' at {g}:{l}:{pos}"),
+            Self::ExpectedCharDot(c, g, l, pos)      => format!("Expected '..', but received .'{c}' at {g}:{l}:{pos}"),
+            Self::ExpectedNumber(c, g, l, pos)       => format!("Expected a number, but received '{c}' at {g}:{l}:{pos}"),
+            Self::UnknownCharacter(c, g, l, pos)     => format!("Unknown character {c} at '{g}:{l}:{pos}'."),
             Self::TooManyUnderlines(_)            => "Cannot have multiple underlines in an environment".to_string(),
             Self::StuffAfterWordBound(_)          => "Can't have segments after the end of a word".to_string(),
             Self::StuffBeforeWordBound(_)         => "Can't have segments before the beginning of a word".to_string(),
@@ -372,11 +400,11 @@ impl ASCAError for RuleSyntaxError {
         }
     }
 
-    fn format_error(&self, rules: &[String]) -> String {
+    fn format_rule_error(&self, rules: &[RuleGroup]) -> String {
         const MARG: &str = "\n    |     ";
         let mut result = format!("{} {}", "Syntax Error:".bright_red().bold(), self.get_error_message().bold()); 
 
-        let (arrows, line) = match self {
+        let (arrows, group, line) = match self {
             Self::OptMathError(t, _, _)   | 
             Self::UnknownGrouping(t)      | 
             Self::TooManyUnderlines(t)    | 
@@ -397,39 +425,45 @@ impl ASCAError for RuleSyntaxError {
             Self::MetathErr(t)            |
             Self::BadSyllableMatrix(t)  => (
                 " ".repeat(t.position.start) + &"^".repeat(t.position.end-t.position.start) + "\n", 
+                t.position.group,
                 t.position.line
             ),
             Self::UnknownFeature(_, pos) | Self::UnknownEnbyFeature(_, pos) => (
                 " ".repeat(pos.start) + &"^".repeat(pos.end-pos.start) + "\n", 
+                pos.group,
                 pos.line
             ),
-            Self::UnknownCharacter  (_, line, pos) |
-            Self::ExpectedCharColon (_, line, pos) |
-            Self::ExpectedAlphabetic(_, line, pos) |
-            Self::ExpectedCharArrow (_, line, pos) |
-            Self::ExpectedCharDot   (_, line, pos) |
-            Self::ExpectedNumber    (_, line, pos) => (
+            Self::UnknownCharacter  (_, group, line, pos) |
+            Self::ExpectedCharColon (_, group, line, pos) |
+            Self::ExpectedAlphabetic(_, group, line, pos) |
+            Self::ExpectedCharArrow (_, group, line, pos) |
+            Self::ExpectedCharDot   (_, group, line, pos) |
+            Self::ExpectedNumber    (_, group, line, pos) => (
                 " ".repeat(*pos) + "^" + "\n", 
+                *group,
                 *line
             ),
-            Self::WrongModTone   (line, pos) |
-            Self::EmptyInput     (line, pos) | 
-            Self::EmptyEnv       (line, pos) |
-            Self::EmptyOutput    (line, pos) |
-            Self::NestedBrackets (line, pos) | 
-            Self::OutsideBrackets(line, pos) => (
+            Self::WrongModTone   (group, line, pos) |
+            Self::EmptyInput     (group, line, pos) | 
+            Self::EmptyEnv       (group, line, pos) |
+            Self::EmptyOutput    (group, line, pos) |
+            Self::NestedBrackets (group, line, pos) | 
+            Self::OutsideBrackets(group, line, pos) => (
                 " ".repeat(*pos) + "^" + "\n", 
+                *group,
                 *line
             ),
-            Self::InsertDelete(line, pos1, pos2) | 
-            Self::InsertMetath(line, pos1, pos2) => (
+            Self::InsertDelete(group, line, pos1, pos2) | 
+            Self::InsertMetath(group, line, pos1, pos2) => (
                 " ".repeat(*pos1) + "^" + " ".repeat(pos2 - pos1 - 1).as_str() + "^" + "\n", 
+                *group,
                 *line
             ),
             Self::TooManyWordBoundaries(pos) |
             Self::StuffBeforeWordBound(pos)  | 
             Self::StuffAfterWordBound(pos) => (
                 " ".repeat(pos.start) + "^" + "\n", 
+                pos.group,
                 pos.line
             ),
             Self::UnbalancedRuleEnv(items) => {
@@ -439,17 +473,17 @@ impl ASCAError for RuleSyntaxError {
                 let end = last_item.position.end;
                 (
                     " ".repeat(start) + &"^".repeat(end-start) + "\n", 
+                    first_item.position.group,
                     first_item.position.line
                 )
             },
             Self::WordBoundLoc(pos) |
             Self::OptLocError(pos)  |
-            Self::EmptySet(pos)  => {
-                (
-                    " ".repeat(pos.start) + &"^".repeat(pos.end-pos.start) + "\n",
-                    pos.line
-                )
-            },
+            Self::EmptySet(pos)  => (
+                " ".repeat(pos.start) + &"^".repeat(pos.end-pos.start) + "\n",
+                pos.group,
+                pos.line
+            ),
             Self::UnbalancedRuleIO(items) => {
                 let first_item = items.first().expect("IO should not be empty").first().expect("IO should not be empty");
                 let last_item = items.last().expect("IO should not be empty").last().expect("IO should not be empty");
@@ -457,6 +491,7 @@ impl ASCAError for RuleSyntaxError {
                 let end = last_item.position.end;
                 (
                     " ".repeat(start) + &"^".repeat(end-start) + "\n", 
+                    first_item.position.group,
                     first_item.position.line
                 )
             },
@@ -468,18 +503,23 @@ impl ASCAError for RuleSyntaxError {
                     + &" ".repeat(dia_pos.start - elm_pos.end)
                     + &"^".repeat(dia_pos.end - dia_pos.start)
                     + "\n", 
+                elm_pos.group,
                 elm_pos.line
             ),
         };
 
         result.push_str(&format!("{}{}{}{}",  
             MARG.bright_cyan().bold(), 
-            rules[line], 
+            rules[group].rule[line], // TODO: fix 
             MARG.bright_cyan().bold(), 
             arrows.bright_red().bold()
         ));
 
         result
+    }
+
+    fn format_word_error(&self, _: &[String]) -> String {
+        unreachable!()
     }
 }
 
