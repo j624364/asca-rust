@@ -101,8 +101,8 @@ impl Rule {
             let except  = if  self.except.is_empty() { None } else if  self.except.len() == 1 { Some( self.except[0].clone()) } else { Some( self.except[i].clone()) };
             let rule_type = {
                 match (&input[0].kind, &output[0].kind) {
-                    (ParseElement::EmptySet, ParseElement::EmptySet) => return Err(RuleSyntaxError::InsertDelete(input[0].position.line, input[0].position.start, output[0].position.start)),
-                    (ParseElement::EmptySet, ParseElement::Metathesis) => return Err(RuleSyntaxError::InsertMetath(input[0].position.line, input[0].position.start, output[0].position.start)),
+                    (ParseElement::EmptySet, ParseElement::EmptySet) => return Err(RuleSyntaxError::InsertDelete(input[0].position.group, input[0].position.line, input[0].position.start, output[0].position.start)),
+                    (ParseElement::EmptySet, ParseElement::Metathesis) => return Err(RuleSyntaxError::InsertMetath(input[0].position.group, input[0].position.line, input[0].position.start, output[0].position.start)),
                     (ParseElement::EmptySet, _) => RuleType::Insertion,
                     (_, ParseElement::EmptySet) => RuleType::Deletion,
                     (_, ParseElement::Metathesis) => RuleType::Metathesis,
@@ -119,8 +119,6 @@ impl Rule {
                     rule_type, 
                     variables: RefCell::new(HashMap::new()), 
                     alphas: RefCell::new(HashMap::new()), 
-                    // pos: SegPos::new(0, 0),
-                    // state_index: 0,
                 }
             );
         }

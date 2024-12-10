@@ -385,19 +385,19 @@ impl<'a> Lexer<'a> {
             '⟩' => unimplemented!(), // { tokenkind = TokenKind::RightAngle;   value = "⟩".to_string(); },
             '{' => { 
                 if self.inside_set {
-                    return Err(RuleSyntaxError::NestedBrackets(self.line, start));
+                    return Err(RuleSyntaxError::NestedBrackets(self.group, self.line, start));
                 }
                 tokenkind = TokenKind::LeftCurly; value = "{".to_string();  self.inside_set = true
             },
             '(' => { 
                 if self.inside_option {
-                    return Err(RuleSyntaxError::NestedBrackets(self.line, start));
+                    return Err(RuleSyntaxError::NestedBrackets(self.group, self.line, start));
                 }
                 tokenkind = TokenKind::LeftBracket; value = "(".to_string(); self.inside_option = true
             },
             '[' => { 
                 if self.inside_matrix {
-                    return Err(RuleSyntaxError::NestedBrackets(self.line, start));
+                    return Err(RuleSyntaxError::NestedBrackets(self.group, self.line, start));
                 }
                 tokenkind = TokenKind::LeftSquare; value = "[".to_string();  self.inside_matrix = true
             },
@@ -458,13 +458,13 @@ impl<'a> Lexer<'a> {
         }
 
         if buffer.len() <= 1 { 
-            return Err(RuleSyntaxError::ExpectedAlphabetic(self.curr_char(), self.line, self.pos))
+            return Err(RuleSyntaxError::ExpectedAlphabetic(self.curr_char(), self.group, self.line, self.pos))
         }
 
         let tkn_kind = self.feature_match(buffer, start, self.pos)?;
         
         if let TokenKind::Feature(FeatType::Supr(SupraType::Tone)) = tkn_kind { if mod_val == "+" || mod_val == "-" {
-            return Err(RuleSyntaxError::WrongModTone(self.line, start))
+            return Err(RuleSyntaxError::WrongModTone(self.group, self.line, start))
         } }
 
         Ok(Some(Token::new(tkn_kind, mod_val, self.group, self.line, start, self.pos)))
@@ -498,12 +498,12 @@ impl<'a> Lexer<'a> {
              },
             '-' => match self.next_char() {
                 '>' => { tokenkind = TokenKind::Arrow;    value = self.chop(2); },
-                 _  => return Err(RuleSyntaxError::ExpectedCharArrow(self.next_char(), self.line, self.pos))
+                 _  => return Err(RuleSyntaxError::ExpectedCharArrow(self.next_char(), self.group, self.line, self.pos))
             },
             '…' | '⋯' => { tokenkind = TokenKind::Ellipsis; value = self.chop(1); },
             '.' => match self.next_char() {
                 '.' => { tokenkind = TokenKind::Ellipsis; value = self.chop_while(|x| *x == '.'); },
-                _ => return Err(RuleSyntaxError::ExpectedCharDot(self.next_char(), self.line, self.pos))
+                _ => return Err(RuleSyntaxError::ExpectedCharDot(self.next_char(), self.group, self.line, self.pos))
             },
             _ => return Ok(None)
         }
@@ -638,7 +638,7 @@ impl<'a> Lexer<'a> {
         if !self.curr_char().is_ascii_alphabetic() { return Ok(None) }
 
         if !self.inside_matrix { 
-            return Err(RuleSyntaxError::OutsideBrackets(self.line, self.pos))
+            return Err(RuleSyntaxError::OutsideBrackets(self.group, self.line, self.pos))
         }
 
         let start = self.pos;
@@ -651,14 +651,14 @@ impl<'a> Lexer<'a> {
 
         match self.curr_char() {
             ':' => self.advance(),
-            _ => return Err(RuleSyntaxError::ExpectedCharColon(self.curr_char(), self.line, self.pos))
+            _ => return Err(RuleSyntaxError::ExpectedCharColon(self.curr_char(), self.group, self.line, self.pos))
         } 
         
         self.trim_whitespace();
 
         match self.get_numeric() {
             Some(num) => Ok(Some(Token::new(tkn_kind, num.value, self.group, self.line, start, self.pos))),
-            _ => Err(RuleSyntaxError::ExpectedNumber(self.curr_char(), self.line, self.pos))
+            _ => Err(RuleSyntaxError::ExpectedNumber(self.curr_char(), self.group, self.line, self.pos))
 
         }
     }
@@ -758,7 +758,7 @@ impl<'a> Lexer<'a> {
         if let Some(dia_token) = self.get_diacritic()     { return Ok(dia_token) }
         if let Some(str_token) = self.get_string()?       { return Ok(str_token) } 
         
-        Err(RuleSyntaxError::UnknownCharacter(self.curr_char(), self.line, self.pos))
+        Err(RuleSyntaxError::UnknownCharacter(self.curr_char(), self.group, self.line, self.pos))
     }
 
     pub(crate) fn get_line(&mut self) -> Result<Vec<Token>, RuleSyntaxError> {

@@ -395,7 +395,7 @@ impl Parser {
                 break
             }
         }
-        if envs.is_empty() { return Err(RuleSyntaxError::EmptyEnv(self.line, self.token_list[self.pos].position.start)) }
+        if envs.is_empty() { return Err(RuleSyntaxError::EmptyEnv(self.group, self.line, self.token_list[self.pos].position.start)) }
 
         Ok(envs)
     }
@@ -896,7 +896,7 @@ impl Parser {
             let inp_term = self.get_input_els()?;
             if inp_term.is_empty() && inputs.is_empty() {
                 println!("{:?}", self.curr_tkn);
-                return Err(RuleSyntaxError::UnknownCharacter(self.curr_tkn.value.chars().next().unwrap(), self.line, self.pos))
+                return Err(RuleSyntaxError::UnknownCharacter(self.curr_tkn.value.chars().next().unwrap(), self.group, self.line, self.pos))
             } else if inp_term.is_empty() && !self.expect(TokenKind::Comma) {
                 break;
             }
@@ -915,7 +915,7 @@ impl Parser {
             }
         }
         if inputs.is_empty() {
-            return Err(RuleSyntaxError::EmptyInput(self.line, self.token_list[self.pos].position.start))
+            return Err(RuleSyntaxError::EmptyInput(self.group, self.line, self.token_list[self.pos].position.start))
         }
         Ok(inputs)
     }
@@ -944,7 +944,7 @@ impl Parser {
             // Output Elements
             let out_term = self.get_output_els()?;
             if out_term.is_empty() && outputs.is_empty(){
-                return Err(RuleSyntaxError::EmptyOutput(self.line, self.token_list[self.pos].position.start))
+                return Err(RuleSyntaxError::EmptyOutput(self.group, self.line, self.token_list[self.pos].position.start))
             } else if out_term.is_empty() && !self.expect(TokenKind::Comma) {
                 break;
             }
@@ -962,7 +962,7 @@ impl Parser {
             }
         }
         if outputs.is_empty() {
-            return Err(RuleSyntaxError::EmptyOutput(self.line, self.token_list[self.pos].position.start))
+            return Err(RuleSyntaxError::EmptyOutput(self.group, self.line, self.token_list[self.pos].position.start))
         }
         Ok(outputs)
     }
