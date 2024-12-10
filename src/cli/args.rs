@@ -29,9 +29,38 @@ pub enum Command {
         #[clap(flatten)]
         o_group: OutGroup
         
-    }, 
+    },
+    /// Convert between an asca-web json file and the wasca/rasca format
+    #[clap(subcommand)]
+    Convert(Conv),
     /// Enter tui
     Tui
+}
+
+#[derive(Debug, Subcommand)]
+pub enum Conv {
+    Asca {
+        /// The path of the word file to convert
+        #[arg(short, long, verbatim_doc_comment)]
+        words: Option<PathBuf>,
+        /// The path of the rule file to convert
+        #[arg(short, long, verbatim_doc_comment)]
+        rules: Option<PathBuf>,
+        /// The desired path of the output json file
+        #[arg(short, long, verbatim_doc_comment)]
+        output: Option<PathBuf>,
+    },
+    Json {
+        /// The path of the Json file to convert
+        #[arg(short, long, verbatim_doc_comment)]
+        path: Option<PathBuf>,
+        /// The desired path of the output word file
+        #[arg(short, long, verbatim_doc_comment)]
+        words: Option<PathBuf>,
+        /// The desired path of the output rule file
+        #[arg(short, long, verbatim_doc_comment)]
+        rules: Option<PathBuf>,
+    },
 }
 
 #[derive(Debug, Args)]

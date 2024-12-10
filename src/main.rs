@@ -24,7 +24,7 @@ fn ask(question: &str) -> bool {
     }
 }
 
-fn get_dir_files(path: &str, valid_extensions: &[&str]) -> Result<Vec<PathBuf>, io::Error> {
+fn get_dir_files(path: &str, valid_extensions: &[&str]) -> io::Result<Vec<PathBuf>> {
     Ok(fs::read_dir(path)?
         // Filter out entries which we couldn't read
         .filter_map(|res| res.ok())
@@ -51,13 +51,13 @@ fn match_exts(ext: &OsStr, valid_extensions: &[&str]) -> bool {
 }
 
 // TODO: better errors
-fn validate_file_exists(maybe_path: Option<PathBuf>, valid_extensions: &[&str]) -> Result<PathBuf, io::Error> {
+fn validate_file_exists(maybe_path: Option<PathBuf>, valid_extensions: &[&str]) -> io::Result<PathBuf> {
     match maybe_path {
         // Probably don't have to check if path exists as checking if it has an extension should be enough
         Some(path) => match path.extension() {
             Some(ext) => match match_exts(ext, valid_extensions) {
                 true => return Ok(path),
-                false => println!("File is not of the right type. Must be .txt, .wasca, or .rasca"), // TODO: programatically print valid extensions
+                false => println!("File `{:?}` is not of the right type. Must be .txt, .wasca, or .rasca", path), // TODO: programatically print valid extensions
             },
             None => println!("Given path is not a file"),
         },
@@ -73,14 +73,14 @@ fn validate_file_exists(maybe_path: Option<PathBuf>, valid_extensions: &[&str]) 
     exit(1);
 }
 
-#[derive(Debug, serde::Deserialize)]
+#[derive(Debug, serde::Deserialize, serde::Serialize)]
 struct AscaJson {
     pub words: Vec<String>,
     pub rules: Vec<RuleGroup>,
 }
 
 // TODO: We can do better
-fn parse_rasca(rule_file_path: PathBuf) -> Result<Vec<RuleGroup>, io::Error> {
+fn parse_rasca(rule_file_path: PathBuf) -> io::Result<Vec<RuleGroup>> {
     let mut rules = Vec::new();
     let mut r = RuleGroup::new();
     for line in fs::read_to_string(rule_file_path)?.lines() {
@@ -132,11 +132,11 @@ fn parse_rasca(rule_file_path: PathBuf) -> Result<Vec<RuleGroup>, io::Error> {
     Ok(rules)
 }
 
-fn parse_wasca(word_file_path: PathBuf) -> Result<Vec<String>, io::Error> {
+fn parse_wasca(word_file_path: PathBuf) -> io::Result<Vec<String>> {
     Ok(fs::read_to_string(word_file_path)?.lines().map(|s| s.to_owned()).collect::<Vec<String>>())
 }
 
-fn get_input(i_group: InGroup, input: Option<PathBuf>) -> Result<(Vec<String>, Vec<RuleGroup>), io::Error> {
+fn get_input(i_group: InGroup, input: Option<PathBuf>) -> io::Result<(Vec<String>, Vec<RuleGroup>)> {
     let InGroup {from_json, rules} = i_group;
     if let Some(json) = from_json {
         let json_file_path = validate_file_exists(Some(json), &["json"])?;
@@ -158,20 +158,12 @@ fn get_input(i_group: InGroup, input: Option<PathBuf>) -> Result<(Vec<String>, V
     }
 }
 
-fn deal_with_output(res: &[String], o_group: OutGroup, words: &[String], rules: Vec<RuleGroup>) -> Result<(), io::Error> {
-
-    #[derive(Debug, serde::Deserialize, serde::Serialize)]
-    struct Js {
-        words: Vec<String>,
-        rules: Vec<RuleGroup>
-    }
-
+fn deal_with_output(res: &[String], o_group: OutGroup, words: &[String], rules: Vec<RuleGroup>) -> io::Result<()> {
 
     let OutGroup {to_json, output} = o_group;
 
     let (path, content) = if let Some(json_path) = &to_json {
-        let obj = Js { words: words.into(), rules };
-        let json_obj = serde_json::to_string_pretty(&obj)?;
+        let json_obj = serde_json::to_string_pretty(&(AscaJson { words: words.into(), rules }))?;
 
         (json_path, json_obj)
 
@@ -184,7 +176,7 @@ fn deal_with_output(res: &[String], o_group: OutGroup, words: &[String], rules: 
     if path.is_file() {
         // if path is an extant file, overwrite on accept
         if ask(&(format!("File {path:?} already exists, do you wish to overwrite it? [y/n]"))) {
-            fs::write(path, content).expect("Unable to write file");
+            fs::write(path, content)?;
             println!("Written to file {:?}", path);
         }
     } else if path.is_dir() {
@@ -192,16 +184,16 @@ fn deal_with_output(res: &[String], o_group: OutGroup, words: &[String], rules: 
         let p = if to_json.is_some() { PathBuf::from("out.json") } else { PathBuf::from("out.txt") };
         if p.exists() {
             if ask(&(format!("File {p:?} already exists, do you wish to overwrite it? [y/n]"))) {
-                fs::write(&p, content).expect("Unable to write file");
+                fs::write(&p, content)?;
                 println!("Written to file {:?}", p);
             }
         } else {
-            fs::write(&p, content).expect("Unable to write file");
+            fs::write(&p, content)?;
                 println!("Written to file {:?}", p);
         }
     } else if path.extension().map_or(false, |ext| ext == "wasca" || ext == "json") {
         // create file <out_path> and write to it
-        fs::write(&path, content).expect("Unable to write file");
+        fs::write(&path, content)?;
         println!("Written to file {:?}", path);
     } else {
         // Wrong file type?
@@ -211,7 +203,7 @@ fn deal_with_output(res: &[String], o_group: OutGroup, words: &[String], rules: 
     Ok(())
 }
 
-fn cli(i_group: InGroup, input: Option<PathBuf>, o_group: OutGroup) -> Result<(), io::Error> {
+fn cli(i_group: InGroup, input: Option<PathBuf>, o_group: OutGroup) -> io::Result<()> {
 
     let (words, rules) = get_input(i_group, input)?;
 
@@ -241,6 +233,45 @@ fn cli(i_group: InGroup, input: Option<PathBuf>, o_group: OutGroup) -> Result<()
     Ok(())
 }
 
+
+fn conv_asca(words: Option<PathBuf>, rules: Option<PathBuf>, output: Option<PathBuf>) -> io::Result<()> {
+    let words = parse_wasca(validate_file_exists(words, &["wasca", "txt"])?)?;
+    let rules = parse_rasca(validate_file_exists(rules, &["rasca", "txt"])?)?;
+
+    let json = serde_json::to_string_pretty(&(AscaJson { words, rules }))?;
+
+    if let Some(path) = &output {
+        if path.is_file() {
+            // if path is an extant file, overwrite on accept
+            if ask(&(format!("File {path:?} already exists, do you wish to overwrite it? [y/n]"))) {
+                fs::write(path, json)?;
+                println!("Written to file {:?}", path);
+            }
+        } else if path.is_dir() {
+            // if path is dir, write to file of <dir>/out.ext
+            let p = PathBuf::from("out.json");
+            if p.exists() {
+                if ask(&(format!("File {p:?} already exists, do you wish to overwrite it? [y/n]"))) {
+                    fs::write(&p, json)?;
+                    println!("Written to file {:?}", p);
+                }
+            } else {
+                fs::write(&p, json)?;
+                    println!("Written to file {:?}", p);
+            }
+        } else if path.extension().map_or(false, |ext| ext == "json") {
+            // create file <out_path> and write to it
+            fs::write(&path, json)?;
+            println!("Written to file {:?}", path);
+        } else {
+            println!("Provided file '{:?}' has the wrong extension. Must be .json", path);
+            exit(1);
+        }
+    }
+
+
+    Ok(())
+}
 fn main() {
     let args = CliArgs::parse();
     match args.cmd {
@@ -251,5 +282,14 @@ fn main() {
             }
         },
         Command::Tui => println!("tui coming soon..."),
+        Command::Convert(conv) => match conv {
+            Conv::Asca { words, rules, output } => {
+                if let Err(e) = conv_asca(words, rules, output) {
+                    println!("{e}");
+                    exit(1);
+                }
+            },
+            Conv::Json { path, words, rules } => todo!(),
+        },
     }
 }
