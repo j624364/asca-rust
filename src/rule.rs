@@ -1265,7 +1265,7 @@ mod rule_tests {
                 println!("{}", w.render().unwrap());
                 w = match rule.apply(w) {
                     Ok(w) => w,
-                    Err(e) => {
+                    Err(_) => {
                         // println!("{}", e.format_error(&["* > t:[Avoi] / n_C:[+cont, Avoi, +cor]".to_string()]));
                         assert!(false);
                         unreachable!()

@@ -268,7 +268,7 @@ impl Display for TokenKind {
 }
 
 #[derive(Debug, Copy, Clone, PartialEq, Eq)]
-pub(crate) struct Position {
+pub struct Position {
     pub(crate) group: usize,
     pub(crate) line: usize,
     pub(crate) start: usize,
@@ -288,7 +288,7 @@ impl Display for Position {
 }
 
 #[derive(Clone, PartialEq, Eq)]
-pub(crate) struct Token {
+pub struct Token {
     pub(crate) kind: TokenKind,
     pub(crate) value: String, 
     pub(crate) position: Position,

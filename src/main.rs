@@ -158,27 +158,78 @@ fn get_input(i_group: InGroup, input: Option<PathBuf>) -> Result<(Vec<String>, V
     }
 }
 
-fn deal_with_output(o_group: OutGroup, words: &[String], rules: &[String]) {
+fn deal_with_output(res: &[String], o_group: OutGroup, words: &[String], rules: Vec<RuleGroup>) -> Result<(), io::Error> {
 
+    #[derive(Debug, serde::Deserialize, serde::Serialize)]
+    struct Js {
+        words: Vec<String>,
+        rules: Vec<RuleGroup>
+    }
+
+
+    let OutGroup {to_json, output} = o_group;
+
+    let (path, content) = if let Some(json_path) = &to_json {
+        let obj = Js { words: words.into(), rules };
+        let json_obj = serde_json::to_string_pretty(&obj)?;
+
+        (json_path, json_obj)
+
+    } else if let Some(out_path) = &output {
+        (out_path, res.join(LINE_ENDING))
+    } else {
+        return Ok(())
+    };
+
+    if path.is_file() {
+        // if path is an extant file, overwrite on accept
+        if ask(&(format!("File {path:?} already exists, do you wish to overwrite it? [y/n]"))) {
+            fs::write(path, content).expect("Unable to write file");
+            println!("Written to file {:?}", path);
+        }
+    } else if path.is_dir() {
+        // if path is dir, write to file of <dir>/out.ext
+        let p = if to_json.is_some() { PathBuf::from("out.json") } else { PathBuf::from("out.txt") };
+        if p.exists() {
+            if ask(&(format!("File {p:?} already exists, do you wish to overwrite it? [y/n]"))) {
+                fs::write(&p, content).expect("Unable to write file");
+                println!("Written to file {:?}", p);
+            }
+        } else {
+            fs::write(&p, content).expect("Unable to write file");
+                println!("Written to file {:?}", p);
+        }
+    } else if path.extension().map_or(false, |ext| ext == "wasca" || ext == "json") {
+        // create file <out_path> and write to it
+        fs::write(&path, content).expect("Unable to write file");
+        println!("Written to file {:?}", path);
+    } else {
+        // Wrong file type?
+    }
+
+    
+    Ok(())
 }
 
 fn cli(i_group: InGroup, input: Option<PathBuf>, o_group: OutGroup) -> Result<(), io::Error> {
 
-    let OutGroup {to_json, output} = o_group;
-
     let (words, rules) = get_input(i_group, input)?;
 
-    println!("{:#?}", rules);
+    // println!("{:#?}", rules);
 
-    let res = asca::run_cli(&rules, &words);
+    let res = asca::run(&rules, &words);
 
     match res {
-        Ok(rs) => for (i, r) in rs.iter().enumerate() {
-            if r.is_empty() {
-                println!();
-            } else {
-                println!("{} {} {}", words[i].bright_blue().bold(), "=>".bright_red().bold(), r.bright_green().bold());
+        Ok(rs) => {
+            for (i, r) in rs.iter().enumerate() {
+                if r.is_empty() {
+                    println!();
+                } else {
+                    println!("{} {} {}", words[i].bright_blue().bold(), "=>".bright_red().bold(), r.bright_green().bold());
+                }
             }
+            println!();
+            deal_with_output(&rs, o_group, &words, rules)?;
         },
         Err(err) => match err {
             asca::error::Error::WordSyn(e) => println!("{}", e.format_word_error(&words)),
@@ -187,37 +238,6 @@ fn cli(i_group: InGroup, input: Option<PathBuf>, o_group: OutGroup) -> Result<()
             asca::error::Error::RuleRun(e) => println!("{}", e.format_rule_error(&rules)),
         },
     }
-
-    println!();
-
-    // if let Some(out_path) = output {
-    //     if out_path.is_file() {
-    //         // if path is an extant file, overwrite on accept
-    //         if ask(&(format!("File {out_path:?} already exists, do you wish to overwrite it? [y/n]"))) {
-    //             fs::write(&out_path, res.join(LINE_ENDING)).expect("Unable to write file");
-    //             println!("Written to file {:?}", out_path);
-    //         }
-    //     } else if out_path.is_dir() {
-    //         // if path is dir, write to file of <dir>/out.txt
-    //         let p = PathBuf::from("out.txt");
-    //         if p.exists() {
-    //             if ask(&(format!("File {p:?} already exists, do you wish to overwrite it? [y/n]"))) {
-    //                 fs::write(&out_path, res.join(LINE_ENDING)).expect("Unable to write file");
-    //                 println!("Written to file {:?}", out_path);
-    //             }
-    //         } else {
-    //             fs::write(&p, res.join(LINE_ENDING)).expect("Unable to write file");
-    //             println!("Written to file 'out.txt'");
-    //         }
-    //     } else if out_path.extension().map_or(false, |ext| ext == "txt") {
-    //         // create file <out_path> and write to it
-    //         fs::write(&out_path, res.join(LINE_ENDING)).expect("Unable to write file");
-    //         println!("Written to file {:?}", out_path);
-    //     } else {
-    //         // Wrong file type?
-    //     }
-    // }
-
     Ok(())
 }
 

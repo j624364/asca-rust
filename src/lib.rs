@@ -101,6 +101,25 @@ lazy_static! {
     };    
 }
 
+
+#[derive(Debug, serde::Deserialize, serde::Serialize)]
+pub struct RuleGroup {
+    pub name: String,
+    pub rule: Vec<String>,
+    pub description: String, 
+}
+
+impl RuleGroup {
+    pub fn new() -> Self {
+        Self { name: String::new(), rule: Vec::new(), description: String::new() }
+    }
+
+    pub fn is_empty(&self) -> bool {
+        self.name.is_empty() && self.rule.is_empty() && self.description.is_empty()
+    }
+}
+
+
 // We are only decomposing a few characters as most would be invalid anyway.
 pub(crate) fn normalise(s: &str) -> String {
     let s = s
@@ -128,49 +147,6 @@ pub(crate) fn normalise(s: &str) -> String {
     s
 }
 
-fn parse_rules(unparsed_rules: &[String]) -> Result<Vec<Rule>,RuleSyntaxError> {
-    let mut rules: Vec<Rule> = vec![];
-    for (l, r) in unparsed_rules.iter().enumerate() {
-        if let Some(rule) = Parser:: new(Lexer::new(&normalise(r).chars().collect::<Vec<_>>(), 0, l).get_line()?, 0, l).parse()? {
-            rules.push(rule);
-        }
-    }
-
-    Ok(rules)
-}
-
-fn parse_words(unparsed_words: &[String]) -> Result<Vec<Word>,WordSyntaxError> {
-    let mut words: Vec<Word> = vec![];
-    for w in unparsed_words {
-        words.push(Word::new(normalise(w))?);
-    }
-    Ok(words)
-}
-
-fn apply_rules(rules: &[Rule], words: &[Word], /*is_traced: bool*/) -> Result<Vec<Word>, Error> {
-    // TODO: work out tracing
-    // We should treat each "rule block" as one instead of treating each intermediate rule as separate
-    // This will help with tracing
-    let mut transformed_words: Vec<Word> = vec![];
-    // let mut traced_words: Vec<Vec<String>> = vec![];
-
-    for word in words {
-        let mut res_word = word.clone();
-
-        for rule in rules.iter() {
-            res_word = rule.apply(res_word)?;
-            // if is_traced {
-            //     let asdf = traced_word_to_string(&res_word, traced_words[i].last().unwrap_or(&word.render().unwrap()));
-            //     traced_words[i].push(asdf);
-            // }
-        }
-        transformed_words.push(res_word);
-    }
-
-    // Ok((transformed_words, traced_words))
-    Ok(transformed_words)
-}
-
 fn apply_rule_groups(rules: &Vec<Vec<Rule>>, words: &[Word]) -> Result<Vec<Word>, Error> {
     let mut transformed_words: Vec<Word> = vec![];
 
@@ -188,14 +164,6 @@ fn apply_rule_groups(rules: &Vec<Vec<Rule>>, words: &[Word]) -> Result<Vec<Word>
     Ok(transformed_words)
 }
 
-// fn traced_word_to_string(word: &Word, before: &String) -> String {
-//     // let word_before = before.unwrap_or(&"()".to_string()).clone();
-//     match word.render() {
-//         Ok(res) => res,
-//         Err((buffer, _)) => format!("Err: {before} => {buffer}")
-//     }
-// }
-
 fn words_to_string(words: &[Word]) -> Result<Vec<String>, WordRuntimeError> {
     let mut wrds_str: Vec<String> = vec![];
     for (i, w) in words.iter().enumerate() {
@@ -207,23 +175,13 @@ fn words_to_string(words: &[Word]) -> Result<Vec<String>, WordRuntimeError> {
     Ok(wrds_str)
 }
 
-fn r(unparsed_rules: &[String], unparsed_words: &[String]) -> Result<Vec<String>, Error> {
-    let words = parse_words(unparsed_words)?;
-    let rules = parse_rules(unparsed_rules)?;
-
-    let res = apply_rules(&rules, &words)?;
-    
-    Ok(words_to_string(&res)?)
+fn parse_words(unparsed_words: &[String]) -> Result<Vec<Word>,WordSyntaxError> {
+    let mut words: Vec<Word> = vec![];
+    for w in unparsed_words {
+        words.push(Word::new(normalise(w))?);
+    }
+    Ok(words)
 }
-
-// fn parse_rules(unparsed_rules: &[String]) -> Result<Vec<Rule>,RuleSyntaxError> {
-//     let mut rules: Vec<Rule> = vec![];
-//     for (l, r) in unparsed_rules.iter().enumerate() {
-//         // FIXME(James): We are creating/dropping/reallocating the Lexer & Parser every loop
-//         rules.push(Parser:: new(Lexer::new(&r.chars().collect::<Vec<_>>(), l).get_line()?, l).parse()?);
-//     }
-//     Ok(rules)
-// }
 
 fn parse_rule_groups(unparsed_rule_groups: &[RuleGroup]) -> Result<Vec<Vec<Rule>>, RuleSyntaxError> {
     let mut rule_groups = vec![];
@@ -234,7 +192,6 @@ fn parse_rule_groups(unparsed_rule_groups: &[RuleGroup]) -> Result<Vec<Vec<Rule>
             if let Some(asdf) = Parser::new(Lexer::new(&r.chars().collect::<Vec<_>>(), rgi, ri).get_line()?, rgi, ri).parse()? {
                 rule_group.push(asdf);
             }
-            // rule_group.push(Parser::new(Lexer::new(&r.chars().collect::<Vec<_>>(), rgi, ri).get_line()?, rgi, ri).parse()?);
         }
         rule_groups.push(rule_group);
     }
@@ -242,7 +199,16 @@ fn parse_rule_groups(unparsed_rule_groups: &[RuleGroup]) -> Result<Vec<Vec<Rule>
     Ok(rule_groups)
 }
 
-pub fn run_cli(unparsed_rules: &[RuleGroup], unparsed_words: &[String]) -> Result<Vec<String>, Error> {
+// fn run_web(unparsed_rules: &[RuleGroup], unparsed_words: &[String]) -> Result<Vec<String>, Error> {
+//     let words = parse_words(unparsed_words)?;
+//     let rules = parse_rule_groups(unparsed_rules)?;
+
+//     let res = apply_rule_groups(&rules, &words)?;
+    
+//     Ok(words_to_string(&res)?)
+// }
+
+pub fn run(unparsed_rules: &[RuleGroup], unparsed_words: &[String]) -> Result<Vec<String>, Error> {
     let words = parse_words(unparsed_words)?;
     let rules = parse_rule_groups(unparsed_rules)?;
 
@@ -253,15 +219,16 @@ pub fn run_cli(unparsed_rules: &[RuleGroup], unparsed_words: &[String]) -> Resul
 
 
 #[wasm_bindgen]
-pub fn run(unparsed_rules: Vec<String>, unparsed_words: Vec<String>) -> Vec<String> {
-    parse_result(r(&unparsed_rules, &unparsed_words), &unparsed_rules, &unparsed_words)
+pub fn run_asca(val: JsValue, unparsed_words: Vec<String>) -> Vec<String> {
+    let unparsed_rules: Vec<RuleGroup> = serde_wasm_bindgen::from_value(val).expect("Rules are valid");
+
+    parse_result_web(run(&unparsed_rules, &unparsed_words), &unparsed_rules, &unparsed_words)
 }
 
-fn parse_result(unparsed_result: Result<Vec<String>, Error>, rules: &[String], words: &[String]) -> Vec<String> {
+fn parse_result_web(unparsed_result: Result<Vec<String>, Error>, rules: &[RuleGroup], words: &[String]) -> Vec<String> {
     let mut res = Vec::new();
     match unparsed_result {
         Ok(output) => {
-            // for (w, o) in words.iter().zip(output) {
             for o in output {
                 res.push(o);
             }
@@ -269,28 +236,10 @@ fn parse_result(unparsed_result: Result<Vec<String>, Error>, rules: &[String], w
         Err(err) => match err {
             Error::WordSyn(e) => res.push(e.format_word_error(words)),
             Error::WordRun(e) => res.push(e.format_word_error(words)),
-            // Error::RuleSyn(e) => res.push(e.format_rule_error(rules)),
-            // Error::RuleRun(e) => res.push(e.format_rule_error(rules)),
-            _ => todo!()
+            Error::RuleSyn(e) => res.push(e.format_rule_error(rules)),
+            Error::RuleRun(e) => res.push(e.format_rule_error(rules)),
         },
     }
 
     res
-}
-
-#[derive(Debug, serde::Deserialize)]
-pub struct RuleGroup {
-    pub name: String,
-    pub rule: Vec<String>,
-    pub description: String, 
-}
-
-impl RuleGroup {
-    pub fn new() -> Self {
-        Self { name: String::new(), rule: Vec::new(), description: String::new() }
-    }
-
-    pub fn is_empty(&self) -> bool {
-        self.name.is_empty() && self.rule.is_empty() && self.description.is_empty()
-    }
 }

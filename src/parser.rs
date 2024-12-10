@@ -184,7 +184,7 @@ impl fmt::Display for ParseElement {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub(crate) struct Item {
+pub struct Item {
     pub(crate) kind: ParseElement,
     pub(crate) position: Position,
 }
