@@ -69,6 +69,10 @@ pub enum Command {
         /// Accept cases where an output file will be overwritten
         #[arg(short='y', long, action, verbatim_doc_comment)]
         overwrite: bool,
+
+        /// Only last iteration will be saved, i.e. no steps
+        #[arg(short='l', long, action, verbatim_doc_comment)]
+        last_only: bool,
     },
     /// Convert between an asca-web json file and the wasca/rasca format
     #[clap(subcommand)]

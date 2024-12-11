@@ -32,8 +32,8 @@ fn main() {
         // Command::Mult { rules, words, compare, output } => {
         //     todo!()
         // },
-        Command::Seq { path, words, output, overwrite } => {
-            if let Err(e) = cli::sequence(path, words, output, overwrite) {
+        Command::Seq { path, words, output, overwrite , last_only } => {
+            if let Err(e) = cli::sequence(path, words, output, overwrite, last_only) {
                 println!("{e}");
                 exit(1);
             }

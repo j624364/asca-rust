@@ -1,9 +1,80 @@
-use std::{fs, io, path::PathBuf};
+use std::{fs, io, path::{Path, PathBuf}, process::exit};
 
 use asca::RuleGroup;
 
+pub struct ASCAConfig {
+    pub tag: String,
+    pub entries: Vec<Entry>
+}
+
+impl ASCAConfig {
+    fn new() -> Self {
+        Self { tag: String::new(), entries: Vec::new() }
+    }
+}
+
+pub struct Entry {
+    pub name: PathBuf,
+    pub rules: Vec<RuleGroup>
+}
+
+impl Entry {
+    pub fn from(name: PathBuf, rules: Vec<RuleGroup>) -> Self {
+        Self { name, rules }
+    }
+}
+
+
+
+pub fn parse_config(path: &Path) -> io::Result<Vec<ASCAConfig>> {
+    let mut result: Vec<ASCAConfig> = vec![];
+    let mut ac = ASCAConfig::new();
+
+    for line in fs::read_to_string(path)?.lines() {
+        let line = line.trim();
+        if line.is_empty() || line.starts_with('#')  {
+            continue;
+        }
+
+        if line.starts_with('@') {
+            if !ac.entries.is_empty() {
+                if ac.tag.is_empty() {
+                    println!("Warning: {path:?} Entries without a tag will be ignored");
+                } else {
+                    result.push(ac);
+                }
+            }
+            ac = ASCAConfig::new();
+
+            let mut chars = line.chars();
+            chars.next();
+            ac.tag = chars.as_str().trim().to_string();
+
+            continue;
+        }
+
+        let mut file_path = path.to_path_buf();
+        file_path.set_file_name(line);
+        file_path.set_extension("rasca");
+
+        if file_path.is_file() {
+            let entry_rules = parse_rasca_file(&file_path)?;
+            ac.entries.push(Entry { name: file_path, rules: entry_rules });
+        } else {
+            println!("Error: Cannot find {file_path:?}");
+            exit(1);
+        }
+    }
+    if ac.tag.is_empty() {
+        println!("Warning: {path:?} Entries without a tag will be ignored");
+    } else {
+        result.push(ac);
+    }
+    Ok(result)
+}
+
 // TODO: We can do better
-pub fn parse_rasca_file(rule_file_path: PathBuf) -> io::Result<Vec<RuleGroup>> {
+pub fn parse_rasca_file(rule_file_path: &Path) -> io::Result<Vec<RuleGroup>> {
     let mut rules = Vec::new();
     let mut r = RuleGroup::new();
     for line in fs::read_to_string(rule_file_path)?.lines() {

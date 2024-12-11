@@ -16,14 +16,22 @@ dir
 |- y to z.rasca
 |
 |- config.asca
-
-
-
+|
+|- out
+    |-configA
+    |   |- 1-x_to_y
+    |   |- 2-y_to_x
+    |-configB
+        |- 1-y_to_x
+        |- 2-x_to_y
 ```
 
 ``` CONFIG.ASCA
 
-x to y
-y to z
-
+@ configA
+    x to y
+    y to z
+@ configB
+    y to z
+    x to y
 ```

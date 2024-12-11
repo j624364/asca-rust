@@ -5,7 +5,7 @@ pub mod parse;
 use args::InGroup;
 use asca::{error::ASCAError, RuleGroup};
 use colored::Colorize;
-use parse::{parse_rasca_file, parse_wasca_file};
+use parse::{parse_config, parse_rasca_file, parse_wasca_file, ASCAConfig};
 use util::{ask, to_rasca_format, validate_file_exists, write_to_file, LINE_ENDING};
 
 use std::{fs, io, path::{Path, PathBuf}, process::exit};
@@ -33,7 +33,7 @@ fn get_input(i_group: InGroup, input: Option<PathBuf>) -> io::Result<(Vec<String
         }
     } else {
         let words = parse_wasca_file(validate_file_exists(input, &["wasca", "txt"], "word")?)?;
-        let rules = parse_rasca_file(validate_file_exists(rules, &["rasca", "txt"], "rule")?)?;
+        let rules = parse_rasca_file(&validate_file_exists(rules, &["rasca", "txt"], "rule")?)?;
 
         Ok((words, rules))
     }
@@ -51,7 +51,7 @@ fn deal_with_output(output: Option<PathBuf>, res: &[String]) -> io::Result<()> {
 
 pub fn conv_asca(words: Option<PathBuf>, rules: Option<PathBuf>, output: Option<PathBuf>) -> io::Result<()> {
     let words = parse_wasca_file(validate_file_exists(words, &["wasca", "txt"], "word")?)?;
-    let rules = parse_rasca_file(validate_file_exists(rules, &["rasca", "txt"], "rule")?)?;
+    let rules = parse_rasca_file(&validate_file_exists(rules, &["rasca", "txt"], "rule")?)?;
 
     let json = serde_json::to_string_pretty(&(AscaJson { words, rules }))?;
 
@@ -161,9 +161,9 @@ fn print_result(result: &[String], words: &[String], maybe_compare: Option<PathB
     Ok(())
 }
 
-fn print_seq_result(trace: &[Vec<String>]) {
+fn print_seq_result(trace: &[Vec<String>], tag: &str) {
     debug_assert!(!trace.is_empty());
-    println!("OUTPUT");
+    println!("OUTPUT - {}", tag);
     let arr = "=>".bright_red().bold();
 
     let num_seqs = trace.len();
@@ -202,57 +202,47 @@ fn validate_directory(maybe_path: Option<PathBuf>) -> io::Result<PathBuf> {
     }
 }
 
-fn get_seq(dir: &Path) -> io::Result<(Vec<Vec<RuleGroup>>, Vec<String>)> {
+
+
+fn get_seq(dir: &Path) -> io::Result<Vec<ASCAConfig>> {
     let maybe_conf = util::get_dir_files(dir.to_str().unwrap(), &["asca"])?;
 
     if maybe_conf.is_empty() {
-        println!("Error: No config file found in directory");
+        println!("Error: No config file found in directory {:?}", dir);
         exit(1)
     } else if maybe_conf.len() > 1 {
-        println!("Error: Multiple config files found in directory");
+        println!("Error: Multiple config files found in directory {:?}", dir);
         exit(1)
     }
 
-    let mut result = Vec::new();
-    let mut files = Vec::new();
+    parse_config(maybe_conf[0].as_path())
 
-    for line in fs::read_to_string(maybe_conf[0].clone())?.lines() {
-        let line = line.trim();
-        if line.is_empty() || line.starts_with('#')  {
-            continue;
-        }
-
-        files.push(line.to_string());
-
-        let mut file_path = dir.to_path_buf();
-        file_path.push(line);
-        file_path.set_extension("rasca");
-
-        
-        if file_path.is_file() {
-            println!("{:?}", file_path);
-            result.push(parse_rasca_file(file_path)?);
-        } else {
-            println!("Error: Cannot find {file_path:?}");
-            exit(1);
-        }
-    }
-    Ok((result, files))
 }
 
-fn output_seq(dir: &Path, trace: &[Vec<String>], seq_names: &[String], overwrite: bool) -> io::Result<()> {
-    // Create <out> subfolder within <dir> if doesn't exist
+fn output_seq(dir: &Path, tag: &str, trace: &[Vec<String>], seq_names: &[PathBuf], overwrite: bool, last_only: bool) -> io::Result<()> {
+    // Create <out/tag> subfolder within <dir> if doesn't exist
     // Create files for each seq, <seq_name>.wasca, and write to each
     let mut path = dir.to_path_buf();
     path.push("out");
-
+    path.push(tag);
+    
     if !path.exists() {
-        fs::create_dir(&path)?;
+        fs::create_dir_all(&path)?;
         println!("Created dir {path:?}");
     }
 
-    for (seq, name) in seq_names.iter().enumerate() {
-        let content = trace[seq+1].join("\n");
+    if !last_only {
+        for (seq, name) in seq_names.iter().enumerate() {
+            let content = trace[seq+1].join("\n");
+            let mut p = path.clone();
+            let name = format!("{}-{}", seq+1, name.file_name().unwrap().to_os_string().into_string().unwrap());
+            p.push(name);
+            p.set_extension("wasca");
+            write_to_file(&p, content, "wasca", overwrite.then_some(true))?;
+        }
+    } else {
+        let name = seq_names.last().unwrap();
+        let content = trace.last().unwrap().join("\n");
         let mut p = path.clone();
         p.push(name);
         p.set_extension("wasca");
@@ -262,38 +252,40 @@ fn output_seq(dir: &Path, trace: &[Vec<String>], seq_names: &[String], overwrite
     Ok(())
 }
 
-pub fn sequence(dir_path: Option<PathBuf>, words: Option<PathBuf>, output: bool, overwrite: bool) -> io::Result<()> {
+pub fn sequence(dir_path: Option<PathBuf>, words: Option<PathBuf>, output: bool, overwrite: bool, last_only: bool) -> io::Result<()> {
     let words = parse_wasca_file(validate_file_exists(words, &["wasca", "txt"], "word")?)?;
 
     let dir = validate_directory(dir_path)?;
-    let (rule_seqs, seq_names)= get_seq(&dir)?;
+    let rule_confs= get_seq(&dir)?;
 
-    let mut trace = Vec::new();
-    trace.push(words.clone());
+    for conf in rule_confs {
+        let mut files = Vec::new();
+        let mut trace = Vec::new();
+        trace.push(words.clone());
+        for (i, seq) in conf.entries.iter().enumerate() {
+            files.push(seq.name.clone());
+            match asca::run(&seq.rules, &trace[i]) {
+                Ok(res) => {
+                    trace.push(res);
+                },
+                Err(err) => {
+                    print_asca_errors(err, &words, &seq.rules);
+                    return Ok(())
+                },
+            }
+        }
+        print_seq_result(&trace, &conf.tag);
+        println!();
 
-    for (i, seq) in rule_seqs.iter().enumerate() {
-        match asca::run(seq, &trace[i]) {
-            Ok(res) => {
-                trace.push(res);
-            },
-            Err(err) => {
-                print_asca_errors(err, &words, seq);
-                return Ok(())
-            },
+        if !trace.is_empty() {
+            if output {
+                output_seq(&dir, &conf.tag, &trace, &files, overwrite, last_only)?;
+            }
+        } else {
+            unreachable!("No output")
         }
     }
-    print_seq_result(&trace);
-
-    println!();
-
-    if !trace.is_empty() {
-        if output {
-            output_seq(&dir, &trace, &seq_names, overwrite)?;
-        }
-    } else {
-        unreachable!("No output")
-    }
-
+    
     Ok(())
 }
 
