@@ -8,7 +8,7 @@ use colored::Colorize;
 use parse::{parse_rasca_file, parse_wasca_file};
 use util::{ask, to_rasca_format, validate_file_exists, write_to_file, LINE_ENDING};
 
-use std::{fs, io, path::PathBuf};
+use std::{fs, io, path::{Path, PathBuf}, process::exit};
 
 
 #[derive(Debug, serde::Deserialize, serde::Serialize)]
@@ -43,7 +43,7 @@ fn get_input(i_group: InGroup, input: Option<PathBuf>) -> io::Result<(Vec<String
 fn deal_with_output(output: Option<PathBuf>, res: &[String]) -> io::Result<()> {
     if let Some(path) = &output {
         let content = res.join(LINE_ENDING);
-        write_to_file(path, content, "wasca")?;
+        write_to_file(path, content, "wasca", None)?;
     }
     
     Ok(())
@@ -56,14 +56,14 @@ pub fn conv_asca(words: Option<PathBuf>, rules: Option<PathBuf>, output: Option<
     let json = serde_json::to_string_pretty(&(AscaJson { words, rules }))?;
 
     if let Some(path) = &output {
-        write_to_file(path, json, "json")?;
+        write_to_file(path, json, "json", None)?;
     } else {
         let p = PathBuf::from("out.json");
 
         if p.exists() {
-            if ask(&(format!("File {p:?} already exists in current directory, do you wish to overwrite it?")))? {
+            if ask(&(format!("File {p:?} already exists in current directory, do you wish to overwrite it?")), None)? {
                 fs::write(&p, json)?;
-                println!("Written to file {:?}", p);
+                println!("Wrote to file {:?}", p);
             }
         } else {
             fs::write(&p, json)?;
@@ -85,14 +85,14 @@ pub fn conv_json(path: Option<PathBuf>, words: Option<PathBuf>, rules: Option<Pa
     let words_wasca = json.words.join("\n");
 
     if let Some(w_path) = words {
-        write_to_file(&w_path, words_wasca, "wasca")?;
+        write_to_file(&w_path, words_wasca, "wasca", None)?;
     } else {
         let p = PathBuf::from("out.wasca");
 
         if p.exists() {
-            if ask(&(format!("File {p:?} already exists in current directory, do you wish to overwrite it?")))? {
+            if ask(&(format!("File {p:?} already exists in current directory, do you wish to overwrite it?")), None)? {
                 fs::write(&p, words_wasca)?;
-                println!("Written to file {:?}", p);
+                println!("Wrote to file {:?}", p);
             }
         } else {
             fs::write(&p, words_wasca)?;
@@ -103,14 +103,14 @@ pub fn conv_json(path: Option<PathBuf>, words: Option<PathBuf>, rules: Option<Pa
     let rules_rasca = to_rasca_format(json.rules)?;
 
     if let Some(r_path) = rules {
-        write_to_file(&r_path, rules_rasca, "rasca")?;
+        write_to_file(&r_path, rules_rasca, "rasca", None)?;
     } else {
         let p = PathBuf::from("out.rasca");
 
         if p.exists() {
-            if ask(&(format!("File {p:?} already exists in current directory, do you wish to overwrite it?")))? {
+            if ask(&(format!("File {p:?} already exists in current directory, do you wish to overwrite it?")), None)? {
                 fs::write(&p, rules_rasca)?;
-                println!("Written to file {:?}", p);
+                println!("Wrote to file {:?}", p);
             }
         } else {
             fs::write(&p, rules_rasca)?;
@@ -121,8 +121,184 @@ pub fn conv_json(path: Option<PathBuf>, words: Option<PathBuf>, rules: Option<Pa
     Ok(())
 }
 
+fn print_result(result: &[String], words: &[String], maybe_compare: Option<PathBuf>) -> io::Result<()> {
+    if let Some(compare_path) = maybe_compare {
+        let comp = compare_path.clone();
+        let path_str = comp.to_str().unwrap();
+        let compare = parse_wasca_file(validate_file_exists(Some(compare_path), &["wasca", "txt"], "word")?)?;
+        println!("{} {} {}\n", path_str.bright_blue().bold(), "=>".bright_red().bold(), "OUTPUT".bright_green().bold());
+        for (comp, res) in compare.iter().zip(result) {
+            if comp.is_empty() && res.is_empty() {
+                println!()
+            } else {
+                println!("{} {} {}", comp.bright_blue().bold(), "=>".bright_red().bold(), res.bright_green().bold());
+            }
+        }
+        // In case one file is longer then the other
+        match result.len().cmp(&compare.len()) {
+            std::cmp::Ordering::Equal => {},
+            std::cmp::Ordering::Less => for i in compare.iter().skip(result.len()) {
+                println!("{} {} {}", i.bright_blue().bold(), "=>".bright_red().bold(), "*".bright_green().bold());
+            },
+            std::cmp::Ordering::Greater => for i in result.iter().skip(compare.len()) {
+                println!("{} {} {}", "*".bright_blue().bold(), "=>".bright_red().bold(), i.bright_green().bold());
+            },
+        }
 
-pub fn run(i_group: InGroup, input: Option<PathBuf>, output: Option<PathBuf>) -> io::Result<()> {
+    } else {
+        println!("OUTPUT");
+        println!("{} {} {}\n", "BEFORE".bright_blue().bold(), "=>".bright_red().bold(), "AFTER".bright_green().bold());
+        for (bef, aft) in words.iter().zip(result) {
+            if bef.is_empty() && aft.is_empty() {
+                println!();
+            } else {
+                println!("{} {} {}", bef.bright_blue().bold(), "=>".bright_red().bold(), aft.bright_green().bold());
+            }
+        }
+        println!();
+    }
+
+    Ok(())
+}
+
+fn print_seq_result(trace: &[Vec<String>]) {
+    debug_assert!(!trace.is_empty());
+    println!("OUTPUT");
+    let arr = "=>".bright_red().bold();
+
+    let num_seqs = trace.len();
+    let num_words = trace[0].len();
+
+    for word in 0..num_words {
+        if trace[0][word].is_empty() {
+            println!();
+            continue;
+        }
+
+        let mut str = format!("{}", &trace[0][word].bright_blue().bold());
+        for seq in 1..num_seqs-1 {
+            str = format!("{str} {arr}");
+            str = format!("{str} {}", &trace[seq][word]);
+
+        }
+        str = format!("{str} {arr}");
+        str = format!("{str} {}", &trace[num_seqs-1][word].bright_green().bold());
+        println!("{}", str)
+
+    }
+}
+
+fn validate_directory(maybe_path: Option<PathBuf>) -> io::Result<PathBuf> {
+    match maybe_path {
+        Some(path) => {
+            if path.is_dir() {
+                Ok(path)
+            } else {
+                println!("Error: Given path is not a directory");
+                exit(1);
+            }
+        },
+        None => Ok(PathBuf::from(".")),
+    }
+}
+
+fn get_seq(dir: &Path) -> io::Result<(Vec<Vec<RuleGroup>>, Vec<String>)> {
+    let maybe_conf = util::get_dir_files(dir.to_str().unwrap(), &["asca"])?;
+
+    if maybe_conf.is_empty() {
+        println!("Error: No config file found in directory");
+        exit(1)
+    } else if maybe_conf.len() > 1 {
+        println!("Error: Multiple config files found in directory");
+        exit(1)
+    }
+
+    let mut result = Vec::new();
+    let mut files = Vec::new();
+
+    for line in fs::read_to_string(maybe_conf[0].clone())?.lines() {
+        let line = line.trim();
+        if line.is_empty() || line.starts_with('#')  {
+            continue;
+        }
+
+        files.push(line.to_string());
+
+        let mut file_path = dir.to_path_buf();
+        file_path.push(line);
+        file_path.set_extension("rasca");
+
+        
+        if file_path.is_file() {
+            println!("{:?}", file_path);
+            result.push(parse_rasca_file(file_path)?);
+        } else {
+            println!("Error: Cannot find {file_path:?}");
+            exit(1);
+        }
+    }
+    Ok((result, files))
+}
+
+fn output_seq(dir: &Path, trace: &[Vec<String>], seq_names: &[String], overwrite: bool) -> io::Result<()> {
+    // Create <out> subfolder within <dir> if doesn't exist
+    // Create files for each seq, <seq_name>.wasca, and write to each
+    let mut path = dir.to_path_buf();
+    path.push("out");
+
+    if !path.exists() {
+        fs::create_dir(&path)?;
+        println!("Created dir {path:?}");
+    }
+
+    for (seq, name) in seq_names.iter().enumerate() {
+        let content = trace[seq+1].join("\n");
+        let mut p = path.clone();
+        p.push(name);
+        p.set_extension("wasca");
+        write_to_file(&p, content, "wasca", overwrite.then_some(true))?;
+    }
+
+    Ok(())
+}
+
+pub fn sequence(dir_path: Option<PathBuf>, words: Option<PathBuf>, output: bool, overwrite: bool) -> io::Result<()> {
+    let words = parse_wasca_file(validate_file_exists(words, &["wasca", "txt"], "word")?)?;
+
+    let dir = validate_directory(dir_path)?;
+    let (rule_seqs, seq_names)= get_seq(&dir)?;
+
+    let mut trace = Vec::new();
+    trace.push(words.clone());
+
+    for (i, seq) in rule_seqs.iter().enumerate() {
+        match asca::run(seq, &trace[i]) {
+            Ok(res) => {
+                trace.push(res);
+            },
+            Err(err) => {
+                print_asca_errors(err, &words, seq);
+                return Ok(())
+            },
+        }
+    }
+    print_seq_result(&trace);
+
+    println!();
+
+    if !trace.is_empty() {
+        if output {
+            output_seq(&dir, &trace, &seq_names, overwrite)?;
+        }
+    } else {
+        unreachable!("No output")
+    }
+
+    Ok(())
+}
+
+
+pub fn run(i_group: InGroup, input: Option<PathBuf>, output: Option<PathBuf>, compare: Option<PathBuf>) -> io::Result<()> {
 
     let (words, rules) = get_input(i_group, input)?;
 
@@ -130,24 +306,21 @@ pub fn run(i_group: InGroup, input: Option<PathBuf>, output: Option<PathBuf>) ->
 
     match result {
         Ok(res) => {
-            for (i, r) in res.iter().enumerate() {
-                if r.is_empty() {
-                    println!();
-                } else {
-                    println!("{} {} {}", words[i].bright_blue().bold(), "=>".bright_red().bold(), r.bright_green().bold());
-                }
-            }
-            println!();
+            print_result(&res, &words, compare)?;
             deal_with_output(output, &res)?;
         },
-        Err(err) => match err {
-            asca::error::Error::WordSyn(e) => println!("{}", e.format_word_error(&words)),
-            asca::error::Error::WordRun(e) => println!("{}", e.format_word_error(&words)),
-            asca::error::Error::RuleSyn(e) => println!("{}", e.format_rule_error(&rules)),
-            asca::error::Error::RuleRun(e) => println!("{}", e.format_rule_error(&rules)),
-        },
+        Err(err) => print_asca_errors(err, &words, &rules),
     }
     Ok(())
+}
+
+fn print_asca_errors(err: asca::error::Error, words: &[String], rules: &[RuleGroup]) {
+    match err {
+        asca::error::Error::WordSyn(e) => println!("{}", e.format_word_error(words)),
+        asca::error::Error::WordRun(e) => println!("{}", e.format_word_error(words)),
+        asca::error::Error::RuleSyn(e) => println!("{}", e.format_rule_error(rules)),
+        asca::error::Error::RuleRun(e) => println!("{}", e.format_rule_error(rules)),
+    }
 }
 
 

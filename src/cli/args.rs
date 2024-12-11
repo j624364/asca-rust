@@ -21,15 +21,54 @@ pub enum Command {
         #[clap(flatten)]
         i_group: InGroup,
 
-        #[arg(short, long, verbatim_doc_comment)]
         /// Path to the wasca file containing the words to be changed
         /// - If not provided, asca will look for a valid file in the current directory
+        #[arg(short, long, verbatim_doc_comment)]
         words: Option<PathBuf>,
+
+        /// Path of a wasca file to compare with the output 
+        #[arg(short, long, verbatim_doc_comment)]
+        compare: Option<PathBuf>,
 
         /// Desired path of output file
         /// - If a directory is provided, asca will create an out.wasca file in that directory
         #[arg(short, long, verbatim_doc_comment)]
         output: Option<PathBuf>,
+    },
+    // Mult {
+    //     /// 
+    //     rules: Vec<PathBuf>,
+
+    //     /// Path to the wasca file containing the words to be changed
+    //     /// - If not provided, asca will look for a valid file in the current directory
+    //     #[arg(short, long, verbatim_doc_comment)]
+    //     words: Option<PathBuf>,
+
+    //     /// Path of a wasca file to compare with the output 
+    //     #[arg(short, long, verbatim_doc_comment)]
+    //     compare: Option<PathBuf>,
+
+    //     /// Desired path of output file
+    //     /// - If a directory is provided, asca will create an out.wasca file in that directory
+    //     #[arg(short, long, verbatim_doc_comment)]
+    //     output: Option<PathBuf>,
+    // },
+    Seq {
+        /// Directory containing the rule files
+        path: Option<PathBuf>,
+
+        /// Path to the wasca file containing the words to be changed
+        /// - If not provided, asca will look for a valid file in the current directory
+        #[arg(short, long, verbatim_doc_comment)]
+        words: Option<PathBuf>,
+
+        /// When given, asca will create an out folder within the path directory
+        #[arg(short, long, action, verbatim_doc_comment)]
+        output: bool,
+
+        /// Accept cases where an output file will be overwritten
+        #[arg(short='y', long, action, verbatim_doc_comment)]
+        overwrite: bool,
     },
     /// Convert between an asca-web json file and the wasca/rasca format
     #[clap(subcommand)]

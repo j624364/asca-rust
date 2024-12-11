@@ -7,7 +7,10 @@ pub const LINE_ENDING : &str = "\r\n";
 #[cfg(not(windows))]
 pub const LINE_ENDING : &str = "\n";
 
-pub fn ask(question: &str) -> io::Result<bool> {
+pub fn ask(question: &str, auto: Option<bool>) -> io::Result<bool> {
+    if let Some(ans) = auto {
+        return Ok(ans)
+    }
     print!(" :: {} [y/N]: ",question);
     io::stdout().flush()?;
     loop {
@@ -22,7 +25,7 @@ pub fn ask(question: &str) -> io::Result<bool> {
     }
 }
 
-fn get_dir_files(path: &str, valid_extensions: &[&str]) -> io::Result<Vec<PathBuf>> {
+pub fn get_dir_files(path: &str, valid_extensions: &[&str]) -> io::Result<Vec<PathBuf>> {
     Ok(fs::read_dir(path)?
         // Filter out entries which we couldn't read
         .filter_map(|res| res.ok())
@@ -95,11 +98,11 @@ pub fn validate_file_exists(maybe_path: Option<PathBuf>, valid_extensions: &[&st
     exit(1);
 }
 
-pub fn write_to_file(path: &PathBuf, content: String, extension: &str) -> io::Result<()> {
+pub fn write_to_file(path: &PathBuf, content: String, extension: &str, auto: Option<bool>) -> io::Result<()> {
     if path.is_file() {
         // if path is an extant file, overwrite on accept
         if path.extension().map_or(false, |ext| ext == extension) {
-            if ask(&(format!("File {path:?} already exists, do you wish to overwrite it?")))? {
+            if ask(&(format!("File {path:?} already exists, do you wish to overwrite it?")), auto)? {
                 fs::write(path, content)?;
                 println!("Written to file {:?}", path);
             }
@@ -111,7 +114,7 @@ pub fn write_to_file(path: &PathBuf, content: String, extension: &str) -> io::Re
         // if path is dir, write to file of <dir>/out.ext
         let p = PathBuf::from(format!("out.{:?}", extension));
         if p.exists() {
-            if ask(&(format!("File {p:?} already exists, do you wish to overwrite it?")))? {
+            if ask(&(format!("File {p:?} already exists, do you wish to overwrite it?")), auto)? {
                 fs::write(&p, content)?;
                 println!("Written to file {:?}", p);
             }
