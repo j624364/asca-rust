@@ -7,6 +7,7 @@ pub fn parse_rasca_file(rule_file_path: PathBuf) -> io::Result<Vec<RuleGroup>> {
     let mut rules = Vec::new();
     let mut r = RuleGroup::new();
     for line in fs::read_to_string(rule_file_path)?.lines() {
+        let line = line.trim();
         if line.starts_with('@') {
             if !r.is_empty() {
                 rules.push(r);
@@ -29,8 +30,6 @@ pub fn parse_rasca_file(rule_file_path: PathBuf) -> io::Result<Vec<RuleGroup>> {
             continue;
         }
 
-        let line = line.trim();
-
         if line.is_empty() {
             if !r.is_empty() && !r.description.is_empty() {
                 rules.push(r);
@@ -47,9 +46,8 @@ pub fn parse_rasca_file(rule_file_path: PathBuf) -> io::Result<Vec<RuleGroup>> {
         rules.push(r);
         r = RuleGroup::new();
         r.rule.push(line.to_string());
-
     }
-
+    rules.push(r);
     Ok(rules)
 }
 
