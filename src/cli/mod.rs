@@ -244,6 +244,7 @@ fn output_seq(dir: &Path, tag: &str, trace: &[Vec<String>], seq_names: &[PathBuf
         let name = seq_names.last().unwrap();
         let content = trace.last().unwrap().join("\n");
         let mut p = path.clone();
+        let name = name.file_name().unwrap();
         p.push(name);
         p.set_extension("wasca");
         write_to_file(&p, content, "wasca", overwrite.then_some(true))?;
@@ -285,7 +286,7 @@ pub fn sequence(dir_path: Option<PathBuf>, words: Option<PathBuf>, output: bool,
             unreachable!("No output")
         }
     }
-    
+
     Ok(())
 }
 
