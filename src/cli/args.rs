@@ -53,16 +53,18 @@ pub enum Command {
     //     #[arg(short, long, verbatim_doc_comment)]
     //     output: Option<PathBuf>,
     // },
+    /// Run an asca language family directory
     Seq {
-        /// Directory containing the rule files
+        /// Directory containing the rule and config files
         path: Option<PathBuf>,
 
         /// Run all defined sequences in the config file
         #[arg(short='a', long, action, verbatim_doc_comment)]
         all: bool,
 
-        /// Path to the wsca file containing the words to be changed
-        /// - If not provided, asca will look for a valid file in the current directory
+        /// Path to a wsca file
+        /// - If provided, these will be used instead of the word files defined in the config
+        /// - If not provided, and with no words files in the config, asca will look for a valid file in the current directory
         #[arg(short, long, verbatim_doc_comment)]
         words: Option<PathBuf>,
 
@@ -84,13 +86,14 @@ pub enum Command {
     },
     /// Convert between an asca-web json file and the wsca/rsca format
     #[clap(subcommand)]
-    Convert(Conv),
+    Conv(Conv),
     /// Enter tui
     Tui
 }
 
 #[derive(Debug, Subcommand)]
 pub enum Conv {
+    /// Convert a word and rule file into a asca-web json file
     Asca {
         /// The path of the word file to convert
         #[arg(short, long, verbatim_doc_comment)]
@@ -102,6 +105,7 @@ pub enum Conv {
         #[arg(short, long, verbatim_doc_comment)]
         output: Option<PathBuf>,
     },
+    /// Convert a json file into separate word and rule files
     Json {
         /// The path of the Json file to convert
         #[arg(short, long, verbatim_doc_comment)]

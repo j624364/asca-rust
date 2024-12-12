@@ -15,7 +15,7 @@ fn main() {
                 exit(1);
             }
         },
-        Command::Convert(conv) => match conv {
+        Command::Conv(conv) => match conv {
             Conv::Asca { words, rules, output } => {
                 if let Err(e) = cli::conv_asca(words, rules, output) {
                     println!("{e}");
