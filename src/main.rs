@@ -32,7 +32,7 @@ fn main() {
         // Command::Mult { rules, words, compare, output } => {
         //     todo!()
         // },
-        Command::Seq { path, all, words, output, overwrite , no_overwrite, last_only } => {
+        Command::Seq { path, tag, words, output, overwrite , no_overwrite, last_only } => {
             let ow = if overwrite {
                 Some(true)
             } else if no_overwrite { 
@@ -40,7 +40,7 @@ fn main() {
             } else {
                 None
             };
-            if let Err(e) = cli::sequence(path, words, output, ow, last_only, all) {
+            if let Err(e) = cli::sequence(path, words, output, ow, last_only, tag) {
                 println!("{e}");
                 exit(1);
             }

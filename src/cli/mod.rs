@@ -201,7 +201,6 @@ fn get_seq(dir: &Path) -> io::Result<Vec<ASCAConfig>> {
     }
 
     parse_config(maybe_conf[0].as_path())
-
 }
 
 fn output_seq(dir: &Path, tag: &str, trace: &[Vec<String>], seq_names: &[PathBuf], overwrite: Option<bool>, last_only: bool) -> io::Result<()> {
@@ -237,58 +236,76 @@ fn output_seq(dir: &Path, tag: &str, trace: &[Vec<String>], seq_names: &[PathBuf
     Ok(())
 }
 
+fn get_seq_words(dir: &Path, words_path: &Option<PathBuf>, conf: &ASCAConfig) -> io::Result<Vec<String>> {
+    if let Some(ref w) = words_path {
+        parse_wsca_file(&validate_file_exists(Some(w), &[WORD_FILE_ENDING, "txt"], "word")?)
+    } else if let Some(w) = &conf.words {
+        let mut p = dir.to_path_buf();
+        p.push(w);
+        p.set_extension(WORD_FILE_ENDING);
+        parse_wsca_file(&validate_file_exists(Some(&p), &[WORD_FILE_ENDING, "txt"], "word")?)
+    } else {
+        return Err(io::Error::other(format!("Error: Input words not defined for config '{}'.\nYou can specify a word file at runtime with the -w option", conf.tag)))
+    }
+}
 
-pub fn sequence(dir_path: Option<PathBuf>, words_path: Option<PathBuf>, output: bool, overwrite: Option<bool>, last_only: bool, all: bool) -> io::Result<()> {
+pub fn run_conf(dir: &Path, words_path: &Option<PathBuf>, conf: &ASCAConfig) -> io::Result<Option<(Vec<Vec<String>>, Vec<PathBuf>)>> {
+    let mut files = Vec::new();
+    let mut trace = Vec::new();
+
+    let words = get_seq_words(&dir, &words_path, conf)?;
+    trace.push(words.clone());
+    for (i, seq) in conf.entries.iter().enumerate() {
+        files.push(seq.name.clone());
+        match asca::run(&seq.rules, &trace[i]) {
+            Ok(res) => {
+                trace.push(res);
+            },
+            Err(err) => {
+                print_asca_errors(err, &words, &seq.rules);
+                return Ok(None)
+            },
+        }
+    }
+    print_seq_result(&trace, &conf.tag);
+    println!();
+
+    Ok(Some((trace, files)))
+}
+
+pub fn sequence(dir_path: Option<PathBuf>, words_path: Option<PathBuf>, output: bool, overwrite: Option<bool>, last_only: bool, maybe_tag: Option<String>) -> io::Result<()> {
     let dir = validate_directory(dir_path)?;
     let rule_confs= get_seq(&dir)?;
 
-    if all {
-        for conf in rule_confs {
-            let mut files = Vec::new();
-            let mut trace = Vec::new();
-            let words: Vec<String> = 
-            if let Some(ref w) = words_path {
-                parse_wsca_file(&validate_file_exists(Some(w), &[WORD_FILE_ENDING, "txt"], "word")?)?
-            } else if let Some(w) = conf.words {
-                let mut p = dir.clone();
-                p.push(w);
-                p.set_extension(WORD_FILE_ENDING);
-                parse_wsca_file(&validate_file_exists(Some(&p), &[WORD_FILE_ENDING, "txt"], "word")?)?
-            } else {
-                return Err(io::Error::other(format!("Error: Input words not defined for config '{}'.\nYou can specify a word file at runtime with the -w option", conf.tag)))
-            };
-            trace.push(words.clone());
-            for (i, seq) in conf.entries.iter().enumerate() {
-                files.push(seq.name.clone());
-                match asca::run(&seq.rules, &trace[i]) {
-                    Ok(res) => {
-                        trace.push(res);
-                    },
-                    Err(err) => {
-                        print_asca_errors(err, &words, &seq.rules);
-                        return Ok(())
-                    },
-                }
-            }
-            print_seq_result(&trace, &conf.tag);
-            println!();
+    if let Some(tag) = maybe_tag {
+        // NOTE: Would be better if this was a hashmap
+        // but even if the file was unreasonably long as to cause slowdowns, we'd have other issues
+        let Some(conf) = rule_confs.iter().find(|c| c.tag == tag) else {
+            return Err(io::Error::other(format!("Error: Could not find tag '{tag}' in config")))
+        };
 
+        if let Some((trace, files)) = run_conf(&dir, &words_path, conf)? {
             if !trace.is_empty() {
                 if output {
                     output_seq(&dir, &conf.tag, &trace, &files, overwrite, last_only)?;
                 }
             } else {
-                unreachable!("No output")
+                return Err(io::Error::other(format!("Error: No words in input for tag '{}'", conf.tag)))
             }
         }
     } else {
-        println!("Which sequence would you like to run?");
-        for s in rule_confs {
-            println!("{}", s.tag);
+        for conf in rule_confs {
+            if let Some((trace, files)) = run_conf(&dir, &words_path, &conf)? {
+                if !trace.is_empty() {
+                    if output {
+                        output_seq(&dir, &conf.tag, &trace, &files, overwrite, last_only)?;
+                    }
+                } else {
+                    return Err(io::Error::other(format!("Error: No words in input for tag '{}'", conf.tag)))
+                }
+            }
         }
-        todo!()
     }
-
     Ok(())
 }
 
@@ -296,7 +313,6 @@ pub fn sequence(dir_path: Option<PathBuf>, words_path: Option<PathBuf>, output: 
 pub fn run(i_group: InGroup, input: Option<PathBuf>, output: Option<PathBuf>, compare: Option<PathBuf>) -> io::Result<()> {
 
     let (words, rules) = get_input(i_group, input)?;
-
     let result = asca::run(&rules, &words);
 
     match result {

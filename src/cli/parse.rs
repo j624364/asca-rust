@@ -1,8 +1,9 @@
-use std::{io, path::{Path, PathBuf}};
+use std::{collections::HashSet, io, path::{Path, PathBuf}};
 
 use asca::RuleGroup;
 use super::util::{self, RULE_FILE_ENDING};
 
+#[derive(Debug)]
 pub struct ASCAConfig {
     pub tag: String,
     pub words: Option<String>,
@@ -15,6 +16,7 @@ impl ASCAConfig {
     }
 }
 
+#[derive(Debug)]
 pub struct Entry {
     pub name: PathBuf,
     pub rules: Vec<RuleGroup>
@@ -29,6 +31,7 @@ impl Entry {
 pub fn parse_config(path: &Path) -> io::Result<Vec<ASCAConfig>> {
     let mut result: Vec<ASCAConfig> = vec![];
     let mut ac = ASCAConfig::new();
+    let mut tag_map = HashSet::new();
 
     for line in util::file_read(path)?.lines() {
         let line = line.trim();
@@ -60,7 +63,13 @@ pub fn parse_config(path: &Path) -> io::Result<Vec<ASCAConfig>> {
                     None => todo!(),
                 }
             }
-            ac.tag = tag.trim().to_string();
+
+            tag = tag.trim().to_string();
+
+            if !tag_map.insert(tag.clone()) {
+                return Err(io::Error::other(format!("Parse Error: tag '{}' declared more than once in config", tag)))
+            }
+            ac.tag = tag;
 
             let rest = chars.as_str().trim().to_string();
             if !rest.is_empty() {
@@ -85,6 +94,7 @@ pub fn parse_config(path: &Path) -> io::Result<Vec<ASCAConfig>> {
     } else {
         result.push(ac);
     }
+
     Ok(result)
 }
 

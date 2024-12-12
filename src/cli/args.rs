@@ -59,9 +59,10 @@ pub enum Command {
         #[arg(value_hint=clap::ValueHint::DirPath)]
         path: Option<PathBuf>,
 
-        /// Run all defined sequences in the config file
-        #[arg(short='a', long, action, verbatim_doc_comment)]
-        all: bool,
+        /// Run a given sequence in the config file
+        /// - If not provided, all sequences in the config will be run
+        #[arg(short='t', long, verbatim_doc_comment)]
+        tag: Option<String>,
 
         /// Path to a wsca file
         /// - If provided, these will be used instead of the word files defined in the config
