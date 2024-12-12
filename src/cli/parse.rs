@@ -5,12 +5,13 @@ use super::util::{self, RULE_FILE_ENDING};
 
 pub struct ASCAConfig {
     pub tag: String,
+    pub words: Option<String>,
     pub entries: Vec<Entry>
 }
 
 impl ASCAConfig {
     fn new() -> Self {
-        Self { tag: String::new(), entries: Vec::new() }
+        Self { tag: String::new(), words: None, entries: Vec::new() }
     }
 }
 
@@ -35,7 +36,7 @@ pub fn parse_config(path: &Path) -> io::Result<Vec<ASCAConfig>> {
             continue;
         }
 
-        if line.starts_with('@') {
+        if line.starts_with('[') {
             if !ac.entries.is_empty() {
                 if ac.tag.is_empty() {
                     println!("Warning: {path:?} Entries without a tag will be ignored");
@@ -47,8 +48,24 @@ pub fn parse_config(path: &Path) -> io::Result<Vec<ASCAConfig>> {
 
             let mut chars = line.chars();
             chars.next();
-            ac.tag = chars.as_str().trim().to_string();
 
+            let mut tag = String::new();
+
+            loop {
+                match chars.next() {
+                    Some(c) => match c {
+                        ']' => break,
+                        c => tag.push(c),
+                    },
+                    None => todo!(),
+                }
+            }
+            ac.tag = tag.trim().to_string();
+
+            let rest = chars.as_str().trim().to_string();
+            if !rest.is_empty() {
+                ac.words = Some(rest)
+            }
             continue;
         }
 

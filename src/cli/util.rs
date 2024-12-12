@@ -76,12 +76,12 @@ fn create_ext_list(valid_extensions: &[&str]) -> String {
     }
 }
 
-pub(super) fn validate_file_exists(maybe_path: Option<PathBuf>, valid_extensions: &[&str], kind: &str) -> io::Result<PathBuf> {
+pub(super) fn validate_file_exists(maybe_path: Option<&Path>, valid_extensions: &[&str], kind: &str) -> io::Result<PathBuf> {
     match maybe_path {
         // Probably don't have to check if path exists as checking if it has an extension should be enough
         Some(path) => match path.extension() {
             Some(ext) => if match_exts(ext, valid_extensions) {
-                Ok(path)
+                Ok(path.to_path_buf())
             } else {
                 let exts_str = create_ext_list(valid_extensions);
                 Err(io::Error::other(format!("File {:?} is not of the right type. Must be {}", path, exts_str)))

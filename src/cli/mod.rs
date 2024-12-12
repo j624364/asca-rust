@@ -20,20 +20,20 @@ struct AscaJson {
 fn get_input(i_group: InGroup, input: Option<PathBuf>) -> io::Result<(Vec<String>, Vec<RuleGroup>)> {
     let InGroup {from_json, rules} = i_group;
     if let Some(json) = from_json {
-        let json_file_path = validate_file_exists(Some(json), &["json"], "json")?;
+        let json_file_path = validate_file_exists(Some(&json), &["json"], "json")?;
 
         let file = util::file_open(&json_file_path)?;
         let json: AscaJson = serde_json::from_reader(file)?;
 
         if input.is_some() {
-            let words = parse_wsca_file(&validate_file_exists(input, &[WORD_FILE_ENDING, "txt"], "word")?)?;
+            let words = parse_wsca_file(&validate_file_exists(input.as_deref(), &[WORD_FILE_ENDING, "txt"], "word")?)?;
             Ok((words, json.rules))
         } else {
             Ok((json.words, json.rules))
         }
     } else {
-        let words = parse_wsca_file(&validate_file_exists(input, &[WORD_FILE_ENDING, "txt"], "word")?)?;
-        let rules = parse_rsca_file(&validate_file_exists(rules, &[RULE_FILE_ENDING, "txt"], "rule")?)?;
+        let words = parse_wsca_file(&validate_file_exists(input.as_deref(), &[WORD_FILE_ENDING, "txt"], "word")?)?;
+        let rules = parse_rsca_file(&validate_file_exists(rules.as_deref(), &[RULE_FILE_ENDING, "txt"], "rule")?)?;
 
         Ok((words, rules))
     }
@@ -50,8 +50,8 @@ fn deal_with_output(output: Option<PathBuf>, res: &[String]) -> io::Result<()> {
 }
 
 pub fn conv_asca(words: Option<PathBuf>, rules: Option<PathBuf>, output: Option<PathBuf>) -> io::Result<()> {
-    let words = parse_wsca_file(&validate_file_exists(words, &[WORD_FILE_ENDING, "txt"], "word")?)?;
-    let rules = parse_rsca_file(&validate_file_exists(rules, &[RULE_FILE_ENDING, "txt"], "rule")?)?;
+    let words = parse_wsca_file(&validate_file_exists(words.as_deref(), &[WORD_FILE_ENDING, "txt"], "word")?)?;
+    let rules = parse_rsca_file(&validate_file_exists(rules.as_deref(), &[RULE_FILE_ENDING, "txt"], "rule")?)?;
 
     let json = serde_json::to_string_pretty(&(AscaJson { words, rules }))?;
 
@@ -73,7 +73,7 @@ pub fn conv_asca(words: Option<PathBuf>, rules: Option<PathBuf>, output: Option<
 
 pub fn conv_json(path: Option<PathBuf>, words: Option<PathBuf>, rules: Option<PathBuf>) -> io::Result<()> {
 
-    let json_path = validate_file_exists(path, &["json"], "json")?;
+    let json_path = validate_file_exists(path.as_deref(), &["json"], "json")?;
 
     let file = util::file_open(&json_path)?;
     let json: AscaJson = serde_json::from_reader(file)?;
@@ -115,7 +115,7 @@ fn print_result(result: &[String], words: &[String], maybe_compare: Option<PathB
     if let Some(compare_path) = maybe_compare {
         let comp = compare_path.clone();
         let path_str = comp.to_str().unwrap();
-        let compare = parse_wsca_file(&validate_file_exists(Some(compare_path), &[WORD_FILE_ENDING, "txt"], "word")?)?;
+        let compare = parse_wsca_file(&validate_file_exists(Some(&compare_path), &[WORD_FILE_ENDING, "txt"], "word")?)?;
         println!("{} {} {}\n", path_str.bright_blue().bold(), "=>".bright_red().bold(), "OUTPUT".bright_green().bold());
         for (comp, res) in compare.iter().zip(result) {
             if comp.is_empty() && res.is_empty() {
@@ -237,9 +237,8 @@ fn output_seq(dir: &Path, tag: &str, trace: &[Vec<String>], seq_names: &[PathBuf
     Ok(())
 }
 
-pub fn sequence(dir_path: Option<PathBuf>, words: Option<PathBuf>, output: bool, overwrite: Option<bool>, last_only: bool, all: bool) -> io::Result<()> {
-    let words = parse_wsca_file(&validate_file_exists(words, &[WORD_FILE_ENDING, "txt"], "word")?)?;
 
+pub fn sequence(dir_path: Option<PathBuf>, words_path: Option<PathBuf>, output: bool, overwrite: Option<bool>, last_only: bool, all: bool) -> io::Result<()> {
     let dir = validate_directory(dir_path)?;
     let rule_confs= get_seq(&dir)?;
 
@@ -247,6 +246,17 @@ pub fn sequence(dir_path: Option<PathBuf>, words: Option<PathBuf>, output: bool,
         for conf in rule_confs {
             let mut files = Vec::new();
             let mut trace = Vec::new();
+            let words: Vec<String> = 
+            if let Some(ref w) = words_path {
+                parse_wsca_file(&validate_file_exists(Some(w), &[WORD_FILE_ENDING, "txt"], "word")?)?
+            } else if let Some(w) = conf.words {
+                let mut p = dir.clone();
+                p.push(w);
+                p.set_extension(WORD_FILE_ENDING);
+                parse_wsca_file(&validate_file_exists(Some(&p), &[WORD_FILE_ENDING, "txt"], "word")?)?
+            } else {
+                return Err(io::Error::other(format!("Error: Input words not defined for config '{}'.\nYou can specify a word file at runtime with the -w option", conf.tag)))
+            };
             trace.push(words.clone());
             for (i, seq) in conf.entries.iter().enumerate() {
                 files.push(seq.name.clone());
