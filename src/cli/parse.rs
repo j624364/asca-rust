@@ -1,7 +1,7 @@
 use std::{collections::HashSet, io, path::{Path, PathBuf}};
 
 use asca::RuleGroup;
-use super::util::{self, RULE_FILE_ENDING};
+use super::util::{self, RULE_FILE_EXT};
 
 #[derive(Debug)]
 pub struct ASCAConfig {
@@ -80,7 +80,7 @@ pub fn parse_config(path: &Path) -> io::Result<Vec<ASCAConfig>> {
 
         let mut file_path = path.to_path_buf();
         file_path.set_file_name(line);
-        file_path.set_extension(RULE_FILE_ENDING);
+        file_path.set_extension(RULE_FILE_EXT);
 
         if file_path.is_file() {
             let entry_rules = parse_rsca_file(&file_path)?;

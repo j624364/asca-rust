@@ -5,7 +5,7 @@ pub mod parse;
 use args::InGroup;
 use asca::{error::ASCAError, RuleGroup};
 use parse::{parse_config, parse_rsca_file, parse_wsca_file, ASCAConfig};
-use util::{ask, to_rsca_format, validate_file_exists, write_to_file, CONF_FILE_ENDING, LINE_ENDING, RULE_FILE_ENDING, WORD_FILE_ENDING};
+use util::{ask, to_rsca_format, validate_file_exists, write_to_file, CONF_FILE_EXT, LINE_ENDING, RULE_FILE_EXT, WORD_FILE_EXT};
 
 use colored::Colorize;
 use std::{io, path::{Path, PathBuf}};
@@ -26,14 +26,14 @@ fn get_input(i_group: InGroup, input: Option<PathBuf>) -> io::Result<(Vec<String
         let json: AscaJson = serde_json::from_reader(file)?;
 
         if input.is_some() {
-            let words = parse_wsca_file(&validate_file_exists(input.as_deref(), &[WORD_FILE_ENDING, "txt"], "word")?)?;
+            let words = parse_wsca_file(&validate_file_exists(input.as_deref(), &[WORD_FILE_EXT, "txt"], "word")?)?;
             Ok((words, json.rules))
         } else {
             Ok((json.words, json.rules))
         }
     } else {
-        let words = parse_wsca_file(&validate_file_exists(input.as_deref(), &[WORD_FILE_ENDING, "txt"], "word")?)?;
-        let rules = parse_rsca_file(&validate_file_exists(rules.as_deref(), &[RULE_FILE_ENDING, "txt"], "rule")?)?;
+        let words = parse_wsca_file(&validate_file_exists(input.as_deref(), &[WORD_FILE_EXT, "txt"], "word")?)?;
+        let rules = parse_rsca_file(&validate_file_exists(rules.as_deref(), &[RULE_FILE_EXT, "txt"], "rule")?)?;
 
         Ok((words, rules))
     }
@@ -43,15 +43,15 @@ fn get_input(i_group: InGroup, input: Option<PathBuf>) -> io::Result<(Vec<String
 fn deal_with_output(output: Option<PathBuf>, res: &[String]) -> io::Result<()> {
     if let Some(path) = &output {
         let content = res.join(LINE_ENDING);
-        write_to_file(path, content, WORD_FILE_ENDING, None)?;
+        write_to_file(path, content, WORD_FILE_EXT, None)?;
     }
     
     Ok(())
 }
 
 pub fn conv_asca(words: Option<PathBuf>, rules: Option<PathBuf>, output: Option<PathBuf>) -> io::Result<()> {
-    let words = parse_wsca_file(&validate_file_exists(words.as_deref(), &[WORD_FILE_ENDING, "txt"], "word")?)?;
-    let rules = parse_rsca_file(&validate_file_exists(rules.as_deref(), &[RULE_FILE_ENDING, "txt"], "rule")?)?;
+    let words = parse_wsca_file(&validate_file_exists(words.as_deref(), &[WORD_FILE_EXT, "txt"], "word")?)?;
+    let rules = parse_rsca_file(&validate_file_exists(rules.as_deref(), &[RULE_FILE_EXT, "txt"], "rule")?)?;
 
     let json = serde_json::to_string_pretty(&(AscaJson { words, rules }))?;
 
@@ -81,7 +81,7 @@ pub fn conv_json(path: Option<PathBuf>, words: Option<PathBuf>, rules: Option<Pa
     let words_wsca = json.words.join("\n");
 
     if let Some(w_path) = words {
-        util::write_to_file(&w_path, words_wsca, WORD_FILE_ENDING, None)?;
+        util::write_to_file(&w_path, words_wsca, WORD_FILE_EXT, None)?;
     } else {
         let path = PathBuf::from("out.wsca");
         if path.exists() {
@@ -96,7 +96,7 @@ pub fn conv_json(path: Option<PathBuf>, words: Option<PathBuf>, rules: Option<Pa
     let rules_rsca = to_rsca_format(json.rules)?;
 
     if let Some(r_path) = rules {
-        util::write_to_file(&r_path, rules_rsca, RULE_FILE_ENDING, None)?;
+        util::write_to_file(&r_path, rules_rsca, RULE_FILE_EXT, None)?;
     } else {
         let path = PathBuf::from("out.rsca");
         if path.exists() {
@@ -115,7 +115,7 @@ fn print_result(result: &[String], words: &[String], maybe_compare: Option<PathB
     if let Some(compare_path) = maybe_compare {
         let comp = compare_path.clone();
         let path_str = comp.to_str().unwrap();
-        let compare = parse_wsca_file(&validate_file_exists(Some(&compare_path), &[WORD_FILE_ENDING, "txt"], "word")?)?;
+        let compare = parse_wsca_file(&validate_file_exists(Some(&compare_path), &[WORD_FILE_EXT, "txt"], "word")?)?;
         println!("{} {} {}\n", path_str.bright_blue().bold(), "=>".bright_red().bold(), "OUTPUT".bright_green().bold());
         for (comp, res) in compare.iter().zip(result) {
             if comp.is_empty() && res.is_empty() {
@@ -192,7 +192,7 @@ fn validate_directory(maybe_path: Option<PathBuf>) -> io::Result<PathBuf> {
 }
 
 fn get_seq(dir: &Path) -> io::Result<Vec<ASCAConfig>> {
-    let maybe_conf = util::get_dir_files(dir.to_str().unwrap(), &[CONF_FILE_ENDING])?;
+    let maybe_conf = util::get_dir_files(dir.to_str().unwrap(), &[CONF_FILE_EXT])?;
 
     if maybe_conf.is_empty() {
         return Err(io::Error::other(format!("Error: No config file found in directory {dir:?}")))
@@ -220,8 +220,8 @@ fn output_seq(dir: &Path, tag: &str, trace: &[Vec<String>], seq_names: &[PathBuf
             let mut p = path.clone();
             let name = format!("{}-{}", seq+1, name.file_name().unwrap().to_os_string().into_string().unwrap());
             p.push(name);
-            p.set_extension(WORD_FILE_ENDING);
-            write_to_file(&p, content, WORD_FILE_ENDING, overwrite)?;
+            p.set_extension(WORD_FILE_EXT);
+            write_to_file(&p, content, WORD_FILE_EXT, overwrite)?;
         }
     } else {
         let name = seq_names.last().unwrap();
@@ -229,8 +229,8 @@ fn output_seq(dir: &Path, tag: &str, trace: &[Vec<String>], seq_names: &[PathBuf
         let mut p = path.clone();
         let name = name.file_name().unwrap();
         p.push(name);
-        p.set_extension(WORD_FILE_ENDING);
-        write_to_file(&p, content, WORD_FILE_ENDING, overwrite)?;
+        p.set_extension(WORD_FILE_EXT);
+        write_to_file(&p, content, WORD_FILE_EXT, overwrite)?;
     }
 
     Ok(())
@@ -238,29 +238,28 @@ fn output_seq(dir: &Path, tag: &str, trace: &[Vec<String>], seq_names: &[PathBuf
 
 fn get_seq_words(dir: &Path, words_path: &Option<PathBuf>, conf: &ASCAConfig) -> io::Result<Vec<String>> {
     if let Some(ref w) = words_path {
-        parse_wsca_file(&validate_file_exists(Some(w), &[WORD_FILE_ENDING, "txt"], "word")?)
+        parse_wsca_file(&validate_file_exists(Some(w), &[WORD_FILE_EXT, "txt"], "word")?)
     } else if let Some(w) = &conf.words {
         let mut p = dir.to_path_buf();
         p.push(w);
-        p.set_extension(WORD_FILE_ENDING);
-        parse_wsca_file(&validate_file_exists(Some(&p), &[WORD_FILE_ENDING, "txt"], "word")?)
+        p.set_extension(WORD_FILE_EXT);
+        parse_wsca_file(&validate_file_exists(Some(&p), &[WORD_FILE_EXT, "txt"], "word")?)
     } else {
         return Err(io::Error::other(format!("Error: Input words not defined for config '{}'.\nYou can specify a word file at runtime with the -w option", conf.tag)))
     }
 }
 
-pub fn run_conf(dir: &Path, words_path: &Option<PathBuf>, conf: &ASCAConfig) -> io::Result<Option<(Vec<Vec<String>>, Vec<PathBuf>)>> {
+type SeqTrace = Vec<Vec<String>>;
+pub fn run_conf(dir: &Path, words_path: &Option<PathBuf>, conf: &ASCAConfig) -> io::Result<Option<(SeqTrace, Vec<PathBuf>)>> {
     let mut files = Vec::new();
     let mut trace = Vec::new();
 
-    let words = get_seq_words(&dir, &words_path, conf)?;
+    let words = get_seq_words(dir, words_path, conf)?;
     trace.push(words.clone());
     for (i, seq) in conf.entries.iter().enumerate() {
         files.push(seq.name.clone());
         match asca::run(&seq.rules, &trace[i]) {
-            Ok(res) => {
-                trace.push(res);
-            },
+            Ok(res) => trace.push(res),
             Err(err) => {
                 print_asca_errors(err, &words, &seq.rules);
                 return Ok(None)

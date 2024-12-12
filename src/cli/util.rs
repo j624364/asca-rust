@@ -8,9 +8,9 @@ pub const LINE_ENDING: &str = "\r\n";
 #[cfg(not(windows))]
 pub const LINE_ENDING: &str = "\n";
 
-pub const RULE_FILE_ENDING: &str = "rsca";
-pub const WORD_FILE_ENDING: &str = "wsca";
-pub const CONF_FILE_ENDING: &str = "asca";
+pub const RULE_FILE_EXT: &str = "rsca";
+pub const WORD_FILE_EXT: &str = "wsca";
+pub const CONF_FILE_EXT: &str = "asca";
 
 pub(super) fn ask(question: &str, auto: Option<bool>) -> io::Result<bool> {
     if let Some(ans) = auto {
@@ -23,7 +23,7 @@ pub(super) fn ask(question: &str, auto: Option<bool>) -> io::Result<bool> {
         let _ = std::io::stdin().read_line(&mut buf);
         match buf.chars().next() {
             Some('y' | 'Y') => return Ok(true),
-            Some('\n') | Some('\r') |
+            Some('\r') | Some('\n') |
             Some('n' | 'N') => return Ok(false),
             _ => println!("{}", "   yes/no only".yellow()),
         }
@@ -171,7 +171,7 @@ pub(super) fn write_to_file(path: &Path, content: String, extension: &str, auto:
             Err(io::Error::other(format!("Provided file '{:?}' has the wrong extension. Must be .{:?}", path, extension)))
         }
     } else if path.is_dir() {
-        // if path is dir, write to file of <dir>/out.ext
+        // if path is dir, write to file of <dir>/out.<extension>
         let mut p = PathBuf::from("out");
         p.set_extension(extension);
         if p.exists() {
