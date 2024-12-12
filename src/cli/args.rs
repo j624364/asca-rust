@@ -21,17 +21,17 @@ pub enum Command {
         #[clap(flatten)]
         i_group: InGroup,
 
-        /// Path to the wasca file containing the words to be changed
+        /// Path to the wsca file containing the words to be changed
         /// - If not provided, asca will look for a valid file in the current directory
         #[arg(short, long, verbatim_doc_comment)]
         words: Option<PathBuf>,
 
-        /// Path of a wasca file to compare with the output 
+        /// Path of a wsca file to compare with the output 
         #[arg(short, long, verbatim_doc_comment)]
         compare: Option<PathBuf>,
 
         /// Desired path of output file
-        /// - If a directory is provided, asca will create an out.wasca file in that directory
+        /// - If a directory is provided, asca will create an out.wsca file in that directory
         #[arg(short, long, verbatim_doc_comment)]
         output: Option<PathBuf>,
     },
@@ -39,17 +39,17 @@ pub enum Command {
     //     /// 
     //     rules: Vec<PathBuf>,
 
-    //     /// Path to the wasca file containing the words to be changed
+    //     /// Path to the wsca file containing the words to be changed
     //     /// - If not provided, asca will look for a valid file in the current directory
     //     #[arg(short, long, verbatim_doc_comment)]
     //     words: Option<PathBuf>,
 
-    //     /// Path of a wasca file to compare with the output 
+    //     /// Path of a wsca file to compare with the output 
     //     #[arg(short, long, verbatim_doc_comment)]
     //     compare: Option<PathBuf>,
 
     //     /// Desired path of output file
-    //     /// - If a directory is provided, asca will create an out.wasca file in that directory
+    //     /// - If a directory is provided, asca will create an out.wsca file in that directory
     //     #[arg(short, long, verbatim_doc_comment)]
     //     output: Option<PathBuf>,
     // },
@@ -61,7 +61,7 @@ pub enum Command {
         #[arg(short='a', long, action, verbatim_doc_comment)]
         all: bool,
 
-        /// Path to the wasca file containing the words to be changed
+        /// Path to the wsca file containing the words to be changed
         /// - If not provided, asca will look for a valid file in the current directory
         #[arg(short, long, verbatim_doc_comment)]
         words: Option<PathBuf>,
@@ -78,7 +78,7 @@ pub enum Command {
         #[arg(short='l', long, action, verbatim_doc_comment)]
         last_only: bool,
     },
-    /// Convert between an asca-web json file and the wasca/rasca format
+    /// Convert between an asca-web json file and the wsca/rsca format
     #[clap(subcommand)]
     Convert(Conv),
     /// Enter tui

@@ -1,8 +1,7 @@
 use std::{io, path::{Path, PathBuf}};
 
 use asca::RuleGroup;
-
-use crate::cli::util;
+use super::util::{self, RULE_FILE_ENDING};
 
 pub struct ASCAConfig {
     pub tag: String,
@@ -25,8 +24,6 @@ impl Entry {
         Self { name, rules }
     }
 }
-
-
 
 pub fn parse_config(path: &Path) -> io::Result<Vec<ASCAConfig>> {
     let mut result: Vec<ASCAConfig> = vec![];
@@ -57,10 +54,10 @@ pub fn parse_config(path: &Path) -> io::Result<Vec<ASCAConfig>> {
 
         let mut file_path = path.to_path_buf();
         file_path.set_file_name(line);
-        file_path.set_extension("rasca");
+        file_path.set_extension(RULE_FILE_ENDING);
 
         if file_path.is_file() {
-            let entry_rules = parse_rasca_file(&file_path)?;
+            let entry_rules = parse_rsca_file(&file_path)?;
             ac.entries.push(Entry::from(file_path, entry_rules));
         } else {
             return Err(io::Error::other(format!("Error: Cannot find {file_path:?}")))
@@ -75,7 +72,7 @@ pub fn parse_config(path: &Path) -> io::Result<Vec<ASCAConfig>> {
 }
 
 // TODO: We can do better
-pub fn parse_rasca_file(rule_file_path: &Path) -> io::Result<Vec<RuleGroup>> {
+pub fn parse_rsca_file(rule_file_path: &Path) -> io::Result<Vec<RuleGroup>> {
     let mut rules = Vec::new();
     let mut r = RuleGroup::new();
     for line in util::file_read(rule_file_path)?.lines() {
@@ -124,6 +121,6 @@ pub fn parse_rasca_file(rule_file_path: &Path) -> io::Result<Vec<RuleGroup>> {
 }
 
 
-pub fn parse_wasca_file(path: &Path) -> io::Result<Vec<String>> {
+pub fn parse_wsca_file(path: &Path) -> io::Result<Vec<String>> {
     Ok(util::file_read(path)?.lines().map(|s| s.to_owned()).collect::<Vec<String>>())
 }

@@ -1,26 +1,31 @@
 use std::{ffi::OsStr, fmt::Debug, fs, io::{self, Write}, path::{Path, PathBuf}};
 
+use colored::Colorize;
 use asca::RuleGroup;
 
 #[cfg(windows)]
-pub const LINE_ENDING : &str = "\r\n";
+pub const LINE_ENDING: &str = "\r\n";
 #[cfg(not(windows))]
-pub const LINE_ENDING : &str = "\n";
+pub const LINE_ENDING: &str = "\n";
+
+pub const RULE_FILE_ENDING: &str = "rsca";
+pub const WORD_FILE_ENDING: &str = "wsca";
+pub const CONF_FILE_ENDING: &str = "asca";
 
 pub(super) fn ask(question: &str, auto: Option<bool>) -> io::Result<bool> {
     if let Some(ans) = auto {
         return Ok(ans)
     }
-    print!(" :: {} [y/N]: ",question);
-    io::stdout().flush()?;
     loop {
+        print!(":: {} [y/N]: ", question);
+        io::stdout().flush()?;
         let mut buf = String::new();
         let _ = std::io::stdin().read_line(&mut buf);
         match buf.chars().next() {
             Some('y' | 'Y') => return Ok(true),
             Some('\n') | Some('\r') |
             Some('n' | 'N') => return Ok(false),
-            _ => println!("yes/no only."),
+            _ => println!("{}", "   yes/no only".yellow()),
         }
     }
 }
@@ -109,7 +114,7 @@ pub(super) fn file_write<P: AsRef<Path> + Debug + ?Sized>(path: &P, content: Str
         println!("Error occurred writing to file {path:?}");
         return Err(map_io_error(e))
     }
-    println!("Wrote to file {:?}", path);
+    println!(":: Wrote to file {:?}", path);
     Ok(())
 }
 
@@ -118,7 +123,7 @@ pub(super) fn file_create_write<P: AsRef<Path> + Debug + ?Sized>(path: &P, conte
         println!("Error occurred writing to file {path:?}");
         return Err(map_io_error(e))
     }
-    println!("Created file `{path:?}` in current directory");
+    println!(":: Created file `{path:?}` in current directory");
     Ok(())
 }
 
@@ -137,7 +142,7 @@ pub(super) fn dir_create_all<P: AsRef<Path> + Debug + ?Sized>(path: &P) -> io::R
         println!("Error occurred when creating {path:?}");
         return Err(map_io_error(e))
     } 
-    println!("Created dir {path:?}");
+    println!(":: Created dir {path:?}");
     Ok(())
 }
 
@@ -189,7 +194,7 @@ pub(super) fn write_to_file(path: &Path, content: String, extension: &str, auto:
     }
 }
 
-pub(super) fn to_rasca_format(rules: Vec<RuleGroup>) -> io::Result<String> {
+pub(super) fn to_rsca_format(rules: Vec<RuleGroup>) -> io::Result<String> {
     let mut result = String::new();
     for rg in rules {
         let name_str = format!("@ {}\n", rg.name);

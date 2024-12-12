@@ -4,8 +4,8 @@ pub mod parse;
 
 use args::InGroup;
 use asca::{error::ASCAError, RuleGroup};
-use parse::{parse_config, parse_rasca_file, parse_wasca_file, ASCAConfig};
-use util::{ask, to_rasca_format, validate_file_exists, write_to_file, LINE_ENDING};
+use parse::{parse_config, parse_rsca_file, parse_wsca_file, ASCAConfig};
+use util::{ask, to_rsca_format, validate_file_exists, write_to_file, CONF_FILE_ENDING, LINE_ENDING, RULE_FILE_ENDING, WORD_FILE_ENDING};
 
 use colored::Colorize;
 use std::{io, path::{Path, PathBuf}};
@@ -26,14 +26,14 @@ fn get_input(i_group: InGroup, input: Option<PathBuf>) -> io::Result<(Vec<String
         let json: AscaJson = serde_json::from_reader(file)?;
 
         if input.is_some() {
-            let words = parse_wasca_file(&validate_file_exists(input, &["wasca", "txt"], "word")?)?;
+            let words = parse_wsca_file(&validate_file_exists(input, &[WORD_FILE_ENDING, "txt"], "word")?)?;
             Ok((words, json.rules))
         } else {
             Ok((json.words, json.rules))
         }
     } else {
-        let words = parse_wasca_file(&validate_file_exists(input, &["wasca", "txt"], "word")?)?;
-        let rules = parse_rasca_file(&validate_file_exists(rules, &["rasca", "txt"], "rule")?)?;
+        let words = parse_wsca_file(&validate_file_exists(input, &[WORD_FILE_ENDING, "txt"], "word")?)?;
+        let rules = parse_rsca_file(&validate_file_exists(rules, &[RULE_FILE_ENDING, "txt"], "rule")?)?;
 
         Ok((words, rules))
     }
@@ -43,15 +43,15 @@ fn get_input(i_group: InGroup, input: Option<PathBuf>) -> io::Result<(Vec<String
 fn deal_with_output(output: Option<PathBuf>, res: &[String]) -> io::Result<()> {
     if let Some(path) = &output {
         let content = res.join(LINE_ENDING);
-        write_to_file(path, content, "wasca", None)?;
+        write_to_file(path, content, WORD_FILE_ENDING, None)?;
     }
     
     Ok(())
 }
 
 pub fn conv_asca(words: Option<PathBuf>, rules: Option<PathBuf>, output: Option<PathBuf>) -> io::Result<()> {
-    let words = parse_wasca_file(&validate_file_exists(words, &["wasca", "txt"], "word")?)?;
-    let rules = parse_rasca_file(&validate_file_exists(rules, &["rasca", "txt"], "rule")?)?;
+    let words = parse_wsca_file(&validate_file_exists(words, &[WORD_FILE_ENDING, "txt"], "word")?)?;
+    let rules = parse_rsca_file(&validate_file_exists(rules, &[RULE_FILE_ENDING, "txt"], "rule")?)?;
 
     let json = serde_json::to_string_pretty(&(AscaJson { words, rules }))?;
 
@@ -78,33 +78,33 @@ pub fn conv_json(path: Option<PathBuf>, words: Option<PathBuf>, rules: Option<Pa
     let file = util::file_open(&json_path)?;
     let json: AscaJson = serde_json::from_reader(file)?;
 
-    let words_wasca = json.words.join("\n");
+    let words_wsca = json.words.join("\n");
 
     if let Some(w_path) = words {
-        util::write_to_file(&w_path, words_wasca, "wasca", None)?;
+        util::write_to_file(&w_path, words_wsca, WORD_FILE_ENDING, None)?;
     } else {
-        let path = PathBuf::from("out.wasca");
+        let path = PathBuf::from("out.wsca");
         if path.exists() {
             if ask(&(format!("File {path:?} already exists in current directory, do you wish to overwrite it?")), None)? {
-                util::file_write(&path, words_wasca)?;
+                util::file_write(&path, words_wsca)?;
             }
         } else {
-            util::file_create_write(&path, words_wasca)?;
+            util::file_create_write(&path, words_wsca)?;
         }
     }
 
-    let rules_rasca = to_rasca_format(json.rules)?;
+    let rules_rsca = to_rsca_format(json.rules)?;
 
     if let Some(r_path) = rules {
-        util::write_to_file(&r_path, rules_rasca, "rasca", None)?;
+        util::write_to_file(&r_path, rules_rsca, RULE_FILE_ENDING, None)?;
     } else {
-        let path = PathBuf::from("out.rasca");
+        let path = PathBuf::from("out.rsca");
         if path.exists() {
             if ask(&(format!("File {path:?} already exists in current directory, do you wish to overwrite it?")), None)? {
-                util::file_write(&path, rules_rasca)?;
+                util::file_write(&path, rules_rsca)?;
             }
         } else {
-            util::file_create_write(&path, rules_rasca)?;
+            util::file_create_write(&path, rules_rsca)?;
         }
     }
 
@@ -115,7 +115,7 @@ fn print_result(result: &[String], words: &[String], maybe_compare: Option<PathB
     if let Some(compare_path) = maybe_compare {
         let comp = compare_path.clone();
         let path_str = comp.to_str().unwrap();
-        let compare = parse_wasca_file(&validate_file_exists(Some(compare_path), &["wasca", "txt"], "word")?)?;
+        let compare = parse_wsca_file(&validate_file_exists(Some(compare_path), &[WORD_FILE_ENDING, "txt"], "word")?)?;
         println!("{} {} {}\n", path_str.bright_blue().bold(), "=>".bright_red().bold(), "OUTPUT".bright_green().bold());
         for (comp, res) in compare.iter().zip(result) {
             if comp.is_empty() && res.is_empty() {
@@ -153,7 +153,7 @@ fn print_result(result: &[String], words: &[String], maybe_compare: Option<PathB
 
 fn print_seq_result(trace: &[Vec<String>], tag: &str) {
     debug_assert!(!trace.is_empty());
-    println!("OUTPUT - {}", tag);
+    println!("\nOUTPUT - {}", tag);
     let arr = "=>".bright_red().bold();
 
     let num_seqs = trace.len();
@@ -192,7 +192,7 @@ fn validate_directory(maybe_path: Option<PathBuf>) -> io::Result<PathBuf> {
 }
 
 fn get_seq(dir: &Path) -> io::Result<Vec<ASCAConfig>> {
-    let maybe_conf = util::get_dir_files(dir.to_str().unwrap(), &["asca"])?;
+    let maybe_conf = util::get_dir_files(dir.to_str().unwrap(), &[CONF_FILE_ENDING])?;
 
     if maybe_conf.is_empty() {
         return Err(io::Error::other(format!("Error: No config file found in directory {dir:?}")))
@@ -206,7 +206,7 @@ fn get_seq(dir: &Path) -> io::Result<Vec<ASCAConfig>> {
 
 fn output_seq(dir: &Path, tag: &str, trace: &[Vec<String>], seq_names: &[PathBuf], overwrite: bool, last_only: bool) -> io::Result<()> {
     // Create <out/tag> subfolder within <dir> if doesn't exist
-    // Create files for each seq, <seq_name>.wasca, and write to each
+    // Create files for each seq, <seq_name>.wsca, and write to each
     let mut path = dir.to_path_buf();
     path.push("out");
     path.push(tag);
@@ -221,8 +221,8 @@ fn output_seq(dir: &Path, tag: &str, trace: &[Vec<String>], seq_names: &[PathBuf
             let mut p = path.clone();
             let name = format!("{}-{}", seq+1, name.file_name().unwrap().to_os_string().into_string().unwrap());
             p.push(name);
-            p.set_extension("wasca");
-            write_to_file(&p, content, "wasca", overwrite.then_some(true))?;
+            p.set_extension(WORD_FILE_ENDING);
+            write_to_file(&p, content, WORD_FILE_ENDING, overwrite.then_some(true))?;
         }
     } else {
         let name = seq_names.last().unwrap();
@@ -230,15 +230,15 @@ fn output_seq(dir: &Path, tag: &str, trace: &[Vec<String>], seq_names: &[PathBuf
         let mut p = path.clone();
         let name = name.file_name().unwrap();
         p.push(name);
-        p.set_extension("wasca");
-        write_to_file(&p, content, "wasca", overwrite.then_some(true))?;
+        p.set_extension(WORD_FILE_ENDING);
+        write_to_file(&p, content, WORD_FILE_ENDING, overwrite.then_some(true))?;
     }
 
     Ok(())
 }
 
 pub fn sequence(dir_path: Option<PathBuf>, words: Option<PathBuf>, output: bool, overwrite: bool, last_only: bool, all: bool) -> io::Result<()> {
-    let words = parse_wasca_file(&validate_file_exists(words, &["wasca", "txt"], "word")?)?;
+    let words = parse_wsca_file(&validate_file_exists(words, &[WORD_FILE_ENDING, "txt"], "word")?)?;
 
     let dir = validate_directory(dir_path)?;
     let rule_confs= get_seq(&dir)?;
