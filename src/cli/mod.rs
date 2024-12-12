@@ -204,7 +204,7 @@ fn get_seq(dir: &Path) -> io::Result<Vec<ASCAConfig>> {
 
 }
 
-fn output_seq(dir: &Path, tag: &str, trace: &[Vec<String>], seq_names: &[PathBuf], overwrite: bool, last_only: bool) -> io::Result<()> {
+fn output_seq(dir: &Path, tag: &str, trace: &[Vec<String>], seq_names: &[PathBuf], overwrite: Option<bool>, last_only: bool) -> io::Result<()> {
     // Create <out/tag> subfolder within <dir> if doesn't exist
     // Create files for each seq, <seq_name>.wsca, and write to each
     let mut path = dir.to_path_buf();
@@ -222,7 +222,7 @@ fn output_seq(dir: &Path, tag: &str, trace: &[Vec<String>], seq_names: &[PathBuf
             let name = format!("{}-{}", seq+1, name.file_name().unwrap().to_os_string().into_string().unwrap());
             p.push(name);
             p.set_extension(WORD_FILE_ENDING);
-            write_to_file(&p, content, WORD_FILE_ENDING, overwrite.then_some(true))?;
+            write_to_file(&p, content, WORD_FILE_ENDING, overwrite)?;
         }
     } else {
         let name = seq_names.last().unwrap();
@@ -231,13 +231,13 @@ fn output_seq(dir: &Path, tag: &str, trace: &[Vec<String>], seq_names: &[PathBuf
         let name = name.file_name().unwrap();
         p.push(name);
         p.set_extension(WORD_FILE_ENDING);
-        write_to_file(&p, content, WORD_FILE_ENDING, overwrite.then_some(true))?;
+        write_to_file(&p, content, WORD_FILE_ENDING, overwrite)?;
     }
 
     Ok(())
 }
 
-pub fn sequence(dir_path: Option<PathBuf>, words: Option<PathBuf>, output: bool, overwrite: bool, last_only: bool, all: bool) -> io::Result<()> {
+pub fn sequence(dir_path: Option<PathBuf>, words: Option<PathBuf>, output: bool, overwrite: Option<bool>, last_only: bool, all: bool) -> io::Result<()> {
     let words = parse_wsca_file(&validate_file_exists(words, &[WORD_FILE_ENDING, "txt"], "word")?)?;
 
     let dir = validate_directory(dir_path)?;

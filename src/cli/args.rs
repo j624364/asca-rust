@@ -71,10 +71,14 @@ pub enum Command {
         output: bool,
 
         /// Accept cases where an output file will be overwritten
-        #[arg(short='y', long, action, verbatim_doc_comment)]
+        #[arg(short='y', long, action, conflicts_with="no_overwrite", verbatim_doc_comment)]
         overwrite: bool,
 
-        /// Only last iteration will be saved, i.e. no steps
+        /// Reject cases where an output file will be overwritten
+        #[arg(short='n', long, action, conflicts_with="overwrite", verbatim_doc_comment)]
+        no_overwrite: bool,
+
+        /// Only the final iteration will be saved, i.e. no steps
         #[arg(short='l', long, action, verbatim_doc_comment)]
         last_only: bool,
     },
