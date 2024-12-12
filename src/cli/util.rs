@@ -167,7 +167,8 @@ pub(super) fn write_to_file(path: &Path, content: String, extension: &str, auto:
         }
     } else if path.is_dir() {
         // if path is dir, write to file of <dir>/out.ext
-        let p = PathBuf::from(format!("out.{:?}", extension));
+        let mut p = PathBuf::from("out");
+        p.set_extension(extension);
         if p.exists() {
             if ask(&(format!("File {p:?} already exists, do you wish to overwrite it?")), auto)? {
                 return file_write(&p, content)
