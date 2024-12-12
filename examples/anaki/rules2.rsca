@@ -1,0 +1,50 @@
+@
+    $ > * / V:[-long]=1_1
+#
+@
+    {ɐ, ə} > e / _,i
+#
+@
+    {ɐ,ə} > [-lo, +tens, -red, αhi, -βbk, -γfr, -δrnd] / _,V:[-lo, αhi, βbk, γfr, δrnd]
+#
+@
+    V:[-low, +front] > [αhigh] / _,V:[-low, +back, αhigh]
+#
+@
+    V:[-lo, -str, -long, -red] > [+hi] | C:[-fr, +bk, -hi, -lo]_
+#
+@
+    $ > * / V:[-long]=1_1
+#
+@
+    {ɐ, ə}, i, u > ɑ, e, o / [+cons, -high, +back]_
+#
+@
+    ə > * / _#
+    $C > & / _#
+#
+@
+    ɴ, ɴʷ > ŋ, ŋʷ / _
+#
+@
+    V:[+hi, +tens] > [-syll, -tens] / V_V
+    $ > * / V$G_V
+#
+@
+    ɐ:[+stress, Along], ə > [-tens], ɐ
+#
+@
+    V=1 C:[+long]=2 > 1:[+long]2:[-long]
+#
+@
+    V > [+long] / _C=1s1
+    C=1 > * / _s1
+#
+@
+    $ > * / C=1 V:[-str]=2 _ 1 2
+    C=1 > * / 1V:[-str]=2_2
+#
+@
+    C:[+hi, +bk] > [+rnd] / _w
+    w > * / C:[+hi, +bk, +rnd]_
+# 

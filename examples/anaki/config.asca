@@ -1,0 +1,21 @@
+# This is a comment
+# No support (yet) for after-line comments
+
+# [ ] is the sequence tag
+# This tag is called with -t to run the tagged sequence
+# on output, the results will be stored in directory "out/tag/"
+
+# After a tag, a path to a word.wsca file can be specified
+# the path is relative to the directory containing this config, an extension is not necessary
+# Words are optional, but they then must be passed by the user when running
+
+# The tag is then followed by a list of paths to rsca files.
+# Again, the path is relative to config file and the extension does not need to be specified
+# Whitespace is not required, but has been indented for clarity
+
+[alpha] words
+    rules1
+    rules2
+[beta]
+    rules2
+    rules1

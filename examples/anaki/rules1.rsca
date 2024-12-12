@@ -1,0 +1,39 @@
+@ 
+    a > ɐ
+    ɐ:[-str] > ə | ɐ{h, ʔ}_
+# 
+@ 
+    h, ʔ > *
+# 
+@ 
+    ə$ > * / s_[+cons, -son, -cont, -voice]
+# 
+@ 
+    [+son, -syll]=1 > 1:[+syll] / Cə_əC , Cə_ə#, #ə_əC
+    ə > * / _,[+cons, +syll]
+# 
+@ 
+    ə > * / s_[+cons, +son]
+    s$ > & / _[+cons, +son]
+# 
+@ 
+    ə > * / [+cons, -syll]_[+son, +cont]V
+    [+cons, -syll]$ > & / _[+son, +cont]
+    ə > * / VC:[+son, +cont]_C
+    $C:[+son, +cont] > & / _$
+# 
+@ 
+    ə > * / VC_s
+    $ > * / V_Cs
+# 
+@ 
+    ə > * / VC:[+nas]_C:[-nas]
+    $C:[+nas] > & / V_$C:[-nas]
+# 
+@ 
+    ə$ > * / P:[-nas, αPLACE]_N:[-αPLACE]
+# 
+@ 
+    V:[-str] > [+long] / _,ə
+    ə > * / _,V:[-str]
+# 
