@@ -57,6 +57,10 @@ pub enum Command {
         /// Directory containing the rule files
         path: Option<PathBuf>,
 
+        /// Run all defined sequences in the config file
+        #[arg(short='a', long, action, verbatim_doc_comment)]
+        all: bool,
+
         /// Path to the wasca file containing the words to be changed
         /// - If not provided, asca will look for a valid file in the current directory
         #[arg(short, long, verbatim_doc_comment)]

@@ -1,4 +1,4 @@
-use std::{ffi::OsStr, fs, io::{self, Write}, path::PathBuf, process::exit};
+use std::{ffi::OsStr, fmt::Debug, fs, io::{self, Write}, path::{Path, PathBuf}};
 
 use asca::RuleGroup;
 
@@ -7,7 +7,7 @@ pub const LINE_ENDING : &str = "\r\n";
 #[cfg(not(windows))]
 pub const LINE_ENDING : &str = "\n";
 
-pub fn ask(question: &str, auto: Option<bool>) -> io::Result<bool> {
+pub(super) fn ask(question: &str, auto: Option<bool>) -> io::Result<bool> {
     if let Some(ans) = auto {
         return Ok(ans)
     }
@@ -25,8 +25,8 @@ pub fn ask(question: &str, auto: Option<bool>) -> io::Result<bool> {
     }
 }
 
-pub fn get_dir_files(path: &str, valid_extensions: &[&str]) -> io::Result<Vec<PathBuf>> {
-    Ok(fs::read_dir(path)?
+pub(super) fn get_dir_files(path: &str, valid_extensions: &[&str]) -> io::Result<Vec<PathBuf>> {
+    Ok(dir_read(path)?
         // Filter out entries which we couldn't read
         .filter_map(|res| res.ok())
         // Turn entries to paths
@@ -61,81 +61,134 @@ fn create_ext_list(valid_extensions: &[&str]) -> String {
     } else {
         let mut exts_str = String::new();
         for (i, e) in valid_extensions.iter().enumerate() {
-            exts_str.push_str(&format!(".{}", e));
-            if i < valid_extensions.len() - 2 {
-                exts_str.push_str(", ");
-            } else if i == valid_extensions.len() - 2 {
-                exts_str.push_str(", or ");
+            match i.cmp(&(valid_extensions.len()-2)) {
+                std::cmp::Ordering::Greater => exts_str.push_str(&format!(".{}", e)),
+                std::cmp::Ordering::Less    => exts_str.push_str(&format!(".{}, ", e)),
+                std::cmp::Ordering::Equal   => exts_str.push_str(&format!(".{}, or ", e)),
             }
         }
         exts_str
     }
 }
 
-// TODO: better errors
-pub fn validate_file_exists(maybe_path: Option<PathBuf>, valid_extensions: &[&str], kind: &str) -> io::Result<PathBuf> {
+pub(super) fn validate_file_exists(maybe_path: Option<PathBuf>, valid_extensions: &[&str], kind: &str) -> io::Result<PathBuf> {
     match maybe_path {
         // Probably don't have to check if path exists as checking if it has an extension should be enough
         Some(path) => match path.extension() {
-            Some(ext) => match match_exts(ext, valid_extensions) {
-                true => return Ok(path),
-                false => {
-                    let exts_str = create_ext_list(valid_extensions);
-                    println!("File {:?} is not of the right type. Must be {}", path, exts_str)
-                },
+            Some(ext) => if match_exts(ext, valid_extensions) {
+                Ok(path)
+            } else {
+                let exts_str = create_ext_list(valid_extensions);
+                Err(io::Error::other(format!("File {:?} is not of the right type. Must be {}", path, exts_str)))
             },
-            None => println!("Given path is not a file"),
+            None => Err(io::Error::other(format!("Given path {path:?} is not a file"))),
         },
         None => {
             let files = get_dir_files(".", valid_extensions)?;
             match files.len().cmp(&1) {
-                std::cmp::Ordering::Greater => println!("More than one matching {} file found in current directory. Please specify.", kind),
-                std::cmp::Ordering::Less    => println!("No matching {} files found in current directory", kind),
-                std::cmp::Ordering::Equal   => return Ok(files[0].clone()),
+                std::cmp::Ordering::Greater => Err(io::Error::other(format!("More than one matching {} file found in current directory. Please specify.", kind))),
+                std::cmp::Ordering::Less    => Err(io::Error::other(format!("No matching {} files found in current directory", kind))),
+                std::cmp::Ordering::Equal   => Ok(files[0].clone()),
             }
         }
     }
-    exit(1);
 }
 
-pub fn write_to_file(path: &PathBuf, content: String, extension: &str, auto: Option<bool>) -> io::Result<()> {
+pub(super) fn file_open<P: AsRef<Path> + Debug + ?Sized>(path: &P) -> io::Result<fs::File> {
+    match fs::File::open(path) {
+        Ok(file) => Ok(file),
+        Err(e) => {
+            println!("Error occured when reading file {path:?}");
+            Err(map_io_error(e))
+        }
+    }
+}
+
+pub(super) fn file_write<P: AsRef<Path> + Debug + ?Sized>(path: &P, content: String) -> io::Result<()> {
+    if let Err (e) = fs::write(path, content) {
+        println!("Error occurred writing to file {path:?}");
+        return Err(map_io_error(e))
+    }
+    println!("Wrote to file {:?}", path);
+    Ok(())
+}
+
+pub(super) fn file_create_write<P: AsRef<Path> + Debug + ?Sized>(path: &P, content: String) -> io::Result<()> {
+    if let Err (e) = fs::write(path, content) {
+        println!("Error occurred writing to file {path:?}");
+        return Err(map_io_error(e))
+    }
+    println!("Created file `{path:?}` in current directory");
+    Ok(())
+}
+
+pub(super) fn file_read<P: AsRef<Path> + Debug + ?Sized>(path: &P) -> io::Result<String> {
+    match fs::read_to_string(path) {
+        Ok(dir) => Ok(dir),
+        Err(e) => {            
+            println!("Error occurred when reading file {path:?}");
+            Err(map_io_error(e))
+        },
+    }
+}
+
+pub(super) fn dir_create_all<P: AsRef<Path> + Debug + ?Sized>(path: &P) -> io::Result<()> {
+    if let Err(e) = fs::create_dir_all(path) {            
+        println!("Error occurred when creating {path:?}");
+        return Err(map_io_error(e))
+    } 
+    println!("Created dir {path:?}");
+    Ok(())
+}
+
+pub(super) fn dir_read<P: AsRef<Path> + Debug + ?Sized>(path: &P) -> io::Result<fs::ReadDir> {
+    match fs::read_dir(path) {
+        Ok(dir) => Ok(dir),
+        Err(e) => {            
+            println!("Error occurred when reading file {path:?}");
+            Err(map_io_error(e))
+        },
+    }
+}
+
+pub(super) fn write_to_file(path: &Path, content: String, extension: &str, auto: Option<bool>) -> io::Result<()> {
+    // if path is an extant file, ask for overwrite
+    // if path is a dir, create file in dir, if extant ask for overwrite
+    // if path does not exist and has a valid extension, create and write
+    // else error
     if path.is_file() {
-        // if path is an extant file, overwrite on accept
         if path.extension().map_or(false, |ext| ext == extension) {
             if ask(&(format!("File {path:?} already exists, do you wish to overwrite it?")), auto)? {
-                fs::write(path, content)?;
-                println!("Written to file {:?}", path);
+                return file_write(path, content)
             }
+            Ok(())
         } else {
-            println!("Provided file '{:?}' has the wrong extension. Must be .{:?}", path, extension);
-            exit(1);
+            Err(io::Error::other(format!("Provided file '{:?}' has the wrong extension. Must be .{:?}", path, extension)))
         }
     } else if path.is_dir() {
         // if path is dir, write to file of <dir>/out.ext
         let p = PathBuf::from(format!("out.{:?}", extension));
         if p.exists() {
             if ask(&(format!("File {p:?} already exists, do you wish to overwrite it?")), auto)? {
-                fs::write(&p, content)?;
-                println!("Written to file {:?}", p);
+                return file_write(&p, content)
             }
+            Ok(())
         } else {
-            fs::write(&p, content)?;
-            println!("Written to file {:?}", p);
+            file_write(&p, content)
         }
-    } else if path.extension().map_or(false, |ext| ext == extension) {
-        // create file <out_path> and write to it
-        fs::write(path, content)?;
-        println!("Written to file {:?}", path);
     } else {
-        println!("Provided file '{:?}' has the wrong extension. Must be .{:?}", path, extension);
-        exit(1);
+        match path.extension() {
+            Some(ext) => if ext == extension {
+                file_write(path, content)
+            } else {
+                Err(io::Error::other(format!("Provided file '{:?}' has the wrong extension. Must be .{:?}", path, extension)))
+            },
+            None => Err(io::Error::other(format!("Provided dir '{:?}' does not exist", path))),
+        } 
     }
-
-    Ok(())
-    
 }
 
-pub fn to_rasca_format(rules: Vec<RuleGroup>) -> io::Result<String> {
+pub(super) fn to_rasca_format(rules: Vec<RuleGroup>) -> io::Result<String> {
     let mut result = String::new();
     for rg in rules {
         let name_str = format!("@ {}\n", rg.name);
@@ -155,4 +208,12 @@ pub fn to_rasca_format(rules: Vec<RuleGroup>) -> io::Result<String> {
         result.push_str(&desc_str);
     }
     Ok(result)
+}
+
+pub(super) fn map_io_error(error: io::Error) -> io::Error {
+    match error.kind() {
+        io::ErrorKind::NotFound => io::Error::other("File or directory was not found"),
+        io::ErrorKind::PermissionDenied => io::Error::other("Do not have the right permissions to complete this operation"),
+        _ => error,
+    }
 }

@@ -1,6 +1,8 @@
-use std::{fs, io, path::{Path, PathBuf}, process::exit};
+use std::{io, path::{Path, PathBuf}};
 
 use asca::RuleGroup;
+
+use crate::cli::util;
 
 pub struct ASCAConfig {
     pub tag: String,
@@ -30,7 +32,7 @@ pub fn parse_config(path: &Path) -> io::Result<Vec<ASCAConfig>> {
     let mut result: Vec<ASCAConfig> = vec![];
     let mut ac = ASCAConfig::new();
 
-    for line in fs::read_to_string(path)?.lines() {
+    for line in util::file_read(path)?.lines() {
         let line = line.trim();
         if line.is_empty() || line.starts_with('#')  {
             continue;
@@ -59,10 +61,9 @@ pub fn parse_config(path: &Path) -> io::Result<Vec<ASCAConfig>> {
 
         if file_path.is_file() {
             let entry_rules = parse_rasca_file(&file_path)?;
-            ac.entries.push(Entry { name: file_path, rules: entry_rules });
+            ac.entries.push(Entry::from(file_path, entry_rules));
         } else {
-            println!("Error: Cannot find {file_path:?}");
-            exit(1);
+            return Err(io::Error::other(format!("Error: Cannot find {file_path:?}")))
         }
     }
     if ac.tag.is_empty() {
@@ -77,7 +78,7 @@ pub fn parse_config(path: &Path) -> io::Result<Vec<ASCAConfig>> {
 pub fn parse_rasca_file(rule_file_path: &Path) -> io::Result<Vec<RuleGroup>> {
     let mut rules = Vec::new();
     let mut r = RuleGroup::new();
-    for line in fs::read_to_string(rule_file_path)?.lines() {
+    for line in util::file_read(rule_file_path)?.lines() {
         let line = line.trim();
         if line.starts_with('@') {
             if !r.is_empty() {
@@ -123,6 +124,6 @@ pub fn parse_rasca_file(rule_file_path: &Path) -> io::Result<Vec<RuleGroup>> {
 }
 
 
-pub fn parse_wasca_file(word_file_path: PathBuf) -> io::Result<Vec<String>> {
-    Ok(fs::read_to_string(word_file_path)?.lines().map(|s| s.to_owned()).collect::<Vec<String>>())
+pub fn parse_wasca_file(path: &Path) -> io::Result<Vec<String>> {
+    Ok(util::file_read(path)?.lines().map(|s| s.to_owned()).collect::<Vec<String>>())
 }
