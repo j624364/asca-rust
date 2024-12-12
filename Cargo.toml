@@ -1,9 +1,16 @@
 [package]
 name = "asca"
-author = "James S. Girven"
-version = "0.1.0"
+authors = ["James S. Girven"]
+version = "0.2.0"
 edition = "2021"
 license = "GPL-3.0-only"
+categories = ["command-line-utilities"]
+include = ["src", "doc*.md"]
+repository = "https://github.com/Girv98/asca-rust"
+description = "A linguistic sound change applier"
+
+[profile.release]
+strip = true
 
 [lib]
 name = "asca"
