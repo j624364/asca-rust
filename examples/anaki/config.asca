@@ -13,19 +13,23 @@
 # Again, the path is relative to config file and the extension does not need to be specified
 # Indentation is not required, but here the rules have been for clarity
 
+# A filter can be placed after a rule file to select rule groups within them.
+# Filters are case insensitive, but they must elsewise be identical in name.
+# '!' means to exclude the following rules from the sequence.
+# '~' means to select only the following rules from the sequence (NOTE: Will be applied in the order they appear in the filter, not as in the rule file).
+# Multiple filters can be specified, separated by a comma. 
+
+
 [alpha] proto-anaki-words
     rules1
     rules2
-
-
-# A filter can be placed after a rule file to select rule groups within them
-# Filters are case insensitive, but they must elsewise be identical in name
-# Multiple filters can be specified, separated by a comma. 
 
 [beta] proto-anaki-words
     rules1 ! Glottal Deletion
     rules2 ~ Cluster Simplification, Hap(lo)logy
 
-# The above means:
-# Apply rules1.wsca WITHOUT "Glottal Deletion"
-# Apply ONLY "Cluster Simplification" and "Hap(lo)logy", in that order, from rules2.wsca 
+
+# The above sequence tagged "beta" means:
+# - Using the words at ./proto-anaki-words.wsca,
+# - Apply ./rules1.wsca WITHOUT "Glottal Deletion",
+# - Apply ONLY "Cluster Simplification" and "Hap(lo)logy", in that order, from ./rules2.wsca.
