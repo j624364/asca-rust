@@ -102,7 +102,7 @@ lazy_static! {
 }
 
 
-#[derive(Debug, serde::Deserialize, serde::Serialize)]
+#[derive(Debug, Clone, serde::Deserialize, serde::Serialize)]
 pub struct RuleGroup {
     pub name: String,
     pub rule: Vec<String>,

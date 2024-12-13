@@ -1,39 +1,39 @@
-@ 
+@ Low Vowel Reduction
     a > ɐ
     ɐ:[-str] > ə | ɐ{h, ʔ}_
 # 
-@ 
+@ Glottal Deletion
     h, ʔ > *
 # 
-@ 
+@ Clustering I
     ə$ > * / s_[+cons, -son, -cont, -voice]
 # 
-@ 
+@ Sonorant Syllabication
     [+son, -syll]=1 > 1:[+syll] / Cə_əC , Cə_ə#, #ə_əC
     ə > * / _,[+cons, +syll]
 # 
-@ 
+@ Clustering II
     ə > * / s_[+cons, +son]
     s$ > & / _[+cons, +son]
 # 
-@ 
+@ Clustering IV
     ə > * / [+cons, -syll]_[+son, +cont]V
     [+cons, -syll]$ > & / _[+son, +cont]
     ə > * / VC:[+son, +cont]_C
     $C:[+son, +cont] > & / _$
 # 
-@ 
+@ Clustering VIII
     ə > * / VC_s
     $ > * / V_Cs
 # 
-@ 
+@ Clustering III
     ə > * / VC:[+nas]_C:[-nas]
     $C:[+nas] > & / V_$C:[-nas]
 # 
-@ 
+@ Clustering V
     ə$ > * / P:[-nas, αPLACE]_N:[-αPLACE]
 # 
-@ 
+@ Schwa Hiatus Lengthening
     V:[-str] > [+long] / _,ə
     ə > * / _,V:[-str]
 # 

@@ -3,19 +3,29 @@
 
 # [ ] is the sequence tag
 # This tag is called with -t to run the tagged sequence
-# on output, the results will be stored in directory "out/tag/"
+# On output, the results will be stored in directory "out/tag/"
 
 # After a tag, a path to a word.wsca file can be specified
-# the path is relative to the directory containing this config, an extension is not necessary
-# Words are optional, but they then must be passed by the user when running
+# The path is relative to the directory containing this config, an extension is not necessary
+# Words are optional, but they then must be passed by the user at runtime with the -w option
 
 # The tag is then followed by a list of paths to rsca files.
 # Again, the path is relative to config file and the extension does not need to be specified
-# Whitespace is not required, but has been indented for clarity
+# Indentation is not required, but here the rules have been for clarity
 
-[alpha] words
+[alpha] proto-anaki-words
     rules1
     rules2
-[beta]
-    rules2
-    rules1
+
+
+# A filter can be placed after a rule file to select rule groups within them
+# Filters are case insensitive, but they must elsewise be identical in name
+# Multiple filters can be specified, separated by a comma. 
+
+[beta] proto-anaki-words
+    rules1 ! Glottal Deletion
+    rules2 ~ Cluster Simplification, Hap(lo)logy
+
+# The above means:
+# Apply rules1.wsca WITHOUT "Glottal Deletion"
+# Apply ONLY "Cluster Simplification" and "Hap(lo)logy", in that order, from rules2.wsca 

@@ -218,7 +218,7 @@ fn output_seq(dir: &Path, tag: &str, trace: &[Vec<String>], seq_names: &[PathBuf
         for (seq, name) in seq_names.iter().enumerate() {
             let content = trace[seq+1].join("\n");
             let mut p = path.clone();
-            let name = format!("{}-{}", seq+1, name.file_name().unwrap().to_os_string().into_string().unwrap());
+            let name = format!("{}_{}", seq+1, name.file_name().unwrap().to_os_string().into_string().unwrap());
             p.push(name);
             p.set_extension(WORD_FILE_EXT);
             write_to_file(&p, content, WORD_FILE_EXT, overwrite)?;
