@@ -1,0 +1,90 @@
+@ Low Vowel Reduction
+    a > ɐ
+    ɐ:[-str] > ə | ɐ{h, ʔ}_
+# ɐ is reduced to schwa in unstressed syllables.
+@ Glottal Deletion
+    h, ʔ > *
+# h and the glottal stop are lost ubiquitously.
+@ Clustering I
+    ə$ > * / s_[+cons, -son, -cont, -voice]
+# Schwa deletes between *s and *p, *t, *k, or *q.
+@ Sonorant Syllabication
+    [+son, -syll]=1 > 1:[+syll] / Cə_əC , Cə_ə#, #ə_əC
+    ə > * / _,[+cons, +syll]
+# Liquids, nasals, and glides become syllabic between schwas before a consonant or word finally.
+@ Clustering II
+    ə > * / s_[+cons, +son]
+    s$ > & / _[+cons, +son]
+# Schwa deletes between *s and *m, *n, *ŋ, *ŋʷ, *ɴ, *ɴʷ, *r, or *l.
+@ Clustering IV
+    ə > * / [+cons, -syll]_[+son, +cont]V
+    [+cons, -syll]$ > & / _[+son, +cont]
+    ə > * / VC:[+son, +cont]_C
+    $C:[+son, +cont] > & / _$
+# Schwa deletes between an obstruent and a non-nasal sonorants.
+@ Clustering VIII
+    ə > * / VC_s | P:[+voi]_ 
+    $ > * / V_Cs
+# Schwa deletes between a sonorant or voiceless plosive and *s
+@ Clustering III
+    ə > * / VC:[+nas]_C:[-nas]
+    $C:[+nas] > & / V_$C:[-nas]
+# Schwa deletes between a nasal consonant and a plosive, given a preceding vowel.
+@ Clustering V
+    ə$ > * / P:[-nas, αPLACE]_N:[-αPLACE]
+# Schwa deletes between a plosive and a nasal, provided they are not of the same place of articulation.
+@ Schwa Hiatus Lengthening
+    V:[-str] > [+long] / _,ə
+    ə > * / _,V:[-str]
+# Schwa assimilates into and lengthens a neighbouring vowel in unstressed positions.
+@ Vowel Hiatus Merger
+    $ > * / V:[-long]=1_1
+# Neighbouring identical vowels merge into a long vowel.
+@ Schwa Fronting
+    {ɐ, ə} > e / _,i
+# Schwa and *ɐ front to e when neighbouring *i
+@ Height Assimilation I
+    {ɐ,ə} > [-lo, +tens, -red, αhi, -βbk, -γfr, -δrnd] / _,V:[-lo, αhi, βbk, γfr, δrnd]
+# Schwa and *ɐ assimilate in height to a neighbouring -low vowel, but oppose said vowel in backness and roundedness. I.e. *eɐ > eo, *iɐ > iu
+@ Height Assimilation II
+    V:[-low, +front] > [αhigh] / _,V:[-low, +back, αhigh]
+# *e and *i raise or lower to oppose a neighbouring back vowel. For example, *eu becomes iu
+@ Catalan-ish Vowel Reduction
+    V:[-lo, -str, -long, -red] > [+hi] | C:[-fr, +bk, -hi, -lo]_
+# The vowels *e and *o become i and u respectively in unstressed positions, unless following a uvular consonant.
+@ 2nd Vowel Hiatus Merger
+    $ > * / V:[-long]=1_1
+# Neighbouring identical vowels again merge into a long vowel.
+@ Uvular Lowering
+    {ɐ, ə}, i, u > ɑ, e, o / [+cons, -high, +back]_
+# *i, *u, *ɐ, ə lower to e, o, ɑ after uvular consonants.
+@ Loss of Schwa
+    ə > * / _#
+    $C > & / _#
+# Schwa is lost word finally. Now, the only word final allophones of ɐ are either when stressed or before uvulars.
+@ Dorsal Nasal Merger
+    ɴ, ɴʷ > ŋ, ŋʷ / _
+# *ɴ,*ɴʷ merges with *ŋ, *ŋʷ, partially phonemising ɑ
+@ Intervocalic Gliding
+    V:[+hi, +tens] > [-syll, -tens] / V_V
+    $ > * / V$G_V
+# High vowels *i and *u become j and w respectively between vowels
+@ A-Lowering
+    ɐ:[+stress, Along], ə > [-tens], ɐ
+# Stressed ɐ becomes a and all remaining schwas become ɐ
+@ Geminate Avoidance
+    V=1 C:[+long]=2 > 1:[+long]2:[-long]
+# Neighbouring alike consonants simplify and compensatorily lengthen the following vowel
+@ Cluster Simplification
+    V > [+long] / _C=1s1
+    C=1 > * / _s1
+# I.e. *dársri > dâsri
+@ Hap(lo)logy
+    $ > * / C=1 V:[-str]=2 _ 1 2
+    C=1 > * / 1V:[-str]=2_2
+# A syllable, identical to its previous, is deleted when both are unstressed
+@ Labialisation
+    C:[+hi, +bk] > [+rnd] / _w
+    w > * / C:[+hi, +bk, +rnd]_
+# While labialised velars where already present in the language, this change made them much more common - especially in u-stem nouns.
+# I.e. *bákw > *bákʷ
