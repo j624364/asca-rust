@@ -116,22 +116,24 @@ fn print_result(result: &[String], words: &[String], maybe_compare: Option<PathB
         let comp = compare_path.clone();
         let path_str = comp.to_str().unwrap();
         let compare = parse_wsca_file(&validate_file_exists(Some(&compare_path), &[WORD_FILE_EXT, "txt"], "word")?)?;
-        println!("{} {} {}\n", path_str.bright_blue().bold(), "=>".bright_red().bold(), "OUTPUT".bright_green().bold());
+        println!("{} {} {}\n", path_str.bright_blue().bold(), "|".bright_red().bold(), "OUTPUT".bright_green().bold());
         for (comp, res) in compare.iter().zip(result) {
             if comp.is_empty() && res.is_empty() {
                 println!()
+            } else if res != comp {
+                println!("{} {} {}", comp.bright_blue().bold(), "|".bright_red().bold(), res.bright_green().bold());
             } else {
-                println!("{} {} {}", comp.bright_blue().bold(), "=>".bright_red().bold(), res.bright_green().bold());
+                println!("{} {} {}", comp, "|".bright_red().bold(), res);
             }
         }
         // In edge case where one file is longer then the other
         match result.len().cmp(&compare.len()) {
             std::cmp::Ordering::Equal => {},
             std::cmp::Ordering::Less => for i in compare.iter().skip(result.len()) {
-                println!("{} {} {}", i.bright_blue().bold(), "=>".bright_red().bold(), "*".bright_green().bold());
+                println!("{} {} {}", i.bright_blue().bold(), "|".bright_red().bold(), "*".bright_green().bold());
             },
             std::cmp::Ordering::Greater => for i in result.iter().skip(compare.len()) {
-                println!("{} {} {}", "*".bright_blue().bold(), "=>".bright_red().bold(), i.bright_green().bold());
+                println!("{} {} {}", "*".bright_blue().bold(), "|".bright_red().bold(), i.bright_green().bold());
             },
         }
 
