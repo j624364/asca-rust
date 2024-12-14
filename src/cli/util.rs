@@ -1,7 +1,7 @@
 use std::{ffi::OsStr, fmt::Debug, fs, io::{self, Write}, path::{Path, PathBuf}};
 
 use colored::Colorize;
-use asca::RuleGroup;
+use asca::{error::ASCAError, RuleGroup};
 
 #[cfg(windows)]
 pub const LINE_ENDING: &str = "\r\n";
@@ -11,6 +11,8 @@ pub const LINE_ENDING: &str = "\n";
 pub const RULE_FILE_EXT: &str = "rsca";
 pub const WORD_FILE_EXT: &str = "wsca";
 pub const CONF_FILE_EXT: &str = "asca";
+pub const JSON_FILE_EXT: &str = "json";
+
 
 pub(super) fn ask(question: &str, auto: Option<bool>) -> io::Result<bool> {
     if let Some(ans) = auto {
@@ -76,6 +78,19 @@ fn create_ext_list(valid_extensions: &[&str]) -> String {
     }
 }
 
+pub(super) fn validate_directory(maybe_path: Option<PathBuf>) -> io::Result<PathBuf> {
+    match maybe_path {
+        Some(path) => {
+            if path.is_dir() {
+                Ok(path)
+            } else {
+                Err(io::Error::other(format!("Error: {path:?} is not a directory")))
+            }
+        },
+        None => Ok(PathBuf::from(".")),
+    }
+}
+
 pub(super) fn validate_file_exists(maybe_path: Option<&Path>, valid_extensions: &[&str], kind: &str) -> io::Result<PathBuf> {
     match maybe_path {
         // Probably don't have to check if path exists as checking if it has an extension should be enough
@@ -123,7 +138,7 @@ pub(super) fn file_create_write<P: AsRef<Path> + Debug + ?Sized>(path: &P, conte
         println!("Error occurred writing to file {path:?}");
         return Err(map_io_error(e))
     }
-    println!(":: Created file `{path:?}` in current directory");
+    println!(":: Created file {path:?} in current directory");
     Ok(())
 }
 
@@ -156,6 +171,19 @@ pub(super) fn dir_read<P: AsRef<Path> + Debug + ?Sized>(path: &P) -> io::Result<
     }
 }
 
+pub(super) fn dir_create_file<P: AsRef<Path> + Debug + ?Sized>(path: &P, content: String, auto: Option<bool>) -> io::Result<()> {
+    let path = path.as_ref();
+    if path.exists() {
+        if ask(&(format!("File {path:?} already exists, do you wish to overwrite it?")), auto)? {
+            file_write(&path, content)
+        } else {
+            Ok(())
+        }
+    } else {
+        file_create_write(&path, content)
+    }
+}
+
 pub(super) fn write_to_file(path: &Path, content: String, extension: &str, auto: Option<bool>) -> io::Result<()> {
     // if path is an extant file, ask for overwrite
     // if path is a dir, create file in dir, if extant ask for overwrite
@@ -174,14 +202,7 @@ pub(super) fn write_to_file(path: &Path, content: String, extension: &str, auto:
         // if path is dir, write to file of <dir>/out.<extension>
         let mut p = PathBuf::from("out");
         p.set_extension(extension);
-        if p.exists() {
-            if ask(&(format!("File {p:?} already exists, do you wish to overwrite it?")), auto)? {
-                return file_write(&p, content)
-            }
-            Ok(())
-        } else {
-            file_write(&p, content)
-        }
+        dir_create_file(&p, content, auto)
     } else {
         match path.extension() {
             Some(ext) => if ext == extension {
@@ -221,5 +242,14 @@ pub(super) fn map_io_error(error: io::Error) -> io::Error {
         io::ErrorKind::NotFound => io::Error::other("File or directory was not found"),
         io::ErrorKind::PermissionDenied => io::Error::other("Do not have the right permissions to complete this operation"),
         _ => error,
+    }
+}
+
+pub(super) fn print_asca_errors(err: asca::error::Error, words: &[String], rules: &[RuleGroup]) {
+    match err {
+        asca::error::Error::WordSyn(e) => println!("{}", e.format_word_error(words)),
+        asca::error::Error::WordRun(e) => println!("{}", e.format_word_error(words)),
+        asca::error::Error::RuleSyn(e) => println!("{}", e.format_rule_error(rules)),
+        asca::error::Error::RuleRun(e) => println!("{}", e.format_rule_error(rules)),
     }
 }

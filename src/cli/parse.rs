@@ -1,39 +1,10 @@
-use std::{collections::HashSet, io, path::{Path, PathBuf}, str::Chars};
+use std::{collections::HashSet, io, path::Path, str::Chars};
 
 use asca::RuleGroup;
-use super::util::{self, RULE_FILE_EXT};
+use crate::cli::seq::Entry;
 
-#[derive(Debug, Clone)]
-pub struct ASCAConfig {
-    pub tag: String,
-    pub words: Option<String>,
-    pub entries: Vec<Entry>
-}
+use super::{seq::{ASCAConfig, RuleFilter}, util::{self, RULE_FILE_EXT}};
 
-impl ASCAConfig {
-    fn new() -> Self {
-        Self { tag: String::new(), words: None, entries: Vec::new() }
-    }
-}
-
-#[derive(Debug, Clone)]
-pub struct Entry {
-    pub name: PathBuf,
-    pub rules: Vec<RuleGroup>
-}
-
-impl Entry {
-    pub fn from(name: &Path, rules: &[RuleGroup]) -> Self {
-        Self { name: name.to_path_buf(), rules: rules.to_vec() }
-    }
-}
-
-enum RuleFilter {
-    Only(String),
-    Without(String),
-    OnlyMult(Vec<String>),
-    WithoutMult(Vec<String>),
-}
 
 pub fn parse_config(path: &Path) -> io::Result<Vec<ASCAConfig>> {
     let mut result: Vec<ASCAConfig> = vec![];
@@ -106,7 +77,7 @@ pub fn parse_config(path: &Path) -> io::Result<Vec<ASCAConfig>> {
         file_path.set_extension(RULE_FILE_EXT);
 
         if file_path.is_file() {
-            let entry_rules = parse_rsca_file(&file_path)?;
+            let entry_rules = parse_rsca(&file_path)?;
             match rule_filter {
                 Some(rf) => match rf {
                     RuleFilter::Only(rule_str) => {
@@ -221,17 +192,13 @@ fn get_exclusions(chars: &mut Chars<'_>) -> Option<RuleFilter> {
 }
 
 fn trim_front(chars: &mut Chars<'_>) {
-    let mut x = chars.clone();
     let mut n = 0;
-    loop {
-        match x.next() {
-            Some(ch) => if ch.is_whitespace() {
-                n += 1;
-            } else {
-                break
-            },
-            None => break,
-        } 
+    for ch in chars.clone() {
+        if ch.is_whitespace() {
+            n += 1;
+        } else {
+            break
+        }
     }
     for _ in 0..n {
         chars.next();
@@ -251,7 +218,7 @@ pub(super) fn sanitise_str(str: &str) -> String {
 }
 
 // TODO: We can do better
-pub fn parse_rsca_file(rule_file_path: &Path) -> io::Result<Vec<RuleGroup>> {
+pub fn parse_rsca(rule_file_path: &Path) -> io::Result<Vec<RuleGroup>> {
     let mut rules = Vec::new();
     let mut r = RuleGroup::new();
     for line in util::file_read(rule_file_path)?.lines() {
@@ -300,6 +267,6 @@ pub fn parse_rsca_file(rule_file_path: &Path) -> io::Result<Vec<RuleGroup>> {
 }
 
 
-pub fn parse_wsca_file(path: &Path) -> io::Result<Vec<String>> {
+pub fn parse_wsca(path: &Path) -> io::Result<Vec<String>> {
     Ok(util::file_read(path)?.lines().map(|s| s.to_owned()).collect::<Vec<String>>())
 }
