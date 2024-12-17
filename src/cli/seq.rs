@@ -2,19 +2,20 @@ use std::{io, path::{Path, PathBuf}};
 use colored::Colorize;
 
 use asca::RuleGroup;
-use super::{parse::{parse_config, parse_wsca}, util::{self, CONF_FILE_EXT, WORD_FILE_EXT}};
+use super::{config::{lexer::Lexer, parser::Parser}, parse::parse_wsca, util::{self, CONF_FILE_EXT, WORD_FILE_EXT}};
 
 
 #[derive(Debug, Clone)]
 pub struct ASCAConfig {
     pub tag: String,
-    pub words: Option<String>,
+    pub words: Vec<String>,
     pub entries: Vec<Entry>
 }
 
 impl ASCAConfig {
+    #[allow(dead_code)]
     pub fn new() -> Self {
-        Self { tag: String::new(), words: None, entries: Vec::new() }
+        Self { tag: String::new(), words: vec![], entries: Vec::new() }
     }
 }
 
@@ -50,18 +51,30 @@ fn get_config(dir: &Path) -> io::Result<Vec<ASCAConfig>> {
         return Err(io::Error::other(format!("Error: Multiple config files found in directory {dir:?}")))
     }
 
-    parse_config(maybe_conf[0].as_path())
+    let tokens = Lexer::new(&util::file_read(maybe_conf[0].as_path())?.chars().collect::<Vec<_>>()).tokenise()?;
+
+    Parser::new(tokens, maybe_conf[0].as_path()).parse()
 }
 
 /// Determine which word file to use, validate, and parse it into a vec of word strings
 fn get_words(dir: &Path, words_path: &Option<PathBuf>, conf: &ASCAConfig) -> io::Result<Vec<String>> {
     if let Some(ref w) = words_path {
         parse_wsca(&util::validate_file_exists(Some(w), &[WORD_FILE_EXT, "txt"], "word")?)
-    } else if let Some(w) = &conf.words {
-        let mut p = dir.to_path_buf();
-        p.push(w);
-        p.set_extension(WORD_FILE_EXT);
-        parse_wsca(&util::validate_file_exists(Some(&p), &[WORD_FILE_EXT, "txt"], "word")?)
+    } else if !conf.words.is_empty() {
+        let mut words = vec![];
+        for w in &conf.words {
+            let mut p = dir.to_path_buf();
+            p.push(w);
+            p.set_extension(WORD_FILE_EXT);
+            let mut w_file = parse_wsca(&util::validate_file_exists(Some(&p), &[WORD_FILE_EXT, "txt"], "word")?)?;
+
+            if !words.is_empty() {
+                words.push("".to_string());
+            }
+
+            words.append(&mut w_file);
+        }
+        Ok(words)
     } else {
         return Err(io::Error::other(format!("Error: Input words not defined for config '{}'.\nYou can specify a word file at runtime with the -w option", conf.tag)))
     }

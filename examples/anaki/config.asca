@@ -19,15 +19,11 @@
 # '!' means to exclude the following rules from the sequence.
 # '~' means to select only the following rules from the sequence (NOTE: Will be applied in the order they appear in the filter, not as in the rule file).
 
+@alpha ["proto-anaki-words"]: "rules1", "rules2",
 
-[alpha] proto-anaki-words
-    rules1
-    rules2
-
-[beta] proto-anaki-words
-    rules1 ! Glottal Deletion
-    rules2 ~ Cluster Simplification, Hap(lo)logy
-
+@beta ["proto-anaki-words"]:
+    "rules1" ! {"Glottal Deletion"},
+    "rules2" ~ {"Cluster Simplification", "Hap(lo)logy"}
 
 # The above sequence tagged "beta" means:
 # - Using the words at ./proto-anaki-words.wsca,

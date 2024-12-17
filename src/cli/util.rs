@@ -215,6 +215,18 @@ pub(super) fn write_to_file(path: &Path, content: String, extension: &str, auto:
     }
 }
 
+pub(super) fn sanitise_str(str: &str) -> String {
+    // 26 is arbitrary, but we want to make sure that the file names don't get too long
+    str.chars().take(26)
+    .map(|ch| match ch { 
+        ' ' | '*' | '/' | '\\' | 
+        '?' | ':' | '|' | '\0'  | 
+        '<' | '>' | '%' | '"'
+        => '-', 
+        _ => ch.to_ascii_lowercase()
+    }).collect()
+}
+
 pub(super) fn to_rsca_format(rules: Vec<RuleGroup>) -> io::Result<String> {
     let mut result = String::new();
     for rg in rules {

@@ -1,6 +1,7 @@
 pub mod util;
 pub mod args;
 pub mod parse;
+pub mod config;
 pub mod seq;
 pub mod run;
 pub mod convert;
