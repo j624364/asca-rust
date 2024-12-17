@@ -87,7 +87,7 @@ impl<'a> Parser<'a> {
         let mut filters = Vec::new();
 
         if let Some(f) =  self.eat_expect(TokenKind::String) {
-            filters.push(f.value);
+            filters.push(f.value.to_lowercase());
 
             loop {
                 if self.expect(TokenKind::RightCurly) { break; }
@@ -97,7 +97,7 @@ impl<'a> Parser<'a> {
                 }
 
                 match self.eat_expect(TokenKind::String) {
-                    Some(f) => filters.push(f.value),
+                    Some(f) => filters.push(f.value.to_lowercase()),
                     None => if self.expect(TokenKind::RightCurly) { 
                         break;
                     } else {
@@ -175,7 +175,6 @@ impl<'a> Parser<'a> {
             RuleFilter::WithoutMult(filters) => {
                 let before_len = entry_rules.len();
                 let entries = entry_rules.iter().filter(|r| !filters.contains(&r.name.to_lowercase())).cloned().collect::<Vec<_>>();
-                println!("{}  {}", entries.len(), before_len);
                 if entries.len() == before_len {
                     return Err(self.error(format!("Parse Error: Could not find any of the excluded rules in '{}'.\nMake sure the rule names match exactly!", rule_file)))
                 }
