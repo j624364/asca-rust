@@ -1,0 +1,54 @@
+
+@ S-Insertion
+    * > s / P:[+cor]_P:[+cor]
+#
+
+@ Laryngeal colouring
+
+#
+
+@ Centumisation
+    P:[-fr, +bk, -hi, -lo] > [+hi]
+#
+
+@ U-Epenthesis
+    * > u / _[+cons, +son, +syll] 
+    [+cons, +son, +syll] > [-syll]
+# i.e. *km̥tóm > *kumtóm
+
+@ Dental Cluster Simplification
+    P:[+cor] > * / VP:[+cor] s_
+    P:[+cor] > s / V_s
+#
+
+@ Long Vowel Degemination
+    C=1 > * / {C,G, V:[+long]}_1
+# Geminate consonants are shortened after a consonant or a long vowel
+# i.e. *káyssis > *káysis
+
+@ Overlong Vowel Genesis
+    V:[+long] > [+overlong] / _#
+# Word-final long vowels are lengthened to overlong vowels
+# i.e. *séh₁mō > *séh₁mô
+
+@ Initial Loss of laryngeals
+    H > * / #_C
+    V:[+long] > [+overlong] / _H
+    V:[-long] > [+long] / _H
+    H > * | C_C
+#
+@ Cowgill's Law 
+    {H3, H2} > g / S_w
+# /h₃/ (and possibly /h₂/) is strengthened to /g/ between a sonorant and /w/
+
+@ Laryngeal Vocalisation
+    H > ə
+#
+@ Velar Labialisation
+    C:[+hi, +bk] > [+rnd] / _w
+    w > * / C:[+hi, +bk, +rnd]_
+# Velars are labialised by following /w/
+
+@ Velar Delabialisation
+    C:[+hi, +bk, +rnd] > [-lab] / _{u,t}
+# Labiovelars are delabialised next to /u/ (or /un/) or before /t/:

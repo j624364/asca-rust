@@ -1,0 +1,9 @@
+
+# This assumes PIE uvular theory
+@protogermanic ["pie-uvular"]:
+    "pre-pgmc" ! {"Initial Loss of laryngeals", "Cowgill's Law", "Laryngeal Vocalisation"} ,
+    "early-pgmc" ~ {"Loss of Word-final non-high short vowels"},
+    "early-pgmc" ~ { "Grimm's Law", "Verner's Law"},
+    "early-pgmc" ! {"Loss of Word-final non-high short vowels", "Grimm's Law", "Verner's Law"},
+    "late-pgmc",
+

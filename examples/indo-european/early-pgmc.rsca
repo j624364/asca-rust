@@ -1,0 +1,50 @@
+@ Loss of Word-final non-high short vowels 
+    % > [+str] / _(C,2)V:[-hi, +str]#
+    % > [-str] / %:[+str]_#
+
+    V:[-hi, -str] > * / _#
+    G > * / _#
+
+    $C > & / _#
+    $C > & / _#
+#
+
+@ Grimm's Law 
+    [+cons, -son, -cont, -voice] > [+cont]
+    [+cons, -son, -cont, +voice, -sg] > [-voice]
+    [+cons, +voice, +sg] > [-sg]
+#
+
+@ Verner's Law
+    [-voice, +cont] > [+voice] / V:[-stress]_, V:[-stress][+cons,+son]_
+#
+
+@ Germanic Spirant's Law
+    θ > t / O_
+    O > [Alar, +cont] / V_{t:[Alar],s:[Alar]}
+    θ > s / _{t, s}
+#
+
+@ Initial Stress Shift 
+    %:[+stress] > [-stress]
+    % > [+stress] / #_
+#
+
+@ Word-initial gw > b
+    g:[+lab] > b / #_
+#
+
+@ W-loss
+    $w > * / o:[-str]_o:[-str]
+#
+@ E-Raising
+    e > i | _r
+    j > i / i:[-str]_ 
+#
+@ Unstressed ji > i
+    j > * / _i:[-str]
+    $ > * / V_i:[-str]
+#
+@ Non-High Back Vowel Merger
+    {o:[Alng, Bvlng], a:[Alng, Bvlng]} > ɑ:[Along, Boverlong]
+#

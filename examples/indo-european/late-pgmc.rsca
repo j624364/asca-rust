@@ -1,0 +1,12 @@
+@ Nasal Merger
+    m > n / _{#,t,d,s}
+#
+
+@ Word-final nasalisation
+    V:[-str] > [+nasal] / _n#
+    n > * / V:[+nasal]_# 
+#
+
+@ Nasal Vowel Lowering
+    e:[+nasal, Along, Boverlong] > ɑ:[+nasal, Along, Boverlong]
+#
