@@ -1722,7 +1722,7 @@ impl SubRule {
                 *state_index += 1;
                 Ok(true)
             } else { Ok(false) },
-            ParseElement::Ipa(s, m) => if self.input_match_ipa(captures, s, m, word, *seg_pos, err_pos)? {
+            ParseElement::Ipa(s, m) => if self.input_match_ipa(captures, s, m, word, seg_pos, err_pos)? {
                 seg_pos.increment(word);
                 *state_index += 1;
                 Ok(true)
@@ -1933,7 +1933,7 @@ impl SubRule {
         for (i,s) in set.iter().enumerate() {
             let res = match &s.kind {
                 ParseElement::Variable(vt, mods) => self.input_match_var(captures, state_index, vt, mods, word, pos, s.position),
-                ParseElement::Ipa(seg, mods) => if self.input_match_ipa(captures, seg, mods, word, *pos, s.position)? {
+                ParseElement::Ipa(seg, mods) => if self.input_match_ipa(captures, seg, mods, word, pos, s.position)? {
                     pos.increment(word);
                     Ok(true)
                 } else { Ok(false) },
@@ -1957,20 +1957,43 @@ impl SubRule {
         Ok(false)
     }
 
-    fn input_match_ipa(&self, captures: &mut Vec<MatchElement>, s: &Segment, mods: &Option<Modifiers>, word: &Word, pos: SegPos, err_pos: Position) -> Result<bool, RuleRuntimeError> {
-        let seg = word.get_seg_at(pos).unwrap();
+    fn input_match_ipa(&self, captures: &mut Vec<MatchElement>, s: &Segment, mods: &Option<Modifiers>, word: &Word, pos: &mut SegPos, err_pos: Position) -> Result<bool, RuleRuntimeError> {
+        let seg = word.get_seg_at(*pos).unwrap();
 
         if let Some(m) = mods {
             if self.match_ipa_with_modifiers(s, m, word, &pos, err_pos)? {
-                captures.push(MatchElement::Segment(pos, None));
+                captures.push(MatchElement::Segment(*pos, None));
+                // the way we implement `long` vowels means we need to do this
+                let mut seg_length = word.seg_length_at(*pos);            
+                while seg_length > 1 {
+                    pos.increment(word);
+                    seg_length -= 1;
+                }
                 Ok(true)
             } else {
+                let mut seg_length = word.seg_length_at(*pos);            
+                while seg_length > 1 {
+                    pos.increment(word);
+                    seg_length -= 1;
+                }
                 Ok(false)
             }
         } else if *s == seg {
-            captures.push(MatchElement::Segment(pos, None));
+            captures.push(MatchElement::Segment(*pos, None));
+            // the way we implement `long` vowels means we need to do this
+            let mut seg_length = word.seg_length_at(*pos);            
+            while seg_length > 1 {
+                pos.increment(word);
+                seg_length -= 1;
+            }
             Ok(true)
         } else {
+            // the way we implement `long` vowels means we need to do this
+            let mut seg_length = word.seg_length_at(*pos);            
+            while seg_length > 1 {
+                pos.increment(word);
+                seg_length -= 1;
+            }
             Ok(false)
         }
     }
@@ -2017,7 +2040,7 @@ impl SubRule {
     fn input_match_var(&self, captures: &mut Vec<MatchElement>, state_index: &mut usize, vt: &Token, mods: &Option<Modifiers>, word: &Word, pos: &mut SegPos, err_pos: Position) -> Result<bool, RuleRuntimeError> {
         match self.variables.borrow_mut().get(&vt.value.parse::<usize>().unwrap()) {
             Some(var) => match var {
-                VarKind::Segment(s)  => if self.input_match_ipa(captures, s, mods, word, *pos, err_pos)? {
+                VarKind::Segment(s)  => if self.input_match_ipa(captures, s, mods, word, pos, err_pos)? {
                     pos.increment(word);
                     Ok(true)
                 } else { Ok(false) },
