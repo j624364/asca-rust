@@ -55,5 +55,5 @@ pub fn parse_rsca(rule_file_path: &Path) -> io::Result<Vec<RuleGroup>> {
 
 
 pub fn parse_wsca(path: &Path) -> io::Result<Vec<String>> {
-    Ok(util::file_read(path)?.lines().map(|s| s.to_owned()).collect::<Vec<String>>())
+    Ok(util::file_read(path)?.lines().map(|s| s.trim().to_owned()).collect::<Vec<String>>())
 }
