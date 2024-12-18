@@ -645,11 +645,11 @@ impl SubRule {
                                         pos.increment(word);
                                         continue;
                                     }         
-                                    let prev = res_word.render().unwrap();
+                                    // let prev = res_word.render().unwrap();
                                     // println!("Match! {} at {:?}", res_word.render().unwrap(), ins);
                                     let (res, next_pos) = self.insert(&res_word, ins, false)?;
                                     res_word = res;
-                                    println!("{} => {}", prev, res_word.render().unwrap());
+                                    // println!("{} => {}", prev, res_word.render().unwrap());
                                     // println!("pos: {pos:?} ins: {ins:?} nxt: {next_pos:?}");
 
                                     if let Some(np) = next_pos {
@@ -683,11 +683,11 @@ impl SubRule {
                                         pos.increment(word);
                                         continue;
                                     }
-                                    let prev = res_word.render().unwrap();
+                                    // let prev = res_word.render().unwrap();
                                     // println!("Match! {} at {:?}", res_word.render().unwrap(), ins);
                                     let (res, next_pos) = self.insert(&res_word, ins, true)?;
                                     res_word = res;
-                                    println!("{} => {}", prev, res_word.render().unwrap());
+                                    // println!("{} => {}", prev, res_word.render().unwrap());
                                     // println!("pos: {pos:?} ins: {ins:?} nxt: {next_pos:?}");
 
                                     if let Some(np) = next_pos {
@@ -721,11 +721,11 @@ impl SubRule {
                                         pos.increment(word);
                                         continue;
                                     }
-                                    let prev = res_word.render().unwrap();
+                                    // let prev = res_word.render().unwrap();
                                     // println!("Match! {} at {:?}", res_word.render().unwrap(), ins);
                                     let (res, next_pos) = self.insert(&res_word, ins, false)?;
                                     res_word = res;
-                                    println!("{} => {}", prev, res_word.render().unwrap());
+                                    // println!("{} => {}", prev, res_word.render().unwrap());
                                     // println!("pos: {pos:?} ins: {ins:?} nxt: {next_pos:?}");
 
                                     if let Some(np) = next_pos {
@@ -759,11 +759,11 @@ impl SubRule {
                                         continue;
                                     }
 
-                                    let prev = res_word.render().unwrap();
+                                    // let prev = res_word.render().unwrap();
                                     // println!("Match! {} at {:?}", res_word.render().unwrap(), ins);
                                     let (res, next_pos) = self.insert(&res_word, ins, false)?;
                                     res_word = res;
-                                    println!("{} => {}", prev, res_word.render().unwrap());
+                                    // println!("{} => {}", prev, res_word.render().unwrap());
                                     // println!("pos: {pos:?} ins: {ins:?} nxt: {next_pos:?}");
 
                                     if let Some(np) = next_pos {
