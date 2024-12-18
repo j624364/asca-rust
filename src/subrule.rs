@@ -367,6 +367,7 @@ impl SubRule {
     }
 
     fn context_match_set(&self, set: &[Item], word: &Word, pos: &mut SegPos, forwards: bool) -> Result<bool, RuleRuntimeError> {
+        let back_pos= *pos;
         for s in set {
             let res = match &s.kind {
                 ParseElement::Variable(vt, mods) => self.context_match_var(vt, mods, word, pos, forwards, s.position),
@@ -383,6 +384,7 @@ impl SubRule {
             if res? {
                 return Ok(true)
             }
+            *pos = back_pos;
         }
         Ok(false)
     }
@@ -1930,6 +1932,7 @@ impl SubRule {
     }
 
     fn input_match_set(&self, captures: &mut Vec<MatchElement>, state_index: &mut usize, set: &[Item], word: &Word, pos: &mut SegPos) -> Result<bool, RuleRuntimeError> {
+        let back_pos = *pos;
         for (i,s) in set.iter().enumerate() {
             let res = match &s.kind {
                 ParseElement::Variable(vt, mods) => self.input_match_var(captures, state_index, vt, mods, word, pos, s.position),
@@ -1953,6 +1956,7 @@ impl SubRule {
                 captures.last_mut().unwrap().set_ind(Some(i));
                 return Ok(true)
             }
+            *pos = back_pos;
         }
         Ok(false)
     }
@@ -2074,12 +2078,11 @@ impl SubRule {
         }
     }
 
-    fn match_ipa_with_modifiers(&self, s: &Segment, mods: &Modifiers, word: &Word, pos: &SegPos, err_pos: Position) -> Result<bool, RuleRuntimeError> {
-        let mut seg = word.get_seg_at(*pos).expect("Segment Position should be within bounds");
-
+    fn match_ipa_with_modifiers(&self, seg: &Segment, mods: &Modifiers, word: &Word, pos: &SegPos, err_pos: Position) -> Result<bool, RuleRuntimeError> {
+        let mut seg = *seg;
         seg.apply_seg_mods(&self.alphas, mods.nodes, mods.feats, err_pos, true)?;
 
-        if *s == seg {
+        if seg == word.get_seg_at(*pos).expect("Segment Position should be within bounds") {
             Ok(self.match_supr_mod_seg(word, &mods.suprs, pos)?)
         } else {
             Ok(false)
