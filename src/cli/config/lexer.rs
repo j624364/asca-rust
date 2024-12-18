@@ -224,7 +224,7 @@ impl<'a> Lexer<'a> {
 
         let s_line = self.l_num;
         let start = self.l_pos;
-        let buffer = self.chop_while(|x| x.is_alphanumeric());
+        let buffer = self.chop_while(|x| x.is_alphanumeric() || *x == '-');
 
         if buffer.is_empty() {
             return Err(io::Error::other(format!("Config Parse Error: Empty tag at {}:{}", self.l_num, self.l_pos)))
