@@ -32,13 +32,13 @@ fn main() {
         // Command::Mult { rules, words, compare, output } => {
         //     todo!()
         // },
-        Command::Seq { path, tag, words, output, overwrite , no_overwrite, last_only } => {
+        Command::Seq { path, tag, words, all_steps, output, overwrite , no_overwrite, last_only } => {
             let ow = match (overwrite, no_overwrite) {
                 (true, false) => Some(true),
                 (false, true) => Some(false),
                 _ => None
             };
-            if let Err(e) = cli::seq::run(path, words, output, ow, last_only, tag) {
+            if let Err(e) = cli::seq::run(path, words, tag, output, ow, last_only, all_steps) {
                 println!("{e}");
                 exit(1);
             }

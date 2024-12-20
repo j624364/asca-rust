@@ -115,12 +115,12 @@ fn output_result(dir: &Path, tag: &str, trace: &[Vec<String>], seq_names: &[Path
 }
 
 // Handle printing result to the terminal
-fn print_result(trace: &[Vec<String>], tag: &str) {
+fn print_result(trace: &[Vec<String>], tag: &str, all_steps: bool) {
     debug_assert!(!trace.is_empty());
     println!("\nOUTPUT - {}", tag);
     let arr = "=>".bright_red().bold();
 
-    let num_seqs = trace.len();
+    let num_steps = trace.len();
     let num_words = trace[0].len();
 
     for word in 0..num_words {
@@ -130,12 +130,14 @@ fn print_result(trace: &[Vec<String>], tag: &str) {
         }
         // Concat start word
         let mut str = format!("{}", &trace[0][word].bright_blue().bold());
-        // Concat intermediate steps
-        for seq in trace.iter().take(num_seqs-1).skip(1) {
-            str = format!("{str} {arr} {}", &seq[word]);
+        if all_steps {
+            // Concat intermediate steps
+            for step in trace.iter().take(num_steps-1).skip(1) {
+                str = format!("{str} {arr} {}", &step[word]);
+            }
         }
         // Concat final result
-        str = format!("{str} {arr} {}", &trace[num_seqs-1][word].bright_green().bold());
+        str = format!("{str} {arr} {}", &trace[num_steps-1][word].bright_green().bold());
         println!("{}", str)
     }
     println!();
@@ -162,12 +164,12 @@ pub fn run_sequence(dir: &Path, words_path: &Option<PathBuf>, seq: &ASCAConfig) 
 }
 
 /// Run a given sequence, then deal with output if necessary
-fn handle_sequence(dir_path: &Path, words_path: &Option<PathBuf>, seq: &ASCAConfig, output: bool, overwrite: Option<bool>, last_only: bool) -> io::Result<()> {
+fn handle_sequence(dir_path: &Path, words_path: &Option<PathBuf>, seq: &ASCAConfig, output: bool, overwrite: Option<bool>, last_only: bool, all_steps: bool) -> io::Result<()> {
     if let Some((trace, files)) = run_sequence(dir_path, words_path, seq)? {
         if trace.is_empty() {
             return Err(io::Error::other(format!("Error: No words in input for tag '{}'", seq.tag)))
         }
-        print_result(&trace, &seq.tag);
+        print_result(&trace, &seq.tag, all_steps);
         if output {
             return output_result(dir_path, &seq.tag, &trace, &files, overwrite, last_only)
         } 
@@ -175,7 +177,7 @@ fn handle_sequence(dir_path: &Path, words_path: &Option<PathBuf>, seq: &ASCAConf
     Ok(())
 }
 
-pub(crate) fn run(dir_path: Option<PathBuf>, words_path: Option<PathBuf>, output: bool, overwrite: Option<bool>, last_only: bool, maybe_tag: Option<String>) -> io::Result<()> {
+pub(crate) fn run(dir_path: Option<PathBuf>, words_path: Option<PathBuf>, maybe_tag: Option<String>, output: bool, overwrite: Option<bool>, last_only: bool, all_steps: bool) -> io::Result<()> {
     let dir = util::validate_directory(dir_path)?;
     let rule_seqs = get_config(&dir)?;
 
@@ -185,11 +187,11 @@ pub(crate) fn run(dir_path: Option<PathBuf>, words_path: Option<PathBuf>, output
         let Some(seq) = rule_seqs.iter().find(|c| c.tag == tag) else {
             return Err(io::Error::other(format!("Error: Could not find tag '{tag}' in config")))
         };
-        handle_sequence(&dir, &words_path, seq, output, overwrite, last_only)
+        handle_sequence(&dir, &words_path, seq, output, overwrite, last_only, all_steps)
     } else {
         // Run all sequences
         for seq in &rule_seqs {
-            handle_sequence(&dir, &words_path, seq, output, overwrite, last_only)?;
+            handle_sequence(&dir, &words_path, seq, output, overwrite, last_only, all_steps)?;
         }
         Ok(())
     }

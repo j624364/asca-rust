@@ -39,6 +39,7 @@ Options:
                 - If not provided, all tags in the config will be run
     -w  <path>  Path to a wsca file.
                 - If provided, these will be used instead of the word files defined in the config.
+    -a          Print all intermediate steps
     -o          When given, asca will create an out folder within the path directory.
     -y          Accept cases where an output file would be overwritten.
     -n          Reject cases where an output file would be overwritten.
@@ -53,9 +54,9 @@ Commands:
     asca    Convert a word file and rule file into an asca-web json file
     json    Convert a json file into separate word and rule files
 
+
 usage: asca conv asca [-w | --words <path>] [-r | --rules <path>] [-o | --output <path>]
                       [-h | --help]
-
 Options:
     -w  <path>  The path of the word file to convert
                 - If not provided, asca will look for a file in the current directory

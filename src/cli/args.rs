@@ -70,6 +70,10 @@ pub enum Command {
         #[arg(short, long, verbatim_doc_comment, value_hint=clap::ValueHint::FilePath)]
         words: Option<PathBuf>,
 
+        /// Print all intermediate steps
+        #[arg(short, long, action, verbatim_doc_comment)]
+        all_steps: bool,
+
         /// When given, asca will create an out folder within the [PATH] directory.
         #[arg(short, long, action, verbatim_doc_comment)]
         output: bool,
