@@ -1,5 +1,5 @@
 @ Nasal Merger
-    m > n / _{#,t,d,s}
+    m > n / _{#,[+cor]}
 #
 
 @ Word-final nasalisation
@@ -8,5 +8,54 @@
 #
 
 @ Nasal Vowel Lowering
-    e:[+nasal, Along, Boverlong] > ɑ:[+nasal, Along, Boverlong]
+    e:[+nasal, Along, Bvlong] > ɑ:[+nasal, Along, Bvlong]
+#
+
+@ Schwa Elimination
+    ə:[-str] > * 
+    $C > & / _$O, _#
+    C$ > & / $_{V, G}
+
+    ə > ɑ
+# Unstressed schwa deletes
+# Stressed schwa becomes ɑ
+
+@ Sonorant Elimination
+    w > n / n_
+    n > l / l_
+    z > m / _m
+#
+
+@ Loss of word-final t
+    t:[-str] > * / _#
+#
+
+@
+   ɣʷ > w
+#
+
+@ Long-A Raising
+    ɑ:[+vlong] > ɔ:[+vlong]
+    ɑ:[+long] > ɔ:[+long]
+#
+
+@ Early i-mutation
+    e:[-long] > i / _([], 0:2){i, j}
+#
+
+@ 
+    e:[-long] > i / _N$
+#
+
+@ 
+    $j > * / V_V | i_
+#
+
+@
+    V > [+long, +nasal] / _Nx
+    N > * / _x
+#
+
+@ Diphthong Cleanup
+#    G > [+tense] / V_$
 #

@@ -4,8 +4,13 @@
 #
 
 @ Laryngeal colouring
-
+    e > a / _,x
+    e > o / _,ɣʷ
 #
+# /xe/ > /xa/ — *h₂énti 'in front' > *h₂ánti > *andi 'in addition'
+# /ex/ > /ax/ — *meh₂tḗr 'mother' > *mah₂tḗr > *mōdēr
+# /ɣʷe/ > /ɣʷo/ — *h₃érō 'eagle' > *h₃órō > *arô
+# /eɣʷ/ > /oɣʷ/ — *bʰléh₃mō 'flower' > *bʰlóh₃mō > *blōmô
 
 @ Centumisation
     P:[-fr, +bk, -hi, -lo] > [+hi]
@@ -32,23 +37,29 @@
 # i.e. *séh₁mō > *séh₁mô
 
 @ Initial Loss of laryngeals
-    H > * / #_C
-    V:[+long] > [+overlong] / _H
-    V:[-long] > [+long] / _H
-    H > * | C_C
+    {h, x, ɣʷ} > * / #_
+    V:[+long] > [+overlong] / _{h, x, ɣʷ} | _$
+    V:[-long] > [+long] / _{h, x, ɣʷ} |  _$
+    {h, x, ɣʷ} > * / V_
 #
 @ Cowgill's Law 
-    {H3, H2} > g / S_w
-# /h₃/ (and possibly /h₂/) is strengthened to /g/ between a sonorant and /w/
+    {ɣʷ, x} > g / S_w
+# h₃ /ɣʷ/ (and possibly h₂ /x/) is strengthened to /g/ between a sonorant and /w/
 
 @ Laryngeal Vocalisation
-    H > ə
+    {h:[+syl], x:[+syl], ɣʷ:[+syl]} > ə
+    {h, x, ɣʷ} > *
 #
 @ Velar Labialisation
     C:[+hi, +bk] > [+rnd] / _w
     w > * / C:[+hi, +bk, +rnd]_
 # Velars are labialised by following /w/
 
-@ Velar Delabialisation
-    C:[+hi, +bk, +rnd] > [-lab] / _{u,t}
+@ Velar Delabialisation (Boukólos rule)
+    O:[+hi, +bk, +rnd] > [-lab] / _{u,t}, uN_
 # Labiovelars are delabialised next to /u/ (or /un/) or before /t/:
+
+@ Irregular Labial Assimilation
+    O:[+dor, +round] > [-round, -dor] / #{[+lab, -dor], w}..._
+    [+nasal] > [Aplace] / _O:[Aplace, +lab, -rnd]
+# i.e. penkwe > pempe, wlkwos > wulfaz

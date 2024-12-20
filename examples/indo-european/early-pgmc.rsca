@@ -1,9 +1,9 @@
 @ Loss of Word-final non-high short vowels 
-    % > [+str] / _(C,2)V:[-hi, +str]#
+    % > [+str] / _CV:[-hi, +str, -long]#
     % > [-str] / %:[+str]_#
 
-    V:[-hi, -str] > * / _#
-    G > * / _#
+    G > * / _V:[-hi, -str, -long]#
+    V:[-hi, -str, -long] > * / _#
 
     $C > & / _#
     $C > & / _#
@@ -13,10 +13,12 @@
     [+cons, -son, -cont, -voice] > [+cont]
     [+cons, -son, -cont, +voice, -sg] > [-voice]
     [+cons, +voice, +sg] > [-sg]
+
+    [+cons, -son, +voice] > [+cont] / {V:[-red], G}_{V, G}
 #
 
 @ Verner's Law
-    [-voice, +cont] > [+voice] / V:[-stress]_, V:[-stress][+cons,+son]_
+    [-voice, +cont] > [+voice] / V:[-stress]_, V:[-stress]{S, G}_
 #
 
 @ Germanic Spirant's Law
@@ -26,9 +28,9 @@
 #
 
 @ Initial Stress Shift 
-    %:[+stress] > [-stress]
-    % > [+stress] / #_
-#
+    % > [+str] / #_...V:[+str]
+    %:[+str] > [-str] | #_
+# Preserves unstressed words
 
 @ Word-initial gw > b
     g:[+lab] > b / #_
@@ -38,7 +40,7 @@
     $w > * / o:[-str]_o:[-str]
 #
 @ E-Raising
-    e > i | _r
+    e:[-stress, -long] > i | _r
     j > i / i:[-str]_ 
 #
 @ Unstressed ji > i
@@ -46,5 +48,5 @@
     $ > * / V_i:[-str]
 #
 @ Non-High Back Vowel Merger
-    {o:[Alng, Bvlng], a:[Alng, Bvlng]} > ɑ:[Along, Boverlong]
+    {o:[Along, Boverlong], a:[Along, Boverlong]} > ɑ:[Along, Boverlong]
 #
