@@ -360,7 +360,7 @@ impl SubRule {
                     continue;
                 }
             } else {
-                return Ok(true)
+                return Ok(false)
             }
         }
         Ok(false)
