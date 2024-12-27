@@ -1,5 +1,5 @@
 @ Loss of Word-final non-high short vowels 
-    % > [+str] / _CV:[-hi, +str, -long]#
+    % > [+str] / _(C,0) V:[-hi, +str, -long]#
     % > [-str] / %:[+str]_#
 
     G > * / _V:[-hi, -str, -long]#
@@ -18,7 +18,7 @@
 #
 
 @ Verner's Law
-    [-voice, +cont] > [+voice] / V:[-stress]_, V:[-stress]{S, G}_
+    [-voice, +cont] > [+voice] / V:[-stress]([+son])_
 #
 
 @ Germanic Spirant's Law
