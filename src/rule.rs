@@ -1104,6 +1104,7 @@ mod rule_tests {
     #[test]
     fn test_grimms_law() {
         let test_rule = setup_rule("[+cons, -son, -voice, -cont], [+cons, -son, +voice, -cont, -sg], [+cons, +voice, +sg] > [+cont], [-voice], [-sg]");
+        assert_eq!(test_rule.apply(setup_word("kumˈtom")).unwrap().render().unwrap(), "xumˈθom");
         assert_eq!(test_rule.apply(setup_word("kunˈtos")).unwrap().render().unwrap(), "xunˈθos");
         assert_eq!(test_rule.apply(setup_word("ˈdant")).unwrap().render().unwrap(), "ˈtanθ");
         assert_eq!(test_rule.apply(setup_word("ˈme.dʱu")).unwrap().render().unwrap(), "ˈme.du");
@@ -1122,9 +1123,9 @@ mod rule_tests {
 
     #[test]
     fn test_verners_law() {
-        // let test_rule = setup_rule("[-voice, +cont] > [+voice] / V:[-stress]([+son])_");
-        let test_rule = setup_rule("[-voice, +cont] > [+voice] / V:[-stress]_, V:[-stress][+son]_");
+        let test_rule = setup_rule("[-voice, +cont] > [+voice] / V:[-stress]([+cons, +son])_");
         
+        assert_eq!(test_rule.apply(setup_word("xumˈθom")).unwrap().render().unwrap(), "xumˈðom");
         assert_eq!(test_rule.apply(setup_word("xunˈθos")).unwrap().render().unwrap(), "xunˈðos");
         assert_eq!(test_rule.apply(setup_word("fɑˈθer")).unwrap().render().unwrap(), "fɑˈðer");
         assert_eq!(test_rule.apply(setup_word("uˈɸer")).unwrap().render().unwrap(), "uˈβer");
@@ -1410,7 +1411,7 @@ mod rule_tests {
             setup_rule("[+cons, -syll]$ > & / _[+son, +cont]"),
             setup_rule("ə > * / VC:[+son, +cont]_C"),
             setup_rule("$C:[+son, +cont] > & / _$"),
-            // 7) _
+            // 7) Clustering VIII
             setup_rule("ə > * / VC_s"),
             setup_rule("$ > * / V_Cs"),
             // 8) Clustering III
