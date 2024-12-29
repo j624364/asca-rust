@@ -1,5 +1,7 @@
 use std::{io, fmt};
 
+use colored::Colorize;
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(super) enum TokenKind {
     LeftSquare,     // [
@@ -11,6 +13,7 @@ pub(super) enum TokenKind {
     Tilde,          // !
     Colon,          // : 
     Tag,            // @ [Alphanumeric char]+
+    From,           // % [Alphanumeric char]+
     String,         // '"' [Alphanumeric char]+ '"'
     Comment,        // '#'.* '\n'
     EoF,            // End of file
@@ -28,6 +31,7 @@ impl fmt::Display for TokenKind {
             TokenKind::Tilde       => write!(f, "~"),
             TokenKind::Colon       => write!(f, ":"),
             TokenKind::Tag         => write!(f, "a tag"),
+            TokenKind::From         => write!(f, "a pipeline"),
             TokenKind::String      => write!(f, "a string"),
             TokenKind::Comment     => write!(f, "a comment"),
             TokenKind::EoF         => write!(f, "end of file"),
@@ -207,15 +211,34 @@ impl<'a> Lexer<'a> {
 
         match self.curr_char() {
             '"' => self.advance(),
-            _ => return Err(io::Error::other(format!("Config Parse Error: Unclosed string at {}:{}", self.l_num, self.l_pos))),
+            _ => return Err(self.error(format!("Unclosed string at {}:{}", self.l_num, self.l_pos))),
         }
 
 
         if buffer.is_empty() {
-            return Err(io::Error::other(format!("Config Parse Error: Empty string at {}:{}", self.l_num, self.l_pos)))
+            return Err(self.error(format!("Empty string at {}:{}", self.l_num, self.l_pos)))
         }
 
         Ok(Some(Token::new(TokenKind::String, buffer, s_line, start, self.l_num, self.l_pos)))
+    }
+
+    fn is_tag_char(x: &char) -> bool {
+        x.is_alphanumeric() || *x == '-' || *x == '–' || *x == '—'
+    }
+
+    fn get_from(&mut self) -> io::Result<Option<Token>> {
+        if self.curr_char() != '%' { return Ok(None) }
+        self.advance();
+
+        let s_line = self.l_num;
+        let start = self.l_pos;
+        let buffer = self.chop_while(Lexer::is_tag_char);
+
+        if buffer.is_empty() {
+            return Err(self.error(format!("Empty pipeline at {}:{}", self.l_num, self.l_pos)))
+        }
+
+        Ok(Some(Token::new(TokenKind::From, buffer, s_line, start, self.l_num, self.l_pos)))
     }
 
     fn get_tag(&mut self) -> io::Result<Option<Token>> {
@@ -224,7 +247,7 @@ impl<'a> Lexer<'a> {
 
         let s_line = self.l_num;
         let start = self.l_pos;
-        let buffer = self.chop_while(|x| x.is_alphanumeric() || *x == '-');
+        let buffer = self.chop_while(Lexer::is_tag_char);
 
         if buffer.is_empty() {
             return Err(self.error(format!("Empty tag at {}:{}", self.l_num, self.l_pos)))
@@ -239,6 +262,7 @@ impl<'a> Lexer<'a> {
         if !self.has_more_chars() { return Ok(Token::new(TokenKind::EoF, String::new(), self.l_num, self.l_pos, self.l_num,self.l_pos+1)) }
 
         if let Some(tag) = self.get_tag()?     { return Ok(tag) }
+        if let Some(frm) = self.get_from()?    { return Ok(frm) }
         if let Some(com) = self.get_comment()? { return Ok(com) }
         if let Some(spc) = self.get_special()? { return Ok(spc) }
         if let Some(bkt) = self.get_bracket()? { return Ok(bkt) }

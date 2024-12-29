@@ -2,9 +2,11 @@
 
 SEQS    ← SEQ+
 
-SEQ     ← TAG W_PATHS? ':' R_PATHS
+SEQ     ← TAG FROM? W_PATHS? ':' R_PATHS
 
 TAG     ← '@' [ALPHANUMERIC]+
+
+FROM    ← '%' [ALPHANUMERIC]+
 
 W_PATHS ← '[' STRING (',' STRING)* ','? ']'
 

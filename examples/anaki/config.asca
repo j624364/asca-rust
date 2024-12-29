@@ -29,3 +29,7 @@
 # - Using the words at ./proto-anaki-words.wsca,
 # - Apply ./rules1.wsca WITHOUT "Glottal Deletion",
 # - Apply ONLY "Cluster Simplification" and "Hap(lo)logy", in that order, from ./rules2.wsca.
+
+
+@gamma %alpha :
+    "rules1" ~ {"Low Vowel Reduction"},

@@ -259,6 +259,10 @@ impl<'a> Parser<'a> {
         Ok(word_files)
     }
 
+    fn get_from(&mut self) -> Option<Token> {
+        self.eat_expect(TokenKind::From)
+    }
+
     fn get_tag(&mut self) -> io::Result<Token> {
         match self.eat_expect(TokenKind::Tag) {
             Some(tag) => Ok(tag),
@@ -274,6 +278,10 @@ impl<'a> Parser<'a> {
 
         let tag = tag_token.value;
 
+        let from = if let Some(x) = self.get_from() {
+            Some(x.value)
+        } else {None};
+
         let words = self.get_word_paths()?;
 
         if !self.expect(TokenKind::Colon) {
@@ -287,13 +295,12 @@ impl<'a> Parser<'a> {
 
         let entries = self.get_entries()?;
 
-        Ok(ASCAConfig { tag, words, entries })
+        Ok(ASCAConfig { tag, from, words, entries })
     }
 
     pub(crate) fn parse(&mut self) -> io::Result<Vec<ASCAConfig>> {
-        let mut conf = Vec::new();
-
         let mut tag_map = HashSet::new();
+        let mut conf = Vec::new();
 
         while self.curr_tkn.kind != TokenKind::EoF {
             let seq = self.get_seq()?;
@@ -303,6 +310,14 @@ impl<'a> Parser<'a> {
             }
 
             conf.push(seq);
+        }
+
+        for c in &conf {
+            if let Some(from_tag) = &c.from {
+                if !tag_map.contains(from_tag) {
+                    return Err(self.error(format!("tag '{}' does not exist", from_tag)))
+                }
+            }
         }
 
         Ok(conf)

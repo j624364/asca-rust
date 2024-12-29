@@ -1,4 +1,4 @@
-use std::{io, path::{Path, PathBuf}};
+use std::{collections::HashMap, io, path::{Path, PathBuf}};
 use colored::Colorize;
 
 use asca::RuleGroup;
@@ -8,6 +8,7 @@ use super::{config::{lexer::Lexer, parser::Parser}, parse::parse_wsca, util::{se
 #[derive(Debug, Clone)]
 pub struct ASCAConfig {
     pub tag: String,
+    pub from: Option<String>,
     pub words: Vec<String>,
     pub entries: Vec<Entry>
 }
@@ -15,7 +16,7 @@ pub struct ASCAConfig {
 impl ASCAConfig {
     #[allow(dead_code)]
     pub fn new() -> Self {
-        Self { tag: String::new(), words: vec![], entries: Vec::new() }
+        Self { tag: String::new(), from: None, words: vec![], entries: Vec::new() }
     }
 }
 
@@ -57,11 +58,29 @@ fn get_config(dir: &Path) -> io::Result<Vec<ASCAConfig>> {
 }
 
 /// Determine which word file to use, validate, and parse it into a vec of word strings
-fn get_words(dir: &Path, words_path: &Option<PathBuf>, conf: &ASCAConfig) -> io::Result<Vec<String>> {
+fn get_words(rule_seqs: &[ASCAConfig], dir: &Path, words_path: &Option<PathBuf>, conf: &ASCAConfig, seq_cache: &mut HashMap<String, Vec<String>>) -> io::Result<Vec<String>> {
+    let mut words = if let Some(from_tag) = &conf.from {
+        if let Some(x) = seq_cache.get(from_tag) {
+            x.clone()
+        } else {
+            let Some(seq) = rule_seqs.iter().find(|c| c.tag == *from_tag) else {
+                return Err(io::Error::other(format!("Error: Could not find tag '{from_tag}' in config")))
+            };
+            if let Some((t, _)) = run_sequence(rule_seqs, dir, words_path, seq, seq_cache)? {
+                let w = t.last().unwrap().clone();
+                seq_cache.insert(seq.tag.clone(), w.clone());
+                w
+            } else {
+                return Ok(vec![])
+            }
+        }
+    } else { 
+        vec![] 
+    };
+
     if let Some(ref w) = words_path {
-        parse_wsca(&util::validate_file_exists(Some(w), &[WORD_FILE_EXT, "txt"], "word")?)
+        words.append(&mut parse_wsca(&util::validate_file_exists(Some(w), &[WORD_FILE_EXT, "txt"], "word")?)?);
     } else if !conf.words.is_empty() {
-        let mut words = vec![];
         for w in &conf.words {
             let mut p = dir.to_path_buf();
             p.push(w);
@@ -74,10 +93,13 @@ fn get_words(dir: &Path, words_path: &Option<PathBuf>, conf: &ASCAConfig) -> io:
 
             words.append(&mut w_file);
         }
-        Ok(words)
-    } else {
-        return Err(io::Error::other(format!("Error: Input words not defined for config '{}'.\nYou can specify a word file at runtime with the -w option", conf.tag)))
+    } 
+    
+    if words.is_empty() {
+        return Err(io::Error::other(format!("Error: No input words defined for config '{}'.\nYou can specify a word file at runtime with the -w option", conf.tag)))
     }
+
+    Ok(words)
 }
 
 /// Handle writing the result to file
@@ -144,11 +166,12 @@ fn print_result(trace: &[Vec<String>], tag: &str, all_steps: bool) {
 }
 
 /// Pass a sequence to ASCA and return a trace and the name of each file that was used
-pub fn run_sequence(dir: &Path, words_path: &Option<PathBuf>, seq: &ASCAConfig) -> io::Result<Option<(SeqTrace, Vec<PathBuf>)>> {
+pub fn run_sequence(rule_seqs: &[ASCAConfig], dir: &Path, words_path: &Option<PathBuf>, seq: &ASCAConfig, seq_cache: &mut HashMap<String, Vec<String>>) -> io::Result<Option<(SeqTrace, Vec<PathBuf>)>> {
     let mut files = Vec::new();
     let mut trace = Vec::new();
 
-    let words = get_words(dir, words_path, seq)?;
+    let words = get_words(rule_seqs, dir, words_path, seq, seq_cache)?;
+    if words.is_empty() { return Ok(None) }
     trace.push(words.clone());
     for (i, entry) in seq.entries.iter().enumerate() {
         files.push(entry.name.clone());
@@ -164,22 +187,28 @@ pub fn run_sequence(dir: &Path, words_path: &Option<PathBuf>, seq: &ASCAConfig) 
 }
 
 /// Run a given sequence, then deal with output if necessary
-fn handle_sequence(dir_path: &Path, words_path: &Option<PathBuf>, seq: &ASCAConfig, output: bool, overwrite: Option<bool>, last_only: bool, all_steps: bool) -> io::Result<()> {
-    if let Some((trace, files)) = run_sequence(dir_path, words_path, seq)? {
+fn handle_sequence(rule_seqs: &[ASCAConfig], seq_cache: &mut HashMap<String, Vec<String>>, dir_path: &Path, words_path: &Option<PathBuf>, seq: &ASCAConfig, flags: &SeqFlags) -> io::Result<()> {   
+    if let Some((trace, files)) = run_sequence(rule_seqs, dir_path, words_path, seq, seq_cache)? {
         if trace.is_empty() {
             return Err(io::Error::other(format!("Error: No words in input for tag '{}'", seq.tag)))
         }
-        print_result(&trace, &seq.tag, all_steps);
-        if output {
-            return output_result(dir_path, &seq.tag, &trace, &files, overwrite, last_only)
+        seq_cache.insert(seq.tag.clone(), trace.last().unwrap().clone());
+
+        print_result(&trace, &seq.tag, flags.all_steps);
+        if flags.output {
+            return output_result(dir_path, &seq.tag, &trace, &files, flags.overwrite, flags.last_only)
         } 
     }
     Ok(())
 }
 
-pub(crate) fn run(dir_path: Option<PathBuf>, words_path: Option<PathBuf>, maybe_tag: Option<String>, output: bool, overwrite: Option<bool>, last_only: bool, all_steps: bool) -> io::Result<()> {
-    let dir = util::validate_directory(dir_path)?;
-    let rule_seqs = get_config(&dir)?;
+pub(crate) fn run(maybe_dir_path: Option<PathBuf>, words_path: Option<PathBuf>, maybe_tag: Option<String>, output: bool, overwrite: Option<bool>, last_only: bool, all_steps: bool) -> io::Result<()> {
+    let dir_path = util::validate_directory(maybe_dir_path)?;
+    let rule_seqs = get_config(&dir_path)?;
+
+    let mut seq_cache = HashMap::new();
+
+    let flags = SeqFlags { output, overwrite, last_only, all_steps };
 
     if let Some(tag) = maybe_tag {
         // Would be better if this was a hashmap
@@ -187,12 +216,19 @@ pub(crate) fn run(dir_path: Option<PathBuf>, words_path: Option<PathBuf>, maybe_
         let Some(seq) = rule_seqs.iter().find(|c| c.tag == tag) else {
             return Err(io::Error::other(format!("Error: Could not find tag '{tag}' in config")))
         };
-        handle_sequence(&dir, &words_path, seq, output, overwrite, last_only, all_steps)
+        handle_sequence(&rule_seqs, &mut seq_cache, &dir_path, &words_path, seq, &flags)
     } else {
         // Run all sequences
         for seq in &rule_seqs {
-            handle_sequence(&dir, &words_path, seq, output, overwrite, last_only, all_steps)?;
+            handle_sequence(&rule_seqs, &mut seq_cache, &dir_path, &words_path, seq, &flags)?;
         }
         Ok(())
     }
+}
+
+struct SeqFlags {
+    output: bool,
+    overwrite: Option<bool>,
+    last_only: bool,
+    all_steps: bool,
 }
