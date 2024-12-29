@@ -43,6 +43,6 @@ fn main() {
                 exit(1);
             }
         },
-        Command::Tui => println!("tui coming soon..."),
+        // Command::Tui => println!("tui coming soon..."),
     }
 }

@@ -96,8 +96,8 @@ pub enum Command {
     /// Convert between an asca-web json file and the wsca/rsca format.
     #[clap(subcommand)]
     Conv(Conv),
-    /// Enter tui.
-    Tui
+    // /// Enter tui.
+    // Tui
 }
 
 #[derive(Debug, Subcommand)]
