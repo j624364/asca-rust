@@ -1965,7 +1965,7 @@ impl SubRule {
         let seg = word.get_seg_at(*pos).unwrap();
 
         if let Some(m) = mods {
-            if self.match_ipa_with_modifiers(s, m, word, &pos, err_pos)? {
+            if self.match_ipa_with_modifiers(s, m, word, pos, err_pos)? {
                 captures.push(MatchElement::Segment(*pos, None));
                 // the way we implement `long` vowels means we need to do this
                 let mut seg_length = word.seg_length_at(*pos);            
