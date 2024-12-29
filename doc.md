@@ -1,8 +1,19 @@
 # ASCA Documentation and User Guide
-[Defining Words](#defining-words) | [Defining Sound Changes](#defining-sound-changes)
-| [Distinctive Features](#distinctive-features) | [Suprasegmental Features](#suprasegmental-features)
-| [Groupings](#groupings) | [Sets](#sets) | [Gemination](#gemination) | [Optional Segments](#optional-segments) | [Alpha Notation](#alpha-notation) | [Variables](#variables) | [Propagation](#propagation) | [Considerations](#considerations) 
-| [User Interface](#user-interface)
+
+### Contents
+* [Defining Words](#defining-words)
+* [Defining Sound Changes](#defining-sound-changes)
+* [Distinctive Features](#distinctive-features)
+* [Suprasegmental Features](#suprasegmental-features)
+* [Groupings](#groupings)
+* [Sets](#sets)
+* [Gemination](#gemination)
+* [Optional Segments](#optional-segments)
+* [Alpha Notation](#alpha-notation)
+* [Variables](#variables)
+* [Propagation](#propagation)
+* [Considerations](#considerations) 
+* [Web Interface](#web-interface)
 
 ## Defining Words
 
@@ -607,7 +618,7 @@ hat  > het
 ha:t > he:t
 ```
 
-## User Interface
+## Web Interface
 
 ASCA organises rules such that you can optionally document your sound changes in situ. In the future, this could lead to the ability to automatically generate a sound change document from your work in ASCA. This also allows you to group a multi-stage sound change (such as a chain shift) together, and clearly demarcate them from the potentially long list of sound changes you may have. These rule blocks can then be collapsed so that you can forget about them once completed.
 
