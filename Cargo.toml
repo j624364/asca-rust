@@ -5,7 +5,7 @@ version = "0.2.0"
 edition = "2021"
 license = "GPL-3.0-only"
 categories = ["command-line-utilities"]
-include = ["src", "doc*.md"]
+include = ["src", "doc*.md", "README.md", "LICENSE"]
 repository = "https://github.com/Girv98/asca-rust"
 description = "A linguistic sound change applier"
 
