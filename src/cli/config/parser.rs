@@ -1,6 +1,7 @@
 use std::{collections::HashSet, io, path::{Path, PathBuf}};
 
 use asca::RuleGroup;
+use colored::Colorize;
 
 use super::super::{parse::parse_rsca, seq::{ASCAConfig, Entry, RuleFilter}, util::{self, RULE_FILE_EXT}};
 use super::lexer::{Position, Token, TokenKind};
@@ -76,12 +77,14 @@ impl<'a> Parser<'a> {
     }
 
     fn error(&self, message: String) -> io::Error {
+        let message = format!("{}: {}", "Config Error".bright_red(), message);
+        
         io::Error::other(message)
     }
 
     fn get_filter_list(&mut self) -> io::Result<Vec<String>>{
         if !self.expect(TokenKind::LeftCurly) {
-            return Err(self.error(format!("Config Parse Error: Expected '{{', found {} at {}:{}", self.curr_tkn.kind, self.curr_tkn.position.s_line, self.curr_tkn.position.s_pos)))
+            return Err(self.error(format!("Expected '{{', found {} at {}:{}", self.curr_tkn.kind, self.curr_tkn.position.s_line, self.curr_tkn.position.s_pos)))
         }
 
         let mut filters = Vec::new();
@@ -93,7 +96,7 @@ impl<'a> Parser<'a> {
                 if self.expect(TokenKind::RightCurly) { break; }
                 if !self.expect(TokenKind::Comma)     { 
                     let pos = self.curr_tkn.position;
-                    return Err(self.error(format!("Config Parse Error: Expected comma, found {} at {}:{}", self.curr_tkn.kind, pos.s_line, pos.s_pos)))
+                    return Err(self.error(format!("Expected comma, found {} at {}:{}", self.curr_tkn.kind, pos.s_line, pos.s_pos)))
                 }
 
                 match self.eat_expect(TokenKind::String) {
@@ -101,14 +104,14 @@ impl<'a> Parser<'a> {
                     None => if self.expect(TokenKind::RightCurly) { 
                         break;
                     } else {
-                        return Err(self.error(format!("Config Parse Error: Expected a rule name, found {} at {}:{}", self.curr_tkn.kind, self.curr_tkn.position.s_line, self.curr_tkn.position.s_pos)))
+                        return Err(self.error(format!("Expected a rule name, found {} at {}:{}", self.curr_tkn.kind, self.curr_tkn.position.s_line, self.curr_tkn.position.s_pos)))
                     },
                 }
             }
         }
 
         if filters.is_empty() {
-            return Err(self.error(format!("Config Parse Error: Expected a rule name, found {} at {}:{}", self.curr_tkn.kind, self.curr_tkn.position.s_line, self.curr_tkn.position.s_pos)))
+            return Err(self.error(format!("Expected a rule name, found {} at {}:{}", self.curr_tkn.kind, self.curr_tkn.position.s_line, self.curr_tkn.position.s_pos)))
         }
         
         Ok(filters)
@@ -123,7 +126,7 @@ impl<'a> Parser<'a> {
                 match list.len().cmp(&1) {
                     std::cmp::Ordering::Greater => Ok(Some(RuleFilter::WithoutMult(list))),
                     std::cmp::Ordering::Equal => Ok(Some(RuleFilter::Without(list[0].clone()))),
-                    std::cmp::Ordering::Less => Err(self.error(format!("Config Parse Error: Empty filter list at {}:{}", pos.s_line, pos.s_pos))),
+                    std::cmp::Ordering::Less => Err(self.error(format!("Empty filter list at {}:{}", pos.s_line, pos.s_pos))),
                 }
             },
             TokenKind::Tilde => {
@@ -133,7 +136,7 @@ impl<'a> Parser<'a> {
                 match list.len().cmp(&1) {
                     std::cmp::Ordering::Greater => Ok(Some(RuleFilter::OnlyMult(list))),
                     std::cmp::Ordering::Equal => Ok(Some(RuleFilter::Only(list[0].clone()))),
-                    std::cmp::Ordering::Less => Err(self.error(format!("Config Parse Error: Empty filter list at {}:{}", pos.s_line, pos.s_pos))),
+                    std::cmp::Ordering::Less => Err(self.error(format!("Empty filter list at {}:{}", pos.s_line, pos.s_pos))),
                 }
             },
             _ => Ok(None)
@@ -149,14 +152,14 @@ impl<'a> Parser<'a> {
                         file_path.set_file_name(format!("{}_only_{}", rule_file, util::sanitise_str(&rule_str)));
                         Ok(Entry::from(&file_path, &[rule]))
                     },
-                    None => Err(self.error(format!("Parse Error: Could not find rule '{}' in '{}'.\nMake sure the rule name matches exactly!", rule_str, rule_file))),
+                    None => Err(self.error(format!("Could not find rule '{}' in '{}'.\nMake sure the rule name matches exactly!", rule_str, rule_file))),
                 }
             },
             RuleFilter::Without(rule_str) => {
                 let before_len = entry_rules.len();
                 let entries = entry_rules.iter().filter(|r| r.name.to_lowercase() != rule_str.to_lowercase()).cloned().collect::<Vec<_>>();
                 if entries.len() == before_len {
-                    return Err(self.error(format!("Parse Error: Could not find rule '{}' in '{}'.\nMake sure the rule name matches exactly!", rule_str, rule_file)))
+                    return Err(self.error(format!("Could not find rule '{}' in '{}'.\nMake sure the rule name matches exactly!", rule_str, rule_file)))
                 }
                 file_path.set_file_name(format!("{}_excl_{}", rule_file, util::sanitise_str(&rule_str)));
                 Ok(Entry::from(&file_path, &entries))
@@ -166,7 +169,7 @@ impl<'a> Parser<'a> {
                 for filter in &filters {
                     match entry_rules.iter().find(|r| r.name.to_lowercase() == filter.to_lowercase()) {
                         Some(entry) => entries.push(entry.clone()),
-                        None => return Err(self.error(format!("Parse Error: Could not find rule '{}' in '{}'.\nMake sure the rule name matches exactly!", filter, rule_file))),
+                        None => return Err(self.error(format!("Could not find rule '{}' in '{}'.\nMake sure the rule name matches exactly!", filter, rule_file))),
                     }
                 }
                 file_path.set_file_name(format!("{}_only-mult_{}", rule_file, util::sanitise_str(&filters[0])));
@@ -176,7 +179,7 @@ impl<'a> Parser<'a> {
                 let before_len = entry_rules.len();
                 let entries = entry_rules.iter().filter(|r| !filters.contains(&r.name.to_lowercase())).cloned().collect::<Vec<_>>();
                 if entries.len() == before_len {
-                    return Err(self.error(format!("Parse Error: Could not find any of the excluded rules in '{}'.\nMake sure the rule names match exactly!", rule_file)))
+                    return Err(self.error(format!("Could not find any of the excluded rules in '{}'.\nMake sure the rule names match exactly!", rule_file)))
                 }
                 file_path.set_file_name(format!("{}_excl-mult_{}", rule_file, util::sanitise_str(&filters[0])));
                 Ok(Entry::from(&file_path, &entries))
@@ -203,7 +206,7 @@ impl<'a> Parser<'a> {
                 None => Ok(Some(Entry::from(&file_path, &entry_rules))),
             }
         } else {
-            Err(self.error(format!("Config Parse Error: Cannot find {file_path:?}. {}:{}", rule.position.s_line, rule.position.s_pos)))
+            Err(self.error(format!("Cannot find {file_path:?}. {}:{}", rule.position.s_line, rule.position.s_pos)))
         }    
     }
 
@@ -234,21 +237,21 @@ impl<'a> Parser<'a> {
 
         match self.eat_expect(TokenKind::String) {
             Some(w) => word_files.push(w.value),
-            None => return Err(self.error(format!("Config Parse Error: Expected a file path, found {} at {}:{}", self.curr_tkn.kind, self.curr_tkn.position.s_line, self.curr_tkn.position.s_pos))),
+            None => return Err(self.error(format!("Expected a file path, found {} at {}:{}", self.curr_tkn.kind, self.curr_tkn.position.s_line, self.curr_tkn.position.s_pos))),
         }
 
         while self.has_more_tokens() {
             if self.expect(TokenKind::RightSquare) { break; }
             if !self.expect(TokenKind::Comma)      { 
                 let pos = self.curr_tkn.position;
-                return Err(self.error(format!("Config Parse Error: Expected comma, found {} at {}:{}", self.curr_tkn.kind, pos.s_line, pos.s_pos)))
+                return Err(self.error(format!("Expected comma, found {} at {}:{}", self.curr_tkn.kind, pos.s_line, pos.s_pos)))
             }
             match self.eat_expect(TokenKind::String) {
                 Some(w) => word_files.push(w.value),
                 None => if self.expect(TokenKind::RightSquare) {
                     break;
                 } else {
-                    return Err(self.error(format!("Config Parse Error: Expected a file path, found {} at {}:{}", self.curr_tkn.kind, self.curr_tkn.position.s_line, self.curr_tkn.position.s_pos)))
+                    return Err(self.error(format!("Expected a file path, found {} at {}:{}", self.curr_tkn.kind, self.curr_tkn.position.s_line, self.curr_tkn.position.s_pos)))
                 },
             }
         }
@@ -259,7 +262,7 @@ impl<'a> Parser<'a> {
     fn get_tag(&mut self) -> io::Result<Token> {
         match self.eat_expect(TokenKind::Tag) {
             Some(tag) => Ok(tag),
-            None =>Err(self.error(format!("Config Parse Error: Expected a tag, found {} at {}:{}", self.curr_tkn.kind, self.curr_tkn.position.s_line, self.curr_tkn.position.s_pos))),
+            None => Err(self.error(format!("Expected a tag, found {} at {}:{}", self.curr_tkn.kind, self.curr_tkn.position.s_line, self.curr_tkn.position.s_pos))),
         }
     }
 
@@ -275,10 +278,10 @@ impl<'a> Parser<'a> {
 
         if !self.expect(TokenKind::Colon) {
             if words.is_empty() {
-                return Err(self.error(format!("Config Parse Error: Expected colon after tag at {}:{}", tag_token.position.e_line, tag_token.position.e_pos)))
+                return Err(self.error(format!("Expected colon after tag at {}:{}", tag_token.position.e_line, tag_token.position.e_pos)))
             } else {
                 let pos = self.token_list[self.pos-1].position;
-                return Err(self.error(format!("Config Parse Error: Expected colon after words list at {}:{}", pos.e_line, pos.e_pos)))
+                return Err(self.error(format!("Expected colon after words list at {}:{}", pos.e_line, pos.e_pos)))
             }
         }
 
@@ -296,7 +299,7 @@ impl<'a> Parser<'a> {
             let seq = self.get_seq()?;
 
             if !tag_map.insert(seq.tag.clone()) {
-                return Err(io::Error::other(format!("Parse Error: tag '{}' declared more than once in config", seq.tag)))
+                return Err(self.error(format!("tag '{}' declared more than once in config", seq.tag)))
             }
 
             conf.push(seq);

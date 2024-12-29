@@ -150,13 +150,13 @@ impl<'a> Lexer<'a> {
             ']' => { tokenkind = TokenKind::RightSquare;  value = "]".to_string(); self.inside_square = false },
             '{' => { 
                 if self.inside_curly {
-                    return Err(io::Error::other(format!("Config Parse Error: Unclosed brackets at {}:{}", self.l_num, self.l_pos)))
+                    return Err(self.error(format!("Unclosed brackets at {}:{}", self.l_num, self.l_pos)))
                 }
                 tokenkind = TokenKind::LeftCurly; value = "{".to_string();  self.inside_curly = true
             },
             '[' => { 
                 if self.inside_square {
-                    return Err(io::Error::other(format!("Config Parse Error: Unclosed brackets at {}:{}", self.l_num, self.l_pos)))
+                    return Err(self.error(format!("Unclosed brackets at {}:{}", self.l_num, self.l_pos)))
                 }
                 tokenkind = TokenKind::LeftSquare; value = "[".to_string();  self.inside_square = true
             },
@@ -227,7 +227,7 @@ impl<'a> Lexer<'a> {
         let buffer = self.chop_while(|x| x.is_alphanumeric() || *x == '-');
 
         if buffer.is_empty() {
-            return Err(io::Error::other(format!("Config Parse Error: Empty tag at {}:{}", self.l_num, self.l_pos)))
+            return Err(self.error(format!("Empty tag at {}:{}", self.l_num, self.l_pos)))
         }
 
         Ok(Some(Token::new(TokenKind::Tag, buffer, s_line, start, self.l_num, self.l_pos)))
@@ -245,10 +245,16 @@ impl<'a> Lexer<'a> {
         if let Some(str) = self.get_string()?  { return Ok(str) }
 
         if self.curr_char().is_alphanumeric() {
-            Err(io::Error::other(format!("Config Parse Error: Unquoted string at {}:{}", self.l_num, self.l_pos)))
+            Err(self.error(format!("Undelimited string at {}:{}", self.l_num, self.l_pos)))
         } else {
-            Err(io::Error::other(format!("Config Parse Error: Unknown character at {}:{}", self.l_num, self.l_pos)))
+            Err(self.error(format!("Unknown character at {}:{}", self.l_num, self.l_pos)))
         }
+    }
+
+    fn error(&self, message: String) -> io::Error {
+        let message = format!("{}: {}", "Config Error".bright_red(), message);
+        
+        io::Error::other(message)
     }
 
     pub fn tokenise(&mut self) -> io::Result<Vec<Token>> {
