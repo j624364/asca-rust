@@ -203,7 +203,7 @@ pub(crate) enum TokenKind {
     WordBoundary,     // #
     SyllBoundary,     // $
     Syllable,         // %
-    Ampersand,        // %
+    Ampersand,        // &
     Group,            // Primitive Category i.e. C for Cons, V for Vowel
     Number,           // Number
     Slash,            // /
@@ -473,40 +473,39 @@ impl<'a> Lexer<'a> {
     fn get_special_char(&mut self) -> Result<Option<Token>, RuleSyntaxError> {
         let start = self.pos;
         let tokenkind: TokenKind;
-        let value: String;
-
-        match self.curr_char() {
-            ',' => { tokenkind = TokenKind::Comma;        value = self.chop(1) },
-            ':' => { tokenkind = TokenKind::Colon;        value = self.chop(1) },
-            '#' => { tokenkind = TokenKind::WordBoundary; value = self.chop(1) },
-            '$' => { tokenkind = TokenKind::SyllBoundary; value = self.chop(1) },
-            '%' => { tokenkind = TokenKind::Syllable;     value = self.chop(1) },
-            '*' => { tokenkind = TokenKind::Star;         value = self.chop(1) },
-            '∅' => { tokenkind = TokenKind::EmptySet;     value = self.chop(1) },
-            '&' => { tokenkind = TokenKind::Ampersand;    value = self.chop(1) },
-            '_' => { tokenkind = TokenKind::Underline;    value = self.chop(1) },
-            '<' => { tokenkind = TokenKind::LessThan;     value = self.chop(1) },
-            '>' => { tokenkind = TokenKind::GreaterThan;  value = self.chop(1) },
-            '|' => { tokenkind = TokenKind::Pipe;         value = self.chop(1) },
+        
+        let value = match self.curr_char() {
+            ',' => { tokenkind = TokenKind::Comma;        self.chop(1) },
+            ':' => { tokenkind = TokenKind::Colon;        self.chop(1) },
+            '#' => { tokenkind = TokenKind::WordBoundary; self.chop(1) },
+            '$' => { tokenkind = TokenKind::SyllBoundary; self.chop(1) },
+            '%' => { tokenkind = TokenKind::Syllable;     self.chop(1) },
+            '*' => { tokenkind = TokenKind::Star;         self.chop(1) },
+            '∅' => { tokenkind = TokenKind::EmptySet;     self.chop(1) },
+            '&' => { tokenkind = TokenKind::Ampersand;    self.chop(1) },
+            '_' => { tokenkind = TokenKind::Underline;    self.chop(1) },
+            '<' => { tokenkind = TokenKind::LessThan;     self.chop(1) },
+            '>' => { tokenkind = TokenKind::GreaterThan;  self.chop(1) },
+            '|' => { tokenkind = TokenKind::Pipe;         self.chop(1) },
             '/' => match self.next_char() {
-                '/' => { tokenkind = TokenKind::DubSlash; value = self.chop(2) },
-                 _  => { tokenkind = TokenKind::Slash;    value = self.chop(1) }
+                '/' => { tokenkind = TokenKind::DubSlash; self.chop(2) },
+                 _  => { tokenkind = TokenKind::Slash;    self.chop(1) }
             },
             '=' => match self.next_char() { 
-                '>' => { tokenkind = TokenKind::Arrow;    value = self.chop(2); },
-                 _  => { tokenkind = TokenKind::Equals;   value = self.chop(1); },
+                '>' => { tokenkind = TokenKind::Arrow;    self.chop(2) },
+                 _  => { tokenkind = TokenKind::Equals;   self.chop(1) },
              },
             '-' => match self.next_char() {
-                '>' => { tokenkind = TokenKind::Arrow;    value = self.chop(2); },
+                '>' => { tokenkind = TokenKind::Arrow;    self.chop(2) },
                  _  => return Err(RuleSyntaxError::ExpectedCharArrow(self.next_char(), self.group, self.line, self.pos))
             },
-            '…' | '⋯' => { tokenkind = TokenKind::Ellipsis; value = self.chop(1); },
+            '…' | '⋯' => { tokenkind = TokenKind::Ellipsis; self.chop(1) },
             '.' => match self.next_char() {
-                '.' => { tokenkind = TokenKind::Ellipsis; value = self.chop_while(|x| *x == '.'); },
+                '.' => { tokenkind = TokenKind::Ellipsis; self.chop_while(|x| *x == '.') },
                 _ => return Err(RuleSyntaxError::ExpectedCharDot(self.next_char(), self.group, self.line, self.pos))
             },
             _ => return Ok(None)
-        }
+        };
         Ok(Some(Token::new(tokenkind, value, self.group, self.line, start, self.pos)))
     }
 
