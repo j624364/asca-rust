@@ -88,10 +88,10 @@ pub enum Command {
         #[arg(short='n', long, action, requires="output", conflicts_with="overwrite", verbatim_doc_comment)]
         no_overwrite: bool,
 
-        /// Only the final iteration will be saved (i.e. no intermediate steps).
+        /// Save all intermediate steps
         /// - Requires --output
-        #[arg(short='l', long, action, requires="output", verbatim_doc_comment)]
-        last_only: bool,
+        #[arg(short='i', long, action, requires="output", verbatim_doc_comment)]
+        output_all: bool,
     },
     /// Convert between an asca-web json file and the wsca/rsca format.
     #[clap(subcommand)]

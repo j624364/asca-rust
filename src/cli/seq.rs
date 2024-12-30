@@ -103,7 +103,7 @@ fn get_words(rule_seqs: &[ASCAConfig], dir: &Path, words_path: &Option<PathBuf>,
 }
 
 /// Handle writing the result to file
-fn output_result(dir: &Path, tag: &str, trace: &[Vec<String>], seq_names: &[PathBuf], overwrite: Option<bool>, last_only: bool) -> io::Result<()> {
+fn output_result(dir: &Path, tag: &str, trace: &[Vec<String>], seq_names: &[PathBuf], overwrite: Option<bool>, output_all: bool) -> io::Result<()> {
     // Create <out/tag> subfolder within <dir> if doesn't exist
     // Create files for each seq, <seq_name>.wsca, and write to each
     let mut path = dir.to_path_buf();
@@ -114,7 +114,7 @@ fn output_result(dir: &Path, tag: &str, trace: &[Vec<String>], seq_names: &[Path
         util::dir_create_all(&path)?;
     }
 
-    if !last_only {
+    if output_all {
         for (seq, name) in seq_names.iter().enumerate() {
             let content = trace[seq+1].join("\n");
             let mut p = path.clone();
@@ -124,10 +124,9 @@ fn output_result(dir: &Path, tag: &str, trace: &[Vec<String>], seq_names: &[Path
             util::write_to_file(&p, content, WORD_FILE_EXT, overwrite)?;
         }
     } else {
-        let name = seq_names.last().unwrap();
+        let name = seq_names.last().unwrap().file_name().unwrap();
         let content = trace.last().unwrap().join("\n");
         let mut p = path.clone();
-        let name = name.file_name().unwrap();
         p.push(name);
         p.set_extension(WORD_FILE_EXT);
         util::write_to_file(&p, content, WORD_FILE_EXT, overwrite)?;
@@ -196,19 +195,19 @@ fn handle_sequence(rule_seqs: &[ASCAConfig], seq_cache: &mut HashMap<String, Vec
 
         print_result(&trace, &seq.tag, flags.all_steps);
         if flags.output {
-            return output_result(dir_path, &seq.tag, &trace, &files, flags.overwrite, flags.last_only)
+            return output_result(dir_path, &seq.tag, &trace, &files, flags.overwrite, flags.output_all)
         } 
     }
     Ok(())
 }
 
-pub(crate) fn run(maybe_dir_path: Option<PathBuf>, words_path: Option<PathBuf>, maybe_tag: Option<String>, output: bool, overwrite: Option<bool>, last_only: bool, all_steps: bool) -> io::Result<()> {
+pub(crate) fn run(maybe_dir_path: Option<PathBuf>, words_path: Option<PathBuf>, maybe_tag: Option<String>, output: bool, overwrite: Option<bool>, output_all: bool, all_steps: bool) -> io::Result<()> {
     let dir_path = util::validate_directory(maybe_dir_path)?;
     let rule_seqs = get_config(&dir_path)?;
 
     let mut seq_cache = HashMap::new();
 
-    let flags = SeqFlags { output, overwrite, last_only, all_steps };
+    let flags = SeqFlags { output, overwrite, output_all, all_steps };
 
     if let Some(tag) = maybe_tag {
         // Would be better if this was a hashmap
@@ -229,6 +228,6 @@ pub(crate) fn run(maybe_dir_path: Option<PathBuf>, words_path: Option<PathBuf>, 
 struct SeqFlags {
     output: bool,
     overwrite: Option<bool>,
-    last_only: bool,
+    output_all: bool,
     all_steps: bool,
 }

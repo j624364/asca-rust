@@ -1,48 +1,33 @@
 mod cli; 
 use cli::args::{CliArgs, Command, Conv};
 
-
-use std::process::exit;
+use std::{io, process::exit};
 use clap::Parser;
 
 
-fn main() {
-    let args = CliArgs::parse();
-    match args.cmd {
-        Command::Run { i_group, words: input, compare, output } => {
-            if let Err(e) = cli::run::run(i_group, input, output, compare) {
-                println!("{e}");
-                exit(1);
-            }
-        },
+fn run() -> io::Result<()> {
+    match CliArgs::parse().cmd {
+        Command::Run { i_group, words: input, compare, output } => cli::run::run(i_group, input, output, compare),
         Command::Conv(conv) => match conv {
-            Conv::Asca { words, rules, output } => {
-                if let Err(e) = cli::convert::from_asca(words, rules, output) {
-                    println!("{e}");
-                    exit(1);
-                }
-            },
-            Conv::Json { path, words, rules } => {
-                if let Err(e) = cli::convert::from_json(path, words, rules) {
-                    println!("{e}");
-                    exit(1);
-                }
-            },
+            Conv::Asca { words, rules, output } => cli::convert::from_asca(words, rules, output),
+            Conv::Json { path, words, rules }   => cli::convert::from_json(path, words, rules),
         },
-        // Command::Mult { rules, words, compare, output } => {
-        //     todo!()
-        // },
-        Command::Seq { path, tag, words, all_steps, output, overwrite , no_overwrite, last_only } => {
+        // Command::Mult { rules, words, compare, output } => todo!(),
+        Command::Seq { path, tag, words, all_steps, output, overwrite , no_overwrite, output_all } => {
             let ow = match (overwrite, no_overwrite) {
                 (true, false) => Some(true),
                 (false, true) => Some(false),
                 _ => None
             };
-            if let Err(e) = cli::seq::run(path, words, tag, output, ow, last_only, all_steps) {
-                println!("{e}");
-                exit(1);
-            }
+            cli::seq::run(path, words, tag, output, ow, output_all, all_steps)
         },
         // Command::Tui => println!("tui coming soon..."),
+    }
+}
+
+fn main() {
+    if let Err(e) = run() {
+        eprintln!("{e}");
+        exit(1);
     }
 }
