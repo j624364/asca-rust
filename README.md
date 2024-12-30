@@ -11,3 +11,8 @@ Repo for the web UI is [here](https://github.com/Girv98/asca)
 - Optional/Repeating Segments
 - Syntax which adheres to conventional standard notation
 - Digraph and Diacritic Support
+
+
+User guide can be found [here](./doc.md).
+
+A cli specific user guide can be found [here](./doc-cli.md).
