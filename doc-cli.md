@@ -27,7 +27,7 @@ Each rule group is defined as follows:
     - Can be multiple lines, with each line starting with `#`.
 
 Example from a [germanic](./examples/indo-european/germanic/early-pgmc.rsca) implementation.
-``` diff
+```
 @ Grimms Law 
     [+cons, -son, -cont, -voice] > [+cont]
     [+cons, -son, -cont, +voice, -sg] > [-voice]
@@ -72,7 +72,7 @@ The word list is optional, but they then must be passed by the user at runtime w
 
 This is followed by a colon, after which follows a comma-delimited list of paths to rsca files. 
 Again, the path is relative to the config file and the extension does not need to be specified.
-``` python
+``` diff
 # This is a comment
 # The following sequence has been one-lined, but they can be span multiple lines as well
 
@@ -93,7 +93,7 @@ Multiple filters can be specified, separated by commas, and between curly bracke
 `~` means to select only the following rules from the sequence (NOTE: Will be applied in the order they appear in the filter, not as they are in the rule file). 
 This could be useful for defining commonly used sound changes within a 'global' sound change file and selecting them when needed. 
 
-```python
+```diff
 @beta ["foo", "bar"]:
     "rules1" ! {"Glottal Deletion"},
     "rules2" ~ {"Cluster Simplification", "Hap(lo)logy"},
@@ -109,7 +109,7 @@ This could be useful for defining commonly used sound changes within a 'global' 
 Instead of a word list, another defined sequence can be referenced with `%`. This will run the referenced sequence and use the resulting words as input. 
 This can be useful for defining daughter languages or branches without having to manually redefine the words.
 
-```
+``` diff
 @gamma %alpha:
     "rules1" ~ {"Low Vowel Reduction"},
 
