@@ -1,22 +1,25 @@
-'hoj.nos
-'dwo.hi
-'tre.jes
-pet'wo:r
-'pen.kʷe
-'seks
-se'pm̩d
-hok'to:w
-'hne.wn̩d
-'de.km̩d
-km̩'tom
-
-px̩'te:r
-mex'te:r 
-'bʱrex.te:r
-'swes.te:r
-dʱug'te:r
-su'nus
-
+'hoj.nos    # one
+'dwo.hi     # two
+'tre.jes    # three
+pet'wo:r    # four
+'pen.kʷe    # five
+'seks       # six
+se'pm̩d      # seven
+hok'to:w    # eight
+'hne.wn̩d    # nine
+'de.km̩d     # ten
+km̩'tom      # hundred
+#Kinship Terms
+px̩'te:r     # father
+mex'te:r    # mother
+'bʱrex.te:r # brother
+'swes.te:r  # sister
+dʱug'te:r   # daughter
+su'nus      # brother
+# Unstressed words
+hes.mi
+xe.je.ri
+# Misc
 u'pe.ri
 tew'tex
 kʷekʷ'lex
@@ -46,9 +49,5 @@ stx̩'jon.ti
 'ɣʷe.ro:
 'bʱleɣʷ.mo:
 'gʷʱn̩.tis
-
 n̩'ɣʷwe
 n̩'ter
-
-hes.mi
-xe.je.ri
