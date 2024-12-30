@@ -15,4 +15,18 @@ Repo for the web UI is [here](https://github.com/Girv98/asca)
 
 User guide can be found [here](./doc.md).
 
+
+## Cli
+
 A cli specific user guide can be found [here](./doc-cli.md).
+
+### Installation
+
+[Precompiled binaries are available for Linux, Windows, and macOS.](https://github.com/Girv98/asca-rust/releases)
+
+Alternatively, if you have **Rust** installed, asca can be installed with `cargo`.
+
+
+```
+$ cargo install asca
+```
