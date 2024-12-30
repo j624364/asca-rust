@@ -15,11 +15,15 @@
     [+cons, +voice, +sg] > [-sg]
 
     [+cons, -son, +voice] > [+cont] / {V:[-red], G}_{V, G}
-#
+# Chain shift of the three series of plosives.
+# Voiceless plosives become fricatives
+# Voiced plosives are devoiced
+# Aspirated plosives become voiced plosives or fricatives.
 
 @ Verner's Law
     [-voice, +cont] > [+voice] / V:[-stress]([+son])_
-#
+# Voiceless fricatives are voiced when preceded by an unaccented vowel.
+# Including cases where the vowel and fricative are separated by a sonorant.
 
 @ Germanic Spirant's Law
     θ > t / O_
