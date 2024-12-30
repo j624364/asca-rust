@@ -4,7 +4,7 @@ use super::{parse, util::{self, JSON_FILE_EXT, RULE_FILE_EXT, WORD_FILE_EXT}, As
 
 /// Convert a rsca file and a wsca file into a asca-web json file
 pub fn from_asca(words: Option<PathBuf>, rules: Option<PathBuf>, output: Option<PathBuf>) -> io::Result<()> {
-    let words = parse::parse_wsca(&util::validate_file_exists(words.as_deref(), &[WORD_FILE_EXT, "txt"], "word")?)?;
+    let (words, _) = parse::parse_wsca(&util::validate_file_exists(words.as_deref(), &[WORD_FILE_EXT, "txt"], "word")?)?;
     let rules = parse::parse_rsca(&util::validate_file_exists(rules.as_deref(), &[RULE_FILE_EXT, "txt"], "rule")?)?;
 
     let json = serde_json::to_string_pretty(&(AscaJson { words, rules }))?;

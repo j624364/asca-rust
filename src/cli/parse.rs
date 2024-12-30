@@ -54,6 +54,12 @@ pub fn parse_rsca(rule_file_path: &Path) -> io::Result<Vec<RuleGroup>> {
 }
 
 
-pub fn parse_wsca(path: &Path) -> io::Result<Vec<String>> {
-    Ok(util::file_read(path)?.lines().map(|s| s.trim().to_owned()).collect::<Vec<String>>())
+pub fn parse_wsca(path: &Path) -> io::Result<(Vec<String>, Vec<String>)> {
+    Ok(util::file_read(path)?.lines().map(|line| {
+        let mut line_iter = line.trim().split('#');
+
+        let word = line_iter.next().unwrap().trim().to_owned();
+        let comment = line_iter.collect::<String>().trim().to_owned();
+        (word, comment)
+    }).collect::<(Vec<String>, Vec<String>)>())
 }

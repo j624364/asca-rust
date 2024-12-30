@@ -78,14 +78,15 @@ fn get_words(rule_seqs: &[ASCAConfig], dir: &Path, words_path: &Option<PathBuf>,
         vec![] 
     };
 
-    if let Some(ref w) = words_path {
-        words.append(&mut parse_wsca(&util::validate_file_exists(Some(w), &[WORD_FILE_EXT, "txt"], "word")?)?);
+    if let Some(ref wp) = words_path {
+        let (mut w, _) = parse_wsca(&util::validate_file_exists(Some(wp), &[WORD_FILE_EXT, "txt"], "word")?)?;
+        words.append(&mut w);
     } else if !conf.words.is_empty() {
         for w in &conf.words {
-            let mut p = dir.to_path_buf();
-            p.push(w);
-            p.set_extension(WORD_FILE_EXT);
-            let mut w_file = parse_wsca(&util::validate_file_exists(Some(&p), &[WORD_FILE_EXT, "txt"], "word")?)?;
+            let mut wp = dir.to_path_buf();
+            wp.push(w);
+            wp.set_extension(WORD_FILE_EXT);
+            let (mut w_file, _) = parse_wsca(&util::validate_file_exists(Some(&wp), &[WORD_FILE_EXT, "txt"], "word")?)?;
 
             if !words.is_empty() {
                 words.push("".to_string());

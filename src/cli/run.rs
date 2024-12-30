@@ -7,7 +7,7 @@ use super::{args::InGroup, parse, util::{self, LINE_ENDING, RULE_FILE_EXT, WORD_
 
 // Handle comparing the output to the contents of a wsca file.
 fn print_comparison(result: &[String], comp_path: &Path) -> io::Result<()> {
-    let comparison = parse::parse_wsca(&util::validate_file_exists(Some(comp_path), &[WORD_FILE_EXT, "txt"], "word")?)?;
+    let (comparison, _) = parse::parse_wsca(&util::validate_file_exists(Some(comp_path), &[WORD_FILE_EXT, "txt"], "word")?)?;
     println!("{} {} {}\n", comp_path.to_str().expect("File path has been validated").bright_blue().bold(), "|".bright_red().bold(), "OUTPUT".bright_green().bold());
     for (comp, res) in comparison.iter().zip(result) {
         if comp.is_empty() && res.is_empty() {
@@ -62,13 +62,13 @@ fn get_input(i_group: InGroup, input: Option<PathBuf>) -> io::Result<(Vec<String
         let json: AscaJson = serde_json::from_reader(file)?;
 
         if input.is_some() {
-            let words = parse::parse_wsca(&util::validate_file_exists(input.as_deref(), &[WORD_FILE_EXT, "txt"], "word")?)?;
+            let (words, _) = parse::parse_wsca(&util::validate_file_exists(input.as_deref(), &[WORD_FILE_EXT, "txt"], "word")?)?;
             Ok((words, json.rules))
         } else {
             Ok((json.words, json.rules))
         }
     } else {
-        let words = parse::parse_wsca(&util::validate_file_exists(input.as_deref(), &[WORD_FILE_EXT, "txt"], "word")?)?;
+        let (words, _) = parse::parse_wsca(&util::validate_file_exists(input.as_deref(), &[WORD_FILE_EXT, "txt"], "word")?)?;
         let rules = parse::parse_rsca(&util::validate_file_exists(rules.as_deref(), &[RULE_FILE_EXT, "txt"], "rule")?)?;
 
         Ok((words, rules))
