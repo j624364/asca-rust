@@ -1,0 +1,118 @@
+name: release
+
+on:
+  push:
+    tags:
+    - "[0-9]+.[0-9]+.[0-9]+"
+
+permissions:
+  contents: write
+
+jobs:
+  # Initialize GitHub release
+  create-release:
+    name: create-release
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Get release version from tag
+        if: env.VERSION == ''
+        run: echo "VERSION=${{ github.ref_name }}" >> $GITHUB_ENV
+      - name: Echo version
+        run: |
+          echo "version is: $VERSION"
+      - name: Check Cargo.toml version
+        shell: bash
+        run: |
+          if ! grep -q "version = \"$VERSION\"" Cargo.toml; then
+            echo "version does not match Cargo.toml" >&2
+            exit 1
+          fi
+      - name: Create GitHub release
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: gh release create $VERSION --draft --verify-tag --title $VERSION
+    outputs:
+      version: ${{ env.VERSION }}
+
+  build-release:
+    name: Build and release ${{ matrix.platform.os-name }}
+    runs-on: ${{ matrix.platform.runs-on }}
+    needs: ['create-release']
+
+    strategy:
+      fail-fast: false
+      matrix:
+        platform:
+        # 64-bit Linux w/ musl
+        - os-name: Linux-x86_64 (musl)
+          runs-on: ubuntu-latest
+          target: x86_64-unknown-linux-musl
+        # 64-bit Linux w/ gnu
+        - os-name: Linux-x86_64 (gnu)
+          runs-on: ubuntu-latest
+          target: x86_64-unknown-linux-gnu
+        # ARM64 Linux w/ gnu
+        - os-name: Linux-aarch64
+          runs-on: ubuntu-latest
+          target: aarch64-unknown-linux-gnu
+        # 64-bit Windows w/ msvc
+        - os-name: Windows-x86_64
+          runs-on: windows-latest
+          target: x86_64-pc-windows-msvc
+        # # 64-bit Windows w/ gnu
+        - os-name: Windows-x86_64 (gnu)
+          runs-on: windows-latest
+          target: x86_64-pc-windows-gnu
+        # 64-bit macOS
+        - os-name: macOS-x86_64
+          runs-on: macOS-latest
+          target: x86_64-apple-darwin
+        # ARM64 macOS
+        - os-name: macOS-aarch64
+          runs-on: macOS-latest
+          target: aarch64-apple-darwin
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ matrix.platform.target }}
+      - name: Build binary
+        uses: actions-rs/cargo@v1
+        with:
+          use-cross: true
+          command: build
+          args: --verbose --release --target ${{ matrix.platform.target }}
+      
+      - name: Build archive
+        shell: bash
+        run: |
+          binary_name="asca"
+
+          dirname="$binary_name-${{ env.VERSION }}-${{ matrix.platform.target }}"
+          mkdir "$dirname"
+          if [ "${{ matrix.runs-on }}" = "windows-latest" ]; then
+            mv "target/${{ matrix.platform.target }}/release/$binary_name.exe" "$dirname"
+          else
+            mv "target/${{ matrix.platform.target }}/release/$binary_name" "$dirname"
+          fi
+
+          cp {README.md,doc.md,doc-cli.md,LICENSE} "$dirname"/
+
+          if [ "${{ matrix.runs-on }}" = "windows-latest" ]; then
+            7z a "$dirname.zip" "$dirname"
+            echo "ASSET=$dirname.zip" >> $GITHUB_ENV
+          else
+            tar -czf "$dirname.tar.gz" "$dirname"
+            echo "ASSET=$dirname.tar.gz" >> $GITHUB_ENV
+          fi
+
+      - name: Upload release archive
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        shell: bash
+        run: |
+          version="${{ needs.create-release.outputs.version }}"
+          gh release upload "$version" ${{ env.ASSET }}
