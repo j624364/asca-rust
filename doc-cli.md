@@ -27,7 +27,7 @@ Each rule group is defined as follows:
     - Can be multiple lines, with each line starting with `#`.
 
 Example from a [germanic](./examples/indo-european/germanic/early-pgmc.rsca) implementation.
-``` python
+``` diff
 @ Grimms Law 
     [+cons, -son, -cont, -voice] > [+cont]
     [+cons, -son, -cont, +voice, -sg] > [-voice]
@@ -109,7 +109,7 @@ This could be useful for defining commonly used sound changes within a 'global' 
 Instead of a word list, another defined sequence can be referenced with `%`. This will run the referenced sequence and use the resulting words as input. 
 This can be useful for defining daughter languages or branches without having to manually redefine the words.
 
-```python
+```
 @gamma %alpha:
     "rules1" ~ {"Low Vowel Reduction"},
 
