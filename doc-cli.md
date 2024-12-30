@@ -2,13 +2,12 @@
 
 ### Quick Links
 * [File Formats](#file-formats)
-* [Converting between file formats](#converting-between-file-formats)
 * [Sequences](#sequences)
 * [Usage](#usage)
 
 ## File Formats
 Asca-cli differs from the web implementation by using two file formats to each define a set of input words and a set of rules.
-An existing web json file can be converted into these formats (and vice-versa) using the [conv command](#converting-between-file-formats).
+An existing web json file can be converted into these formats (and vice-versa) using the [conv command](#conv-command).
 
 ### Word file (.wsca)
 Words are defined similarly as to the input field on [asca-web](doc.md). That is, each word is declared on a new line in ipa form.
@@ -48,14 +47,11 @@ Example from a [germanic](./examples/indo-european/germanic/early-pgmc.rsca) imp
 ### Config file (.asca)
 See the [sequences section](#the-config-file) for more info.
 
-## Converting between file formats
-
-
 ## Sequences
 The seq command allows for whole language families to be defined as a project within a `.asca` file and ran at once. 
 This lets you create a pipeline from parent to daughter languages, generating an output lexicon at each stage.
 
-For an example project, see the indo-european example folder [here](./examples/indo-european/).
+For an example project, see the indo-european example folder [here](./examples/indo-european/germanic).
 
 ### The Config File
 
