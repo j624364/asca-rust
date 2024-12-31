@@ -1,0 +1,16 @@
+
+# TODO
+
+@ Satem Shift 
+    P:[-fr, +bk, +hi, -lab] > [-bk, +fr, +dist]
+    P:[-fr, +bk, -hi, -lo] > [+hi]
+    P:[+dor] > [-lab]
+#
+
+@ Liquid Merger 
+    l:[Asyll] > r:[Asyll]
+#
+
+@ Brugmann's Law
+    V:[-hi, -long] > a:[+long] / _$ | _# 
+#

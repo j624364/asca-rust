@@ -1,3 +1,4 @@
 # This config assumes PIE 'uvular theory' and that {h₁, h₂, h₃} are {h, x, ɣʷ}
 
-# @proto-indo-iranian ["../pie-uvular"]: TODO
+@proto-indo-iranian ["../pie-uvular"]:
+    "pre-pii"
