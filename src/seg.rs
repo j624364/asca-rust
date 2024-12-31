@@ -4,7 +4,7 @@ use serde::Deserialize;
 use crate :: {
     error :: RuleRuntimeError, 
     lexer :: { FType, NodeType, Position }, 
-    parser:: { AlphaMod, BinMod, ModKind }, 
+    parser:: { AlphaMod, BinMod, ModKind, Modifiers, SupraSegs }, 
     rule  :: Alpha, 
     CARDINALS_MAP, CARDINALS_VEC, DIACRITS 
 };
@@ -419,6 +419,37 @@ impl Segment {
             // this is a consequence of using ModKind for everything
             ModKind::Alpha(_) => unreachable!(),
         }
+    }
+
+    pub(crate) fn as_modifiers(&self) -> Modifiers {
+        
+        let to_bin_mod = |b: bool | { if b {BinMod::Positive} else {BinMod::Negative}};
+        
+        let place = self.labial.is_some() || self.coronal.is_some() || self.dorsal.is_some() || self.pharyngeal.is_some();
+
+        let nodes = [
+            Some(ModKind::Binary(BinMod::Positive)),
+            Some(ModKind::Binary(BinMod::Positive)),
+            Some(ModKind::Binary(BinMod::Positive)),
+            Some(ModKind::Binary(to_bin_mod(place))),
+            Some(ModKind::Binary(to_bin_mod(self.labial.is_some()))),
+            Some(ModKind::Binary(to_bin_mod(self.coronal.is_some()))),
+            Some(ModKind::Binary(to_bin_mod(self.dorsal.is_some()))),
+            Some(ModKind::Binary(to_bin_mod(self.pharyngeal.is_some()))),
+            ];
+
+        let mut feats = [();FType::count()].map(|_| None);     
+        #[allow(clippy::needless_range_loop)] 
+        for i in 0..FType::count() {
+            let (n, f) = feature_to_node_mask(FType::from_usize(i));   
+            let Some(x) = self.get_feat(n, f) else { continue };
+            
+            feats[i] = Some(ModKind::Binary(to_bin_mod(x != 0)))
+        }
+        
+        let suprs = SupraSegs::new();
+
+        Modifiers { nodes, feats, suprs }
     }
 
     fn diff(&self, other: &Segment) -> Segment {

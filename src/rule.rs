@@ -1102,6 +1102,14 @@ mod rule_tests {
     }
 
     #[test]
+    fn test_match_ipa_alpha_feature() {
+        let test_rule = setup_rule("l:[Asyll] > r:[Asyll]");
+        
+        assert_eq!(test_rule.apply(setup_word("lak")).unwrap().render().unwrap(), "rak");
+        assert_eq!(test_rule.apply(setup_word("wl̩k")).unwrap().render().unwrap(), "wr̩k");
+    }
+
+    #[test]
     fn test_grimms_law() {
         let test_rule = setup_rule("[+cons, -son, -voice, -cont], [+cons, -son, +voice, -cont, -sg], [+cons, +voice, +sg] > [+cont], [-voice], [-sg]");
         assert_eq!(test_rule.apply(setup_word("kumˈtom")).unwrap().render().unwrap(), "xumˈθom");

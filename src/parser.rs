@@ -69,7 +69,11 @@ pub(crate) struct SupraSegs {
 }
 
 impl SupraSegs {
-    pub(crate) fn new(stress: [Option<ModKind>; 2], length: [Option<ModKind>; 2], tone: Option<String>) -> Self {
+    pub(crate) fn new() -> Self {
+        Self { stress: [None, None], length: [None, None], tone: None }
+    }
+
+    pub(crate) fn from(stress: [Option<ModKind>; 2], length: [Option<ModKind>; 2], tone: Option<String>) -> Self {
         Self { stress, length, tone }
     }
 }
@@ -89,7 +93,7 @@ impl Modifiers {
         Self { 
             nodes: [();NodeType::count()].map(|_| None), 
             feats: [();FType::count()].map(|_| None), 
-            suprs: SupraSegs::new([None, None], [None, None], None)
+            suprs: SupraSegs::new()
         }
     }
 }

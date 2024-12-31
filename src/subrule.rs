@@ -1347,7 +1347,7 @@ impl SubRule {
                                             self.apply_syll_mods(&mut res_word, sp, &mods.suprs, var, set_output[i].position)?;
                                         },
                                         ParseElement::Syllable(stress, tone, var) => {
-                                            let sups = SupraSegs::new(*stress, [None, None], tone.clone());
+                                            let sups = SupraSegs::from(*stress, [None, None], tone.clone());
                                             self.apply_syll_mods(&mut res_word, sp, &sups, var, set_output[i].position)?;
                                         },
                                         ParseElement::Variable(num, mods) => {
@@ -2078,15 +2078,18 @@ impl SubRule {
         }
     }
 
-    fn match_ipa_with_modifiers(&self, seg: &Segment, mods: &Modifiers, word: &Word, pos: &SegPos, err_pos: Position) -> Result<bool, RuleRuntimeError> {
-        let mut seg = *seg;
-        seg.apply_seg_mods(&self.alphas, mods.nodes, mods.feats, err_pos, true)?;
-
-        if seg == word.get_seg_at(*pos).expect("Segment Position should be within bounds") {
-            Ok(self.match_supr_mod_seg(word, &mods.suprs, pos)?)
-        } else {
-            Ok(false)
+    fn match_ipa_with_modifiers(&self, seg: &Segment, mods: &Modifiers, word: &Word, pos: &SegPos, err_pos: Position) -> Result<bool, RuleRuntimeError> {   
+        let mut joined_mods = seg.as_modifiers();
+        
+        for (i, n) in mods.nodes.iter().enumerate() {
+            if n.is_some() { joined_mods.nodes[i] = *n }
         }
+        for (i, f) in mods.feats.iter().enumerate() {
+            if f.is_some() { joined_mods.feats[i] = *f }
+        }
+        joined_mods.suprs = mods.suprs.clone();
+
+        self.match_modifiers(&joined_mods, word, pos, err_pos)
     }
 
     fn match_modifiers(&self, mods: &Modifiers, word: &Word, pos: &SegPos, err_pos: Position) -> Result<bool, RuleRuntimeError> {
