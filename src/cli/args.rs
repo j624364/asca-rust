@@ -1,21 +1,23 @@
 use std::path::PathBuf;
 
 use clap:: {
-    Args,
-    Parser, 
-    Subcommand,
+    Args, Command, Parser, Subcommand, ValueHint
 };
+use clap_complete::{generate, Generator, Shell};
 
 #[derive(Debug, Parser)]
 #[clap(author, version, about)]
+#[command(name = "asca")]
 pub struct CliArgs {
+    #[arg(long = "generate", value_enum)]
+    pub(crate) generator: Option<Shell>,
     #[clap(subcommand)]
-    pub cmd: Command,
+    pub cmd: Option<AscaCommand>,
 }
 
 #[derive(Debug, Subcommand)]
-// #[clap(color=clap::ColorChoice::Always)]
-pub enum Command {
+#[command(arg_required_else_help = true, visible_alias = "hint")]
+pub enum AscaCommand {
     /// Run basic cli.
     Run {
         #[clap(flatten)]
@@ -23,17 +25,17 @@ pub enum Command {
 
         /// Path to a wsca file containing the input words.
         /// - If this and -j are not provided, asca will look for a file in the current directory.
-        #[arg(short, long, verbatim_doc_comment, value_hint=clap::ValueHint::FilePath)]
+        #[arg(short, long, verbatim_doc_comment, value_hint=ValueHint::FilePath)]
         words: Option<PathBuf>,
 
         /// Path of a wsca file to compare with the result.
-        #[arg(short, long, verbatim_doc_comment, value_hint=clap::ValueHint::FilePath)]
+        #[arg(short, long, verbatim_doc_comment, value_hint=ValueHint::FilePath)]
         compare: Option<PathBuf>,
 
         /// Desired path of output file.
         /// - If a directory is provided, asca will create an out.wsca file in that directory.
         /// - If not provided, asca will not write to any file.
-        #[arg(short, long, verbatim_doc_comment, value_hint=clap::ValueHint::FilePath)]
+        #[arg(short, long, verbatim_doc_comment, value_hint=ValueHint::FilePath)]
         output: Option<PathBuf>,
     },
     // Mult {
@@ -62,7 +64,7 @@ pub enum Command {
         
         /// Run a given tag in the config file.
         /// - If not provided, all tags in the config will be run.
-        #[arg(short='t', long, verbatim_doc_comment)]
+        #[arg(short='t', long, verbatim_doc_comment, value_hint=clap::ValueHint::Other)]
         tag: Option<String>,
 
         /// Path to a wsca file.
@@ -146,4 +148,8 @@ pub struct InGroup {
     /// - If neither -j nor -r is provided, asca will look for a file in the current directory.
     #[arg(short, long, verbatim_doc_comment, value_hint=clap::ValueHint::FilePath)]
     pub rules: Option<PathBuf>,
+}
+
+pub(crate) fn print_completions<G: Generator>(gen: G, cmd: &mut Command) {
+    generate(gen, cmd, cmd.get_name().to_string(), &mut std::io::stdout());
 }
