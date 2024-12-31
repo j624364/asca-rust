@@ -15,6 +15,7 @@ Repo for the web UI is [here](https://github.com/Girv98/asca)
 
 User guide can be found [here](./doc.md).
 
+[Changelog](./CHANGELOG.md)
 
 ## Cli
 

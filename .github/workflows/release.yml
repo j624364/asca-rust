@@ -99,7 +99,7 @@ jobs:
             mv "target/${{ matrix.platform.target }}/release/$binary_name" "$dirname"
           fi
 
-          cp {README.md,doc.md,doc-cli.md,LICENSE} "$dirname"/
+          cp {README.md,doc.md,doc-cli.md,LICENSE,CHANGELOG.md} "$dirname"/
 
           if [ "${{ matrix.runs-on }}" = "windows-latest" ]; then
             7z a "$dirname.zip" "$dirname"
