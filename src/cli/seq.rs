@@ -214,7 +214,8 @@ pub(crate) fn run(maybe_dir_path: Option<PathBuf>, words_path: Option<PathBuf>, 
         // Would be better if this was a hashmap
         // but even if the file was unreasonably long as to cause slowdowns, we'd have other issues
         let Some(seq) = rule_seqs.iter().find(|c| c.tag == tag) else {
-            return Err(io::Error::other(format!("Error: Could not find tag '{tag}' in config")))
+            let possible_tags = rule_seqs.iter().map(|c| c.tag.clone()).collect::<Vec<_>>().join("\n- ");
+            return Err(io::Error::other(format!("{} Could not find tag '{}' in config.\nAvailable tags are:\n- {}", "Config Error:".bright_red(), tag.yellow(), possible_tags)))
         };
         handle_sequence(&rule_seqs, &mut seq_cache, &dir_path, &words_path, seq, &flags)
     } else {
