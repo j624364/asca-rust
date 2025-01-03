@@ -5,8 +5,10 @@ mod word;
 mod syll;
 mod seg;
 mod rule;
-pub mod error;
 mod subrule;
+mod error;
+
+pub use error::*;
 
 use serde::Deserialize;
 use std::collections::HashMap;
@@ -19,7 +21,6 @@ use trie  ::*;
 use word  ::*;
 use seg   ::*;
 use rule  ::*;
-use error ::*;
 
 const CARDINALS_FILE: &str = include_str!("cardinals.json");
 const DIACRITIC_FILE: &str = include_str!("diacritics.json");
@@ -203,15 +204,6 @@ fn parse_rule_groups(unparsed_rule_groups: &[RuleGroup]) -> Result<Vec<Vec<Rule>
     Ok(rule_groups)
 }
 
-// fn run_web(unparsed_rules: &[RuleGroup], unparsed_words: &[String]) -> Result<Vec<String>, Error> {
-//     let words = parse_words(unparsed_words)?;
-//     let rules = parse_rule_groups(unparsed_rules)?;
-
-//     let res = apply_rule_groups(&rules, &words)?;
-    
-//     Ok(words_to_string(&res)?)
-// }
-
 pub fn run(unparsed_rules: &[RuleGroup], unparsed_words: &[String]) -> Result<Vec<String>, Error> {
     let words = parse_words(unparsed_words)?;
     let rules = parse_rule_groups(unparsed_rules)?;
@@ -223,7 +215,7 @@ pub fn run(unparsed_rules: &[RuleGroup], unparsed_words: &[String]) -> Result<Ve
 
 
 #[wasm_bindgen]
-pub fn run_asca(val: JsValue, unparsed_words: Vec<String>) -> Vec<String> {
+pub fn run_wasm(val: JsValue, unparsed_words: Vec<String>) -> Vec<String> {
     let unparsed_rules: Vec<RuleGroup> = serde_wasm_bindgen::from_value(val).expect("Rules are valid");
 
     parse_result_web(run(&unparsed_rules, &unparsed_words), &unparsed_rules, &unparsed_words)
