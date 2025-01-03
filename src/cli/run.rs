@@ -83,15 +83,17 @@ fn output_result(output: Option<PathBuf>, res: &[String]) -> io::Result<()> {
     Ok(())
 }
 
-pub(crate) fn run(i_group: InGroup, input: Option<PathBuf>, output: Option<PathBuf>, compare: Option<PathBuf>) -> io::Result<()> {
-    let (words, rules) = get_input(i_group, input)?;
+pub(crate) fn run(in_group: InGroup, maybe_words: Option<PathBuf>, maybe_output: Option<PathBuf>, maybe_compare: Option<PathBuf>) -> io::Result<()> {
+    let (words, rules) = get_input(in_group, maybe_words)?;
 
     match asca::run(&rules, &words) {
         Ok(res) => {
-            print_result(&res, &words, compare)?;
-            output_result(output, &res)?;
+            print_result(&res, &words, maybe_compare)?;
+            output_result(maybe_output, &res)
         },
-        Err(err) => util::print_asca_errors(err, &words, &rules),
+        Err(err) => { 
+            util::print_asca_errors(err, &words, &rules); 
+            Ok(())
+        },
     }
-    Ok(())
 }
