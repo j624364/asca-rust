@@ -85,31 +85,46 @@ jobs:
           use-cross: true
           command: build
           args: --verbose --release --target ${{ matrix.platform.target }}
-      
+
+      - name: Get archive name
+        shell: bash
+        run: |
+          if [ "${{ matrix.runs-on }}" = "windows-latest" ]; then
+            bin="target/${{ matrix.platform.target }}/release/asca.exe"
+          else
+            bin="target/${{ matrix.platform.target }}/release/asca"
+          fi
+          echo "BIN=$bin" >> $GITHUB_ENV
+          echo "ARCHIVE=asca-${{ needs.create-release.outputs.version }}-${{ matrix.platform.target }}" >> $GITHUB_ENV
+
+      - name: Build and populate archive directory
+        shell: bash
+        run: |
+          mkdir -p "$ARCHIVE"/complete
+          cp "$BIN" "$ARCHIVE"/
+          cp {README.md,doc.md,doc-cli.md,LICENSE,CHANGELOG.md} "$ARCHIVE"/
+
+      - name: Generate completions
+        shell: bash
+        run: |
+          "$BIN" --generate=bash > "$ARCHIVE/complete/asca.bash"
+          "$BIN" --generate=elvish > "$ARCHIVE/complete/asca.elv"
+          "$BIN" --generate=fish > "$ARCHIVE/complete/asca.fish"
+          "$BIN" --generate=powershell > "$ARCHIVE/complete/_asca.ps1"
+          "$BIN" --generate=zsh > "$ARCHIVE/complete/_asca"
+
       - name: Build archive
         shell: bash
         run: |
-          binary_name="asca"
-
-          dirname="$binary_name-${{ needs.create-release.outputs.version }}-${{ matrix.platform.target }}"
-          mkdir "$dirname"
           if [ "${{ matrix.runs-on }}" = "windows-latest" ]; then
-            mv "target/${{ matrix.platform.target }}/release/$binary_name.exe" "$dirname"
+            7z a "$ARCHIVE.zip" "$ARCHIVE"
+            echo "ASSET=$ARCHIVE.zip" >> $GITHUB_ENV
           else
-            mv "target/${{ matrix.platform.target }}/release/$binary_name" "$dirname"
+            tar -czf "$ARCHIVE.tar.gz" "$ARCHIVE"
+            echo "ASSET=$ARCHIVE.tar.gz" >> $GITHUB_ENV
           fi
 
-          cp {README.md,doc.md,doc-cli.md,LICENSE,CHANGELOG.md} "$dirname"/
-
-          if [ "${{ matrix.runs-on }}" = "windows-latest" ]; then
-            7z a "$dirname.zip" "$dirname"
-            echo "ASSET=$dirname.zip" >> $GITHUB_ENV
-          else
-            tar -czf "$dirname.tar.gz" "$dirname"
-            echo "ASSET=$dirname.tar.gz" >> $GITHUB_ENV
-          fi
-
-      - name: Upload release archive
+      - name: Upload archive
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         shell: bash
