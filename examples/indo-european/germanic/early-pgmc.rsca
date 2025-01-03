@@ -32,7 +32,7 @@
 #
 
 @ Initial Stress Shift 
-    % > [+str] / #_...V:[+str]
+    % > [+str] / #_ (%,0) %:[+str]
     %:[+str] > [-str] | #_
 # Preserves unstressed words
 
