@@ -169,6 +169,7 @@ usage: asca conv [-h | --help] <command>
 Commands:
     asca    Convert a word file and rule file into an asca-web json file
     json    Convert a json file into separate word and rule files
+    tag     Convert a tag within a config file into an asca-web json file
 
 
 usage: asca conv asca [-w | --words <path>] [-r | --rules <path>] [-o | --output <path>]
@@ -192,5 +193,19 @@ Options:
                 - If not provided, asca will create a file in the current directory
     -r  <path>  The desired path of the output rule file
                 - If not provided, asca will create a file in the current directory
+    -h          Print help
+
+
+Usage: asca conv tag [TAG]  [-p | --path <path>] [-o | --output <path>] [-r | --recurse]
+                            [-h | --help]
+Arguments:
+    [TAG]  The tag within the config file to be converted
+Options:
+    -p  <path>  Path to the config file or the directory it is within
+                - If not provided, asca will look for a config in the current directory.
+    -o  <path>  The desired path of the output rule file.
+                - If not provided, asca will create a file in the current directory.
+    -r          Follow a pipeline back to its root tag and generate a full rule history
+                - Additional words added after the start of the pipeline will not be included
     -h          Print help
 ```
