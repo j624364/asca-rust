@@ -10,6 +10,7 @@ use clap_complete::{generate, Generator, Shell};
 #[command(name = "asca")]
 pub struct CliArgs {
     #[arg(long = "generate", value_enum)]
+    /// Generate a completion script for a given shell
     pub(crate) generator: Option<Shell>,
     #[clap(subcommand)]
     pub cmd: Option<AscaCommand>,
@@ -133,6 +134,24 @@ pub enum Conv {
         /// - If not provided, asca will create a file in the current directory.
         #[arg(short, long, verbatim_doc_comment, value_hint=clap::ValueHint::FilePath)]
         rules: Option<PathBuf>,
+    },
+    /// Convert a tag within a config file into an asca-web json file
+    Seq {
+        /// Path to the config file or the directory it is within
+        /// - If not provided, asca will look for a config in the current directory.
+        #[arg(short, long, verbatim_doc_comment, value_hint=clap::ValueHint::FilePath)]
+        path: Option<PathBuf>,
+        /// The tag within the config file to be converted
+        #[arg(short, long, verbatim_doc_comment, value_hint=clap::ValueHint::Other)]
+        tag: String,
+        /// Follow a pipeline back to its root tag and generate a full rule history
+        /// - Additional words added after the start of the pipeline will not be included
+        #[arg(short, long, action, verbatim_doc_comment)]
+        recurse: bool,
+        /// The desired path of the output rule file.
+        /// - If not provided, asca will create a file in the current directory.
+        #[arg(short, long, verbatim_doc_comment, value_hint=clap::ValueHint::FilePath)]
+        output: Option<PathBuf>,
     },
 }
 

@@ -39,11 +39,18 @@ pub enum RuleFilter {
     WithoutMult(Vec<String>),
 }
 
+struct SeqFlags {
+    output: bool,
+    overwrite: Option<bool>,
+    output_all: bool,
+    all_steps: bool,
+}
+
 type SeqTrace = Vec<Vec<String>>;
 
 
 /// Read config file and return result
-fn get_config(dir: &Path) -> io::Result<Vec<ASCAConfig>> {
+pub(super) fn get_config(dir: &Path) -> io::Result<Vec<ASCAConfig>> {
     let maybe_conf = util::get_dir_files(dir.to_str().unwrap(), &[CONF_FILE_EXT])?;
 
     if maybe_conf.is_empty() {
@@ -57,8 +64,52 @@ fn get_config(dir: &Path) -> io::Result<Vec<ASCAConfig>> {
     Parser::new(tokens, maybe_conf[0].as_path()).parse()
 }
 
+pub(super) fn get_all_rules(rule_seqs: &[ASCAConfig], conf: &ASCAConfig) -> io::Result<Vec<RuleGroup>> {
+    if let Some(from_tag) = &conf.from {
+        let Some(seq) = rule_seqs.iter().find(|c| c.tag == *from_tag) else {
+            let possible_tags = rule_seqs.iter().map(|c| c.tag.clone()).collect::<Vec<_>>().join("\n- ");
+            return Err(io::Error::other(format!("{} Could not find tag '{}' in config.\nAvailable tags are:\n- {}", "Config Error:".bright_red(), from_tag.yellow(), possible_tags)))
+        };
+        let mut rules = get_all_rules(rule_seqs, seq)?;
+        for entry in &conf.entries {
+            rules.extend_from_slice(&entry.rules);
+        }
+        Ok(rules)
+
+    } else {
+        let mut rules = vec![];
+        for entry in &conf.entries {
+            rules.extend_from_slice(&entry.rules);
+        }
+        Ok(rules)
+    }
+}
+
+pub(super) fn get_orig_words(rule_seqs: &[ASCAConfig], dir: &Path,  conf: &ASCAConfig) -> io::Result<Vec<String>> {
+    if let Some(from_tag) = &conf.from {
+        let Some(seq) = rule_seqs.iter().find(|c| c.tag == *from_tag) else {
+            let possible_tags = rule_seqs.iter().map(|c| c.tag.clone()).collect::<Vec<_>>().join("\n- ");
+            return Err(io::Error::other(format!("{} Could not find tag '{}' in config.\nAvailable tags are:\n- {}", "Config Error:".bright_red(), from_tag.yellow(), possible_tags)))
+        };
+        get_orig_words(rule_seqs, dir,seq)
+    } else {
+        let mut words = Vec::new();
+        for w_str in &conf.words {
+            let mut w_path = dir.to_path_buf();
+            w_path.push(w_str);
+            w_path.set_extension(WORD_FILE_EXT);
+            let (mut w_file, _) = parse_wsca(&util::validate_file_exists(Some(&w_path), &[WORD_FILE_EXT, "txt"], "word")?)?;
+            if !words.is_empty() {
+                words.push("".to_string());
+            }
+            words.append(&mut w_file);
+        }
+        Ok(words)
+    }
+}
+
 /// Determine which word file to use, validate, and parse it into a vec of word strings
-fn get_words(rule_seqs: &[ASCAConfig], dir: &Path, words_path: &Option<PathBuf>, conf: &ASCAConfig, seq_cache: &mut HashMap<String, Vec<String>>) -> io::Result<Vec<String>> {
+pub(super) fn get_words(rule_seqs: &[ASCAConfig], dir: &Path, words_path: &Option<PathBuf>, conf: &ASCAConfig, seq_cache: &mut HashMap<String, Vec<String>>) -> io::Result<Vec<String>> {
     let mut words = if let Some(from_tag) = &conf.from {
         if let Some(x) = seq_cache.get(from_tag) {
             x.clone()
@@ -224,11 +275,4 @@ pub(crate) fn run(maybe_dir_path: Option<PathBuf>, words_path: Option<PathBuf>, 
         }
         Ok(())
     }
-}
-
-struct SeqFlags {
-    output: bool,
-    overwrite: Option<bool>,
-    output_all: bool,
-    all_steps: bool,
 }
