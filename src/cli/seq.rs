@@ -47,9 +47,9 @@ fn get_config(dir: &Path) -> io::Result<Vec<ASCAConfig>> {
     let maybe_conf = util::get_dir_files(dir.to_str().unwrap(), &[CONF_FILE_EXT])?;
 
     if maybe_conf.is_empty() {
-        return Err(io::Error::other(format!("Error: No config file found in directory {dir:?}")))
+        return Err(io::Error::other(format!("{} No config file found in directory {dir:?}", "Error:".bright_red())))
     } else if maybe_conf.len() > 1 {
-        return Err(io::Error::other(format!("Error: Multiple config files found in directory {dir:?}")))
+        return Err(io::Error::other(format!("{} Multiple config files found in directory {dir:?}", "Error:".bright_red())))
     }
 
     let tokens = Lexer::new(&util::file_read(maybe_conf[0].as_path())?.chars().collect::<Vec<_>>()).tokenise()?;
@@ -64,7 +64,8 @@ fn get_words(rule_seqs: &[ASCAConfig], dir: &Path, words_path: &Option<PathBuf>,
             x.clone()
         } else {
             let Some(seq) = rule_seqs.iter().find(|c| c.tag == *from_tag) else {
-                return Err(io::Error::other(format!("Error: Could not find tag '{from_tag}' in config")))
+                let possible_tags = rule_seqs.iter().map(|c| c.tag.clone()).collect::<Vec<_>>().join("\n- ");
+                return Err(io::Error::other(format!("{} Could not find tag '{}' in config.\nAvailable tags are:\n- {}", "Config Error:".bright_red(), from_tag.yellow(), possible_tags)))
             };
             if let Some((t, _)) = run_sequence(rule_seqs, dir, words_path, seq, seq_cache)? {
                 let w = t.last().unwrap().clone();
@@ -82,22 +83,20 @@ fn get_words(rule_seqs: &[ASCAConfig], dir: &Path, words_path: &Option<PathBuf>,
         let (mut w, _) = parse_wsca(&util::validate_file_exists(Some(wp), &[WORD_FILE_EXT, "txt"], "word")?)?;
         words.append(&mut w);
     } else if !conf.words.is_empty() {
-        for w in &conf.words {
+        for ws in &conf.words {
             let mut wp = dir.to_path_buf();
-            wp.push(w);
+            wp.push(ws);
             wp.set_extension(WORD_FILE_EXT);
             let (mut w_file, _) = parse_wsca(&util::validate_file_exists(Some(&wp), &[WORD_FILE_EXT, "txt"], "word")?)?;
-
             if !words.is_empty() {
                 words.push("".to_string());
             }
-
             words.append(&mut w_file);
         }
     } 
-    
+
     if words.is_empty() {
-        return Err(io::Error::other(format!("Error: No input words defined for config '{}'.\nYou can specify a word file at runtime with the -w option", conf.tag)))
+        return Err(io::Error::other(format!("{} No input words defined for config '{}'.\nYou can specify a word file at runtime with the -w option", "Config Error:".bright_red(), conf.tag)))
     }
 
     Ok(words)
@@ -190,7 +189,7 @@ pub fn run_sequence(rule_seqs: &[ASCAConfig], dir: &Path, words_path: &Option<Pa
 fn handle_sequence(rule_seqs: &[ASCAConfig], seq_cache: &mut HashMap<String, Vec<String>>, dir_path: &Path, words_path: &Option<PathBuf>, seq: &ASCAConfig, flags: &SeqFlags) -> io::Result<()> {   
     if let Some((trace, files)) = run_sequence(rule_seqs, dir_path, words_path, seq, seq_cache)? {
         if trace.is_empty() {
-            return Err(io::Error::other(format!("Error: No words in input for tag '{}'", seq.tag)))
+            return Err(io::Error::other(format!("{} No words in input for tag '{}'", "Config Error:".bright_red(), seq.tag)))
         }
         seq_cache.insert(seq.tag.clone(), trace.last().unwrap().clone());
 

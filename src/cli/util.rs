@@ -1,7 +1,7 @@
 use std::{ffi::OsStr, fmt::Debug, fs, io::{self, Write}, path::{Path, PathBuf}};
 
 use colored::Colorize;
-use asca::{error::ASCAError, RuleGroup};
+use asca::RuleGroup;
 
 #[cfg(windows)]
 pub const LINE_ENDING: &str = "\r\n";
@@ -84,7 +84,7 @@ pub(super) fn validate_directory(maybe_path: Option<PathBuf>) -> io::Result<Path
             if path.is_dir() {
                 Ok(path)
             } else {
-                Err(io::Error::other(format!("Error: {path:?} is not a directory")))
+                Err(util_err(format!("{} is not a directory", format!("{path:?}").yellow())))
             }
         },
         None => Ok(PathBuf::from(".")),
@@ -99,15 +99,15 @@ pub(super) fn validate_file_exists(maybe_path: Option<&Path>, valid_extensions: 
                 Ok(path.to_path_buf())
             } else {
                 let exts_str = create_ext_list(valid_extensions);
-                Err(io::Error::other(format!("File {:?} is not of the right type. Must be {}", path, exts_str)))
+                Err(util_err(format!("File {} is not of the right type. Must be {}", format!("{path:?}").yellow(), exts_str)))
             },
-            None => Err(io::Error::other(format!("Given path {path:?} is not a file"))),
+            None => Err(util_err(format!("Given path {} is not a file", format!("{path:?}").yellow()))),
         },
         None => {
             let files = get_dir_files(".", valid_extensions)?;
             match files.len().cmp(&1) {
-                std::cmp::Ordering::Greater => Err(io::Error::other(format!("More than one matching {} file found in current directory. Please specify.", kind))),
-                std::cmp::Ordering::Less    => Err(io::Error::other(format!("No matching {} files found in current directory", kind))),
+                std::cmp::Ordering::Greater => Err(util_err(format!("More than one matching {} file found in current directory. Please specify.", kind))),
+                std::cmp::Ordering::Less    => Err(util_err(format!("No matching {} files found in current directory", kind))),
                 std::cmp::Ordering::Equal   => Ok(files[0].clone()),
             }
         }
@@ -196,7 +196,7 @@ pub(super) fn write_to_file(path: &Path, content: String, extension: &str, auto:
             }
             Ok(())
         } else {
-            Err(io::Error::other(format!("Provided file '{:?}' has the wrong extension. Must be .{:?}", path, extension)))
+            Err(util_err(format!("Provided file '{}' has the wrong extension. Must be .{:?}", format!("{path:?}").yellow(), extension)))
         }
     } else if path.is_dir() {
         // if path is dir, write to file of <dir>/out.<extension>
@@ -208,13 +208,14 @@ pub(super) fn write_to_file(path: &Path, content: String, extension: &str, auto:
             Some(ext) => if ext == extension {
                 file_write(path, content)
             } else {
-                Err(io::Error::other(format!("Provided file '{:?}' has the wrong extension. Must be .{:?}", path, extension)))
+                Err(util_err(format!("Provided file '{}' has the wrong extension. Must be .{:?}", format!("{path:?}").yellow(), extension)))
             },
-            None => Err(io::Error::other(format!("Provided dir '{:?}' does not exist", path))),
+            None => Err(util_err(format!("Provided dir '{:?}' does not exist", format!("{path:?}").yellow()))),
         } 
     }
 }
 
+/// Make sure string has no illegal filename characters
 pub(super) fn sanitise_str(str: &str) -> String {
     // 26 is arbitrary, but we want to make sure that the file names don't get too long
     str.chars().take(26)
@@ -249,19 +250,23 @@ pub(super) fn to_rsca_format(rules: Vec<RuleGroup>) -> io::Result<String> {
     Ok(result)
 }
 
+fn util_err<S: Into<String>>(message: S) -> io::Error {
+    io::Error::other(format!("{} {}", "Error:".bright_red(), message.into()))
+}
+
 pub(super) fn map_io_error(error: io::Error) -> io::Error {
     match error.kind() {
-        io::ErrorKind::NotFound => io::Error::other("File or directory was not found"),
-        io::ErrorKind::PermissionDenied => io::Error::other("Do not have the right permissions to complete this operation"),
+        io::ErrorKind::NotFound => util_err("File or directory was not found"),
+        io::ErrorKind::PermissionDenied => util_err("Do not have the right permissions to complete this operation"),
         _ => error,
     }
 }
 
-pub(super) fn print_asca_errors(err: asca::error::Error, words: &[String], rules: &[RuleGroup]) {
+pub(super) fn print_asca_errors(err: asca::Error, words: &[String], rules: &[RuleGroup]) {
     match err {
-        asca::error::Error::WordSyn(e) => println!("{}", e.format_word_error(words)),
-        asca::error::Error::WordRun(e) => println!("{}", e.format_word_error(words)),
-        asca::error::Error::RuleSyn(e) => println!("{}", e.format_rule_error(rules)),
-        asca::error::Error::RuleRun(e) => println!("{}", e.format_rule_error(rules)),
+        asca::Error::WordSyn(e) => println!("{}", asca::ASCAError::format_word_error(&e, words)),
+        asca::Error::WordRun(e) => println!("{}", asca::ASCAError::format_word_error(&e, words)),
+        asca::Error::RuleSyn(e) => println!("{}", asca::ASCAError::format_rule_error(&e, rules)),
+        asca::Error::RuleRun(e) => println!("{}", asca::ASCAError::format_rule_error(&e, rules)),
     }
 }
