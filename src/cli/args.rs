@@ -136,13 +136,13 @@ pub enum Conv {
         rules: Option<PathBuf>,
     },
     /// Convert a tag within a config file into an asca-web json file
-    Seq {
+    Tag {
         /// Path to the config file or the directory it is within
         /// - If not provided, asca will look for a config in the current directory.
         #[arg(short, long, verbatim_doc_comment, value_hint=clap::ValueHint::FilePath)]
         path: Option<PathBuf>,
         /// The tag within the config file to be converted
-        #[arg(short, long, verbatim_doc_comment, value_hint=clap::ValueHint::Other)]
+        #[arg(verbatim_doc_comment, value_hint=clap::ValueHint::Other)]
         tag: String,
         /// Follow a pipeline back to its root tag and generate a full rule history
         /// - Additional words added after the start of the pipeline will not be included

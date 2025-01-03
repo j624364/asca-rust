@@ -19,9 +19,9 @@ fn run() -> io::Result<()> {
     match args.cmd {
         Some(AscaCommand::Run { i_group, words, compare, output }) => cli::run::run(i_group, words, output, compare),
         Some(AscaCommand::Conv(conv)) => match conv {
-            Conv::Asca { words, rules, output }      => cli::convert::from_asca(words, rules, output),
-            Conv::Json { path, words, rules }        => cli::convert::from_json(path, words, rules),
-            Conv::Seq { path, tag, recurse, output } => cli::convert::from_seq(path, tag, output, recurse),
+            Conv::Asca { words, rules, output }       => cli::convert::from_asca(words, rules, output),
+            Conv::Json { path, words, rules }         => cli::convert::from_json(path, words, rules),
+            Conv::Tag  { path, tag, recurse, output } => cli::convert::from_seq(path, tag, output, recurse),
         },
         // Some(AscaCommand::Mult { rules, words, compare, output }) => todo!(),
         Some(AscaCommand::Seq { path, tag, words, all_steps, output, overwrite , no_overwrite, output_all }) => {
