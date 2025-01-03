@@ -44,11 +44,11 @@ jobs:
       fail-fast: false
       matrix:
         platform:
-        # 64-bit Linux w/ musl
+        # Intel64 Linux w/ musl
         - os-name: Linux-x86_64 (musl)
           runs-on: ubuntu-latest
           target: x86_64-unknown-linux-musl
-        # 64-bit Linux w/ gnu
+        # Intel64 Linux w/ gnu
         - os-name: Linux-x86_64 (gnu)
           runs-on: ubuntu-latest
           target: x86_64-unknown-linux-gnu
@@ -56,15 +56,15 @@ jobs:
         - os-name: Linux-aarch64
           runs-on: ubuntu-latest
           target: aarch64-unknown-linux-gnu
-        # 64-bit Windows w/ msvc
+        # Intel64 Windows w/ msvc
         - os-name: Windows-x86_64
           runs-on: windows-latest
           target: x86_64-pc-windows-msvc
-        # # # 64-bit Windows w/ gnu
+        # # # Intel64 Windows w/ gnu
         # - os-name: Windows-x86_64 (gnu)
         #   runs-on: windows-latest
         #   target: x86_64-pc-windows-gnu
-        # 64-bit macOS
+        # Intel64 macOS
         - os-name: macOS-x86_64
           runs-on: macOS-latest
           target: x86_64-apple-darwin
@@ -100,9 +100,10 @@ jobs:
       - name: Build and populate archive directory
         shell: bash
         run: |
-          mkdir -p "$ARCHIVE"/complete
+          mkdir -p "$ARCHIVE"/{complete,doc}
           cp "$BIN" "$ARCHIVE"/
-          cp {README.md,doc.md,doc-cli.md,LICENSE,CHANGELOG.md} "$ARCHIVE"/
+          cp {README.md,LICENSE,CHANGELOG.md} "$ARCHIVE"/
+          cp {doc/doc.md,doc/doc-cli.md} "$ARCHIVE"/doc/
 
       - name: Generate completions
         shell: bash

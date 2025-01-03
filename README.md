@@ -13,13 +13,13 @@ Repo for the web UI is [here](https://github.com/Girv98/asca)
 - Digraph and Diacritic Support
 
 
-User guide can be found [here](./doc.md).
+User guide can be found [here](./doc/doc.md).
 
 [Changelog](./CHANGELOG.md)
 
 ## Cli
 
-A cli specific user guide can be found [here](./doc-cli.md).
+A cli specific user guide can be found [here](./doc/doc-cli.md).
 
 ### Installation
 

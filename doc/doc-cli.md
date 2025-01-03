@@ -13,7 +13,7 @@ An existing web json file can be converted into these formats (and vice-versa) u
 Words are defined similarly as to the input field on [asca-web](doc.md). That is, each word is declared on a new line in ipa form.
 Unlike the current web format however, wsca files allow for comments delimited by `#`.
 
-See [pie-uvular](./examples/indo-european/pie-uvular.wsca) for an example.
+See [pie-uvular](../examples/indo-european/pie-uvular.wsca) for an example.
 
 ### Rule file (.rsca)
 
@@ -25,7 +25,7 @@ Each rule group is defined as follows:
 - A rule description, preceded by `#`
     - Can be multiple lines, with each line starting with `#`.
 
-Example from a [germanic](./examples/indo-european/germanic/early-pgmc.rsca) implementation.
+Example from a [germanic](../examples/indo-european/germanic/early-pgmc.rsca) implementation.
 ```
 @ Grimms Law 
     [+cons, -son, -cont, -voice] > [+cont]
@@ -51,7 +51,7 @@ See the [sequences section](#the-config-file) for more info.
 The seq command allows for whole language families to be defined as a project within a `.asca` file and ran at once. 
 This lets you create a pipeline from parent to daughter languages, generating an output lexicon at each stage.
 
-For an example project, see the indo-european example folder [here](./examples/indo-european/germanic).
+For an example project, see the indo-european example folder [here](../examples/indo-european/germanic).
 
 ### The Config File
 

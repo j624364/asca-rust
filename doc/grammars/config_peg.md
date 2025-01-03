@@ -1,6 +1,6 @@
 ```peg
 
-SEQS    ← SEQ+
+CONF    ← SEQ+
 
 SEQ     ← TAG FROM? W_PATHS? ':' R_PATHS
 
