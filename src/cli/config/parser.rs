@@ -299,27 +299,50 @@ impl<'a> Parser<'a> {
     }
 
     pub(crate) fn parse(&mut self) -> io::Result<Vec<ASCAConfig>> {
-        let mut tag_map = HashSet::new();
+        let mut tag_set = HashSet::new();
         let mut conf = Vec::new();
 
         while self.curr_tkn.kind != TokenKind::EoF {
             let seq = self.get_seq()?;
 
-            if !tag_map.insert(seq.tag.clone()) {
+            if !tag_set.insert(seq.tag.clone()) {
                 return Err(self.error(format!("tag '{}' declared more than once in config", seq.tag)))
             }
 
             conf.push(seq);
         }
 
+        // Validate config tags
+
+        // Check all pipeline tags exist
         for c in &conf {
             if let Some(from_tag) = &c.from {
-                if !tag_map.contains(from_tag) {
+                if !tag_set.contains(from_tag) {
                     return Err(self.error(format!("tag '{}' does not exist", from_tag)))
                 }
             }
         }
+        // Check for loops
+        for pipe in conf.iter().filter(|c| c.from.is_some()).collect::<Vec<_>>() {
+            if self.detect_tag_loop(&conf, pipe) {
+                return Err(self.error(format!("infinite pipeline loop detected in tag '{}'", pipe.tag)))
+            }
+        }
 
         Ok(conf)
+    }
+
+    fn detect_tag_loop(&self, conf: &[ASCAConfig], head: &ASCAConfig) -> bool {
+        let mut set: HashSet<String> = HashSet::new();
+        let mut head = head;
+
+        while let Some(from) = &head.from {
+            if !set.insert(from.to_string()) {
+                return true
+            }
+            head = conf.iter().find(|c| c.tag == *from).unwrap()
+        }
+
+        false
     }
 }
