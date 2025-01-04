@@ -108,16 +108,18 @@ jobs:
       - name: Generate completions
         shell: bash
         run: |
-          "$BIN" --generate=bash > "$ARCHIVE/complete/asca.bash"
-          "$BIN" --generate=elvish > "$ARCHIVE/complete/asca.elv"
-          "$BIN" --generate=fish > "$ARCHIVE/complete/asca.fish"
-          "$BIN" --generate=powershell > "$ARCHIVE/complete/_asca.ps1"
-          "$BIN" --generate=zsh > "$ARCHIVE/complete/_asca"
+          if [ "${{ matrix.platform.target }}" != "aarch64-unknown-linux-gnu" ]; then
+            "$BIN" --generate=bash > "$ARCHIVE/complete/asca.bash"
+            "$BIN" --generate=elvish > "$ARCHIVE/complete/asca.elv"
+            "$BIN" --generate=fish > "$ARCHIVE/complete/asca.fish"
+            "$BIN" --generate=powershell > "$ARCHIVE/complete/_asca.ps1"
+            "$BIN" --generate=zsh > "$ARCHIVE/complete/_asca"
+          fi
 
       - name: Build archive
         shell: bash
         run: |
-          if [ "${{ matrix.runs-on }}" = "windows-latest" ]; then
+          if [ "${{ matrix.platform.runs-on }}" = "windows-latest" ]; then
             7z a "$ARCHIVE.zip" "$ARCHIVE"
             echo "ASSET=$ARCHIVE.zip" >> $GITHUB_ENV
           else
