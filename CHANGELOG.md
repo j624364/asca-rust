@@ -1,4 +1,4 @@
-TBD
+0.3.0
 ==================
 Unreleased changes
 
@@ -6,8 +6,8 @@ Features:
 * Cli: Ability to convert a config tag into a web-asca json file 
 * Cli: Ability to generate tab completions for a given shell
 * Cli: Print available config tags when no match found
-* Cli: More consistent errors
 Tweaks:
+* Cli: More consistent errors
 * Lib: Change wasm function to `run_wasm`
 * Lib: Re-export Error module
 
