@@ -49,6 +49,7 @@
 @ Laryngeal Vocalisation
     {h:[+syl], x:[+syl], ɣʷ:[+syl]} > ə
     {h, x, ɣʷ} > *
+    $ > * / V_V
 #
 @ Velar Labialisation
     C:[+hi, +bk] > [+rnd] / _w

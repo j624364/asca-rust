@@ -5,12 +5,51 @@
     P:[-fr, +bk, +hi, -lab] > [-bk, +fr, +dist]
     P:[-fr, +bk, -hi, -lo] > [+hi]
     P:[+dor] > [-lab]
-#
+# Uvular series velarises and pushes original velars forward
+# New velars merge with labiovelars
 
 @ Liquid Merger 
     l:[Asyll] > r:[Asyll]
+# The PIE liquids *l *r *l̥ *r̥ merge as *r *r̥.
+
+@ Syllabic Nasal Loss
+    N:[+syll] > a
+# The PIE syllabic nasals *m̥ *n̥ merge with *a.
+
+@ Bartholomae's law
+    P:[-voi] > [Alaryn] / P:[Alaryn, +voi, +sg]_
+    P:[+sg] > [-sg] / _P:[+voi, +sg]
+    d > [+stri] / _d:[+voi, +sg] 
+# An aspirate immediately followed by a voiceless consonant becomes voiced stop + voiced aspirate. In addition, dʰ + t > dᶻdʰ.
+
+
+@ Syllabic Laryngeal Loss
+    {h:[+syll], x:[+syll], ɣʷ:[+syll]} > i / C_CC, C_#
 #
 
+@ Ruki rule
+    s > ʃ / {r:[Asyll], V:[+hi], G, P:[+dor], h:[+syll], x:[+syll], ɣʷ:[+syll]}_ 
+#
+
+@ Palatal Sibilisation 
+    c, c:[+voi] > ʃ, ʃ:[+voi] / _{t, d, d:[+sg]}
+# Before a dental occlusive, *ć becomes *š and *ȷ́ becomes *ž.
+
+@ Law of Palatals
+    P:[-fr, +bk, +hi, -lo] > [-bk] / _V:[+fr]
+# The "second palatalization" or "law of palatals": *k *g *gʰ develop palatal allophones *č *ǰ *ǰʰ before the front vowels *i, *e.[10] through an intermediate *kʲ *gʲ *gʲʰ.
+
 @ Brugmann's Law
-    V:[-hi, -long] > a:[+long] / _$ | _# 
+    o:[-long] > a:[+long] / _$ | _# 
+#
+
+
+@ 
+    h:[Asyll], x:[Asyll], ɣʷ:[Asyll] > ?:[Asyll]
+    e:[Along], o:[Along] > a:[Along]
+#
+
+
+@ Lubotsky's Law
+
 #

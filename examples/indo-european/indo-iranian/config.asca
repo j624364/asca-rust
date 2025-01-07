@@ -1,4 +1,9 @@
 # This config assumes PIE 'uvular theory' and that {h₁, h₂, h₃} are {h, x, ɣʷ}
 
-@proto-indo-iranian ["../pie-uvular"]:
-    "pre-pii"
+# indo-iranian specific changes to certain words in the input lexicon
+@setup ["../pie-uvular-common", "../pie-pronouns", "ii-lex"]:
+    "setup"
+
+@proto-indo-iranian %setup:
+    "pre-pii",
+    "to-pii"

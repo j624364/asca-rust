@@ -41,6 +41,7 @@
 
 @ Early i-mutation
     e:[-long] > i / _([], 0:2){i, j}
+    j > i / i_ | $_
 #
 
 @ 
