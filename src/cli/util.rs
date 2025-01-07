@@ -266,6 +266,7 @@ pub(super) fn print_asca_errors(err: asca::Error, words: &[String], rules: &[Rul
     match err {
         asca::Error::WordSyn(e) => println!("{}", asca::ASCAError::format_word_error(&e, words)),
         asca::Error::WordRun(e) => println!("{}", asca::ASCAError::format_word_error(&e, words)),
+        asca::Error::AliasSyn(e) => println!("{}", asca::ASCAError::format_word_error(&e, words)),
         asca::Error::RuleSyn(e) => println!("{}", asca::ASCAError::format_rule_error(&e, rules)),
         asca::Error::RuleRun(e) => println!("{}", asca::ASCAError::format_rule_error(&e, rules)),
     }

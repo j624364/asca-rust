@@ -232,6 +232,7 @@ fn parse_result_web(unparsed_result: Result<Vec<String>, Error>, rules: &[RuleGr
         Err(err) => match err {
             Error::WordSyn(e) => res.push(e.format_word_error(words)),
             Error::WordRun(e) => res.push(e.format_word_error(words)),
+            Error::AliasSyn(e) => res.push(e.format_word_error(words)),
             Error::RuleSyn(e) => res.push(e.format_rule_error(rules)),
             Error::RuleRun(e) => res.push(e.format_rule_error(rules)),
         },

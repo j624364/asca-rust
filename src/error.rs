@@ -1,7 +1,6 @@
 use colored::Colorize;
 use crate  :: {
-    lexer  :: {Position, Token, TokenKind}, 
-    parser :: Item, RuleGroup,
+    alias::AliasPosition, lexer  :: {Position, Token, TokenKind}, parser :: Item, RuleGroup
 };
 
 pub trait ASCAError: Clone {
@@ -18,6 +17,7 @@ pub enum Error {
     RuleSyn(RuleSyntaxError),
     WordRun(WordRuntimeError),
     RuleRun(RuleRuntimeError),
+    AliasSyn(AliasSyntaxError),
 }
 
 impl ASCAError for Error {
@@ -27,6 +27,7 @@ impl ASCAError for Error {
             Error::RuleSyn(e) => e.get_error_message(),
             Error::WordRun(e) => e.get_error_message(),
             Error::RuleRun(e) => e.get_error_message(),
+            Error::AliasSyn(e) => e.get_error_message()
         }
     }
 
@@ -34,13 +35,14 @@ impl ASCAError for Error {
         match self {
             Error::WordSyn(e) => e.format_word_error(s),
             Error::WordRun(e) => e.format_word_error(s),
+            Error::AliasSyn(e) => e.format_word_error(s),
             Error::RuleSyn(_) | Error::RuleRun(_) => unreachable!()
         }
     }
 
     fn format_rule_error(&self, s: &[RuleGroup]) -> String {
         match self {
-            Error::WordSyn(_) | Error::WordRun(_) => unreachable!(),
+            Error::WordSyn(_) | Error::WordRun(_) | Error::AliasSyn(_) => unreachable!(),
             Error::RuleSyn(e) => e.format_rule_error(s),
             Error::RuleRun(e) => e.format_rule_error(s),
         }
@@ -68,6 +70,12 @@ impl From<WordSyntaxError> for Error {
 impl From<RuleSyntaxError> for Error {
     fn from(e: RuleSyntaxError) -> Self {
         Error::RuleSyn(e)
+    }
+}
+
+impl From<AliasSyntaxError> for Error {
+    fn from(e: AliasSyntaxError) -> Self {
+        Error::AliasSyn(e)
     }
 }
 
@@ -525,6 +533,35 @@ impl ASCAError for RuleSyntaxError {
     }
 
     fn format_word_error(&self, _: &[String]) -> String {
+        unreachable!()
+    }
+}
+
+
+#[derive(Debug, Clone)]
+pub enum AliasSyntaxError {
+    UnknownCharacter(char, usize, usize),
+    ExpectedCharArrow(char, usize, usize),
+    UnknownEnbyFeature(String, AliasPosition),
+    ExpectedNumber(char, usize, usize),
+    ExpectedCharColon(char, usize, usize),
+    OutsideBrackets(usize, usize),
+    NestedBrackets(usize, usize),
+    WrongModTone(usize, usize),
+    ExpectedAlphabetic(char, usize, usize),
+    UnknownFeature(String, AliasPosition),
+}
+
+impl ASCAError for AliasSyntaxError {
+    fn get_error_message(&self) -> String {
+        todo!()
+    }
+
+    fn format_word_error(&self, _: &[String]) -> String {
+        todo!()
+    }
+
+    fn format_rule_error(&self, _: &[RuleGroup]) -> String {
         unreachable!()
     }
 }
