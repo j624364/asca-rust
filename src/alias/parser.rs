@@ -1,5 +1,7 @@
 use super::{AliasKind, AliasPosition, AliasToken, AliasTokenKind};
 
+#[allow(dead_code)]
+#[allow(unused)]
 pub(crate) struct AliasParser {
     kind: AliasKind,
     token_list: Vec<AliasToken>,
@@ -8,7 +10,7 @@ pub(crate) struct AliasParser {
     curr_tkn: AliasToken,
 }
 
-
+#[allow(unused)]
 impl AliasParser {
     pub(crate) fn new(token_list: Vec<AliasToken>, kind: AliasKind, line: usize) -> Self {
         let mut s = Self {

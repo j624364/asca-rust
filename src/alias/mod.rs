@@ -1,9 +1,10 @@
 use crate::FeatType;
 
-pub mod aliasing;
+// pub mod aliasing;
 pub mod lexer;
 pub mod parser;
 
+#[allow(unused)]
 pub enum AliasKind {
     Deromaniser,
     Romaniser

@@ -3,7 +3,7 @@ use crate::{error::AliasSyntaxError, FType, FeatType, NodeType, SupraType, CARDI
 use super::{AliasKind, AliasToken, AliasTokenKind, AliasPosition};
 
 
-
+#[allow(unused)]
 pub(crate) struct AliasLexer<'a> {
     kind: AliasKind,
     source: &'a [char],
@@ -14,6 +14,7 @@ pub(crate) struct AliasLexer<'a> {
     inside_angle: bool,
 }
 
+#[allow(unused)]
 impl<'a> AliasLexer<'a> {
     pub(crate) fn new(kind: AliasKind, source: &'a [char], line: usize) -> Self {
         Self { kind, source, line, pos: 0, past_arrow: false, inside_matrix: false, inside_angle: false}

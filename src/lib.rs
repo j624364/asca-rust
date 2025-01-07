@@ -1,3 +1,6 @@
+#[allow(dead_code)]
+#[allow(unused)]
+
 mod lexer;
 mod trie;
 mod parser;
@@ -7,7 +10,10 @@ mod seg;
 mod rule;
 mod subrule;
 mod error;
+mod alias;
 
+#[allow(unused)]
+use alias::{lexer::AliasLexer, parser::AliasParser, AliasKind};
 pub use error::*;
 
 use serde::Deserialize;

@@ -1,6 +1,14 @@
-TBD
-==================
 Unreleased changes.
+==================
+
+Features: 
+* Lib: Ability to add custom aliases/romanisation
+
+0.3.1
+==================
+
+Features: 
+* Lib: Add `ᶻ` diacritic as a voiced alternative to the stridentised diacritic `ˢ`.
 
 0.3.0
 ==================
