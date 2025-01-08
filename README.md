@@ -28,6 +28,6 @@ A cli specific user guide can be found [here](./doc/doc-cli.md).
 Alternatively, if you have **Rust** installed, asca can be installed with `cargo`.
 
 
-```
-$ cargo install asca
+```bash
+cargo install asca
 ```
