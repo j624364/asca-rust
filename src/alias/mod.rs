@@ -4,7 +4,7 @@ use crate::FeatType;
 pub mod lexer;
 pub mod parser;
 
-#[allow(unused)]
+#[derive(Debug, Copy, Clone, PartialEq, Eq)]
 pub enum AliasKind {
     Deromaniser,
     Romaniser
@@ -43,6 +43,15 @@ enum AliasTokenKind {
     Feature(FeatType),
     String, 
     Eol,              // End of Line 
+}
+impl AliasTokenKind {
+    pub(crate) fn as_diacritic(&self) -> Option<&u8> {
+        if let Self::Diacritic(v) = self {
+            Some(v)
+        } else {
+            None
+        }
+    }
 }
 
 #[derive(Debug, Copy, Clone, PartialEq, Eq)]

@@ -422,9 +422,6 @@ impl<'a> AliasLexer<'a> {
 
         if !self.has_more_chars() { return Ok(AliasToken::new(AliasTokenKind::Eol, String::new(), AliasPosition::new(self.line, self.pos, self.pos+1))) }
         
-
-        if let Some(spc_token) = self.get_special_char()?      { return Ok(spc_token) }
-
         match self.kind {
             AliasKind::Deromaniser => {
                 if self.past_arrow {
@@ -435,9 +432,8 @@ impl<'a> AliasLexer<'a> {
                     if let Some(dia_token) = self.get_diacritic()      { return Ok(dia_token) }
                     if let Some(str_token) = self.get_enby()?          { return Ok(str_token) } 
         
-                } else {
-                    if let Some(str_token) = self.get_unicode_string() { return Ok(str_token) }
-                }
+                } else if let Some(str_token) = self.get_unicode_string() { return Ok(str_token) }
+                
             },
             AliasKind::Romaniser => {
                 if !self.past_arrow {
@@ -448,13 +444,11 @@ impl<'a> AliasLexer<'a> {
                     if let Some(dia_token) = self.get_diacritic()      { return Ok(dia_token) }
                     if let Some(str_token) = self.get_enby()?          { return Ok(str_token) } 
         
-                } else {
-                    if let Some(str_token) = self.get_unicode_string() { return Ok(str_token) }
-                }
-
+                } else if let Some(str_token) = self.get_unicode_string() { return Ok(str_token) }
             },
         };
 
+        if let Some(spc_token) = self.get_special_char()?      { return Ok(spc_token) }
 
         Err(AliasSyntaxError::UnknownCharacter(self.curr_char(), self.line, self.pos))
     }
@@ -504,12 +498,12 @@ mod lexer_tests {
         use SupraType::*;
         let test_input= String::from("á > a:[+str]");
         let expected_result = vec![
-            AliasToken::new(AliasTokenKind::String,                 "á".to_owned(), AliasPosition::new(0, 0, 1)),
-            AliasToken::new(AliasTokenKind::GreaterThan,            ">".to_owned(), AliasPosition::new(0, 2, 3)),
-            AliasToken::new(AliasTokenKind::Cardinal,               "a".to_owned(), AliasPosition::new(0, 4, 5)),
-            AliasToken::new(AliasTokenKind::Colon,                  ":".to_owned(), AliasPosition::new(0, 5, 6)),
-            AliasToken::new(AliasTokenKind::LeftSquare,             "[".to_owned(), AliasPosition::new(0, 6, 7)),
-            AliasToken::new(AliasTokenKind::Feature(Supr(Stress)),  "+".to_owned(), AliasPosition::new(0, 7, 11)),
+            AliasToken::new(AliasTokenKind::String,                 "á".to_owned(), AliasPosition::new(0,  0,  1)),
+            AliasToken::new(AliasTokenKind::GreaterThan,            ">".to_owned(), AliasPosition::new(0,  2,  3)),
+            AliasToken::new(AliasTokenKind::Cardinal,               "a".to_owned(), AliasPosition::new(0,  4,  5)),
+            AliasToken::new(AliasTokenKind::Colon,                  ":".to_owned(), AliasPosition::new(0,  5,  6)),
+            AliasToken::new(AliasTokenKind::LeftSquare,             "[".to_owned(), AliasPosition::new(0,  6,  7)),
+            AliasToken::new(AliasTokenKind::Feature(Supr(Stress)),  "+".to_owned(), AliasPosition::new(0,  7, 11)),
             AliasToken::new(AliasTokenKind::RightSquare,            "]".to_owned(), AliasPosition::new(0, 11, 12)),
             AliasToken::new(AliasTokenKind::Eol,                     String::new(), AliasPosition::new(0, 12, 13)),
         ];
@@ -542,6 +536,51 @@ mod lexer_tests {
         }
     }
 
+    #[test]
+    fn test_romanisation_length() {
+        use FeatType::*;
+        use SupraType::*;
+        let test_input= String::from("ʃ:[-long] > sh");
+        let expected_result = vec![
+            AliasToken::new(AliasTokenKind::Cardinal,               "ʃ".to_owned(), AliasPosition::new(0,  0,  1)),
+            AliasToken::new(AliasTokenKind::Colon,                  ":".to_owned(), AliasPosition::new(0,  1,  2)),
+            AliasToken::new(AliasTokenKind::LeftSquare,             "[".to_owned(), AliasPosition::new(0,  2,  3)),
+            AliasToken::new(AliasTokenKind::Feature(Supr(Long)),    "-".to_owned(), AliasPosition::new(0,  3,  8)),
+            AliasToken::new(AliasTokenKind::RightSquare,            "]".to_owned(), AliasPosition::new(0,  8,  9)),
+            AliasToken::new(AliasTokenKind::GreaterThan,            ">".to_owned(), AliasPosition::new(0, 10, 11)),
+            AliasToken::new(AliasTokenKind::String,                "sh".to_owned(), AliasPosition::new(0, 12, 14)),
+            AliasToken::new(AliasTokenKind::Eol,                     String::new(), AliasPosition::new(0, 14, 15)),
+        ];
+
+        let result = AliasLexer::new(AliasKind::Romaniser, &test_input.chars().collect::<Vec<_>>(),  0).get_line().unwrap();  
+
+        assert_eq!(result.len(), expected_result.len());
+
+        for i in 0..result.len() {
+            assert_eq!(result[i], expected_result[i]);
+        }
+
+
+        let test_input= String::from("ʃ:[+long] > ssh");
+        let expected_result = vec![
+            AliasToken::new(AliasTokenKind::Cardinal,               "ʃ".to_owned(), AliasPosition::new(0,  0,  1)),
+            AliasToken::new(AliasTokenKind::Colon,                  ":".to_owned(), AliasPosition::new(0,  1,  2)),
+            AliasToken::new(AliasTokenKind::LeftSquare,             "[".to_owned(), AliasPosition::new(0,  2,  3)),
+            AliasToken::new(AliasTokenKind::Feature(Supr(Long)),    "+".to_owned(), AliasPosition::new(0,  3,  8)),
+            AliasToken::new(AliasTokenKind::RightSquare,            "]".to_owned(), AliasPosition::new(0,  8,  9)),
+            AliasToken::new(AliasTokenKind::GreaterThan,            ">".to_owned(), AliasPosition::new(0, 10, 11)),
+            AliasToken::new(AliasTokenKind::String,               "ssh".to_owned(), AliasPosition::new(0, 12, 15)),
+            AliasToken::new(AliasTokenKind::Eol,                     String::new(), AliasPosition::new(0, 15, 16)),
+        ];
+
+        let result = AliasLexer::new(AliasKind::Romaniser, &test_input.chars().collect::<Vec<_>>(),  0).get_line().unwrap();  
+
+        assert_eq!(result.len(), expected_result.len());
+
+        for i in 0..result.len() {
+            assert_eq!(result[i], expected_result[i]);
+        }
+    }
 
     #[test]
     fn test_romanisation_stress() {
@@ -549,12 +588,12 @@ mod lexer_tests {
         use SupraType::*;
         let test_input= String::from("a:[+str] > á");
         let expected_result = vec![
-            AliasToken::new(AliasTokenKind::Cardinal,               "a".to_owned(), AliasPosition::new(0, 0, 1)),
-            AliasToken::new(AliasTokenKind::Colon,                  ":".to_owned(), AliasPosition::new(0, 1, 2)),
-            AliasToken::new(AliasTokenKind::LeftSquare,             "[".to_owned(), AliasPosition::new(0, 2, 3)),
-            AliasToken::new(AliasTokenKind::Feature(Supr(Stress)),  "+".to_owned(), AliasPosition::new(0, 3, 7)),
-            AliasToken::new(AliasTokenKind::RightSquare,            "]".to_owned(), AliasPosition::new(0, 7, 8)),
-            AliasToken::new(AliasTokenKind::GreaterThan,            ">".to_owned(), AliasPosition::new(0, 9, 10)),
+            AliasToken::new(AliasTokenKind::Cardinal,               "a".to_owned(), AliasPosition::new(0,  0,  1)),
+            AliasToken::new(AliasTokenKind::Colon,                  ":".to_owned(), AliasPosition::new(0,  1,  2)),
+            AliasToken::new(AliasTokenKind::LeftSquare,             "[".to_owned(), AliasPosition::new(0,  2,  3)),
+            AliasToken::new(AliasTokenKind::Feature(Supr(Stress)),  "+".to_owned(), AliasPosition::new(0,  3,  7)),
+            AliasToken::new(AliasTokenKind::RightSquare,            "]".to_owned(), AliasPosition::new(0,  7,  8)),
+            AliasToken::new(AliasTokenKind::GreaterThan,            ">".to_owned(), AliasPosition::new(0,  9, 10)),
             AliasToken::new(AliasTokenKind::String,                 "á".to_owned(), AliasPosition::new(0, 11, 12)),
             AliasToken::new(AliasTokenKind::Eol,                     String::new(), AliasPosition::new(0, 12, 13)),
         ];

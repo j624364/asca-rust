@@ -1,6 +1,8 @@
 use colored::Colorize;
 use crate  :: {
-    alias::AliasPosition, lexer  :: {Position, Token, TokenKind}, parser :: Item, RuleGroup
+    alias  :: {parser::AliasItem, AliasPosition, AliasToken}, 
+    lexer  :: {Position, Token, TokenKind}, 
+    parser :: Item, RuleGroup
 };
 
 pub trait ASCAError: Clone {
@@ -540,16 +542,27 @@ impl ASCAError for RuleSyntaxError {
 
 #[derive(Debug, Clone)]
 pub enum AliasSyntaxError {
-    UnknownCharacter(char, usize, usize),
-    ExpectedCharArrow(char, usize, usize),
+    UnknownCharacter(char, LineNum, Pos),
+    ExpectedCharArrow(char, LineNum, Pos),
     UnknownEnbyFeature(String, AliasPosition),
+    ExpectedAlphabetic(char, LineNum, Pos),
     ExpectedNumber(char, usize, usize),
     ExpectedCharColon(char, usize, usize),
-    OutsideBrackets(usize, usize),
-    NestedBrackets(usize, usize),
-    WrongModTone(usize, usize),
-    ExpectedAlphabetic(char, usize, usize),
+    OutsideBrackets(LineNum, Pos),
+    NestedBrackets(LineNum, Pos),
+    WrongModTone(LineNum, Pos),
     UnknownFeature(String, AliasPosition),
+    ExpectedArrow(AliasToken),
+    ExpectedEndLn(AliasToken),
+    EmptyReplacements(LineNum, Pos),
+    UnbalancedIO(Vec<AliasItem>),
+    EmptyInput(LineNum, Pos),
+    DiacriticDoesNotMeetPreReqsFeat(AliasPosition, AliasPosition, String, bool),
+    DiacriticDoesNotMeetPreReqsNode(AliasPosition, AliasPosition, String, bool),
+    ExpectedMatrix(AliasToken),
+    UnexpectedEol(AliasToken, char),
+    ExpectedTokenFeature(AliasToken),
+    UnknownIPA(AliasToken),
 }
 
 impl ASCAError for AliasSyntaxError {
