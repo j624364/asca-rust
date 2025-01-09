@@ -654,8 +654,7 @@ impl Parser {
     fn get_seg(&mut self) -> Result<Option<Item>, RuleSyntaxError> {
         // returns SEG ← IPA (':' PARAMS)? / MATRIX VAR_ASN?  
         if self.peek_expect(TokenKind::Cardinal) {
-            let ipa = self.get_ipa()?;
-            return Ok(Some(ipa))
+            return Ok(Some(self.get_ipa()?))
         }
         if self.peek_expect(TokenKind::Group) {
             let chr = self.get_group()?;
@@ -874,13 +873,13 @@ impl Parser {
         Ok(els)
     }
 
-    fn get_empty(&mut self) -> Vec<Item> {
+    fn get_empty(&mut self) -> Option<Item> {
         // EMP ← '*' / '∅'
         if !self.peek_expect(TokenKind::Star) && !self.peek_expect(TokenKind::EmptySet) {
-            return Vec::new()
+            return None
         }
         let token = self.eat();
-        vec![Item::new(ParseElement::EmptySet, token.position)]
+        Some(Item::new(ParseElement::EmptySet, token.position))
     }
 
     fn get_input(&mut self) -> Result<Vec<Vec<Item>>, RuleSyntaxError> {
@@ -888,9 +887,8 @@ impl Parser {
         let mut inputs = Vec::new();
         loop {
             // Insertion
-            let maybe_empty = self.get_empty();
-            if !maybe_empty.is_empty() {
-                inputs.push(maybe_empty);
+            if let Some(empty) = self.get_empty() {
+                inputs.push(vec![empty]);
                 if !self.expect(TokenKind::Comma) && (!self.peek_expect(TokenKind::Arrow) && !self.peek_expect(TokenKind::GreaterThan)) {
                     return Err(RuleSyntaxError::InsertErr(self.curr_tkn.clone()))
                 }
@@ -937,9 +935,8 @@ impl Parser {
                 continue;
             }
             // Deletion
-            let maybe_empty = self.get_empty();
-            if !maybe_empty.is_empty() {
-                outputs.push(maybe_empty);
+            if let Some(empty) = self.get_empty() {
+                outputs.push(vec![empty]);
                 if !self.expect(TokenKind::Comma) && !self.peek_expect(TokenKind::Slash) && !self.peek_expect(TokenKind::Pipe) && !self.peek_expect(TokenKind::Eol) {
                     return Err(RuleSyntaxError::DeleteErr(self.curr_tkn.clone()))
                 }
