@@ -25,8 +25,8 @@ MATRIX  ←   GROUP (':' PARAMS)? / PARAMS                    //
 VAR     ←   [0-9]+ (':' PARAMS)?                            //
 VAR_ASN ←   '=' [0-9]+                                      //
 
-GROUP	←   'C' / 'O' / 'S' / 'L' / 'N' / 'G' / 'V'         //
-PARAMS  ←   '[' ARG (',' ARG)* ']'                          //
+GROUP	←   [A-Z]                                           //
+PARAMS  ←   '[' (ARG (',' ARG)*)? ']'                       //
 ARG     ←   ARG_MOD [a-zA-Z]+ / TONE                        //
 TONE    ←   [a-zA-Z]+ ':' [0-9]+                            //
 ARG_MOD ←   '+' / '-' / [α-ωA-Z] / '-'[α-ωA-Z]              //
