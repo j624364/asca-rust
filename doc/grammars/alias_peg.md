@@ -10,7 +10,7 @@ REPLACE ←   RPL_TRM ( ',' RPL_TRM )* ','?
 RPL_TRM ←   EMP / [Alphabetic-Unicode-Char]+
 
 INPUT   ←   INP_TRM ( ',' INP_TRM )* ','?
-INP_TRM ←   SBOUND / SEG
+INP_TRM ←   SBOUND / SEG+
 
 SEG     ←   IPA (':' PARAMS)?
 

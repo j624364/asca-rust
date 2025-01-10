@@ -1,6 +1,3 @@
-#[allow(dead_code)]
-#[allow(unused)]
-
 mod lexer;
 mod trie;
 mod parser;
@@ -12,7 +9,7 @@ mod subrule;
 mod error;
 mod alias;
 
-#[allow(unused)]
+use alias::parser::Transformation;
 use alias::{lexer::AliasLexer, parser::AliasParser, AliasKind};
 pub use error::*;
 
@@ -175,10 +172,10 @@ fn apply_rule_groups(rules: &[Vec<Rule>], words: &[Word]) -> Result<Vec<Word>, E
     Ok(transformed_words)
 }
 
-fn words_to_string(words: &[Word]) -> Result<Vec<String>, WordRuntimeError> {
+fn words_to_string(words: &[Word], alias_from: &[Transformation]) -> Result<Vec<String>, WordRuntimeError> {
     let mut wrds_str: Vec<String> = vec![];
     for (i, w) in words.iter().enumerate() {
-        match w.render() {
+        match w.render(alias_from) {
             Ok(r) => wrds_str.push(r),
             Err((b, j)) => return Err(WordRuntimeError::UnknownSegment(b,i,j)),
         }
@@ -186,9 +183,10 @@ fn words_to_string(words: &[Word]) -> Result<Vec<String>, WordRuntimeError> {
     Ok(wrds_str)
 }
 
-fn parse_words(unparsed_words: &[String]) -> Result<Vec<Word>,WordSyntaxError> {
+fn parse_words(unparsed_words: &[String], alias_into: &[Transformation]) -> Result<Vec<Word>, Error> {
     let mut words: Vec<Word> = vec![];
     for w in unparsed_words {
+        // TODO: Apply aliases
         words.push(Word::new(normalise(w))?);
     }
     Ok(words)
@@ -210,21 +208,37 @@ fn parse_rule_groups(unparsed_rule_groups: &[RuleGroup]) -> Result<Vec<Vec<Rule>
     Ok(rule_groups)
 }
 
-pub fn run(unparsed_rules: &[RuleGroup], unparsed_words: &[String]) -> Result<Vec<String>, Error> {
-    let words = parse_words(unparsed_words)?;
+fn parse_aliases(_into: &[String], _from: &[String]) -> Result<(Vec<Transformation>, Vec<Transformation>), Error> {
+    let mut into_parsed = vec![];
+    for (line, alias) in _into.iter().enumerate() {
+        into_parsed.append(&mut AliasParser::new(AliasKind::Deromaniser, AliasLexer::new(AliasKind::Deromaniser, &alias.chars().collect::<Vec<_>>(), line).get_line()?, line).parse()?);
+    }
+    
+    let mut from_parsed = vec![];
+    for (line, alias) in _from.iter().enumerate() {
+        from_parsed.append(&mut AliasParser::new(AliasKind::Romaniser, AliasLexer::new(AliasKind::Romaniser, &alias.chars().collect::<Vec<_>>(), line).get_line()?, line).parse()?);
+    }
+
+    Ok((into_parsed, from_parsed))
+}
+
+pub fn run(unparsed_rules: &[RuleGroup], unparsed_words: &[String], alias_into: &[String], alias_from: &[String]) -> Result<Vec<String>, Error> {
+    let (alias_into, alias_from) = parse_aliases(alias_into, alias_from)?;
+
+    let words = parse_words(unparsed_words, &alias_into)?;
     let rules = parse_rule_groups(unparsed_rules)?;
 
     let res = apply_rule_groups(&rules, &words)?;
     
-    Ok(words_to_string(&res)?)
+    Ok(words_to_string(&res, &alias_from)?)
 }
 
 
 #[wasm_bindgen]
-pub fn run_wasm(val: JsValue, unparsed_words: Vec<String>) -> Vec<String> {
-    let unparsed_rules: Vec<RuleGroup> = serde_wasm_bindgen::from_value(val).expect("Rules are valid");
+pub fn run_wasm(val: JsValue, unparsed_words: Vec<String>, alias_into: Vec<String>, alias_from: Vec<String>) -> Vec<String> {
+    let unparsed_rules: Vec<RuleGroup> = serde_wasm_bindgen::from_value(val).expect("Rules are in valid JSObject format");
 
-    parse_result_web(run(&unparsed_rules, &unparsed_words), &unparsed_rules, &unparsed_words)
+    parse_result_web(run(&unparsed_rules, &unparsed_words, &alias_into, &alias_from), &unparsed_rules, &unparsed_words)
 }
 
 fn parse_result_web(unparsed_result: Result<Vec<String>, Error>, rules: &[RuleGroup], words: &[String]) -> Vec<String> {

@@ -5,7 +5,6 @@ use super::{AliasKind, AliasPosition, AliasToken, AliasTokenKind, FeatType};
 
 #[derive(Debug, Clone)]
 pub(crate) struct Transformation {
-    pub(crate) kind: AliasKind,
     pub(crate) input: AliasItem,
     pub(crate) output: AliasItem
 }
@@ -15,13 +14,12 @@ pub(crate) enum AliasParseElement {
     Empty,
     SyllBound,
     Replacement(String),
-    Ipa        (Segment, Option<Modifiers>),
-    Matrix     (Modifiers, Option<usize>),
+    Ipa        (Vec<(Segment, Option<Modifiers>)>),
 }
 impl AliasParseElement {
-    fn as_matrix(&self) -> Option<&Modifiers> {
-        if let Self::Matrix(v, _) = self {
-            Some(v)
+    pub(crate) fn as_replacement(&self) -> Option<&String> {
+        if let Self::Replacement(repl) = self {
+            Some(repl)
         } else {
             None
         }
@@ -219,16 +217,16 @@ impl AliasParser {
         Ok(args)
     }
 
-    fn get_params(&mut self) -> Result<AliasItem, AliasSyntaxError> {
+    fn get_params(&mut self) -> Result<(Modifiers, AliasPosition), AliasSyntaxError> {
         // returns PARAMS ← '[' ARG (',' ARG)* ']'  
         let start = self.token_list[self.pos-1].position.start;
         let args = self.get_param_args()?;
         let end = self.token_list[self.pos-1].position.end;
-        
-        Ok(AliasItem::new(AliasParseElement::Matrix(args, None), AliasPosition::new(self.line, start, end)))
+
+        Ok((args, AliasPosition::new(self.line, start, end)))        
     }
 
-    fn get_ipa(&mut self) -> Result<AliasItem, AliasSyntaxError> {
+    fn get_ipa(&mut self) -> Result<(Segment, Option<Modifiers>, AliasPosition), AliasSyntaxError> {
         // returns IPA (':' PARAMS)?
         
         let mut ipa = self.ipa_to_vals(self.curr_tkn.clone())?;
@@ -258,24 +256,34 @@ impl AliasParser {
             }
         }
         if !self.expect(AliasTokenKind::Colon) {
-            return Ok(AliasItem::new(AliasParseElement::Ipa(ipa, None), AliasPosition::new(self.line, pos.start, self.token_list[self.pos-1].position.end)))
+            return Ok((ipa, None, AliasPosition::new(self.line, pos.start, self.token_list[self.pos-1].position.end)))
         }
         if !self.expect(AliasTokenKind::LeftSquare) {
             return Err(AliasSyntaxError::ExpectedMatrix(self.curr_tkn.clone()))
         }
 
-        let params = self.get_params()?;
-        let joined_kind = AliasParseElement::Ipa(ipa, Some(params.kind.as_matrix().unwrap().clone()));
-        
-        Ok(AliasItem::new(joined_kind, AliasPosition::new(self.line, pos.start, params.position.end)))
+        let (params, params_pos) = self.get_params()?;
+
+        Ok((ipa, Some(params), AliasPosition::new(self.line, pos.start, params_pos.end)))        
     }
 
     fn get_segment(&mut self) -> Result<Option<AliasItem>, AliasSyntaxError> {
-        if self.peek_expect(AliasTokenKind::Cardinal) {
-            return Ok(Some(self.get_ipa()?))
+
+        if !self.peek_expect(AliasTokenKind::Cardinal) { return Ok(None) }
+
+        let mut vec = vec![];
+        let mut start = None;
+        let mut end = 0;
+        while self.peek_expect(AliasTokenKind::Cardinal) {
+            let (seg, params, pos) = self.get_ipa()?;
+            vec.push((seg, params));
+            if start.is_none() {
+                start = Some(pos.start);
+            }
+            end = pos.end
         }
 
-        Ok(None)
+        Ok(Some(AliasItem::new(AliasParseElement::Ipa(vec), AliasPosition { line: self.line, start: start.expect("There is at least on segment"), end })))
     }
 
     fn get_input_term(&mut self) -> Result<Option<AliasItem>, AliasSyntaxError> {
@@ -344,7 +352,7 @@ impl AliasParser {
             let input  = if  input_terms.len() == 1 {  input_terms[0].clone() } else {  input_terms[i].clone() };
             let output = if output_terms.len() == 1 { output_terms[0].clone() } else { output_terms[i].clone() };
 
-            transformations.push(Transformation { kind: self.kind, input, output });
+            transformations.push(Transformation { input, output });
         }
 
         Ok(transformations)
@@ -387,8 +395,8 @@ mod parser_tests {
 
         assert_eq!(result.len(), 1);
 
-        assert_eq!(result[0].input , AliasItem::new(AliasParseElement::Ipa(CARDINALS_MAP.get("ʃ").unwrap().clone(), None), AliasPosition::new(0, 0, 1)));
-        assert_eq!(result[0].output, AliasItem::new(AliasParseElement::Replacement("sh".to_string()),                      AliasPosition::new(0, 4, 6)));
+        assert_eq!(result[0].input , AliasItem::new(AliasParseElement::Ipa(vec![(CARDINALS_MAP.get("ʃ").unwrap().clone(), None)]), AliasPosition::new(0, 0, 1)));
+        assert_eq!(result[0].output, AliasItem::new(AliasParseElement::Replacement("sh".to_string()),                              AliasPosition::new(0, 4, 6)));
     }
 
     #[test]
@@ -403,7 +411,7 @@ mod parser_tests {
         let mut x = Modifiers::new();
         x.suprs = SupraSegs { stress: [Some(ModKind::Binary(BinMod::Positive)), None], length: [None, None], tone: None };
 
-        assert_eq!(result[0].input , AliasItem::new(AliasParseElement::Ipa(CARDINALS_MAP.get("a").unwrap().clone(), Some(x)), AliasPosition::new(0,  0,  8)));
-        assert_eq!(result[0].output, AliasItem::new(AliasParseElement::Replacement("á".to_string()),                          AliasPosition::new(0, 11, 12)));
+        assert_eq!(result[0].input , AliasItem::new(AliasParseElement::Ipa(vec![(CARDINALS_MAP.get("a").unwrap().clone(), Some(x))]), AliasPosition::new(0,  0,  8)));
+        assert_eq!(result[0].output, AliasItem::new(AliasParseElement::Replacement("á".to_string()),                                  AliasPosition::new(0, 11, 12)));
     }
 }

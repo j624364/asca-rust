@@ -5,12 +5,14 @@ use std::{
 };
 
 use crate :: {
+    alias :: parser::{AliasParseElement, Transformation},
     error :: { RuleRuntimeError, WordSyntaxError },
     lexer :: { FType, NodeType, Position },
-    parser:: { BinMod, Modifiers, ModKind },
+    parser:: { BinMod, ModKind, Modifiers, SupraSegs },
     rule  :: Alpha,
-    seg   :: Segment,
+    seg   :: {NodeKind, Segment},
     syll  :: { StressKind, Syllable },
+    feature_to_node_mask,
     CARDINALS_MAP, CARDINALS_TRIE, DIACRITS,
 };
 
@@ -147,7 +149,7 @@ impl Word {
         Ok(w)
     }
 
-    pub(crate) fn render(&self) -> Result<String, (String, usize)> {
+    fn render_normal(&self) -> Result<String, (String, usize)> {
         let mut buffer = String::new();
         for (i, syll) in self.syllables.iter().enumerate() {
             match syll.stress {
@@ -178,7 +180,253 @@ impl Word {
         } else {
             Ok(buffer)
         }
+    }
 
+    fn alias_match_node(&self, seg: Segment, node: NodeKind, val: &ModKind) -> bool {
+        match val {
+            ModKind::Binary(bt) => if node == NodeKind::Place {
+                let x = seg.get_node(NodeKind::Labial).is_some() 
+                || seg.get_node(NodeKind::Coronal).is_some()
+                || seg.get_node(NodeKind::Dorsal).is_some()
+                || seg.get_node(NodeKind::Pharyngeal).is_some();
+                match bt {
+                    BinMod::Positive => x,
+                    BinMod::Negative => !x,
+                }
+            } else {
+                match bt {
+                    BinMod::Positive => seg.get_node(node).is_some(),
+                    BinMod::Negative => seg.get_node(node).is_none(),
+                }
+            },
+            ModKind::Alpha(_) => unreachable!(),
+        }
+    }
+
+    fn alias_match_seg_kind(&self, kind: &ModKind, seg: Segment, node: NodeKind, mask: u8) -> bool {
+        match kind {
+            ModKind::Binary(bt) => match bt {
+                BinMod::Negative => seg.feat_match(node, mask, false),
+                BinMod::Positive => seg.feat_match(node, mask, true),
+            },
+            ModKind::Alpha(_) => unreachable!(),
+        }
+    }
+
+    fn alias_match_node_mod(&self, mod_kind: &Option<ModKind>, node_index: usize, seg: Segment) -> bool {
+        if let Some(kind) = mod_kind {
+            let node = NodeKind::from_usize(node_index);
+            return self.alias_match_node(seg, node, kind)
+        }
+        true
+    }
+
+    fn alias_match_feat_mod(&self, md: &Option<ModKind>, feat_index: usize, seg: Segment) -> bool {
+        if let Some(kind) = md { 
+            let (node, mask) = feature_to_node_mask(FType::from_usize(feat_index));
+            return self.alias_match_seg_kind(kind, seg, node, mask)
+        }
+        true
+    }
+
+    fn alias_match_stress(&self, stress: &[Option<ModKind>; 2], syll: &Syllable) -> bool {
+        if let Some(str) = stress[0] {
+            match str {
+                ModKind::Binary(bm) => match bm {
+                    BinMod::Negative => if syll.stress != StressKind::Unstressed { return false },
+                    BinMod::Positive => if syll.stress == StressKind::Unstressed { return false },
+                },
+                ModKind::Alpha(_) => unreachable!(),
+            }
+        }
+        if let Some(str) = stress[1] {
+            match str {
+                ModKind::Binary(bm) => match bm {
+                    BinMod::Negative => if syll.stress == StressKind::Secondary { return false },
+                    BinMod::Positive => if syll.stress != StressKind::Secondary { return false },
+                },
+                ModKind::Alpha(_) => unreachable!(),
+            }
+        }
+        true
+    }
+
+    fn alias_match_seg_length(&self, length: &[Option<ModKind>; 2], syll_index: usize, seg_index: usize) -> (bool, Option<usize>) {
+        let seg_length = self.seg_length_at(SegPos { syll_index, seg_index });
+        let mut matched_len = false;
+        if let Some(len) = length[0] {
+            matched_len = true;
+            match len {
+                ModKind::Binary(bm) => match bm {
+                    BinMod::Positive => if seg_length < 2 { return (false, None) },
+                    BinMod::Negative => if seg_length > 1 { return (false, None) },
+                },
+                ModKind::Alpha(_) => unreachable!(),
+            }
+        }
+        if let Some(len) = length[1] {
+            matched_len = true;
+            match len {
+                ModKind::Binary(bm) => match bm {
+                    BinMod::Positive => if seg_length < 3 { return (false, None) },
+                    BinMod::Negative => if seg_length > 2 { return (false, None) },
+                },
+                ModKind::Alpha(_) => unreachable!(),
+            }
+        }
+
+        if matched_len {
+            (true, Some(seg_length))
+        } else {
+            (true, None)
+        }
+    }
+
+    fn alias_match_tone(&self, tone: &str, syll: &Syllable) -> bool {        
+        tone == syll.tone
+    }
+
+    fn alias_match_supr_mod_seg(&self, mods: &SupraSegs, syll_index: usize, seg_index: usize) -> (bool, Option<usize>, bool) {
+        let syll = &self.syllables[syll_index];
+        let mut match_tone = true;
+
+        if !self.alias_match_stress(&mods.stress, syll) { return (false, None, false) }
+
+        if let Some(t) = mods.tone.as_ref() {
+            match_tone = true;
+            if !self.alias_match_tone(t, syll) { return (false, None, true) }
+
+        }
+
+        let (is_match, match_len) = self.alias_match_seg_length(&mods.length, syll_index, seg_index);
+
+        (is_match, match_len, match_tone)
+    }
+
+    fn alias_match_modifiers(&self, syll_index: usize, seg_index: usize, mods: &Modifiers) -> (bool, Option<usize>, bool) {
+        let seg = self.syllables[syll_index].segments[seg_index];
+
+        for (i, m) in mods.feats.iter().enumerate() {
+            if !self.alias_match_feat_mod(m, i, seg) {
+                return (false, None, false)
+            }
+        }
+        for (i, m) in mods.nodes.iter().enumerate() {
+            if !self.alias_match_node_mod(m, i, seg) {
+                return (false, None, false)
+            }
+        }
+        self.alias_match_supr_mod_seg( &mods.suprs, syll_index, seg_index)
+    }
+
+    fn alias_match_ipa_with_mods(&self, syll_index: usize, seg_index: usize, ipa: &Segment, mods: &Modifiers) -> (bool, Option<usize>, bool) {
+        let mut joined_mods = ipa.as_modifiers();
+        for (i, n) in mods.nodes.iter().enumerate() {
+            if n.is_some() { joined_mods.nodes[i] = *n }
+        }
+        for (i, f) in mods.feats.iter().enumerate() {
+            if f.is_some() { joined_mods.feats[i] = *f }
+        }
+        joined_mods.suprs = mods.suprs.clone();
+
+        self.alias_match_modifiers(syll_index, seg_index, &joined_mods)   
+    }
+
+    pub(crate) fn render(&self, aliases: &[Transformation]) -> Result<String, (String, usize)> {
+        if aliases.is_empty() {
+            return self.render_normal()
+        }
+
+        let empty: String = String::new();
+        let mut bound_repl_str = None;
+        let mut strip_tone = false;
+
+        let mut buffer = String::new();
+
+        for (i, syll) in self.syllables.iter().enumerate() {
+            match syll.stress {
+                StressKind::Primary => buffer.push('ˈ'), 
+                StressKind::Secondary => buffer.push('ˌ'),
+                StressKind::Unstressed =>  if i > 0 { buffer.push('.') },
+            }
+
+            let mut j = 0;
+            'outer: while j < syll.segments.len() {
+                let seg = syll.segments[j];
+                if j != 0 && seg == syll.segments[j-1] {
+                    // TODO: Need to skip if we matched length last time
+                    buffer.push('ː');
+                    j+=1; continue;
+                }
+
+                for alias in aliases {
+                    if let AliasParseElement::Ipa(segments) = &alias.input.kind {
+                        let back_pos = j;
+                        let mut is_match = true;
+                        for (segment, modifiers) in segments {
+                            if let Some(mods) = modifiers {
+                                let (m, maybe_len, maybe_tone) = self.alias_match_ipa_with_mods(i, j, segment, mods);
+                                if !m {
+                                    is_match = false;
+                                    break;
+                                }
+                                if let Some(len) = maybe_len {
+                                    j+=len;
+                                } else {
+                                    j+=1;
+                                }
+                                if maybe_tone {
+                                    strip_tone = true;
+                                }
+
+                            } else {
+                                if j >= syll.segments.len() || syll.segments[j] != *segment {
+                                    is_match = false;
+                                    break;
+                                }
+                                j+=1;
+                            }
+                        }
+                        if is_match {
+                            match &alias.output.kind {
+                                AliasParseElement::Replacement(repl) => buffer.push_str(repl),
+                                AliasParseElement::Empty => {},
+                                _ => unreachable!()
+                            }
+                            continue 'outer; 
+                        }
+                        j = back_pos;
+                    }
+
+                }
+
+                let Some(x) = &seg.get_as_grapheme() else { return Err((buffer, i)) };
+                buffer.push_str(x);
+                j += 1;
+            }
+
+            for alias in aliases {
+                if alias.input.kind == AliasParseElement::SyllBound {
+                    match &alias.output.kind {
+                        AliasParseElement::Replacement(repl) => bound_repl_str = Some(repl),
+                        AliasParseElement::Empty => bound_repl_str = Some(&empty),
+                        _ => unreachable!()
+                    }
+                }
+            }
+
+            if !strip_tone {
+                buffer.push_str(&syll.tone);
+            }
+        }
+
+        if let Some(b_repl) = bound_repl_str {
+            buffer = buffer.replace('.', &b_repl)
+                           .replace('ˈ', &b_repl)
+                           .replace('ˌ', &b_repl);
+        }
+
+        Ok(buffer)
     }
     #[allow(unused)]
     pub(crate) fn get_syll_segments(&self, syll_index: usize) -> &VecDeque<Segment> {
@@ -464,7 +712,7 @@ impl Word {
 #[cfg(test)]
 mod word_tests {
 
-    use crate::{normalise, ASCAError};
+    use crate::{alias::{lexer::AliasLexer, parser::AliasParser}, normalise, ASCAError};
 
     use super::*;
 
@@ -477,53 +725,53 @@ mod word_tests {
     #[test]
     fn test_render_word() {
         let w = Word::new(normalise("ˌna.kiˈsa")).unwrap();
-        assert_eq!(w.render().unwrap(), "ˌna.kiˈsa");
+        assert_eq!(w.render(&[]).unwrap(), "ˌna.kiˈsa");
 
         let w = Word::new(normalise(",na.ki'sa")).unwrap();
-        assert_eq!(w.render().unwrap(), "ˌna.kiˈsa");
+        assert_eq!(w.render(&[]).unwrap(), "ˌna.kiˈsa");
 
         let w = Word::new(normalise("ˈna.ki.sa123")).unwrap();
-        assert_eq!(w.render().unwrap(), "ˈna.ki.sa123");
+        assert_eq!(w.render(&[]).unwrap(), "ˈna.ki.sa123");
 
         let w = Word::new(normalise("aɫ.ɫa:h")).unwrap();
-        assert_eq!(w.render().unwrap(), "aɫ.ɫaːh");
+        assert_eq!(w.render(&[]).unwrap(), "aɫ.ɫaːh");
 
         let w = Word::new(normalise("aɫ.ɫa;hu")).unwrap();
-        assert_eq!(w.render().unwrap(), "aɫ.ɫaː.hu");
+        assert_eq!(w.render(&[]).unwrap(), "aɫ.ɫaː.hu");
 
         let w = Word::new(normalise("ˈɫɫaa")).unwrap();
-        assert_eq!(w.render().unwrap(), "ˈɫːaː");
+        assert_eq!(w.render(&[]).unwrap(), "ˈɫːaː");
 
         let w = Word::new(normalise("ˈt͡saa")).unwrap();
-        assert_eq!(w.render().unwrap(), "ˈt͡saː");
+        assert_eq!(w.render(&[]).unwrap(), "ˈt͡saː");
 
         let w = Word::new(normalise("ˈt^saa")).unwrap();
-        assert_eq!(w.render().unwrap(), "ˈt͡saː");
+        assert_eq!(w.render(&[]).unwrap(), "ˈt͡saː");
 
         let w = Word::new(normalise("ɴǃa")).unwrap();
-        assert_eq!(w.render().unwrap(), "ɴǃa");
+        assert_eq!(w.render(&[]).unwrap(), "ɴǃa");
 
         let w = Word::new(normalise("ǃɴa")).unwrap();
-        assert_eq!(w.render().unwrap(), "ǃɴa");
+        assert_eq!(w.render(&[]).unwrap(), "ǃɴa");
     }
 
     #[test]
     fn test_render_diacritics() {
         // TODO: Test other diacritic combinations
         let w = Word::new(normalise("ˈmu.ðr̩")).unwrap(); 
-        assert_eq!(w.render().unwrap(), "ˈmu.ðr̩");
+        assert_eq!(w.render(&[]).unwrap(), "ˈmu.ðr̩");
 
         let w = Word::new(normalise("ˈpʰiːkʲ")).unwrap(); 
-        assert_eq!(w.render().unwrap(), "ˈpʰiːkʲ");
+        assert_eq!(w.render(&[]).unwrap(), "ˈpʰiːkʲ");
 
         let w = Word::new(normalise("ˈpʰiikʲ")).unwrap(); 
-        assert_eq!(w.render().unwrap(), "ˈpʰiːkʲ");
+        assert_eq!(w.render(&[]).unwrap(), "ˈpʰiːkʲ");
     }
 
     #[test]
     fn test_render_aliases() {
         match Word::new(normalise("'GAN;CEUN!eB.gRǝ:S.φXOI?,HYZ")) {
-            Ok(w) => assert_eq!(w.render().unwrap(), "ˈɢɐɴː.ɕɛʊɴǃeʙ.ɡʀəːʃ.ɸχɔɪʔˌʜʏʒ"),
+            Ok(w) => assert_eq!(w.render(&[]).unwrap(), "ˈɢɐɴː.ɕɛʊɴǃeʙ.ɡʀəːʃ.ɸχɔɪʔˌʜʏʒ"),
             Err(e) => {
                 println!("{}", e.format_word_error(&[]));
                 assert!(false);
@@ -534,7 +782,56 @@ mod word_tests {
     #[test]
     fn test_americanist_aliases() {
         match Word::new(normalise("¢añ.φλełƛ")) {
-            Ok(w) => assert_eq!(w.render().unwrap(), "¢añ.ɸλełƛ"),
+            Ok(w) => assert_eq!(w.render(&[]).unwrap(), "¢añ.ɸλełƛ"),
+            Err(e) => {
+                println!("{}", e.format_word_error(&[]));
+                assert!(false);
+            }
+        }
+    }
+
+    #[test]
+    fn test_romanisation_simple() {
+        let t = AliasParser::new(crate::alias::AliasKind::Romaniser, AliasLexer::new(crate::alias::AliasKind::Romaniser, &"ʃ, a:[+str], $ > sh, á, *".chars().collect::<Vec<_>>(), 0).get_line().unwrap(), 0).parse().unwrap();
+        match Word::new(normalise("ʃa'ta")) {
+            Ok(w) => assert_eq!(w.render(&t).unwrap(), "shatá"),
+            Err(e) => {
+                println!("{}", e.format_word_error(&[]));
+                assert!(false);
+            }
+        }
+    }
+
+    #[test]
+    fn test_romanisation_length() {
+
+        let t = AliasParser::new(crate::alias::AliasKind::Romaniser, AliasLexer::new(crate::alias::AliasKind::Romaniser, &"ʃ:[+long], a:[+str], $ > ssh, á, *".chars().collect::<Vec<_>>(), 0).get_line().unwrap(), 0).parse().unwrap();
+        match Word::new(normalise("ʃ:a'ta")) {
+            Ok(w) => assert_eq!(w.render(&t).unwrap(), "sshatá"),
+            Err(e) => {
+                println!("{}", e.format_word_error(&[]));
+                assert!(false);
+            }
+        }
+    }
+
+    #[test]
+    fn test_romanisation_syllables() {
+        let t = AliasParser::new(crate::alias::AliasKind::Romaniser, AliasLexer::new(crate::alias::AliasKind::Romaniser, &"ka, ta, na, $ > カ, タ, ナ, *".chars().collect::<Vec<_>>(), 0).get_line().unwrap(), 0).parse().unwrap();
+        match Word::new(normalise("ka.ta.ka.na")) {
+            Ok(w) => assert_eq!(w.render(&t).unwrap(), "カタカナ"),
+            Err(e) => {
+                println!("{}", e.format_word_error(&[]));
+                assert!(false);
+            }
+        }
+    }
+
+    #[test]
+    fn test_romanisation_syllables_with_tone() {
+        let t = AliasParser::new(crate::alias::AliasKind::Romaniser, AliasLexer::new(crate::alias::AliasKind::Romaniser, &"ha:[tone: 51]n, y:[tone:214], $ > 汉, 语, *".chars().collect::<Vec<_>>(), 0).get_line().unwrap(), 0).parse().unwrap();
+        match Word::new(normalise("han51.y214")) {
+            Ok(w) => assert_eq!(w.render(&t).unwrap(), "汉语"),
             Err(e) => {
                 println!("{}", e.format_word_error(&[]));
                 assert!(false);

@@ -225,7 +225,7 @@ pub fn run_sequence(rule_seqs: &[ASCAConfig], dir: &Path, words_path: &Option<Pa
     trace.push(words.clone());
     for (i, entry) in seq.entries.iter().enumerate() {
         files.push(entry.name.clone());
-        match asca::run(&entry.rules, &trace[i]) {
+        match asca::run(&entry.rules, &trace[i], &[], &[]) {
             Ok(res) => trace.push(res),
             Err(err) => {
                 util::print_asca_errors(err, &words, &entry.rules);
