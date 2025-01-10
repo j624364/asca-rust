@@ -31,7 +31,7 @@ pub(crate) enum ModKind{
 }
 
 impl ModKind {
-    pub(crate) fn as_binary(&self, alphas: &RefCell<HashMap<char, Alpha>>, err_pos: Position) -> Result<bool, RuleRuntimeError> {
+    pub(crate) fn as_bool(&self, alphas: &RefCell<HashMap<char, Alpha>>, err_pos: Position) -> Result<bool, RuleRuntimeError> {
         match self {
             ModKind::Binary(bin_mod) => Ok(*bin_mod == BinMod::Positive),
             ModKind::Alpha(alpha_mod) => match alpha_mod {
@@ -50,6 +50,14 @@ impl ModKind {
                     }
                 },
             },
+        }
+    }
+
+    pub(crate) fn as_bin_mod(&self) -> Option<&BinMod> {
+        if let Self::Binary(v) = self {
+            Some(v)
+        } else {
+            None
         }
     }
 }

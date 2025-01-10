@@ -107,7 +107,7 @@ impl Syllable {
         match mods.length {
             // [long, Overlong]
             [None, None] => {},
-            [None, Some(v)] => if v.as_binary(alphas, err_pos)? {
+            [None, Some(v)] => if v.as_bool(alphas, err_pos)? {
                 while seg_len < 3 {
                     self.segments.insert(pos, seg);
                     seg_len +=1;
@@ -120,7 +120,7 @@ impl Syllable {
                     len_change -=1;
                 }
             },
-            [Some(long), None] => if long.as_binary(alphas, err_pos)? {
+            [Some(long), None] => if long.as_bool(alphas, err_pos)? {
                 while seg_len < 2 {
                     self.segments.insert(pos, seg);
                     seg_len += 1;
@@ -133,7 +133,7 @@ impl Syllable {
                     len_change -=1;
                 }
             },
-            [Some(long), Some(vlong)] => match (long.as_binary(alphas, err_pos)?, vlong.as_binary(alphas, err_pos)?) {
+            [Some(long), Some(vlong)] => match (long.as_bool(alphas, err_pos)?, vlong.as_bool(alphas, err_pos)?) {
                 (true, true) => while seg_len < 3 {
                     self.segments.insert(pos, seg);
                     seg_len +=1;
@@ -156,7 +156,7 @@ impl Syllable {
                     seg_len -= 1;
                     len_change -=1;
                 },
-                (false, true) => todo!("Err? +overlong cannot be -long"),
+                (false, true) => return Err(RuleRuntimeError::OverlongPosLongNeg(err_pos)),
             },
         }
 
@@ -169,21 +169,21 @@ impl Syllable {
         match mods.stress {
             // [stress, secstress]
             [None, None] => {},
-            [None, Some(sec)] => if sec.as_binary(alphas, err_pos)? {
+            [None, Some(sec)] => if sec.as_bool(alphas, err_pos)? {
                 self.stress = StressKind::Secondary;
             } else if self.stress == StressKind::Secondary {
                 self.stress = StressKind::Unstressed;
             },
-            [Some(prim), None] => if prim.as_binary(alphas, err_pos)? {
+            [Some(prim), None] => if prim.as_bool(alphas, err_pos)? {
                 self.stress = StressKind::Primary;
             } else {
                 self.stress = StressKind::Unstressed;
             },
-            [Some(prim), Some(sec)] => match (prim.as_binary(alphas, err_pos)?, sec.as_binary(alphas, err_pos)?) {
+            [Some(prim), Some(sec)] => match (prim.as_bool(alphas, err_pos)?, sec.as_bool(alphas, err_pos)?) {
                 (true, true) => self.stress = StressKind::Secondary,
                 (true, false) => self.stress = StressKind::Primary,
-                (false, true) => todo!("Err? +secstress cannot be -stress"),
                 (false, false) => self.stress = StressKind::Unstressed,
+                (false, true) => return Err(RuleRuntimeError::SecStrPosStrNeg(err_pos)),
             },
         }
 

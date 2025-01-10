@@ -228,7 +228,7 @@ pub fn run_sequence(rule_seqs: &[ASCAConfig], dir: &Path, words_path: &Option<Pa
         match asca::run(&entry.rules, &trace[i], &[], &[]) {
             Ok(res) => trace.push(res),
             Err(err) => {
-                util::print_asca_errors(err, &words, &entry.rules);
+                util::print_asca_errors(err, &words, &entry.rules, &[], &[]);
                 return Ok(None)
             },
         }

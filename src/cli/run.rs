@@ -92,7 +92,7 @@ pub(crate) fn run(in_group: InGroup, maybe_words: Option<PathBuf>, maybe_output:
             output_result(maybe_output, &res)
         },
         Err(err) => { 
-            util::print_asca_errors(err, &words, &rules); 
+            util::print_asca_errors(err, &words, &rules, &[], &[]); 
             Ok(())
         },
     }

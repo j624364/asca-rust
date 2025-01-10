@@ -2,6 +2,7 @@ use std::{ffi::OsStr, fmt::Debug, fs, io::{self, Write}, path::{Path, PathBuf}};
 
 use colored::Colorize;
 use asca::RuleGroup;
+use asca::Transformation;
 
 #[cfg(windows)]
 pub const LINE_ENDING: &str = "\r\n";
@@ -262,11 +263,12 @@ pub(super) fn map_io_error(error: io::Error) -> io::Error {
     }
 }
 
-pub(super) fn print_asca_errors(err: asca::Error, words: &[String], rules: &[RuleGroup]) {
+pub(super) fn print_asca_errors(err: asca::Error, words: &[String], rules: &[RuleGroup], into: &[Transformation], from: &[Transformation]) {
     match err {
         asca::Error::WordSyn(e) => println!("{}", asca::ASCAError::format_word_error(&e, words)),
         asca::Error::WordRun(e) => println!("{}", asca::ASCAError::format_word_error(&e, words)),
-        asca::Error::AliasSyn(e) => println!("{}", asca::ASCAError::format_word_error(&e, words)),
+        asca::Error::AliasSyn(e) => println!("{}", asca::ASCAError::format_alias_error(&e, into)),
+        asca::Error::AliasRun(e) => println!("{}", asca::ASCAError::format_alias_error(&e, from)),
         asca::Error::RuleSyn(e) => println!("{}", asca::ASCAError::format_rule_error(&e, rules)),
         asca::Error::RuleRun(e) => println!("{}", asca::ASCAError::format_rule_error(&e, rules)),
     }

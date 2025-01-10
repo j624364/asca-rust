@@ -1,16 +1,16 @@
 use colored::Colorize;
 use crate  :: {
-    alias  :: {parser::AliasItem, AliasPosition, AliasToken}, 
+    alias  :: {parser::AliasItem, AliasPosition, AliasToken, Transformation}, 
     lexer  :: {Position, Token, TokenKind}, 
     parser :: Item, RuleGroup
 };
 
 pub trait ASCAError: Clone {
     fn get_error_message(&self) -> String;
-    // This really isn't the correct solution
+    // Fixme: This really isn't the correct solution
     fn format_word_error(&self, _: &[String]) -> String;
     fn format_rule_error(&self, _: &[RuleGroup]) -> String;
-
+    fn format_alias_error(&self, _: &[Transformation]) -> String;
 }
 
 #[derive(Debug, Clone)]
@@ -20,6 +20,7 @@ pub enum Error {
     WordRun(WordRuntimeError),
     RuleRun(RuleRuntimeError),
     AliasSyn(AliasSyntaxError),
+    AliasRun(AliasRuntimeError),
 }
 
 impl ASCAError for Error {
@@ -29,7 +30,8 @@ impl ASCAError for Error {
             Error::RuleSyn(e) => e.get_error_message(),
             Error::WordRun(e) => e.get_error_message(),
             Error::RuleRun(e) => e.get_error_message(),
-            Error::AliasSyn(e) => e.get_error_message()
+            Error::AliasSyn(e) => e.get_error_message(),
+            Error::AliasRun(e) => e.get_error_message(),
         }
     }
 
@@ -37,16 +39,23 @@ impl ASCAError for Error {
         match self {
             Error::WordSyn(e) => e.format_word_error(s),
             Error::WordRun(e) => e.format_word_error(s),
-            Error::AliasSyn(e) => e.format_word_error(s),
-            Error::RuleSyn(_) | Error::RuleRun(_) => unreachable!()
+            _ => unreachable!()
         }
     }
 
     fn format_rule_error(&self, s: &[RuleGroup]) -> String {
         match self {
-            Error::WordSyn(_) | Error::WordRun(_) | Error::AliasSyn(_) => unreachable!(),
             Error::RuleSyn(e) => e.format_rule_error(s),
             Error::RuleRun(e) => e.format_rule_error(s),
+            _ => unreachable!(),
+        }
+    }
+
+    fn format_alias_error(&self, s: &[Transformation]) -> String {
+        match self {
+            Error::AliasSyn(e) => e.format_alias_error(s),
+            Error::AliasRun(e) => e.format_alias_error(s),
+            _ => unreachable!()
         }
     }
 }
@@ -78,6 +87,12 @@ impl From<RuleSyntaxError> for Error {
 impl From<AliasSyntaxError> for Error {
     fn from(e: AliasSyntaxError) -> Self {
         Error::AliasSyn(e)
+    }
+}
+
+impl From<AliasRuntimeError> for Error {
+    fn from(e: AliasRuntimeError) -> Self {
+        Error::AliasRun(e)
     }
 }
 
@@ -142,6 +157,9 @@ impl ASCAError for WordSyntaxError {
         unreachable!()
     }
 
+    fn format_alias_error(&self, _: &[Transformation]) -> String {
+        unreachable!()
+    }
 
 }
 
@@ -180,6 +198,10 @@ impl ASCAError for WordRuntimeError {
     fn format_rule_error(&self, _: &[RuleGroup]) -> String {
         unreachable!()
     }
+
+    fn format_alias_error(&self, _: &[Transformation]) -> String {
+        unreachable!()
+    }
 }
 
 #[derive(Debug, Clone)]
@@ -208,6 +230,8 @@ pub enum RuleRuntimeError {
     SubstitutionSegtoSyll(Position, Position),
     SubstitutionBoundMod(Position, Position),
     WordBoundSetLocError(Position),
+    OverlongPosLongNeg(Position),
+    SecStrPosStrNeg(Position),
 }
 
 impl ASCAError for RuleRuntimeError {
@@ -237,6 +261,8 @@ impl ASCAError for RuleRuntimeError {
             Self::SubstitutionSegtoSyll(..)        => "Segments cannot be substituted by a syllable or a boundary".to_string(),
             Self::SubstitutionBoundMod(..)         => "Syllable boundaries cannot be modified by a matrix.".to_string(),
             Self::WordBoundSetLocError(_)          => "Word Boundaries cannot be in the input or output".to_string(),
+            Self::OverlongPosLongNeg(_)            => "A segment cannot be +overlong and -long".to_string(),
+            Self::SecStrPosStrNeg(_)               => "A syllable cannot be +sec.stress and -stress".to_string(),
         }
     }
 
@@ -267,6 +293,8 @@ impl ASCAError for RuleRuntimeError {
             Self::NodeCannotBeSet(_, pos)   |
             Self::AlphaIsNotSameNode(pos)   |
             Self::AlphaIsNotNode(pos)       |
+            Self::OverlongPosLongNeg(pos)   |
+            Self::SecStrPosStrNeg(pos)      |
             Self::InsertionMatrix(pos)  =>  (
                 " ".repeat(pos.start) + &"^".repeat(pos.end-pos.start) + "\n",
                 pos.group,
@@ -301,6 +329,10 @@ impl ASCAError for RuleRuntimeError {
     }
 
     fn format_word_error(&self, _: &[String]) -> String {
+        unreachable!()
+    }
+
+    fn format_alias_error(&self, _: &[Transformation]) -> String {
         unreachable!()
     }
 }
@@ -537,6 +569,10 @@ impl ASCAError for RuleSyntaxError {
     fn format_word_error(&self, _: &[String]) -> String {
         unreachable!()
     }
+
+    fn format_alias_error(&self, _: &[Transformation]) -> String {
+        unreachable!()
+    }
 }
 
 
@@ -570,8 +606,38 @@ impl ASCAError for AliasSyntaxError {
         todo!()
     }
 
-    fn format_word_error(&self, _: &[String]) -> String {
+    fn format_alias_error(&self, _: &[Transformation]) -> String {
         todo!()
+    }
+
+    fn format_word_error(&self, _: &[String]) -> String {
+        unreachable!()
+    }
+
+    fn format_rule_error(&self, _: &[RuleGroup]) -> String {
+        unreachable!()
+    }
+}
+
+#[derive(Debug, Clone)]
+pub enum AliasRuntimeError {
+    NodeCannotBeNone(String, AliasPosition),
+    NodeCannotBeSome(String, AliasPosition),
+    OverlongPosLongNeg(AliasPosition),
+    SecStrPosStrNeg(AliasPosition),
+}
+
+impl ASCAError for AliasRuntimeError {
+    fn get_error_message(&self) -> String {
+        todo!()
+    }
+
+    fn format_alias_error(&self, _: &[Transformation]) -> String {
+        todo!()
+    }
+
+    fn format_word_error(&self, _: &[String]) -> String {
+        unreachable!()
     }
 
     fn format_rule_error(&self, _: &[RuleGroup]) -> String {

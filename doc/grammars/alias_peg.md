@@ -2,12 +2,13 @@
 
 ALIAS   ←   INTO / FROM
 
-INTO    ←   // TODO:  REPLACE ARR TERMS EOL 
+INTO    ←   RPL_STR ARR SEG+ EOL
 
 FROM    ←   INPUT ARR REPLACE EOL
 
 REPLACE ←   RPL_TRM ( ',' RPL_TRM )* ','?
-RPL_TRM ←   EMP / [Alphabetic-Unicode-Char]+
+RPL_TRM ←   EMP / RPL_STR
+RPL_STR ←   [Alphabetic-Unicode-Char]+
 
 INPUT   ←   INP_TRM ( ',' INP_TRM )* ','?
 INP_TRM ←   SBOUND / SEG+

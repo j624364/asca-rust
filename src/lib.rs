@@ -9,8 +9,8 @@ mod subrule;
 mod error;
 mod alias;
 
-use alias::parser::Transformation;
 use alias::{lexer::AliasLexer, parser::AliasParser, AliasKind};
+pub use alias::Transformation;
 pub use error::*;
 
 use serde::Deserialize;
@@ -187,7 +187,7 @@ fn parse_words(unparsed_words: &[String], alias_into: &[Transformation]) -> Resu
     let mut words: Vec<Word> = vec![];
     for w in unparsed_words {
         // TODO: Apply aliases
-        words.push(Word::new(normalise(w))?);
+        words.push(Word::new(normalise(w), alias_into)?);
     }
     Ok(words)
 }
@@ -253,6 +253,7 @@ fn parse_result_web(unparsed_result: Result<Vec<String>, Error>, rules: &[RuleGr
             Error::WordSyn(e) => res.push(e.format_word_error(words)),
             Error::WordRun(e) => res.push(e.format_word_error(words)),
             Error::AliasSyn(e) => res.push(e.format_word_error(words)),
+            Error::AliasRun(e) => res.push(e.format_word_error(words)),
             Error::RuleSyn(e) => res.push(e.format_rule_error(rules)),
             Error::RuleRun(e) => res.push(e.format_rule_error(rules)),
         },

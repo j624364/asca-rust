@@ -1,8 +1,16 @@
+use parser::AliasItem;
+
 use crate::FeatType;
 
 // pub mod aliasing;
 pub mod lexer;
 pub mod parser;
+
+#[derive(Debug, Clone)]
+pub struct Transformation {
+    pub(crate) input: AliasItem,
+    pub(crate) output: AliasItem
+}
 
 #[derive(Debug, Copy, Clone, PartialEq, Eq)]
 pub enum AliasKind {

@@ -199,7 +199,7 @@ mod rule_tests {
     }
 
     fn setup_word(test_str: &str) -> Word {
-        let maybe_word = Word::new(String::from(normalise(test_str)));
+        let maybe_word = Word::new(normalise(test_str), &[]);
         match maybe_word {
             Ok(w) => return w,
             Err(e) => {

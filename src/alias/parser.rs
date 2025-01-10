@@ -1,13 +1,7 @@
 use crate::{AliasSyntaxError, BinMod, FType, ModKind, Modifiers, Mods, NodeType, Segment, SupraType, CARDINALS_MAP, DIACRITS};
 
-use super::{AliasKind, AliasPosition, AliasToken, AliasTokenKind, FeatType};
+use super::{AliasKind, AliasPosition, AliasToken, AliasTokenKind, FeatType, Transformation};
 
-
-#[derive(Debug, Clone)]
-pub(crate) struct Transformation {
-    pub(crate) input: AliasItem,
-    pub(crate) output: AliasItem
-}
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub(crate) enum AliasParseElement {
@@ -17,6 +11,7 @@ pub(crate) enum AliasParseElement {
     Ipa        (Vec<(Segment, Option<Modifiers>)>),
 }
 impl AliasParseElement {
+    #[allow(unused)]
     pub(crate) fn as_replacement(&self) -> Option<&String> {
         if let Self::Replacement(repl) = self {
             Some(repl)
@@ -321,7 +316,35 @@ impl AliasParser {
 
     // INTO
     fn get_deromaniser(&mut self) -> Result<Vec<Transformation>, AliasSyntaxError> {
-        todo!()
+        // returns INTO ← RPL_STR ARR SEG+ EOL
+
+        let input_terms =  self.get_replacements()?;
+        // ARR
+        if !self.expect(AliasTokenKind::Arrow) && !self.expect(AliasTokenKind::GreaterThan) {
+            return Err(AliasSyntaxError::ExpectedArrow(self.curr_tkn.clone()))
+        }
+        // REPLACE
+        let output_terms = self.get_input()?;
+        // !EOL
+        if !self.expect(AliasTokenKind::Eol) {
+            return Err(AliasSyntaxError::ExpectedEndLn(self.curr_tkn.clone()))
+        }
+
+        // Split into individual transformations
+        let max = std::cmp::max(input_terms.len(), output_terms.len());
+
+        if input_terms.len()  != max && input_terms.len()  != 1 { return Err(AliasSyntaxError::UnbalancedIO(input_terms.clone())) }
+        if output_terms.len() != max && output_terms.len() != 1 { return Err(AliasSyntaxError::UnbalancedIO(output_terms.clone())) }
+
+        let mut transformations = Vec::new();
+        for i in 0..max {
+            let input  = if  input_terms.len() == 1 {  input_terms[0].clone() } else {  input_terms[i].clone() };
+            let output = if output_terms.len() == 1 { output_terms[0].clone() } else { output_terms[i].clone() };
+
+            transformations.push(Transformation { input, output });
+        }
+
+        Ok(transformations)
     }
 
     // FROM
@@ -405,7 +428,6 @@ mod parser_tests {
         assert!(maybe_result.is_ok());
 
         let result = maybe_result.unwrap();
-
         assert_eq!(result.len(), 1);
 
         let mut x = Modifiers::new();
@@ -413,5 +435,15 @@ mod parser_tests {
 
         assert_eq!(result[0].input , AliasItem::new(AliasParseElement::Ipa(vec![(CARDINALS_MAP.get("a").unwrap().clone(), Some(x))]), AliasPosition::new(0,  0,  8)));
         assert_eq!(result[0].output, AliasItem::new(AliasParseElement::Replacement("á".to_string()),                                  AliasPosition::new(0, 11, 12)));
+    }
+
+    #[test]
+    fn test_deromanisation_simple() {
+        let maybe_result = AliasParser::new(AliasKind::Romaniser, setup_derom("sh > ʃ"), 0).parse();
+        assert!(maybe_result.is_ok());
+
+        let result = maybe_result.unwrap();
+        assert_eq!(result.len(), 1);
+
     }
 }
