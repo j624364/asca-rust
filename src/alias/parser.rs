@@ -439,7 +439,7 @@ mod parser_tests {
 
     #[test]
     fn test_deromanisation_simple() {
-        let maybe_result = AliasParser::new(AliasKind::Romaniser, setup_derom("sh > ʃ"), 0).parse();
+        let maybe_result = AliasParser::new(AliasKind::Deromaniser, setup_derom("sh > ʃ"), 0).parse();
         assert!(maybe_result.is_ok());
 
         let result = maybe_result.unwrap();
