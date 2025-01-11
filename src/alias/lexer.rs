@@ -73,7 +73,7 @@ impl<'a> AliasLexer<'a> {
             ']' => { tokenkind = AliasTokenKind::RightSquare;  value = "]".to_string(); self.inside_matrix = false },
             '[' => { 
                 if self.inside_matrix {
-                    return Err(AliasSyntaxError::NestedBrackets(self.line, start));
+                    return Err(AliasSyntaxError::NestedBrackets(self.kind, self.line, start));
                 }
                 tokenkind = AliasTokenKind::LeftSquare; value = "[".to_string();  self.inside_matrix = true
             },
@@ -81,7 +81,7 @@ impl<'a> AliasLexer<'a> {
         }
         self.advance();
 
-        Ok(Some(AliasToken::new(tokenkind, value, AliasPosition::new(self.line, start, self.pos))))
+        Ok(Some(AliasToken::new(tokenkind, value, AliasPosition::new(self.kind, self.line, start, self.pos))))
     }
 
     // TODO: Factor this out with Lexer::feature_match
@@ -184,18 +184,18 @@ impl<'a> AliasLexer<'a> {
         }
 
         if buffer.len() <= 1 { 
-            return Err(AliasSyntaxError::ExpectedAlphabetic(self.curr_char(), self.line, self.pos))
+            return Err(AliasSyntaxError::ExpectedAlphabetic(self.curr_char(), self.kind, self.line, self.pos))
         }
 
         let Some(tkn_kind) = self.feature_match(&buffer) else {
-            return Err(AliasSyntaxError::UnknownFeature(buffer, AliasPosition::new(self.line, start, self.pos)))
+            return Err(AliasSyntaxError::UnknownFeature(buffer, AliasPosition::new(self.kind, self.line, start, self.pos)))
         };
         
         if let AliasTokenKind::Feature(FeatType::Supr(SupraType::Tone)) = tkn_kind { if mod_val == "+" || mod_val == "-" {
-            return Err(AliasSyntaxError::WrongModTone(self.line, start))
+            return Err(AliasSyntaxError::WrongModTone(self.kind, self.line, start))
         } }
 
-        Ok(Some(AliasToken::new(tkn_kind, mod_val, AliasPosition::new(self.line, start, self.pos))))
+        Ok(Some(AliasToken::new(tkn_kind, mod_val, AliasPosition::new(self.kind, self.line, start, self.pos))))
     }
 
     fn get_special_char(&mut self) -> Result<Option<AliasToken>, AliasSyntaxError> {
@@ -236,7 +236,7 @@ impl<'a> AliasLexer<'a> {
                     self.past_arrow = true; 
                     self.chop(2) 
                 },
-                 _  => return Err(AliasSyntaxError::ExpectedCharArrow(self.next_char(), self.line, self.pos))
+                 _  => return Err(AliasSyntaxError::ExpectedCharArrow(self.next_char(), self.kind, self.line, self.pos))
             },
             // '…' | '⋯' => { tokenkind = TokenKind::Ellipsis; self.chop(1) },
             // '.' => match self.next_char() {
@@ -246,7 +246,7 @@ impl<'a> AliasLexer<'a> {
             _ => return Ok(None)
         };
 
-        Ok(Some(AliasToken::new(tokenkind, value, AliasPosition::new(self.line, start, self.pos))))
+        Ok(Some(AliasToken::new(tokenkind, value, AliasPosition::new(self.kind, self.line, start, self.pos))))
     }
 
     fn get_diacritic(&mut self) -> Option<AliasToken> {
@@ -258,7 +258,7 @@ impl<'a> AliasLexer<'a> {
         for (i, d) in DIACRITS.iter().enumerate() {
             if char == d.diacrit {
                 self.advance();
-                return Some(AliasToken::new(AliasTokenKind::Diacritic(i as u8), char.to_string(), AliasPosition::new(self.line, start, self.pos)))
+                return Some(AliasToken::new(AliasTokenKind::Diacritic(i as u8), char.to_string(), AliasPosition::new(self.kind, self.line, start, self.pos)))
             }
         }
         None
@@ -346,7 +346,7 @@ impl<'a> AliasLexer<'a> {
                         }
                     }
                 }
-                return Some(AliasToken::new(AliasTokenKind::Cardinal, buffer, AliasPosition::new(self.line, start, self.pos)))
+                return Some(AliasToken::new(AliasTokenKind::Cardinal, buffer, AliasPosition::new(self.kind, self.line, start, self.pos)))
             }
         }
         None
@@ -357,7 +357,7 @@ impl<'a> AliasLexer<'a> {
         let start = self.pos;
         let c = self.chop(1);
         
-        Some(AliasToken::new(AliasTokenKind::Group, c, AliasPosition::new(self.line, start, self.pos)))
+        Some(AliasToken::new(AliasTokenKind::Group, c, AliasPosition::new(self.kind, self.line, start, self.pos)))
     }
 
 
@@ -366,7 +366,7 @@ impl<'a> AliasLexer<'a> {
         if !self.curr_char().is_ascii_alphabetic() { return Ok(None) }
 
         if !self.inside_matrix { 
-            return Err(AliasSyntaxError::OutsideBrackets(self.line, self.pos))
+            return Err(AliasSyntaxError::OutsideBrackets(self.kind, self.line, self.pos))
         }
 
         let start = self.pos;
@@ -377,14 +377,14 @@ impl<'a> AliasLexer<'a> {
 
         match self.curr_char() {
             ':' => self.advance(),
-            _ => return Err(AliasSyntaxError::ExpectedCharColon(self.curr_char(), self.line, self.pos))
+            _ => return Err(AliasSyntaxError::ExpectedCharColon(self.curr_char(), self.kind, self.line, self.pos))
         } 
         
         self.trim_whitespace();
 
         match self.get_numeric() {
-            Some(num) => Ok(Some(AliasToken::new(tkn_kind, num.value, AliasPosition::new(self.line, start, self.pos)))),
-            _ => Err(AliasSyntaxError::ExpectedNumber(self.curr_char(), self.line, self.pos))
+            Some(num) => Ok(Some(AliasToken::new(tkn_kind, num.value, AliasPosition::new(self.kind, self.line, start, self.pos)))),
+            _ => Err(AliasSyntaxError::ExpectedNumber(self.curr_char(), self.kind, self.line, self.pos))
 
         }
     }
@@ -395,7 +395,7 @@ impl<'a> AliasLexer<'a> {
         use SupraType::*;
         match buffer.to_lowercase().as_str() {
             "tone"   | "ton" | "tn"    => Ok(Feature(Supr(Tone))),
-            _ => Err(AliasSyntaxError::UnknownEnbyFeature(buffer.clone(), AliasPosition::new(self.line, start, start+buffer.len())))
+            _ => Err(AliasSyntaxError::UnknownEnbyFeature(buffer.clone(), AliasPosition::new(self.kind, self.line, start, start+buffer.len())))
         }
     }
 
@@ -406,7 +406,7 @@ impl<'a> AliasLexer<'a> {
         let start = self.pos;
         let buffer = self.chop_while(|x| x.is_ascii_digit());
 
-        Some(AliasToken::new(AliasTokenKind::Number, buffer, AliasPosition::new(self.line, start, self.pos)))
+        Some(AliasToken::new(AliasTokenKind::Number, buffer, AliasPosition::new(self.kind, self.line, start, self.pos)))
     }
 
     fn get_unicode_string(&mut self) -> Option<AliasToken> {
@@ -414,13 +414,13 @@ impl<'a> AliasLexer<'a> {
         let start = self.pos;
         let buffer = self.chop_while(|x| x.is_alphabetic());
 
-        Some(AliasToken::new(AliasTokenKind::String, buffer, AliasPosition::new(self.line, start, self.pos)))
+        Some(AliasToken::new(AliasTokenKind::String, buffer, AliasPosition::new(self.kind, self.line, start, self.pos)))
     }
 
     fn get_next_token(&mut self) -> Result<AliasToken, AliasSyntaxError> {
         self.trim_whitespace();
 
-        if !self.has_more_chars() { return Ok(AliasToken::new(AliasTokenKind::Eol, String::new(), AliasPosition::new(self.line, self.pos, self.pos+1))) }
+        if !self.has_more_chars() { return Ok(AliasToken::new(AliasTokenKind::Eol, String::new(), AliasPosition::new(self.kind, self.line, self.pos, self.pos+1))) }
         
         match self.kind {
             AliasKind::Deromaniser => {
@@ -450,7 +450,7 @@ impl<'a> AliasLexer<'a> {
 
         if let Some(spc_token) = self.get_special_char()?      { return Ok(spc_token) }
 
-        Err(AliasSyntaxError::UnknownCharacter(self.curr_char(), self.line, self.pos))
+        Err(AliasSyntaxError::UnknownCharacter(self.curr_char(), self.kind, self.line, self.pos))
     }
 
     pub(crate) fn get_line(&mut self) -> Result<Vec<AliasToken>, AliasSyntaxError> {
@@ -477,10 +477,10 @@ mod lexer_tests {
     fn test_deromanisation_simple() {
         let test_input= String::from("sh > ʃ");
         let expected_result = vec![
-            AliasToken::new(AliasTokenKind::String,     "sh".to_owned(), AliasPosition::new(0, 0, 2)),
-            AliasToken::new(AliasTokenKind::GreaterThan, ">".to_owned(), AliasPosition::new(0, 3, 4)),
-            AliasToken::new(AliasTokenKind::Cardinal,    "ʃ".to_owned(), AliasPosition::new(0, 5, 6)),
-            AliasToken::new(AliasTokenKind::Eol,          String::new(), AliasPosition::new(0, 6, 7)),
+            AliasToken::new(AliasTokenKind::String,     "sh".to_owned(), AliasPosition::new(AliasKind::Deromaniser, 0, 0, 2)),
+            AliasToken::new(AliasTokenKind::GreaterThan, ">".to_owned(), AliasPosition::new(AliasKind::Deromaniser, 0, 3, 4)),
+            AliasToken::new(AliasTokenKind::Cardinal,    "ʃ".to_owned(), AliasPosition::new(AliasKind::Deromaniser, 0, 5, 6)),
+            AliasToken::new(AliasTokenKind::Eol,          String::new(), AliasPosition::new(AliasKind::Deromaniser, 0, 6, 7)),
         ];
         
         let result = AliasLexer::new(AliasKind::Deromaniser, &test_input.chars().collect::<Vec<_>>(),  0).get_line().unwrap();  
@@ -498,14 +498,14 @@ mod lexer_tests {
         use SupraType::*;
         let test_input= String::from("á > a:[+str]");
         let expected_result = vec![
-            AliasToken::new(AliasTokenKind::String,                 "á".to_owned(), AliasPosition::new(0,  0,  1)),
-            AliasToken::new(AliasTokenKind::GreaterThan,            ">".to_owned(), AliasPosition::new(0,  2,  3)),
-            AliasToken::new(AliasTokenKind::Cardinal,               "a".to_owned(), AliasPosition::new(0,  4,  5)),
-            AliasToken::new(AliasTokenKind::Colon,                  ":".to_owned(), AliasPosition::new(0,  5,  6)),
-            AliasToken::new(AliasTokenKind::LeftSquare,             "[".to_owned(), AliasPosition::new(0,  6,  7)),
-            AliasToken::new(AliasTokenKind::Feature(Supr(Stress)),  "+".to_owned(), AliasPosition::new(0,  7, 11)),
-            AliasToken::new(AliasTokenKind::RightSquare,            "]".to_owned(), AliasPosition::new(0, 11, 12)),
-            AliasToken::new(AliasTokenKind::Eol,                     String::new(), AliasPosition::new(0, 12, 13)),
+            AliasToken::new(AliasTokenKind::String,                 "á".to_owned(), AliasPosition::new(AliasKind::Deromaniser, 0,  0,  1)),
+            AliasToken::new(AliasTokenKind::GreaterThan,            ">".to_owned(), AliasPosition::new(AliasKind::Deromaniser, 0,  2,  3)),
+            AliasToken::new(AliasTokenKind::Cardinal,               "a".to_owned(), AliasPosition::new(AliasKind::Deromaniser, 0,  4,  5)),
+            AliasToken::new(AliasTokenKind::Colon,                  ":".to_owned(), AliasPosition::new(AliasKind::Deromaniser, 0,  5,  6)),
+            AliasToken::new(AliasTokenKind::LeftSquare,             "[".to_owned(), AliasPosition::new(AliasKind::Deromaniser, 0,  6,  7)),
+            AliasToken::new(AliasTokenKind::Feature(Supr(Stress)),  "+".to_owned(), AliasPosition::new(AliasKind::Deromaniser, 0,  7, 11)),
+            AliasToken::new(AliasTokenKind::RightSquare,            "]".to_owned(), AliasPosition::new(AliasKind::Deromaniser, 0, 11, 12)),
+            AliasToken::new(AliasTokenKind::Eol,                     String::new(), AliasPosition::new(AliasKind::Deromaniser, 0, 12, 13)),
         ];
         
         let result = AliasLexer::new(AliasKind::Deromaniser, &test_input.chars().collect::<Vec<_>>(),  0).get_line().unwrap();  
@@ -521,10 +521,10 @@ mod lexer_tests {
     fn test_romanisation_simple() {
         let test_input= String::from("ʃ > sh");
         let expected_result = vec![
-            AliasToken::new(AliasTokenKind::Cardinal,    "ʃ".to_owned(), AliasPosition::new(0, 0, 1)),
-            AliasToken::new(AliasTokenKind::GreaterThan, ">".to_owned(), AliasPosition::new(0, 2, 3)),
-            AliasToken::new(AliasTokenKind::String,     "sh".to_owned(), AliasPosition::new(0, 4, 6)),
-            AliasToken::new(AliasTokenKind::Eol,          String::new(), AliasPosition::new(0, 6, 7)),
+            AliasToken::new(AliasTokenKind::Cardinal,    "ʃ".to_owned(), AliasPosition::new(AliasKind::Romaniser, 0, 0, 1)),
+            AliasToken::new(AliasTokenKind::GreaterThan, ">".to_owned(), AliasPosition::new(AliasKind::Romaniser, 0, 2, 3)),
+            AliasToken::new(AliasTokenKind::String,     "sh".to_owned(), AliasPosition::new(AliasKind::Romaniser, 0, 4, 6)),
+            AliasToken::new(AliasTokenKind::Eol,          String::new(), AliasPosition::new(AliasKind::Romaniser, 0, 6, 7)),
         ];
         
         let result = AliasLexer::new(AliasKind::Romaniser, &test_input.chars().collect::<Vec<_>>(),  0).get_line().unwrap();  
@@ -542,14 +542,14 @@ mod lexer_tests {
         use SupraType::*;
         let test_input= String::from("ʃ:[-long] > sh");
         let expected_result = vec![
-            AliasToken::new(AliasTokenKind::Cardinal,               "ʃ".to_owned(), AliasPosition::new(0,  0,  1)),
-            AliasToken::new(AliasTokenKind::Colon,                  ":".to_owned(), AliasPosition::new(0,  1,  2)),
-            AliasToken::new(AliasTokenKind::LeftSquare,             "[".to_owned(), AliasPosition::new(0,  2,  3)),
-            AliasToken::new(AliasTokenKind::Feature(Supr(Long)),    "-".to_owned(), AliasPosition::new(0,  3,  8)),
-            AliasToken::new(AliasTokenKind::RightSquare,            "]".to_owned(), AliasPosition::new(0,  8,  9)),
-            AliasToken::new(AliasTokenKind::GreaterThan,            ">".to_owned(), AliasPosition::new(0, 10, 11)),
-            AliasToken::new(AliasTokenKind::String,                "sh".to_owned(), AliasPosition::new(0, 12, 14)),
-            AliasToken::new(AliasTokenKind::Eol,                     String::new(), AliasPosition::new(0, 14, 15)),
+            AliasToken::new(AliasTokenKind::Cardinal,               "ʃ".to_owned(), AliasPosition::new(AliasKind::Romaniser, 0,  0,  1)),
+            AliasToken::new(AliasTokenKind::Colon,                  ":".to_owned(), AliasPosition::new(AliasKind::Romaniser, 0,  1,  2)),
+            AliasToken::new(AliasTokenKind::LeftSquare,             "[".to_owned(), AliasPosition::new(AliasKind::Romaniser, 0,  2,  3)),
+            AliasToken::new(AliasTokenKind::Feature(Supr(Long)),    "-".to_owned(), AliasPosition::new(AliasKind::Romaniser, 0,  3,  8)),
+            AliasToken::new(AliasTokenKind::RightSquare,            "]".to_owned(), AliasPosition::new(AliasKind::Romaniser, 0,  8,  9)),
+            AliasToken::new(AliasTokenKind::GreaterThan,            ">".to_owned(), AliasPosition::new(AliasKind::Romaniser, 0, 10, 11)),
+            AliasToken::new(AliasTokenKind::String,                "sh".to_owned(), AliasPosition::new(AliasKind::Romaniser, 0, 12, 14)),
+            AliasToken::new(AliasTokenKind::Eol,                     String::new(), AliasPosition::new(AliasKind::Romaniser, 0, 14, 15)),
         ];
 
         let result = AliasLexer::new(AliasKind::Romaniser, &test_input.chars().collect::<Vec<_>>(),  0).get_line().unwrap();  
@@ -563,14 +563,14 @@ mod lexer_tests {
 
         let test_input= String::from("ʃ:[+long] > ssh");
         let expected_result = vec![
-            AliasToken::new(AliasTokenKind::Cardinal,               "ʃ".to_owned(), AliasPosition::new(0,  0,  1)),
-            AliasToken::new(AliasTokenKind::Colon,                  ":".to_owned(), AliasPosition::new(0,  1,  2)),
-            AliasToken::new(AliasTokenKind::LeftSquare,             "[".to_owned(), AliasPosition::new(0,  2,  3)),
-            AliasToken::new(AliasTokenKind::Feature(Supr(Long)),    "+".to_owned(), AliasPosition::new(0,  3,  8)),
-            AliasToken::new(AliasTokenKind::RightSquare,            "]".to_owned(), AliasPosition::new(0,  8,  9)),
-            AliasToken::new(AliasTokenKind::GreaterThan,            ">".to_owned(), AliasPosition::new(0, 10, 11)),
-            AliasToken::new(AliasTokenKind::String,               "ssh".to_owned(), AliasPosition::new(0, 12, 15)),
-            AliasToken::new(AliasTokenKind::Eol,                     String::new(), AliasPosition::new(0, 15, 16)),
+            AliasToken::new(AliasTokenKind::Cardinal,               "ʃ".to_owned(), AliasPosition::new(AliasKind::Romaniser, 0,  0,  1)),
+            AliasToken::new(AliasTokenKind::Colon,                  ":".to_owned(), AliasPosition::new(AliasKind::Romaniser, 0,  1,  2)),
+            AliasToken::new(AliasTokenKind::LeftSquare,             "[".to_owned(), AliasPosition::new(AliasKind::Romaniser, 0,  2,  3)),
+            AliasToken::new(AliasTokenKind::Feature(Supr(Long)),    "+".to_owned(), AliasPosition::new(AliasKind::Romaniser, 0,  3,  8)),
+            AliasToken::new(AliasTokenKind::RightSquare,            "]".to_owned(), AliasPosition::new(AliasKind::Romaniser, 0,  8,  9)),
+            AliasToken::new(AliasTokenKind::GreaterThan,            ">".to_owned(), AliasPosition::new(AliasKind::Romaniser, 0, 10, 11)),
+            AliasToken::new(AliasTokenKind::String,               "ssh".to_owned(), AliasPosition::new(AliasKind::Romaniser, 0, 12, 15)),
+            AliasToken::new(AliasTokenKind::Eol,                     String::new(), AliasPosition::new(AliasKind::Romaniser, 0, 15, 16)),
         ];
 
         let result = AliasLexer::new(AliasKind::Romaniser, &test_input.chars().collect::<Vec<_>>(),  0).get_line().unwrap();  
@@ -588,14 +588,14 @@ mod lexer_tests {
         use SupraType::*;
         let test_input= String::from("a:[+str] > á");
         let expected_result = vec![
-            AliasToken::new(AliasTokenKind::Cardinal,               "a".to_owned(), AliasPosition::new(0,  0,  1)),
-            AliasToken::new(AliasTokenKind::Colon,                  ":".to_owned(), AliasPosition::new(0,  1,  2)),
-            AliasToken::new(AliasTokenKind::LeftSquare,             "[".to_owned(), AliasPosition::new(0,  2,  3)),
-            AliasToken::new(AliasTokenKind::Feature(Supr(Stress)),  "+".to_owned(), AliasPosition::new(0,  3,  7)),
-            AliasToken::new(AliasTokenKind::RightSquare,            "]".to_owned(), AliasPosition::new(0,  7,  8)),
-            AliasToken::new(AliasTokenKind::GreaterThan,            ">".to_owned(), AliasPosition::new(0,  9, 10)),
-            AliasToken::new(AliasTokenKind::String,                 "á".to_owned(), AliasPosition::new(0, 11, 12)),
-            AliasToken::new(AliasTokenKind::Eol,                     String::new(), AliasPosition::new(0, 12, 13)),
+            AliasToken::new(AliasTokenKind::Cardinal,               "a".to_owned(), AliasPosition::new(AliasKind::Romaniser, 0,  0,  1)),
+            AliasToken::new(AliasTokenKind::Colon,                  ":".to_owned(), AliasPosition::new(AliasKind::Romaniser, 0,  1,  2)),
+            AliasToken::new(AliasTokenKind::LeftSquare,             "[".to_owned(), AliasPosition::new(AliasKind::Romaniser, 0,  2,  3)),
+            AliasToken::new(AliasTokenKind::Feature(Supr(Stress)),  "+".to_owned(), AliasPosition::new(AliasKind::Romaniser, 0,  3,  7)),
+            AliasToken::new(AliasTokenKind::RightSquare,            "]".to_owned(), AliasPosition::new(AliasKind::Romaniser, 0,  7,  8)),
+            AliasToken::new(AliasTokenKind::GreaterThan,            ">".to_owned(), AliasPosition::new(AliasKind::Romaniser, 0,  9, 10)),
+            AliasToken::new(AliasTokenKind::String,                 "á".to_owned(), AliasPosition::new(AliasKind::Romaniser, 0, 11, 12)),
+            AliasToken::new(AliasTokenKind::Eol,                     String::new(), AliasPosition::new(AliasKind::Romaniser, 0, 12, 13)),
         ];
         
         let result = AliasLexer::new(AliasKind::Romaniser, &test_input.chars().collect::<Vec<_>>(),  0).get_line().unwrap();  

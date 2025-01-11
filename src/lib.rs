@@ -235,13 +235,13 @@ pub fn run(unparsed_rules: &[RuleGroup], unparsed_words: &[String], alias_into: 
 
 
 #[wasm_bindgen]
-pub fn run_wasm(val: JsValue, unparsed_words: Vec<String>, alias_into: Vec<String>, alias_from: Vec<String>) -> Vec<String> {
+pub fn run_wasm(val: JsValue, unparsed_words: Vec<String>, unparsed_into: Vec<String>, unparsed_from: Vec<String>) -> Vec<String> {
     let unparsed_rules: Vec<RuleGroup> = serde_wasm_bindgen::from_value(val).expect("Rules are in valid JSObject format");
 
-    parse_result_web(run(&unparsed_rules, &unparsed_words, &alias_into, &alias_from), &unparsed_rules, &unparsed_words)
+    parse_result_web(run(&unparsed_rules, &unparsed_words, &unparsed_into, &unparsed_from), &unparsed_rules, &unparsed_words, &unparsed_into, &unparsed_from)
 }
 
-fn parse_result_web(unparsed_result: Result<Vec<String>, Error>, rules: &[RuleGroup], words: &[String]) -> Vec<String> {
+fn parse_result_web(unparsed_result: Result<Vec<String>, Error>, rules: &[RuleGroup], words: &[String], unparsed_into: &[String], unparsed_from: &[String]) -> Vec<String> {
     let mut res = Vec::new();
     match unparsed_result {
         Ok(output) => {
@@ -252,8 +252,8 @@ fn parse_result_web(unparsed_result: Result<Vec<String>, Error>, rules: &[RuleGr
         Err(err) => match err {
             Error::WordSyn(e) => res.push(e.format_word_error(words)),
             Error::WordRun(e) => res.push(e.format_word_error(words)),
-            Error::AliasSyn(e) => res.push(e.format_word_error(words)),
-            Error::AliasRun(e) => res.push(e.format_word_error(words)),
+            Error::AliasSyn(e) => res.push(e.format_alias_error(unparsed_into, unparsed_from)),
+            Error::AliasRun(e) => res.push(e.format_alias_error(unparsed_into, unparsed_from)),
             Error::RuleSyn(e) => res.push(e.format_rule_error(rules)),
             Error::RuleRun(e) => res.push(e.format_rule_error(rules)),
         },

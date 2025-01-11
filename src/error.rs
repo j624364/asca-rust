@@ -1,6 +1,6 @@
 use colored::Colorize;
 use crate  :: {
-    alias  :: {parser::AliasItem, AliasPosition, AliasToken, Transformation}, 
+    alias  :: {parser::AliasItem, AliasKind, AliasPosition, AliasToken, AliasTokenKind}, 
     lexer  :: {Position, Token, TokenKind}, 
     parser :: Item, RuleGroup
 };
@@ -10,7 +10,7 @@ pub trait ASCAError: Clone {
     // Fixme: This really isn't the correct solution
     fn format_word_error(&self, _: &[String]) -> String;
     fn format_rule_error(&self, _: &[RuleGroup]) -> String;
-    fn format_alias_error(&self, _: &[Transformation]) -> String;
+    fn format_alias_error(&self, _: &[String], _: &[String]) -> String;
 }
 
 #[derive(Debug, Clone)]
@@ -51,10 +51,10 @@ impl ASCAError for Error {
         }
     }
 
-    fn format_alias_error(&self, s: &[Transformation]) -> String {
+    fn format_alias_error(&self, into: &[String], from: &[String]) -> String {
         match self {
-            Error::AliasSyn(e) => e.format_alias_error(s),
-            Error::AliasRun(e) => e.format_alias_error(s),
+            Error::AliasSyn(e) => e.format_alias_error(into, from),
+            Error::AliasRun(e) => e.format_alias_error(into, from),
             _ => unreachable!()
         }
     }
@@ -157,7 +157,7 @@ impl ASCAError for WordSyntaxError {
         unreachable!()
     }
 
-    fn format_alias_error(&self, _: &[Transformation]) -> String {
+    fn format_alias_error(&self, _: &[String], _: &[String]) -> String {
         unreachable!()
     }
 
@@ -199,7 +199,7 @@ impl ASCAError for WordRuntimeError {
         unreachable!()
     }
 
-    fn format_alias_error(&self, _: &[Transformation]) -> String {
+    fn format_alias_error(&self, _: &[String], _: &[String]) -> String {
         unreachable!()
     }
 }
@@ -261,8 +261,8 @@ impl ASCAError for RuleRuntimeError {
             Self::SubstitutionSegtoSyll(..)        => "Segments cannot be substituted by a syllable or a boundary".to_string(),
             Self::SubstitutionBoundMod(..)         => "Syllable boundaries cannot be modified by a matrix.".to_string(),
             Self::WordBoundSetLocError(_)          => "Word Boundaries cannot be in the input or output".to_string(),
-            Self::OverlongPosLongNeg(_)            => "A segment cannot be +overlong and -long".to_string(),
-            Self::SecStrPosStrNeg(_)               => "A syllable cannot be +sec.stress and -stress".to_string(),
+            Self::OverlongPosLongNeg(_)            => "A segment cannot be both [+overlong] and [-long]".to_string(),
+            Self::SecStrPosStrNeg(_)               => "A syllable cannot be both [+sec.stress] and [-stress]".to_string(),
         }
     }
 
@@ -332,7 +332,7 @@ impl ASCAError for RuleRuntimeError {
         unreachable!()
     }
 
-    fn format_alias_error(&self, _: &[Transformation]) -> String {
+    fn format_alias_error(&self, _: &[String], _: &[String]) -> String {
         unreachable!()
     }
 }
@@ -399,13 +399,13 @@ impl ASCAError for RuleSyntaxError {
             Self::UnknownIPA(token)               => format!("Could not get value of IPA '{}'.", token.value),
             Self::UnknownGrouping(token)          => format!("Unknown grouping '{}'. Known groupings are (C)onsonant, (O)bstruent, (S)onorant, (P)losive, (F)ricative, (L)iquid, (N)asal, (G)lide, and (V)owel", token.value),
             Self::UnknownFeature(feat, pos)       => format!("Unknown feature '{feat}' at {}:{}-{}'. Did you mean {}? ", pos.line, pos.start, pos.end, get_feat_closest(feat)),
-            Self::UnknownEnbyFeature(feat, ..)    => format!("Feature '{feat}' has no modifier."),
-            Self::ExpectedAlphabetic(c, g, l, pos)   => format!("Expected ASCII character, but received '{c}' at {g}:{l}:{pos}'."),
-            Self::ExpectedCharColon(c, g, l, pos)    => format!("Expected ':', but received '{c}' at {g}:{l}:{pos}"),
-            Self::ExpectedCharArrow(c, g, l, pos)    => format!("Expected '->', but received -'{c}' at {g}:{l}:{pos}"),
-            Self::ExpectedCharDot(c, g, l, pos)      => format!("Expected '..', but received .'{c}' at {g}:{l}:{pos}"),
-            Self::ExpectedNumber(c, g, l, pos)       => format!("Expected a number, but received '{c}' at {g}:{l}:{pos}"),
-            Self::UnknownCharacter(c, g, l, pos)     => format!("Unknown character {c} at '{g}:{l}:{pos}'."),
+            Self::UnknownEnbyFeature(feat, pos)   => format!("Feature '{feat}' has no modifier at {}:{}-{}'.", pos.line, pos.start, pos.end),
+            Self::ExpectedAlphabetic(c, g, l, pos)=> format!("Expected ASCII character, but received '{c}' at {g}:{l}:{pos}'."),
+            Self::ExpectedCharColon(c, g, l, pos) => format!("Expected ':', but received '{c}' at {g}:{l}:{pos}"),
+            Self::ExpectedCharArrow(c, g, l, pos) => format!("Expected '->', but received -'{c}' at {g}:{l}:{pos}"),
+            Self::ExpectedCharDot(c, g, l, pos)   => format!("Expected '..', but received .'{c}' at {g}:{l}:{pos}"),
+            Self::ExpectedNumber(c, g, l, pos)    => format!("Expected a number, but received '{c}' at {g}:{l}:{pos}"),
+            Self::UnknownCharacter(c, g, l, pos)  => format!("Unknown character {c} at '{g}:{l}:{pos}'."),
             Self::TooManyUnderlines(_)            => "Cannot have multiple underlines in an environment".to_string(),
             Self::StuffAfterWordBound(_)          => "Can't have segments after the end of a word".to_string(),
             Self::StuffBeforeWordBound(_)         => "Can't have segments before the beginning of a word".to_string(),
@@ -438,7 +438,7 @@ impl ASCAError for RuleSyntaxError {
             Self::UnbalancedRuleEnv(_)            => "Environment has too few elements".to_string(),
             Self::DiacriticDoesNotMeetPreReqsFeat(.., t , pos) |
             Self::DiacriticDoesNotMeetPreReqsNode(.., t , pos) => {
-                format!("Segment does not have prerequisite properties to have this diacritic. Must be {}{}", if *pos { '+' } else { '-' },t) 
+                format!("Segment does not have prerequisite properties to have this diacritic. Must be +[{}{}]", if *pos { '+' } else { '-' },t) 
             },
             Self::UnexpectedDiacritic(..) => "Diacritics can only modify IPA Segments".to_string(),
             Self::WordBoundLoc(_)     => "Wordboundaries are not allowed in the input or output".to_string(),
@@ -478,22 +478,18 @@ impl ASCAError for RuleSyntaxError {
                 pos.group,
                 pos.line
             ),
-            Self::UnknownCharacter  (_, group, line, pos) |
-            Self::ExpectedCharColon (_, group, line, pos) |
             Self::ExpectedAlphabetic(_, group, line, pos) |
             Self::ExpectedCharArrow (_, group, line, pos) |
+            Self::ExpectedCharColon (_, group, line, pos) |
+            Self::UnknownCharacter  (_, group, line, pos) |
             Self::ExpectedCharDot   (_, group, line, pos) |
-            Self::ExpectedNumber    (_, group, line, pos) => (
-                " ".repeat(*pos) + "^" + "\n", 
-                *group,
-                *line
-            ),
-            Self::WrongModTone   (group, line, pos) |
-            Self::EmptyInput     (group, line, pos) | 
-            Self::EmptyEnv       (group, line, pos) |
-            Self::EmptyOutput    (group, line, pos) |
-            Self::NestedBrackets (group, line, pos) | 
-            Self::OutsideBrackets(group, line, pos) => (
+            Self::ExpectedNumber    (_, group, line, pos) |
+            Self::OutsideBrackets      (group, line, pos) |
+            Self::NestedBrackets       (group, line, pos) | 
+            Self::WrongModTone         (group, line, pos) |
+            Self::EmptyOutput          (group, line, pos) |
+            Self::EmptyInput           (group, line, pos) | 
+            Self::EmptyEnv             (group, line, pos) => (
                 " ".repeat(*pos) + "^" + "\n", 
                 *group,
                 *line
@@ -570,7 +566,7 @@ impl ASCAError for RuleSyntaxError {
         unreachable!()
     }
 
-    fn format_alias_error(&self, _: &[Transformation]) -> String {
+    fn format_alias_error(&self, _: &[String], _: &[String]) -> String {
         unreachable!()
     }
 }
@@ -578,36 +574,140 @@ impl ASCAError for RuleSyntaxError {
 
 #[derive(Debug, Clone)]
 pub enum AliasSyntaxError {
-    UnknownCharacter(char, LineNum, Pos),
-    ExpectedCharArrow(char, LineNum, Pos),
-    UnknownEnbyFeature(String, AliasPosition),
-    ExpectedAlphabetic(char, LineNum, Pos),
-    ExpectedNumber(char, usize, usize),
-    ExpectedCharColon(char, usize, usize),
-    OutsideBrackets(LineNum, Pos),
-    NestedBrackets(LineNum, Pos),
-    WrongModTone(LineNum, Pos),
-    UnknownFeature(String, AliasPosition),
-    ExpectedArrow(AliasToken),
-    ExpectedEndLn(AliasToken),
-    EmptyReplacements(LineNum, Pos),
-    UnbalancedIO(Vec<AliasItem>),
-    EmptyInput(LineNum, Pos),
+    ExpectedAlphabetic  (char, AliasKind, LineNum, Pos),
+    ExpectedCharArrow   (char, AliasKind, LineNum, Pos),
+    ExpectedCharColon   (char, AliasKind, LineNum, Pos),
+    UnknownCharacter    (char, AliasKind, LineNum, Pos),
+    ExpectedNumber      (char, AliasKind, LineNum, Pos),
+    EmptyReplacements   (AliasKind, LineNum, Pos),
+    OutsideBrackets     (AliasKind, LineNum, Pos),
+    NestedBrackets      (AliasKind, LineNum, Pos),
+    WrongModTone        (AliasKind, LineNum, Pos),
+    EmptyInput          (AliasKind, LineNum, Pos),
+    UnknownEnbyFeature  (String, AliasPosition),
+    UnknownFeature      (String, AliasPosition),
+    ExpectedTokenFeature(AliasToken),
+    ExpectedEndLine     (AliasToken),
+    ExpectedMatrix      (AliasToken),
+    ExpectedArrow       (AliasToken),
+    UnknownIPA          (AliasToken),
     DiacriticDoesNotMeetPreReqsFeat(AliasPosition, AliasPosition, String, bool),
     DiacriticDoesNotMeetPreReqsNode(AliasPosition, AliasPosition, String, bool),
-    ExpectedMatrix(AliasToken),
     UnexpectedEol(AliasToken, char),
-    ExpectedTokenFeature(AliasToken),
-    UnknownIPA(AliasToken),
+    UnbalancedIO(Vec<AliasItem>),
 }
 
 impl ASCAError for AliasSyntaxError {
     fn get_error_message(&self) -> String {
-        todo!()
+        match self {
+            AliasSyntaxError::ExpectedAlphabetic(ch, kind, ln, pos) => format!("Expected alphabetic character, but received '{ch}' @ '{kind}:{ln}:{pos}'."),
+            AliasSyntaxError::ExpectedCharArrow (ch, kind, ln, pos) => format!("Expected '->', but received -'{ch}' @ '{kind}:{ln}:{pos}'."),
+            AliasSyntaxError::ExpectedCharColon (ch, kind, ln, pos) => format!("Expected ':', but received '{ch}' @ '{kind}:{ln}:{pos}'."),
+            AliasSyntaxError::UnknownCharacter  (ch, kind, ln, pos) => format!("Unknown character {ch} @ '{kind}:{ln}:{pos}'."),
+            AliasSyntaxError::ExpectedNumber    (ch, kind, ln, pos) => format!("Expected a number, but received {ch} @ '{kind}:{ln}:{pos}'."),
+            AliasSyntaxError::EmptyReplacements (..) => "Replacements cannot be empty".to_string(),
+            AliasSyntaxError::OutsideBrackets   (..) => "Features must be inside square brackets".to_string(),
+            AliasSyntaxError::NestedBrackets    (..) => "Cannot have nested brackets of the same type".to_string(),
+            AliasSyntaxError::WrongModTone      (..) => "Tones cannot be ±; they can only be used with numeric values.".to_string(),
+            AliasSyntaxError::EmptyInput        (..) => "Alias input cannot be empty.".to_string(),
+            AliasSyntaxError::UnknownEnbyFeature(feat, pos) => format!("Feature '{feat}' has no modifier @ {}.", pos),
+            AliasSyntaxError::UnknownFeature    (feat, pos) => format!("Unknown feature '{feat}' @ {}'. Did you mean {}? ", pos, get_feat_closest(feat)),
+            AliasSyntaxError::ExpectedTokenFeature(token) => format!("{} cannot be placed inside a matrix. An element inside `[]` must a distinctive feature. @ {}", token.value, token.position),
+            AliasSyntaxError::ExpectedEndLine     (token) => format!("Expected end of line, received '{}' @ {}.", token.value, token.position),
+            AliasSyntaxError::ExpectedMatrix      (token) => format!("Expected '[', but received '{}' @ {}.", if token.kind == AliasTokenKind::Eol {"End Of Line"} else {&token.value}, token.position),
+            AliasSyntaxError::ExpectedArrow       (token) => format!("Expected '>', '->' or '=>', but received '{}' @ {}.", token.value, token.position),
+            AliasSyntaxError::UnknownIPA          (token) => format!("Could not get value of IPA '{}' @ {}.", token.value, token.position),
+            AliasSyntaxError::DiacriticDoesNotMeetPreReqsFeat(.., t, pos) |
+            AliasSyntaxError::DiacriticDoesNotMeetPreReqsNode(.., t, pos) => {
+                format!("Segment does not have prerequisite properties to have this diacritic. Must be [{}{}]", if *pos { '+' } else { '-' }, t) 
+            },
+            AliasSyntaxError::UnexpectedEol(token, ch) => format!("Expected `{ch}`, but received End of Line @ {}", token.position),
+            AliasSyntaxError::UnbalancedIO(_) => "Input or Output has too few elements @ ".to_string(),
+        }
     }
 
-    fn format_alias_error(&self, _: &[Transformation]) -> String {
-        todo!()
+    fn format_alias_error(&self, into: &[String], from: &[String]) -> String {
+        const MARG: &str = "\n    |     ";
+        let mut result = format!("{} {}", "Syntax Error:".bright_red().bold(), self.get_error_message().bold()); 
+
+        let (arrows, kind, line) = match self {
+            AliasSyntaxError::ExpectedAlphabetic(_, kind, line, pos) |
+            AliasSyntaxError::ExpectedCharArrow (_, kind, line, pos) |
+            AliasSyntaxError::ExpectedCharColon (_, kind, line, pos) |
+            AliasSyntaxError::UnknownCharacter  (_, kind, line, pos) |
+            AliasSyntaxError::ExpectedNumber    (_, kind, line, pos) |
+            AliasSyntaxError::EmptyReplacements    (kind, line, pos) |
+            AliasSyntaxError::OutsideBrackets      (kind, line, pos) |
+            AliasSyntaxError::NestedBrackets       (kind, line, pos) |
+            AliasSyntaxError::WrongModTone         (kind, line, pos) |
+            AliasSyntaxError::EmptyInput           (kind, line, pos) => (
+                " ".repeat(*pos) + "^" + "\n", 
+                *kind,
+                *line,
+            ),
+            AliasSyntaxError::UnknownFeature(_, pos) |
+            AliasSyntaxError::UnknownEnbyFeature(_, pos) => (
+                " ".repeat(pos.start) + &"^".repeat(pos.end-pos.start) + "\n", 
+                pos.kind,
+                pos.line,
+            ),
+            AliasSyntaxError::ExpectedTokenFeature(token) |
+            AliasSyntaxError::ExpectedEndLine     (token) |
+            AliasSyntaxError::ExpectedMatrix      (token) |
+            AliasSyntaxError::ExpectedArrow       (token) |
+            AliasSyntaxError::UnknownIPA          (token) |
+            AliasSyntaxError::UnexpectedEol       (token, _) => (
+                " ".repeat(token.position.start) + &"^".repeat(token.position.end-token.position.start) + "\n", 
+                token.position.kind,
+                token.position.line
+            ),
+            AliasSyntaxError::DiacriticDoesNotMeetPreReqsFeat(elm_pos, dia_pos, ..) |
+            AliasSyntaxError::DiacriticDoesNotMeetPreReqsNode(elm_pos, dia_pos, ..) => (
+                " ".repeat(elm_pos.start) 
+                    + &"^".repeat(elm_pos.end - elm_pos.start)
+                    + &" ".repeat(dia_pos.start - elm_pos.end)
+                    + &"^".repeat(dia_pos.end - dia_pos.start)
+                    + "\n", 
+                elm_pos.kind,
+                elm_pos.line
+            ),
+            AliasSyntaxError::UnbalancedIO(items) => {
+                let first_item = items.first().expect("IO should not be empty");
+                let last_item = items.last().expect("IO should not be empty");
+                let start = first_item.position.start;
+                let end = last_item.position.end;
+                (
+                    " ".repeat(start) + &"^".repeat(end-start) + "\n", 
+                    first_item.position.kind,
+                    first_item.position.line
+                )
+            },
+        };
+
+        match kind {
+            AliasKind::Deromaniser => {
+                result.push_str(&format!("{}{}{}{}    {} deromaniser, line {}",  
+                    MARG.bright_cyan().bold(),
+                    into[line],
+                    MARG.bright_cyan().bold(),
+                    arrows.bright_red().bold(),
+                    "@".bright_cyan().bold(),
+                    line+1,
+                ));
+            },
+            AliasKind::Romaniser => {
+                result.push_str(&format!("{}{}{}{}    {} romaniser, line {}",  
+                    MARG.bright_cyan().bold(),
+                    from[line],
+                    MARG.bright_cyan().bold(),
+                    arrows.bright_red().bold(),
+                    "@".bright_cyan().bold(),
+                    line+1,
+                ));
+            },
+        }
+
+        result
     }
 
     fn format_word_error(&self, _: &[String]) -> String {
@@ -629,11 +729,53 @@ pub enum AliasRuntimeError {
 
 impl ASCAError for AliasRuntimeError {
     fn get_error_message(&self) -> String {
-        todo!()
+        match self {
+            AliasRuntimeError::NodeCannotBeSome(node, _) => format!("{} node cannot arbitrarily positive", node),
+            AliasRuntimeError::NodeCannotBeNone(node, _) => format!("{} node cannot be removed", node),
+            AliasRuntimeError::OverlongPosLongNeg(_) => "A segment cannot be both [+overlong] and [-long]".to_string(),
+            AliasRuntimeError::SecStrPosStrNeg   (_) => "A syllable cannot be both [+sec.stress] and [-stress]".to_string(),
+        }
     }
 
-    fn format_alias_error(&self, _: &[Transformation]) -> String {
-        todo!()
+    fn format_alias_error(&self, into: &[String], from: &[String]) -> String {
+        const MARG: &str = "\n    |     ";
+        let mut result = format!("{} {}", "Syntax Error:".bright_red().bold(), self.get_error_message().bold()); 
+
+        let (arrows, kind, line) = match self {
+            AliasRuntimeError::NodeCannotBeNone(_, pos) |
+            AliasRuntimeError::NodeCannotBeSome(_, pos) |
+            AliasRuntimeError::OverlongPosLongNeg (pos) |
+            AliasRuntimeError::SecStrPosStrNeg    (pos) => (
+                " ".repeat(pos.start) + &"^".repeat(pos.end-pos.start) + "\n",
+                pos.kind,
+                pos.line
+            ),
+        };
+
+        match kind {
+            AliasKind::Deromaniser => {
+                result.push_str(&format!("{}{}{}{}    {} deromaniser, line {}",  
+                    MARG.bright_cyan().bold(),
+                    into[line],
+                    MARG.bright_cyan().bold(),
+                    arrows.bright_red().bold(),
+                    "@".bright_cyan().bold(),
+                    line+1,
+                ));
+            },
+            AliasKind::Romaniser => {
+                result.push_str(&format!("{}{}{}{}    {} romaniser, line {}",  
+                    MARG.bright_cyan().bold(),
+                    from[line],
+                    MARG.bright_cyan().bold(),
+                    arrows.bright_red().bold(),
+                    "@".bright_cyan().bold(),
+                    line+1,
+                ));
+            },
+        }
+        
+        result
     }
 
     fn format_word_error(&self, _: &[String]) -> String {

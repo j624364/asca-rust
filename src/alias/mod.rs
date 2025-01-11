@@ -1,8 +1,9 @@
+use std::fmt;
+
 use parser::AliasItem;
 
 use crate::FeatType;
 
-// pub mod aliasing;
 pub mod lexer;
 pub mod parser;
 
@@ -18,9 +19,18 @@ pub enum AliasKind {
     Romaniser
 }
 
+impl fmt::Display for AliasKind {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            AliasKind::Deromaniser => write!(f, "deromaniser"),
+            AliasKind::Romaniser   => write!(f, "romaniser"),
+        }
+    }
+}
+
 
 #[derive(Debug, Copy, Clone, PartialEq, Eq)]
-enum AliasTokenKind {
+pub(crate) enum AliasTokenKind {
     LeftSquare,       // [
     RightSquare,      // ]
 
@@ -64,21 +74,28 @@ impl AliasTokenKind {
 
 #[derive(Debug, Copy, Clone, PartialEq, Eq)]
 pub struct AliasPosition {
-    line: usize,
-    start: usize,
-    end: usize
+    pub(crate) kind: AliasKind,
+    pub(crate) line: usize,
+    pub(crate) start: usize,
+    pub(crate) end: usize
 }
 impl AliasPosition {
-    fn new(line: usize, start: usize, end: usize) -> Self {
-        Self { line, start, end }
+    fn new(kind: AliasKind, line: usize, start: usize, end: usize) -> Self {
+        Self { kind, line, start, end }
+    }
+}
+
+impl fmt::Display for AliasPosition {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "{}:{}:{}-{}", self.kind, self.line, self.start, self.end)
     }
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct AliasToken {
-    kind: AliasTokenKind,
-    value: String, 
-    position: AliasPosition
+    pub(crate) kind: AliasTokenKind,
+    pub(crate) value: String, 
+    pub(crate) position: AliasPosition
 }
 impl AliasToken {
     fn new(kind: AliasTokenKind, value: String, position: AliasPosition) -> Self {
