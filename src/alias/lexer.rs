@@ -409,10 +409,14 @@ impl<'a> AliasLexer<'a> {
         Some(AliasToken::new(AliasTokenKind::Number, buffer, AliasPosition::new(self.kind, self.line, start, self.pos)))
     }
 
+    fn is_valid_char(ch: &char) -> bool {
+        !(ch.is_whitespace() || *ch == ',' || *ch == '-' || *ch == '=' || *ch == '>' || *ch == '*' || *ch == '∅' || *ch == '$')
+    }
+
     fn get_unicode_string(&mut self) -> Option<AliasToken> {
-        if !self.curr_char().is_alphabetic() { return None }
+        if !Self::is_valid_char(&self.curr_char()) { return None }
         let start = self.pos;
-        let buffer = self.chop_while(|x| x.is_alphabetic());
+        let buffer = self.chop_while(Self::is_valid_char);
 
         Some(AliasToken::new(AliasTokenKind::String, buffer, AliasPosition::new(self.kind, self.line, start, self.pos)))
     }
