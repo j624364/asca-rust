@@ -394,7 +394,7 @@ impl<'a> AliasLexer<'a> {
         use FeatType::*;
         use SupraType::*;
         match buffer.to_lowercase().as_str() {
-            "tone"   | "ton" | "tn"    => Ok(Feature(Supr(Tone))),
+            "tone" | "ton" | "tne" | "tn" => Ok(Feature(Supr(Tone))),
             _ => Err(AliasSyntaxError::UnknownEnbyFeature(buffer.clone(), AliasPosition::new(self.kind, self.line, start, start+buffer.len())))
         }
     }
