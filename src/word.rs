@@ -155,16 +155,16 @@ impl Word {
         }
     }
 
-    fn alias_apply_mods(&self, seg: &mut Segment, mods: &Modifiers, err_pos: AliasPosition) -> Result<(), Error> {
+    fn alias_apply_mods(&self, seg: &mut Segment, mods: &Modifiers, err_pos: AliasPosition) -> Result<(), AliasRuntimeError> {
         for (i, m) in mods.nodes.iter().enumerate() {
             let node = NodeKind::from_usize(i);
             if let Some(kind) = m {
                 match kind {
                     ModKind::Binary(bm) => match bm {
                         BinMod::Negative => match node {
-                            NodeKind::Root      => return Err(AliasRuntimeError::NodeCannotBeNone("Root".to_owned(), err_pos).into()),
-                            NodeKind::Manner    => return Err(AliasRuntimeError::NodeCannotBeNone("Manner".to_owned(), err_pos).into()),
-                            NodeKind::Laryngeal => return Err(AliasRuntimeError::NodeCannotBeNone("Largyneal".to_owned(), err_pos).into()),
+                            NodeKind::Root      => return Err(AliasRuntimeError::NodeCannotBeNone("Root".to_owned(), err_pos)),
+                            NodeKind::Manner    => return Err(AliasRuntimeError::NodeCannotBeNone("Manner".to_owned(), err_pos)),
+                            NodeKind::Laryngeal => return Err(AliasRuntimeError::NodeCannotBeNone("Largyneal".to_owned(), err_pos)),
                             NodeKind::Place => {
                                 // e.g. Debuccalization
                                 seg.set_node(NodeKind::Labial    , None);
@@ -176,10 +176,10 @@ impl Word {
                             
                         },
                         BinMod::Positive => match node {
-                            NodeKind::Root      => return Err(AliasRuntimeError::NodeCannotBeSome("Root".to_owned(), err_pos).into()),
-                            NodeKind::Manner    => return Err(AliasRuntimeError::NodeCannotBeSome("Manner".to_owned(), err_pos).into()),
-                            NodeKind::Laryngeal => return Err(AliasRuntimeError::NodeCannotBeSome("Largyneal".to_owned(), err_pos).into()),
-                            NodeKind::Place     => return Err(AliasRuntimeError::NodeCannotBeSome("Place".to_owned(), err_pos).into()),
+                            NodeKind::Root      => return Err(AliasRuntimeError::NodeCannotBeSome("Root".to_owned(), err_pos)),
+                            NodeKind::Manner    => return Err(AliasRuntimeError::NodeCannotBeSome("Manner".to_owned(), err_pos)),
+                            NodeKind::Laryngeal => return Err(AliasRuntimeError::NodeCannotBeSome("Largyneal".to_owned(), err_pos)),
+                            NodeKind::Place     => return Err(AliasRuntimeError::NodeCannotBeSome("Place".to_owned(), err_pos)),
                             _ => {
                                 // preserve node if already positive
                                 if seg.get_node(node).is_none() {
@@ -217,7 +217,7 @@ impl Word {
                     (BinMod::Positive, BinMod::Positive) => Ok(3),
                     (BinMod::Positive, BinMod::Negative) => Ok(2),
                     (BinMod::Negative, BinMod::Negative) => Ok(1),
-                    (BinMod::Negative, BinMod::Positive) => return Err(AliasRuntimeError::OverlongPosLongNeg(err_pos).into()),
+                    (BinMod::Negative, BinMod::Positive) => Err(AliasRuntimeError::OverlongPosLongNeg(err_pos)),
                 },
                 _ => unreachable!()
             },
@@ -265,16 +265,13 @@ impl Word {
                             let mut seg = *seg;
                             let mut length = 1;
                             if let Some(mods) = modifiers {
-                                _ = self.alias_apply_mods(&mut seg, mods, alias.output.position)?;
-                                _ = self.alias_apply_stress(sy, mods, alias.output.position)?;
+                                self.alias_apply_mods(&mut seg, mods, alias.output.position)?;
+                                self.alias_apply_stress(sy, mods, alias.output.position)?;
                                 
                                 length = self.alias_apply_length(mods, alias.output.position)?;
 
-                                match &mods.suprs.tone {
-                                    Some(tn) => {
-                                        sy.tone = tn.clone();
-                                    },
-                                    None => {},
+                                if let Some(tn) = &mods.suprs.tone {
+                                    sy.tone = tn.clone();
                                 }
                             }
 
@@ -335,28 +332,13 @@ impl Word {
                             }
                         }
                     }
-
-                    // // if a click consonant
-                    // if let Some('ʘ' | 'ǀ' | 'ǁ' | 'ǃ'  | '‼' | 'ǂ') = txt.get(*i + 1) {
-                    //     tmp.pop(); tmp.push(txt[*i]);
-                    //     *i += 1;
-                    //     continue;
-                    // }
-                    // // if a contour click
-                    // if let Some('q'| 'ɢ' | 'ɴ' | 'χ' | 'ʁ') = txt.get(*i + 1) {
-                    //     if let Some('ʘ' | 'ǀ' | 'ǁ' | 'ǃ' | '‼' | 'ǂ') = tmp.chars().next() {
-                    //         tmp.pop(); tmp.push(txt[*i]);
-                    //         *i += 1;
-                    //         continue;
-                    //     }
-                    // }
                 }
                 break;
             }
             let maybe_seg = CARDINALS_MAP.get(&buffer);
             if let Some(seg_stuff) = maybe_seg {
                 sy.segments.push_back(*seg_stuff);
-                return Ok(false)
+                Ok(false)
             } else {
                 // Is this needed?
                 *i -= 1;
@@ -372,9 +354,9 @@ impl Word {
 
                 if let Some(seg) = maybe_seg {
                     sy.segments.push_back(*seg) ;
-                    return Ok(false)
+                    Ok(false)
                 } else {
-                    return Err(WordSyntaxError::UnknownChar(input_txt.to_string(), *i).into());
+                    Err(WordSyntaxError::UnknownChar(input_txt.to_string(), *i).into())
                 }
             }
         } else {
@@ -409,7 +391,7 @@ impl Word {
                     }
                 }
             }
-            return Err(WordSyntaxError::UnknownChar(input_txt.to_string(), *i).into());
+            Err(WordSyntaxError::UnknownChar(input_txt.to_string(), *i).into())
         }
     }
 
@@ -764,9 +746,7 @@ impl Word {
         }
 
         if let Some(b_repl) = bound_repl_str {
-            buffer = buffer.replace('.', &b_repl)
-                           .replace('ˈ', &b_repl)
-                           .replace('ˌ', &b_repl);
+            buffer = buffer.replace(['.', 'ˈ', 'ˌ'], b_repl);
         }
 
         Ok(buffer)
