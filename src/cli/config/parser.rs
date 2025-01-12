@@ -150,7 +150,7 @@ impl<'a> Parser<'a> {
                 match entry_rules.iter().find(|r| r.name.to_lowercase() == rule_str.to_lowercase()).cloned() {
                     Some(rule) => {
                         file_path.set_file_name(format!("{}_only_{}", rule_file, util::sanitise_str(&rule_str)));
-                        Ok(Entry::from(&file_path, &[rule]))
+                        Ok(Entry::from(file_path, vec![rule]))
                     },
                     None => Err(self.error(format!("Could not find rule '{}' in '{}'.\nMake sure the rule name matches exactly!", rule_str, rule_file))),
                 }
@@ -162,7 +162,7 @@ impl<'a> Parser<'a> {
                     return Err(self.error(format!("Could not find rule '{}' in '{}'.\nMake sure the rule name matches exactly!", rule_str, rule_file)))
                 }
                 file_path.set_file_name(format!("{}_excl_{}", rule_file, util::sanitise_str(&rule_str)));
-                Ok(Entry::from(&file_path, &entries))
+                Ok(Entry::from(file_path, entries))
             },
             RuleFilter::OnlyMult(filters) => {
                 let mut entries = Vec::new();
@@ -173,7 +173,7 @@ impl<'a> Parser<'a> {
                     }
                 }
                 file_path.set_file_name(format!("{}_only-mult_{}", rule_file, util::sanitise_str(&filters[0])));
-                Ok(Entry::from(&file_path, &entries))
+                Ok(Entry::from(file_path, entries))
             },
             RuleFilter::WithoutMult(filters) => {
                 let before_len = entry_rules.len();
@@ -182,7 +182,7 @@ impl<'a> Parser<'a> {
                     return Err(self.error(format!("Could not find any of the excluded rules in '{}'.\nMake sure the rule names match exactly!", rule_file)))
                 }
                 file_path.set_file_name(format!("{}_excl-mult_{}", rule_file, util::sanitise_str(&filters[0])));
-                Ok(Entry::from(&file_path, &entries))
+                Ok(Entry::from(file_path, entries))
             },
         }
     }
@@ -203,7 +203,7 @@ impl<'a> Parser<'a> {
             let entry_rules = parse_rsca(&file_path)?;
             match filter {
                 Some(rf) => Ok(Some(self.parse_entry(entry_rules, rf, file_path, rule_file)?)),
-                None => Ok(Some(Entry::from(&file_path, &entry_rules))),
+                None => Ok(Some(Entry::from(file_path, entry_rules))),
             }
         } else {
             Err(self.error(format!("Cannot find {file_path:?}. {}:{}", rule.position.s_line, rule.position.s_pos)))
@@ -259,9 +259,9 @@ impl<'a> Parser<'a> {
         Ok(word_files)
     }
 
-    fn get_from(&mut self) -> Option<Token> {
-        self.eat_expect(TokenKind::From)
-    }
+    // fn get_from(&mut self) -> Option<Token> {
+    //     self.eat_expect(TokenKind::From)
+    // }
 
     fn get_tag(&mut self) -> io::Result<Token> {
         match self.eat_expect(TokenKind::Tag) {
@@ -278,9 +278,28 @@ impl<'a> Parser<'a> {
 
         let tag = tag_token.value;
 
-        let from = if let Some(x) = self.get_from() {
-            Some(x.value)
-        } else {None};
+        let mut from = None;
+        let mut alias = None;
+
+        match self.curr_tkn.kind {
+            TokenKind::From => from = Some(self.eat().value),
+            TokenKind::Alias => alias = Some(self.eat().value),
+            _ => {}
+        }
+
+        match self.curr_tkn.kind {
+            TokenKind::From => if from.is_none() {
+                 from = Some(self.eat().value)
+            } else {
+                return Err(self.error(format!("A sequence can only have one from tag {}:{}", self.curr_tkn.position.s_line, self.curr_tkn.position.s_pos)))
+            },
+            TokenKind::Alias => if alias.is_none() {
+                alias = Some(self.eat().value)
+            } else {
+                return Err(self.error(format!("A sequence can only have one alias tag {}:{}", self.curr_tkn.position.s_line, self.curr_tkn.position.s_pos)))
+            },
+            _ => {}
+        }
 
         let words = self.get_word_paths()?;
 
@@ -295,7 +314,7 @@ impl<'a> Parser<'a> {
 
         let entries = self.get_entries()?;
 
-        Ok(ASCAConfig { tag, from, words, entries })
+        Ok(ASCAConfig { tag, from, alias, words, entries })
     }
 
     pub(crate) fn parse(&mut self) -> io::Result<Vec<ASCAConfig>> {

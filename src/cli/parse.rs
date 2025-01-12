@@ -5,10 +5,10 @@ use asca::RuleGroup;
 use super::util;
 
 // TODO: We can do better
-pub fn parse_rsca(rule_file_path: &Path) -> io::Result<Vec<RuleGroup>> {
+pub fn parse_rsca(path: &Path) -> io::Result<Vec<RuleGroup>> {
     let mut rules = Vec::new();
     let mut r = RuleGroup::new();
-    for line in util::file_read(rule_file_path)?.lines() {
+    for line in util::file_read(path)?.lines() {
         let line = line.trim();
         if line.starts_with('@') {
             if !r.is_empty() {
@@ -51,6 +51,43 @@ pub fn parse_rsca(rule_file_path: &Path) -> io::Result<Vec<RuleGroup>> {
     }
     rules.push(r);
     Ok(rules)
+}
+
+// TODO: We can do better
+pub fn parse_alias(path: &Path) -> io::Result<(Vec<String>, Vec<String>)> {
+    let mut into = vec![];
+    let mut from = vec![];
+
+    // Some(true) = into, Some(false) = from
+    let mut state: Option<bool> = None;
+
+    for line in util::file_read(path)?.lines() {
+        let line = line.trim();
+
+        if line.starts_with("@into") {
+            state = Some(true);
+            continue;
+        }
+        if line.starts_with("@from") {
+            state = Some(false);
+            continue;
+        }
+        // comments
+        if line.starts_with("#") {
+            continue;
+        }
+
+        match state {
+            Some(state_into) => if state_into {
+                into.push(line.to_string());
+            } else {
+                from.push(line.to_string());
+            },
+            None => {/* Skip, TODO: maybe err */},
+        }
+    }
+
+    Ok((into, from))
 }
 
 

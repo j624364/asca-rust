@@ -308,6 +308,7 @@ impl fmt::Debug for Segment {
 }
 
 impl Segment {
+    // TODO(girv): This wouldn't get me any leetcode cred
     pub(crate) fn get_as_grapheme(&self) -> Option<String> {
         // test against all cardinal values for a match
         for c_grapheme in CARDINALS_VEC.iter() {
@@ -321,7 +322,7 @@ impl Segment {
         // Sort by difference (filter out diff >= 8 to cut on size)
         // iterate and match starting from smallest difference
 
-        // Because CARDINALS_MAP's order is random, this can lead to the `random discovery` of edge cases
+        // Because CARDINALS_MAP's order is random, this can lead to random edge cases
         // TODO(girv): test, test, test
 
         let mut candidates = Vec::new();
@@ -333,6 +334,16 @@ impl Segment {
                 candidates.push((seg, c_grapheme, diff_count))
             }
         }
+
+        // let mut candidates = CARDINALS_VEC.iter().filter_map(|grapheme| {
+        //     let seg = *CARDINALS_MAP.get(grapheme).unwrap();
+        //     let diff_count = self.diff_count(&seg);
+        //     if diff_count < 8 {
+        //         Some((seg, grapheme, diff_count))
+        //     } else {
+        //         None
+        //     }
+        // }).collect::<Vec<_>>();
 
         candidates.sort_by(|(.., a), (.., b) | a.cmp(b));
 

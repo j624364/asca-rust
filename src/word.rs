@@ -989,6 +989,35 @@ mod word_tests {
     }
 
     #[test]
+    fn test_romanisation_sasdfasfasf() {
+        let t = AliasParser::new(AliasKind::Romaniser, AliasLexer::new(AliasKind::Romaniser, &"a > *".chars().collect::<Vec<_>>(), 0).get_line().unwrap(), 0).parse().unwrap();
+        match Word::new(normalise("san.da"), &[]) {
+            Ok(w) => assert_eq!(w.render(&t).unwrap(), "sn.d"),
+            Err(e) => {
+                println!("{}", e.format_word_error(&[]));
+                assert!(false);
+            }
+        }
+        // TODO: Should probably fix this
+        match Word::new(normalise("sa:n.da"), &[]) {
+            Ok(w) => assert_eq!(w.render(&t).unwrap(), "sːn.d"),
+            Err(e) => {
+                println!("{}", e.format_word_error(&[]));
+                assert!(false);
+            }
+        }
+
+        let t = AliasParser::new(AliasKind::Romaniser, AliasLexer::new(AliasKind::Romaniser, &"a:[+long] > *".chars().collect::<Vec<_>>(), 0).get_line().unwrap(), 0).parse().unwrap();
+        match Word::new(normalise("sa:n.da"), &[]) {
+            Ok(w) => assert_eq!(w.render(&t).unwrap(), "sn.da"),
+            Err(e) => {
+                println!("{}", e.format_word_error(&[]));
+                assert!(false);
+            }
+        }
+    }
+
+    #[test]
     fn test_deromanisation_simple() {
         let t = AliasParser::new(AliasKind::Deromaniser, AliasLexer::new(AliasKind::Deromaniser, &"sh, á => ʃ, a:[+str]".chars().collect::<Vec<_>>(), 0).get_line().unwrap(), 0).parse().unwrap();
         match Word::new(normalise("sha.tá"), &t) {

@@ -2,17 +2,18 @@ use std::{ffi::OsStr, fmt::Debug, fs, io::{self, Write}, path::{Path, PathBuf}};
 
 use colored::Colorize;
 use asca::RuleGroup;
-use asca::Transformation;
+// use asca::Transformation;
 
 #[cfg(windows)]
 pub const LINE_ENDING: &str = "\r\n";
 #[cfg(not(windows))]
 pub const LINE_ENDING: &str = "\n";
 
-pub const RULE_FILE_EXT: &str = "rsca";
-pub const WORD_FILE_EXT: &str = "wsca";
-pub const CONF_FILE_EXT: &str = "asca";
-pub const JSON_FILE_EXT: &str = "json";
+pub const  RULE_FILE_EXT: &str = "rsca";
+pub const  WORD_FILE_EXT: &str = "wsca";
+pub const  CONF_FILE_EXT: &str = "asca";
+pub const  JSON_FILE_EXT: &str = "json";
+pub const ALIAS_FILE_EXT: &str = "alias";
 
 
 pub(super) fn ask(question: &str, auto: Option<bool>) -> io::Result<bool> {
@@ -92,18 +93,23 @@ pub(super) fn validate_directory(maybe_path: Option<PathBuf>) -> io::Result<Path
     }
 }
 
-pub(super) fn validate_file_exists(maybe_path: Option<&Path>, valid_extensions: &[&str], kind: &str) -> io::Result<PathBuf> {
+pub(super) fn validate(path: &Path, valid_extensions: &[&str]) -> io::Result<PathBuf> {
+    match path.extension() {
+        Some(ext) => if match_exts(ext, valid_extensions) {
+            Ok(path.to_path_buf())
+        } else {
+            let exts_str = create_ext_list(valid_extensions);
+            Err(util_err(format!("File {} is not of the right type. Must be {}", format!("{path:?}").yellow(), exts_str)))
+        },
+        None => Err(util_err(format!("Given path {} is not a file", format!("{path:?}").yellow()))),
+    }
+}
+
+
+pub(super) fn validate_or_get_path(maybe_path: Option<&Path>, valid_extensions: &[&str], kind: &str) -> io::Result<PathBuf> {
     match maybe_path {
         // Probably don't have to check if path exists as checking if it has an extension should be enough
-        Some(path) => match path.extension() {
-            Some(ext) => if match_exts(ext, valid_extensions) {
-                Ok(path.to_path_buf())
-            } else {
-                let exts_str = create_ext_list(valid_extensions);
-                Err(util_err(format!("File {} is not of the right type. Must be {}", format!("{path:?}").yellow(), exts_str)))
-            },
-            None => Err(util_err(format!("Given path {} is not a file", format!("{path:?}").yellow()))),
-        },
+        Some(path) => validate(path, valid_extensions),
         None => {
             let files = get_dir_files(".", valid_extensions)?;
             match files.len().cmp(&1) {
@@ -229,7 +235,7 @@ pub(super) fn sanitise_str(str: &str) -> String {
     }).collect()
 }
 
-pub(super) fn to_rsca_format(rules: Vec<RuleGroup>) -> io::Result<String> {
+pub(super) fn to_rsca_format(rules: Vec<RuleGroup>) -> String {
     let mut result = String::new();
     for rg in rules {
         let name_str = format!("@ {}\n", rg.name);
@@ -248,7 +254,23 @@ pub(super) fn to_rsca_format(rules: Vec<RuleGroup>) -> io::Result<String> {
         result.push_str(&rule_str);
         result.push_str(&desc_str);
     }
-    Ok(result)
+    result
+}
+
+pub(super) fn to_alias(into: Vec<String>, from: Vec<String>) -> String {
+    let mut result = String::from("@into\n");
+
+    for to in into {
+        result.push_str(&format!("    {}\n", to));
+    }
+
+    result.push_str("@from\n");
+
+    for fr in from {
+        result.push_str(&format!("    {}\n", fr));
+    }
+
+    result
 }
 
 fn util_err<S: Into<String>>(message: S) -> io::Error {

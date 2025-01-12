@@ -29,6 +29,10 @@ pub enum AscaCommand {
         #[arg(short, long, verbatim_doc_comment, value_hint=ValueHint::FilePath)]
         words: Option<PathBuf>,
 
+        /// Path to an alias file containing romanisations to and from.
+        #[arg(short='l', long, verbatim_doc_comment, value_hint=clap::ValueHint::FilePath)]
+        alias: Option<PathBuf>,
+
         /// Path of a wsca file to compare with the result.
         #[arg(short, long, verbatim_doc_comment, value_hint=ValueHint::FilePath)]
         compare: Option<PathBuf>,
@@ -42,16 +46,13 @@ pub enum AscaCommand {
     // Mult {
     //     /// 
     //     rules: Vec<PathBuf>,
-
     //     /// Path to the wsca file containing the words to be changed
     //     /// - If not provided, asca will look for a  file in the current directory
     //     #[arg(short, long, verbatim_doc_comment)]
     //     words: Option<PathBuf>,
-
     //     /// Path of a wsca file to compare with the output 
     //     #[arg(short, long, verbatim_doc_comment)]
     //     compare: Option<PathBuf>,
-
     //     /// Desired path of output file
     //     /// - If a directory is provided, asca will create an out.wsca file in that directory
     //     #[arg(short, long, verbatim_doc_comment)]
@@ -73,7 +74,7 @@ pub enum AscaCommand {
         #[arg(short, long, verbatim_doc_comment, value_hint=clap::ValueHint::FilePath)]
         words: Option<PathBuf>,
 
-        /// Print all intermediate steps
+        /// Print intermediate steps in a sequence
         #[arg(short, long, action, verbatim_doc_comment)]
         all_steps: bool,
 
@@ -107,14 +108,17 @@ pub enum AscaCommand {
 pub enum Conv {
     /// Convert a word file and rule file into an asca-web json file.
     Asca {
-        /// The path of the word file to convert.
+        /// Path to the word file to convert.
         /// - If not provided, asca will look for a file in the current directory.
         #[arg(short, long, verbatim_doc_comment, value_hint=clap::ValueHint::FilePath)]
         words: Option<PathBuf>,
-        /// The path of the rule file to convert.
+        /// Path to the rule file to convert.
         /// - If not provided, asca will look for a file in the current directory.
         #[arg(short, long, verbatim_doc_comment, value_hint=clap::ValueHint::FilePath)]
         rules: Option<PathBuf>,
+        /// Path to an optional alias file to convert.
+        #[arg(short, long, verbatim_doc_comment, value_hint=clap::ValueHint::FilePath)]
+        alias: Option<PathBuf>,
         /// The desired path of the output json file.
         /// - If not provided, asca will create a file in the current directory.
         #[arg(short, long, verbatim_doc_comment, value_hint=clap::ValueHint::FilePath)]
@@ -122,15 +126,19 @@ pub enum Conv {
     },
     /// Convert a json file into separate word and rule files
     Json {
-        /// The path of the Json file to convert.
+        /// Path to the Json file to convert.
         /// - If not provided, asca will look for a file in the current directory.
         #[arg(short, long, verbatim_doc_comment, value_hint=clap::ValueHint::FilePath)]
         path: Option<PathBuf>,
-        /// The desired path of the output word file.
+        /// The desired path to the output word file.
         /// - If not provided, asca will create a file in the current directory.
         #[arg(short, long, verbatim_doc_comment, value_hint=clap::ValueHint::FilePath)]
         words: Option<PathBuf>,
-        /// The desired path of the output rule file.
+        /// The desired path to the output alias file, if applicable.
+        /// - If not provided, asca will create a file in the current directory.
+        #[arg(short, long, verbatim_doc_comment, value_hint=clap::ValueHint::FilePath)]
+        alias: Option<PathBuf>,
+        /// The desired path to the output rule file.
         /// - If not provided, asca will create a file in the current directory.
         #[arg(short, long, verbatim_doc_comment, value_hint=clap::ValueHint::FilePath)]
         rules: Option<PathBuf>,
@@ -163,7 +171,7 @@ pub struct InGroup {
     #[arg(short='j', long, verbatim_doc_comment, value_hint=clap::ValueHint::FilePath)]
     pub from_json: Option<PathBuf>,
 
-    /// Path to an rsca file containing the rules to be applied, mutually exclusive with -j.
+    /// Path to a rsca file containing the rules to be applied, mutually exclusive with -j.
     /// - If neither -j nor -r is provided, asca will look for a file in the current directory.
     #[arg(short, long, verbatim_doc_comment, value_hint=clap::ValueHint::FilePath)]
     pub rules: Option<PathBuf>,

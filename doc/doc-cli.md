@@ -6,7 +6,7 @@
 * [Usage](#usage)
 
 ## File Formats
-Asca-cli differs from the web implementation by using two file formats to each define a set of input words and a set of rules.
+Asca-cli differs from the web implementation by using three file formats to each define a set of input words, a set of rules, and a set of romanisations.
 An existing web json file can be converted into these formats (and vice-versa) using the [conv command](#conv-command).
 
 ### Word file (.wsca)
@@ -42,6 +42,24 @@ Example from a [germanic](../examples/indo-european/germanic/early-pgmc.rsca) im
     [-voice, +cont] > [+voice] / V:[-stress]([+son])_
 # Voiceless fricatives are voiced when preceded by an unaccented vowel.
 # Including cases where the vowel and fricative are separated by a sonorant.
+```
+
+### Romanisation file (.alias)
+An alias file has two sections, `into` and `from`. These encode deromanisation and romanisation, respectively.
+
+Each section is introduced with a tag preceded by '@', then followed by a new line delimited list of alias rules (similiar to a rule file).
+
+Example:
+```
+@into
+    汉 > xan:[tone: 51] 
+    语 >   y:[tone:214]
+    
+@from
+    xan:[tone: 51] => 汉
+      y:[tone:214] => 语
+    $ > *
+    
 ```
 
 ### Config file (.asca)
@@ -127,7 +145,8 @@ Commands:
 ### Run command
 ```
 usage: asca run ([-j | --from-json <path>] | [-r | --rules <path>]) [-w | --words <path>] 
-                 [-c | --compare <path>]     [-o | --output <path>] [-h | --help]
+                 [-c | --compare <path>]     [-o | --output <path>] [-l | --alias <path>]
+                 [-h | --help]
 Options:
     -j  <path>  Path to an asca-web json file.
                 - Mutually exclusive with -r.
@@ -137,6 +156,7 @@ Options:
                 - If neither -j nor -r is provided, asca will look for a file in the current directory.
     -w  <path>  Path to a wsca file containing the input words
                 - If this and -j are not provided, asca will look for a file in the current directory
+    -l  <path>  Path to an alias file containing romanisations to and from.
     -c  <path>  Path of a wsca file to compare with the result
     -o  <path>  Desired path of the output file
                 - If a directory is provided, asca will create an out.wsca file in that directory
@@ -159,7 +179,7 @@ Options:
     -o          When given, asca will create an out folder within the path directory.
     -y          Accept cases where an output file would be overwritten.
     -n          Reject cases where an output file would be overwritten.
-    -i          Output all intermediate steps.
+    -i          Save all intermediate steps.
     -h          Print help
 ```
 ### Conv command
@@ -172,25 +192,30 @@ Commands:
     tag     Convert a tag within a config file into an asca-web json file
 
 
-usage: asca conv asca [-w | --words <path>] [-r | --rules <path>] [-o | --output <path>]
+usage: asca conv asca [-w | --words <path>] [-r | --rules <path>] 
+                      [-a | --alias <path>] [-o | --output <path>]
                       [-h | --help]
 Options:
-    -w  <path>  The path of the word file to convert
+    -w  <path>  Path to the word file to convert
                 - If not provided, asca will look for a file in the current directory
-    -r  <path>  The path of the rule file to convert
+    -r  <path>  Path to the rule file to convert
                 - If not provided, asca will look for a file in the current directory
+    -a  <path>  Path to an optional alias file to convert.
     -o  <path>  The desired path of the output json file
                 - If not provided, asca will create a file in the current directory
     -h          Print help
 
 
-usage: asca conv json [-p | --path <path>] [-w | --words <path>] [-r | --rules <path>]
+usage: asca conv json [-p | --path <path>]  [-r | --rules <path>]
+                      [-w | --words <path>] [-a | --alias <path>]
                       [-h | --help]
 Options:
-    -p  <path>  The path of the Json file to convert
+    -p  <path>  Path to the Json file to convert
                 - If not provided, asca will look for a file in the current directory
     -w  <path>  The desired path of the output word file
                 - If not provided, asca will create a file in the current directory
+    -a  <path>  The desired path of the output alias file, if applicable.
+                - If not provided, asca will create a file in the current directory.
     -r  <path>  The desired path of the output rule file
                 - If not provided, asca will create a file in the current directory
     -h          Print help

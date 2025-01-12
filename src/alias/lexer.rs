@@ -283,7 +283,6 @@ impl<'a> AliasLexer<'a> {
         let mut buffer = self.cur_as_ipa().to_string();
 
         // For americanist notation
-        // TODO: This wont work with the pre-nasalised diacritic
         if buffer == "¢" {
             buffer = "t͡s".to_string()
         } else if buffer == "ƛ" {

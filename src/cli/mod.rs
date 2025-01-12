@@ -10,6 +10,10 @@ use asca::RuleGroup;
 
 #[derive(Debug, serde::Deserialize, serde::Serialize)]
 struct AscaJson {
+    #[serde(default)]
+    pub into: Vec<String>,
+    #[serde(default)]
+    pub from: Vec<String>,
     pub words: Vec<String>,
     pub rules: Vec<RuleGroup>,
 }

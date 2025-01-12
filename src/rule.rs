@@ -358,7 +358,7 @@ mod rule_tests {
 
         let test_rule = setup_rule("k > k$a");
         let test_word = setup_word("dak");
-        assert_eq!(test_rule.apply(test_word).unwrap().render(&[]).unwrap(), "dak.a");      // TODO: Should this "dak.a" ?
+        assert_eq!(test_rule.apply(test_word).unwrap().render(&[]).unwrap(), "dak.a");
 
         let test_rule = setup_rule("a > a$e");
         let test_word = setup_word("'dak.mo");

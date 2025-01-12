@@ -2,14 +2,32 @@
 
 ### Contents
 * [Defining Words](#defining-words)
+    * [IPA Characters](#ipa-characters)
+    * [Suprasegmentals](#suprasegmentals)
+    * [Aliases](#aliases)
+    * [(De)Romanisation](#custom-aliasing--deromanisation)
 * [Defining Sound Changes](#defining-sound-changes)
+    * [The Basics](#the-basics)
+    * [Special Characters](#special-characters)
+    * [Insertion and Deletion](#insertion-and-deletion-rules)
+    * [Metathesis](#metathesis-rules)
+    * [Condensed Rules](#condensed-rules)
+    * [Special Environment](#special-environment)
+    * [Syllable Structure](#syllable-structure)
 * [Distinctive Features](#distinctive-features)
+    * [Using Distinctive Features](#using-distinctive-features)
+    * [Nodes and Subnodes](#node-and-subnode-features)
+    * [Inversion](#inversion)
 * [Suprasegmental Features](#suprasegmental-features)
+    * [Stress](#stress-1)
+    * [Length](#length-1)
+    * [Tone](#tone-1)
 * [Groupings](#groupings)
 * [Sets](#sets)
 * [Gemination](#gemination)
 * [Optional Segments](#optional-segments)
 * [Alpha Notation](#alpha-notation)
+    * [Nodes and Subnodes](#nodes-and-subnodes)
 * [Variables](#variables)
 * [Propagation](#propagation)
 * [Considerations](#considerations) 
@@ -107,6 +125,86 @@ A few common americanist characters can also be used:
 λ => d͡ɮ
 ```
 Unlike with regular aliases, if a input word contains americanist characters, the output will be be rendered with these characters.
+
+### Custom Aliasing / (De)Romanisation
+
+ASCA allow for the use of a **subset** of the [regular rule syntax](#defining-sound-changes) to define custom aliases and general romanisation/deromanisation.
+These mappings are applied before the inbuilt aliases defined above. On the web version, these rules can be defined through the **alias** button; For cli, see the [cli documentation](./doc-cli.md).
+
+#### Romanisation
+A romanisation rule allows you to manipulate the output from ipa into another desired form. 
+The left-hand side of the arrow contains a list of the matching ipa segments. Additionally `$` can be used to target syllable breaks. 
+Right of the arrow contains a list of replacement strings. A star `*` or empty set symbol `∅` can be used to specify that the matching ipa segment should be removed.
+
+Some examples:
+```
+a:[+str, +long], a:[+long] > â, ā
+ʃ:[+long] > ssh
+$ > *
+
+'ʃ:a:.da: (becomes) sshâdā
+```
+```
+xan:[tone: 55] => 憨
+xan:[tone: 51] => 汉
+  y:[tone:214] => 语
+$ > *
+
+han51.y214 (becomes) 汉语
+```
+```
+ka, ta, na => カ, タ, ナ
+$ => *
+
+ka.ta.ka.na (becomes) カタカナ
+```
+
+#### Deromanisation
+A deromanisation rule allows you to modify the input into ipa. 
+The syntax here is the reverse of a romanisation rule, with replacement strings on the left and the ipa segments on the right of the arrow.
+Deromanisation rules are currently less powerful than romanisation rules as they do not allow for syllable breaks to specified or inserted.
+```
+â, ā =>  a:[+str, +long], a:[+long] 
+ssh > ʃ:[+long]
+
+sshâ.dā (becomes) 'ʃ:a:.da:
+```
+
+```
+カ => ka
+タ => ta
+ナ => na
+
+カ.タ.カ.ナ (becomes) ka.ta.ka.na
+```
+
+```
+汉 > xan:[tone: 51] 
+语 >   y:[tone:214]
+
+汉.语 (becomes) han51.y214
+```
+
+#### Future 
+Some things to look out for.
+
+Generalisation with groupings and additive character escapes:
+```
+V:[+str, +long] => V + @{circumflex}
+V:[-str, +long] => V + @{macron}
+V:[+str, -long] => V + @{acute}
+V:[+nasal]      => V + @{ogonek}
+```
+Environments:
+```
+s > Σ / #_
+s > ς / _#
+s > σ
+```
+Inserting syllable boundaries:
+```
+* > $ / V_C
+```
 
 ## Defining Sound Changes
 
@@ -505,7 +603,7 @@ V:[+hi] > [αbk, βfr, γrnd] / V:[αbk, βfr, γrnd] (C,0) _ (C) #
 Alphas are processed first in the input, then the context, and lastly the output. Alphas are done left to right within each block. 
 Any alpha in the output must be prior set in either the input or context.
 
-### Node and Subnodes
+### Nodes and Subnodes
 
 An node alpha carries all the features within it. This can be very useful for assimilation rules.
 
@@ -631,6 +729,8 @@ Input words and rules can be saved to desktop and loaded into asca using JSON fo
 
 ``` JSON
 {
+    "into" : ["deromanisation rules here"],
+    "from" : ["romanisation rules here"],
     "words": ["words", "go", "here"],
     "rules": [
         {

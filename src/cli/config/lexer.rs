@@ -14,6 +14,7 @@ pub(super) enum TokenKind {
     Colon,          // : 
     Tag,            // @ [Alphanumeric char]+
     From,           // % [Alphanumeric char]+
+    Alias,          // $ [Alphanumeric char]+
     String,         // '"' [Alphanumeric char]+ '"'
     Comment,        // '#'.* '\n'
     EoF,            // End of file
@@ -31,7 +32,8 @@ impl fmt::Display for TokenKind {
             TokenKind::Tilde       => write!(f, "~"),
             TokenKind::Colon       => write!(f, ":"),
             TokenKind::Tag         => write!(f, "a tag"),
-            TokenKind::From         => write!(f, "a pipeline"),
+            TokenKind::From        => write!(f, "a pipeline"),
+            TokenKind::Alias       => write!(f, "an alias"),
             TokenKind::String      => write!(f, "a string"),
             TokenKind::Comment     => write!(f, "a comment"),
             TokenKind::EoF         => write!(f, "end of file"),
@@ -222,8 +224,27 @@ impl<'a> Lexer<'a> {
         Ok(Some(Token::new(TokenKind::String, buffer, s_line, start, self.l_num, self.l_pos)))
     }
 
+    // fn is_tag_char(x: &char) -> bool {
+    //     x.is_alphanumeric() || *x == '-' || *x == '–' || *x == '—' || *x == '_'
+    // }
+
     fn is_tag_char(x: &char) -> bool {
-        x.is_alphanumeric() || *x == '-' || *x == '–' || *x == '—'
+        !(*x == '[' || *x == '@' || *x == '%' || *x == '$' || *x == '#'|| *x == ':' )
+    }
+
+    fn get_alias(&mut self) -> io::Result<Option<Token>> {
+        if self.curr_char() != '$' { return Ok(None) }
+        self.advance();
+
+        let s_line = self.l_num;
+        let start = self.l_pos;
+        let buffer = self.chop_while(Lexer::is_tag_char);
+
+        if buffer.is_empty() {
+            return Err(self.error(format!("Empty alias at {}:{}", self.l_num, self.l_pos)))
+        }
+
+        Ok(Some(Token::new(TokenKind::Alias, buffer, s_line, start, self.l_num, self.l_pos)))
     }
 
     fn get_from(&mut self) -> io::Result<Option<Token>> {
@@ -263,6 +284,7 @@ impl<'a> Lexer<'a> {
 
         if let Some(tag) = self.get_tag()?     { return Ok(tag) }
         if let Some(frm) = self.get_from()?    { return Ok(frm) }
+        if let Some(als) = self.get_alias()?   { return Ok(als) }
         if let Some(com) = self.get_comment()? { return Ok(com) }
         if let Some(spc) = self.get_special()? { return Ok(spc) }
         if let Some(bkt) = self.get_bracket()? { return Ok(bkt) }

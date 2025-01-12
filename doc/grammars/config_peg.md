@@ -2,11 +2,13 @@
 
 CONF    ← SEQ+
 
-SEQ     ← TAG FROM? W_PATHS? ':' R_PATHS
+SEQ     ← TAG FROM? ALIAS? W_PATHS? ':' R_PATHS
 
 TAG     ← '@' [ALPHANUMERIC]+
 
 FROM    ← '%' [ALPHANUMERIC]+
+
+ALIAS   ← '$' [ALPHANUMERIC]+
 
 W_PATHS ← '[' STRING (',' STRING)* ','? ']'
 
