@@ -4,7 +4,7 @@
 * [Defining Words](#defining-words)
     * [IPA Characters](#ipa-characters)
     * [Suprasegmentals](#suprasegmentals)
-    * [Aliases](#aliases)
+    * [Inbuilt Aliases](#inbuilt-aliases)
     * [(De)Romanisation](#custom-aliasing--deromanisation)
 * [Defining Sound Changes](#defining-sound-changes)
     * [The Basics](#the-basics)
@@ -86,7 +86,7 @@ Tone is placed at the end of a syllable and therefore automatically closes it. H
 pu35.jɑʊ̯51.tan55.ɕin55 == pu35jɑʊ̯51tan55ɕin55
 ```
 
-### Aliases
+### Inbuilt Aliases
 Some common IPA characters that may be annoying to type without an IPA keyboard have aliases:
 ```
 g => ɡ
@@ -128,13 +128,15 @@ Unlike with regular aliases, if a input word contains americanist characters, th
 
 ### Custom Aliasing / (De)Romanisation
 
-ASCA allow for the use of a **subset** of the [regular rule syntax](#defining-sound-changes) to define custom aliases and general romanisation/deromanisation.
-These mappings are applied before the inbuilt aliases defined above. On the web version, these rules can be defined through the **alias** button; For cli, see the [cli documentation](./doc-cli.md).
+ASCA allows for a **subset** of the [regular rule syntax](#defining-sound-changes) to be used to define custom aliases and general romanisation/deromanisation.
+These mappings are applied before the inbuilt aliases defined above. Segments can be selected with modifiers such as stress and tone. 
+On the web version, these rules are defined through the **alias** button; For cli, see the [cli documentation](./doc-cli.md).
+
 
 #### Romanisation
 A romanisation rule allows you to manipulate the output from ipa into another desired form. 
-The left-hand side of the arrow contains a list of the matching ipa segments. Additionally `$` can be used to target syllable breaks. 
-Right of the arrow contains a list of replacement strings. A star `*` or empty set symbol `∅` can be used to specify that the matching ipa segment should be removed.
+The left-hand side of the arrow contains a list of the matching ipa segments. Additionally, `$` can be used to target syllable breaks. 
+Right of the arrow contains a list of replacement strings. A star `*` or empty set symbol `∅` can be used to specify that the matching element should be removed.
 
 Some examples:
 ```
@@ -160,9 +162,9 @@ ka.ta.ka.na (becomes) カタカナ
 ```
 
 #### Deromanisation
-A deromanisation rule allows you to modify the input into ipa. 
+A deromanisation rule allows you to modify your input into ipa into a form ASCA can recognise.
 The syntax here is the reverse of a romanisation rule, with replacement strings on the left and the ipa segments on the right of the arrow.
-Deromanisation rules are currently less powerful than romanisation rules as they do not allow for syllable breaks to specified or inserted.
+Deromanisation rules are currently less powerful than romanisation rules as they do not allow for syllable breaks to be specified or inserted.
 ```
 â, ā =>  a:[+str, +long], a:[+long] 
 ssh > ʃ:[+long]
