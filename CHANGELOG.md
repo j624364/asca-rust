@@ -1,8 +1,10 @@
-Unreleased changes.
+0.4.0
 ==================
 
 Features: 
 * Lib: Ability to add custom aliases/romanisation
+* Cli: Introduce alias file type
+* Cli: Apply alias files to sequences
 
 0.3.1
 ==================
