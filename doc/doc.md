@@ -187,15 +187,80 @@ sshâ.dā (becomes) 'ʃ:a:.da:
 汉.语 (becomes) han51.y214
 ```
 
+#### Unicode Escapes
+ASCA allows for unicode character escapes to be used in replacement strings. 
+There are three types, codepoint escapes, named escapes and character escapes:
+
+##### Codepoint Escapes
+Codepoint Escapes take the form of `\u{....}` where `....` are hex digits `0-F`.
+This can be used to render any valid unicode scalar value.
+
+```
+θ, ð => \u{00FE}
+$ => *
+
+'θorn    (becomes) þorn
+'eor.ðe  (becomes) eorþe
+```
+
+##### Named Escapes
+Named escapes take to form of `@{....}`. They allow for common diacritics to be used without needing to memorise codepoints, or look-up, copy, and paste. Currently supported named escapes are:
+```
+@{Space}        (U+0020 ASCII Space)
+@{Grave}        (U+0300 Combining Grave Accent)
+@{Acute}        (U+0301 Combining Acute Accent)
+@{Circumflex}   (U+0302 Combining Circumflex Accent)
+@{Tilde}        (U+0303 Combining Tilde)
+@{Macron}       (U+0304 Combining Macron)
+@{OverLine}     (U+0305 Combining Overline)
+@{Breve}        (U+0306 Combining Breve)
+@{OverDot}      (U+0307 Combining Dot Below)
+@{Umlaut}       (U+0308 Combining Diaeresis)
+@{OverHook}     (U+0309 Combining Hook Above)
+@{OverRing}     (U+030A Combining Ring Above)
+@{DoubleAcute}  (U+030B Combining Double Acute Accent)
+@{Caron}        (U+030C Combining Caron)
+@{DoubleGrave}  (U+030F Combining Combining Double Grave Accent)
+@{InvBreve}     (U+0311 Combining Inverted Breve)
+@{Horn}         (U+031B Combining Horn)
+@{UnderDot}     (U+0323 Combining Dot Below)
+@{UnderUmlaut}  (U+0324 Combining Diaeresis Below)
+@{UnderRing}    (U+0325 Combining Ring Below)
+@{UnderComma}   (U+0326 Combining Comma Below)
+@{Cedilla}      (U+0327 Combining Cedilla)
+@{Ogonek}       (U+0328 Combining Ogonek)
+```
+Capitalisation and spaces have no effect i.e. `@{OverDot}` is equal to `@{over dot}`. 
+Many also have alternatives, for examples as `@{OverX}` can be `@{XAbove}` or just `@{X}`.
+
+More characters can be added on request.
+
+##### Character Escapes
+Characters that might otherwise cause a syntax error can be used by being preceded with `\`.
+
+```
+\\ (becomes) \
+\@ (becomes) @
+\$ (becomes) $
+\∅ (becomes) ∅
+\* (becomes) *
+\> (becomes) >
+\= (becomes) =
+\+ (becomes) +
+\- (becomes) -
+\, (becomes) ,
+```
+
+
 #### Future 
 Some things to look out for.
 
-Generalisation with groupings and additive character escapes:
+Generalisation with groupings and additive strings:
 ```
-V:[+str, +long] => V + @{circumflex}
-V:[-str, +long] => V + @{macron}
-V:[+str, -long] => V + @{acute}
-V:[+nasal]      => V + @{ogonek}
+V:[+str, +long] => +@{circumflex}       ( a:[+str, +long], e:[+str, +long], ... => â, ê, ... )
+V:[-str, +long] => +@{macron}           ( a:[-str, +long], e:[-str, +long], ... => ā, ē, ... )
+V:[+str, -long] => +@{acute}            ( a:[+str, -long], e:[+str, -long], ... => á, é, ... )
+V:[+nasal]      => +@{ogonek}           ( a:[+nasal], e:[+nasal], ...           => ą, ę, ... )
 ```
 Environments:
 ```
@@ -205,7 +270,7 @@ s > σ
 ```
 Inserting syllable boundaries:
 ```
-* > $ / V_C
+* > $ / V_C         (katakana) > ka.ta.ka.na
 ```
 
 ## Defining Sound Changes

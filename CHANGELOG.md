@@ -1,3 +1,10 @@
+0.4.1
+==================
+
+Features:
+* Lib: Allow unicode escapes within alias rules
+* Lib: Adds several named escapes for common diacritics
+
 0.4.0
 ==================
 
