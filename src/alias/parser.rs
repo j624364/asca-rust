@@ -438,6 +438,21 @@ mod parser_tests {
     }
 
     #[test]
+    fn test_romanisation_unicode() {
+        let maybe_result = AliasParser::new(AliasKind::Romaniser, setup_roman("a:[+str] > a @{acute}"), 0).parse();
+        assert!(maybe_result.is_ok());
+
+        let result = maybe_result.unwrap();
+        assert_eq!(result.len(), 1);
+
+        let mut x = Modifiers::new();
+        x.suprs = SupraSegs { stress: [Some(ModKind::Binary(BinMod::Positive)), None], length: [None, None], tone: None };
+
+        assert_eq!(result[0].input , AliasItem::new(AliasParseElement::Ipa(vec![(CARDINALS_MAP.get("a").unwrap().clone(), Some(x))]), AliasPosition::new(AliasKind::Romaniser, 0,  0,  8)));
+        assert_eq!(result[0].output, AliasItem::new(AliasParseElement::Replacement("a\u{0301}".to_string()),                          AliasPosition::new(AliasKind::Romaniser, 0, 11, 21)));
+    }
+
+    #[test]
     fn test_deromanisation_simple() {
         let maybe_result = AliasParser::new(AliasKind::Deromaniser, setup_derom("sh > ʃ"), 0).parse();
         assert!(maybe_result.is_ok());

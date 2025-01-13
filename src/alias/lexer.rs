@@ -1,6 +1,6 @@
 use crate::{error::AliasSyntaxError, FType, FeatType, NodeType, SupraType, CARDINALS_TRIE, DIACRITS};
 
-use super::{AliasKind, AliasToken, AliasTokenKind, AliasPosition};
+use super::{AliasKind, AliasPosition, AliasToken, AliasTokenKind, NamedEscape};
 
 
 #[allow(unused)]
@@ -14,7 +14,6 @@ pub(crate) struct AliasLexer<'a> {
     inside_angle: bool,
 }
 
-#[allow(unused)]
 impl<'a> AliasLexer<'a> {
     pub(crate) fn new(kind: AliasKind, source: &'a [char], line: usize) -> Self {
         Self { kind, source, line, pos: 0, past_arrow: false, inside_matrix: false, inside_angle: false}
@@ -407,17 +406,113 @@ impl<'a> AliasLexer<'a> {
 
         Some(AliasToken::new(AliasTokenKind::Number, buffer, AliasPosition::new(self.kind, self.line, start, self.pos)))
     }
-
+    
+    // Make sure this matches with char escapes (minus whitespace)
     fn is_valid_char(ch: &char) -> bool {
-        !(ch.is_whitespace() || *ch == ',' || *ch == '-' || *ch == '=' || *ch == '>' || *ch == '*' || *ch == '∅' || *ch == '$')
+        !(ch.is_whitespace() 
+        || *ch == '\\' || *ch == '@' || *ch == '$' || *ch == '∅' || *ch == '*' 
+        || *ch == '>'  || *ch == '=' || *ch == '+' || *ch == '-' || *ch == ',')
     }
 
-    fn get_unicode_string(&mut self) -> Option<AliasToken> {
-        if !Self::is_valid_char(&self.curr_char()) { return None }
-        let start = self.pos;
-        let buffer = self.chop_while(Self::is_valid_char);
+    fn get_unicode_escape(&mut self) -> Result<char, AliasSyntaxError> {
+        match self.curr_char() {
+            // Char Escape
+            '\\' | '@' | '$' | '∅' | '*' | '>' | '=' | '+' | '-' | ',' => {
+                let buf = self.curr_char();
+                self.advance();
+                Ok(buf)
+            },
+            // Unicode Escape
+            'u' => {
+                self.advance();
+                self.parse_unicode_escape()
+            },
+            _ => Err(AliasSyntaxError::UnknownEscapeChar(self.curr_char(), self.kind, self.line, self.pos))
+        }
+    }
 
-        Some(AliasToken::new(AliasTokenKind::String, buffer, AliasPosition::new(self.kind, self.line, start, self.pos)))
+    fn parse_unicode_escape(&mut self) -> Result<char, AliasSyntaxError> {
+        if self.curr_char() != '{' {
+            return Err(AliasSyntaxError::ExpectedLeftCurly(self.curr_char(), self.kind, self.line, self.pos))
+        }
+        self.advance();
+        self.trim_whitespace();
+        let err_pos = self.pos;
+        let buf = self.chop_while(|ch| ch.is_ascii_hexdigit());
+        self.trim_whitespace();
+        if self.curr_char() != '}' {
+            return Err(AliasSyntaxError::ExpectedRightCurly(self.curr_char(), self.kind, self.line, self.pos))
+        }
+        self.advance();
+        // Conv hex string to u32
+        let Ok(val) = u32::from_str_radix(&buf, 16) else {
+            return Err(AliasSyntaxError::InvalidUnicodeEscape(buf, self.kind, self.line, err_pos))
+        };
+        // Conv u32 to char
+        let Some(str) = char::from_u32(val) else {
+            return Err(AliasSyntaxError::InvalidUnicodeEscape(buf, self.kind, self.line, err_pos))
+        };
+
+        Ok(str)
+    }
+
+    fn get_named_escape(&mut self) -> Result<char, AliasSyntaxError> {
+        if self.curr_char() != '{' {
+            return Err(AliasSyntaxError::ExpectedLeftCurly(self.curr_char(), self.kind, self.line, self.pos))
+        }
+        self.advance();
+        self.trim_whitespace();
+        let err_pos = self.pos;
+        let mut buf = String::new();
+        while self.curr_char().is_ascii_alphabetic() {
+            buf.push(self.curr_char());
+            self.advance();
+            self.trim_whitespace();
+        }
+        if self.curr_char() != '}' {
+            return Err(AliasSyntaxError::ExpectedRightCurly(self.curr_char(), self.kind, self.line, self.pos))
+        }
+        self.advance();
+
+        if let Ok(esc) = NamedEscape::try_from(buf.as_ref()) {
+            Ok(esc.to_char())
+        } else {
+            Err(AliasSyntaxError::InvalidNamedEscape(buf, self.kind, self.line, err_pos))
+        }
+    }
+
+    fn get_escape(&mut self) -> Result<Option<char>, AliasSyntaxError> {
+        if self.curr_char() == '@' {
+            self.advance();
+            Ok(Some(self.get_named_escape()?))
+        } else if self.curr_char() == '\\' {
+            self.advance();
+            Ok(Some(self.get_unicode_escape()?))
+        } else {
+            Ok(None)
+        }
+    }
+
+    fn get_unicode_string(&mut self) -> Result<Option<AliasToken>, AliasSyntaxError> {
+        if !Self::is_valid_char(&self.curr_char()) && self.curr_char() != '@' && self.curr_char() != '\\' { return Ok(None) }
+        let start = self.pos;
+        let mut end = self.pos+1;
+        let mut buffer = String::with_capacity(1);
+
+        while self.has_more_chars() {
+            if Self::is_valid_char(&self.curr_char()) {
+                buffer.push(self.curr_char());
+                self.advance();
+            } else if let Some(esc) = self.get_escape()? {
+                buffer.push(esc);
+            } else {
+                break;
+            }
+            end = self.pos;
+            self.trim_whitespace();
+        }
+
+        Ok(Some(AliasToken::new(AliasTokenKind::String, buffer, AliasPosition::new(self.kind, self.line, start, end))))
     }
 
     fn get_next_token(&mut self) -> Result<AliasToken, AliasSyntaxError> {
@@ -435,7 +530,7 @@ impl<'a> AliasLexer<'a> {
                     if let Some(dia_token) = self.get_diacritic()      { return Ok(dia_token) }
                     if let Some(str_token) = self.get_enby()?          { return Ok(str_token) } 
         
-                } else if let Some(str_token) = self.get_unicode_string() { return Ok(str_token) }
+                } else if let Some(str_token) = self.get_unicode_string()? { return Ok(str_token) }
                 
             },
             AliasKind::Romaniser => {
@@ -447,7 +542,7 @@ impl<'a> AliasLexer<'a> {
                     if let Some(dia_token) = self.get_diacritic()      { return Ok(dia_token) }
                     if let Some(str_token) = self.get_enby()?          { return Ok(str_token) } 
         
-                } else if let Some(str_token) = self.get_unicode_string() { return Ok(str_token) }
+                } else if let Some(str_token) = self.get_unicode_string()? { return Ok(str_token) }
             },
         };
 
@@ -599,6 +694,81 @@ mod lexer_tests {
             AliasToken::new(AliasTokenKind::GreaterThan,            ">".to_owned(), AliasPosition::new(AliasKind::Romaniser, 0,  9, 10)),
             AliasToken::new(AliasTokenKind::String,                 "á".to_owned(), AliasPosition::new(AliasKind::Romaniser, 0, 11, 12)),
             AliasToken::new(AliasTokenKind::Eol,                     String::new(), AliasPosition::new(AliasKind::Romaniser, 0, 12, 13)),
+        ];
+        
+        let result = AliasLexer::new(AliasKind::Romaniser, &test_input.chars().collect::<Vec<_>>(),  0).get_line().unwrap();  
+    
+        assert_eq!(result.len(), expected_result.len());
+
+        for i in 0..result.len() {
+            assert_eq!(result[i], expected_result[i]);
+        }
+    }
+
+    #[test]
+    fn test_romanisation_named_escape() {
+        use FeatType::*;
+        use SupraType::*;
+        let test_input= String::from("a:[+str] > a@{acute}");
+        let expected_result = vec![
+            AliasToken::new(AliasTokenKind::Cardinal,               "a".to_owned(), AliasPosition::new(AliasKind::Romaniser, 0,  0,  1)),
+            AliasToken::new(AliasTokenKind::Colon,                  ":".to_owned(), AliasPosition::new(AliasKind::Romaniser, 0,  1,  2)),
+            AliasToken::new(AliasTokenKind::LeftSquare,             "[".to_owned(), AliasPosition::new(AliasKind::Romaniser, 0,  2,  3)),
+            AliasToken::new(AliasTokenKind::Feature(Supr(Stress)),  "+".to_owned(), AliasPosition::new(AliasKind::Romaniser, 0,  3,  7)),
+            AliasToken::new(AliasTokenKind::RightSquare,            "]".to_owned(), AliasPosition::new(AliasKind::Romaniser, 0,  7,  8)),
+            AliasToken::new(AliasTokenKind::GreaterThan,            ">".to_owned(), AliasPosition::new(AliasKind::Romaniser, 0,  9, 10)),
+            AliasToken::new(AliasTokenKind::String,         "a\u{0301}".to_owned(), AliasPosition::new(AliasKind::Romaniser, 0, 11, 20)),
+            AliasToken::new(AliasTokenKind::Eol,                     String::new(), AliasPosition::new(AliasKind::Romaniser, 0, 20, 21)),
+        ];
+        
+        let result = AliasLexer::new(AliasKind::Romaniser, &test_input.chars().collect::<Vec<_>>(),  0).get_line().unwrap();  
+    
+        assert_eq!(result.len(), expected_result.len());
+
+        for i in 0..result.len() {
+            assert_eq!(result[i], expected_result[i]);
+        }
+    }
+
+    #[test]
+    fn test_romanisation_unicode_escape() {
+        use FeatType::*;
+        use SupraType::*;
+        let test_input= String::from("a:[+str] > a\\u{0301}");
+        let expected_result = vec![
+            AliasToken::new(AliasTokenKind::Cardinal,               "a".to_owned(), AliasPosition::new(AliasKind::Romaniser, 0,  0,  1)),
+            AliasToken::new(AliasTokenKind::Colon,                  ":".to_owned(), AliasPosition::new(AliasKind::Romaniser, 0,  1,  2)),
+            AliasToken::new(AliasTokenKind::LeftSquare,             "[".to_owned(), AliasPosition::new(AliasKind::Romaniser, 0,  2,  3)),
+            AliasToken::new(AliasTokenKind::Feature(Supr(Stress)),  "+".to_owned(), AliasPosition::new(AliasKind::Romaniser, 0,  3,  7)),
+            AliasToken::new(AliasTokenKind::RightSquare,            "]".to_owned(), AliasPosition::new(AliasKind::Romaniser, 0,  7,  8)),
+            AliasToken::new(AliasTokenKind::GreaterThan,            ">".to_owned(), AliasPosition::new(AliasKind::Romaniser, 0,  9, 10)),
+            AliasToken::new(AliasTokenKind::String,         "a\u{0301}".to_owned(), AliasPosition::new(AliasKind::Romaniser, 0, 11, 20)),
+            AliasToken::new(AliasTokenKind::Eol,                     String::new(), AliasPosition::new(AliasKind::Romaniser, 0, 20, 21)),
+        ];
+        
+        let result = AliasLexer::new(AliasKind::Romaniser, &test_input.chars().collect::<Vec<_>>(),  0).get_line().unwrap();  
+    
+        assert_eq!(result.len(), expected_result.len());
+
+        for i in 0..result.len() {
+            assert_eq!(result[i], expected_result[i]);
+        }
+    }
+
+    #[test]
+    fn test_romanisation_literal_escape() {
+        use FeatType::*;
+        use SupraType::*;
+        let test_input= String::from("a:[+str] > a\\$");
+        let expected_result = vec![
+            AliasToken::new(AliasTokenKind::Cardinal,               "a".to_owned(), AliasPosition::new(AliasKind::Romaniser, 0,  0,  1)),
+            AliasToken::new(AliasTokenKind::Colon,                  ":".to_owned(), AliasPosition::new(AliasKind::Romaniser, 0,  1,  2)),
+            AliasToken::new(AliasTokenKind::LeftSquare,             "[".to_owned(), AliasPosition::new(AliasKind::Romaniser, 0,  2,  3)),
+            AliasToken::new(AliasTokenKind::Feature(Supr(Stress)),  "+".to_owned(), AliasPosition::new(AliasKind::Romaniser, 0,  3,  7)),
+            AliasToken::new(AliasTokenKind::RightSquare,            "]".to_owned(), AliasPosition::new(AliasKind::Romaniser, 0,  7,  8)),
+            AliasToken::new(AliasTokenKind::GreaterThan,            ">".to_owned(), AliasPosition::new(AliasKind::Romaniser, 0,  9, 10)),
+            AliasToken::new(AliasTokenKind::String,                "a$".to_owned(), AliasPosition::new(AliasKind::Romaniser, 0, 11, 14)),
+            AliasToken::new(AliasTokenKind::Eol,                     String::new(), AliasPosition::new(AliasKind::Romaniser, 0, 14, 15)),
         ];
         
         let result = AliasLexer::new(AliasKind::Romaniser, &test_input.chars().collect::<Vec<_>>(),  0).get_line().unwrap();  

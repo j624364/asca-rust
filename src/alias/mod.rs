@@ -102,3 +102,117 @@ impl AliasToken {
         Self { kind, value, position }
     }
 }
+
+
+#[repr(u16)]
+pub(crate) enum NamedEscape {
+    Space       =  32, // \u0020
+    Grave       = 768, // \u0300
+    Acute       = 769, // \u0301
+    Circumflex  = 770, // \u0302
+    Tilde       = 771, // \u0303
+    Macron      = 772, // \u0304
+    OverLine    = 773, // \u0305
+    Breve       = 774, // \u0306
+    OverDot     = 775, // \u0307
+    Umlaut      = 776, // \u0308 
+    OverHook    = 777, // \u0309
+    OverRing    = 778, // \u030A
+    DoubleAcute = 779, // \u030B
+    Caron       = 780, // \u030C
+    /* ... */
+    DoubleGrave = 783, // \u030F
+    /* ... */
+    Horn        = 795, // \u031B
+    /* ... */
+    UnderDot    = 803, // \u0323
+    UnderUmlaut = 804, // \u0324
+    UnderRing   = 805, // \u0325
+    UnderComma  = 806, // \u0326
+    Cedilla     = 807, // \u0327
+    Ogonek      = 808, // \u0328
+}
+
+impl NamedEscape {
+    pub fn to_char(&self) -> char {
+        // There *must* be a better way to do this lol
+        unsafe { char::from_u32_unchecked(*(self as *const Self as *const u16) as u32) }
+    }
+}
+
+impl TryFrom<&str> for NamedEscape {
+    type Error = ();
+    
+    fn try_from(value: &str) -> Result<Self, Self::Error> {
+        match value.to_lowercase().as_str() {
+            "space" | "spac" | "spc"    => Ok(Self::Space),
+            // "ayin" | "ayn"             => Ok(Self::Ayin),
+            "grave" | "grav" | "grv"    => Ok(Self::Grave),
+            "acute" | "acut" | "acu"    | 
+            "apex"  | "act"  | "apx"    => Ok(Self::Acute),
+            "circumflex" | "circum"     | 
+            "circflex"   | "cflex"      => Ok(Self::Circumflex),
+            "tilde" | "tild" | "tld"    => Ok(Self::Tilde),
+            "macron"                    => Ok(Self::Macron),
+            "overline" | "lineabove"   |
+            "line"                      => Ok(Self::OverLine),
+            "breve" | "brev" | "brv"    => Ok(Self::Breve),
+            "overdot"  | "dotabove"     => Ok(Self::OverDot),
+            "umlaut"   | "diaeresis"    |
+            "dubdot"   | "doubledot"    => Ok(Self::Umlaut),
+            "overhook" | "hookabove"    |
+            "hook"                      => Ok(Self::OverHook),
+            "overring" | "ringabove"    | 
+            "ring"                      => Ok(Self::OverRing),
+            "doubleacute" | "dubacute"  |
+            "doubleapex"  | "dubapex"   => Ok(Self::DoubleAcute),
+            "caron" | "karen" | "crn"   => Ok(Self::Caron),
+            /* ... */
+            "doublegrave" | "dubgrave"  |
+            "dubgrav" | "dubgrv"        => Ok(Self::DoubleGrave),
+            /* ... */
+            "horn" | "hrn" => Ok(Self::Horn),
+            /* ... */
+            "underdot" | "dotbelow"     => Ok(Self::UnderDot),
+            "underumlaut" | "underdiaeresis" |
+            "umlautbelow" | "diaeresisbelow" 
+                                        => Ok(Self::UnderUmlaut),
+            "underring"  | "ringbelow"  => Ok(Self::UnderRing),
+            "undercomma" | "commabelow" => Ok(Self::UnderComma),
+            "cedilla"  | "cedi"         => Ok(Self::Cedilla),
+            "ogonek"   | "ogon"         => Ok(Self::Ogonek),
+            _ => Err(())
+        }
+    }
+}
+
+
+#[test]
+fn test_escape_repr() {
+    assert_eq!(NamedEscape::Space.to_char()      , ' ');
+    // ʿayin 02BF
+    assert_eq!(NamedEscape::Grave.to_char()      , '\u{0300}');
+    assert_eq!(NamedEscape::Acute.to_char()      , '\u{0301}');
+    assert_eq!(NamedEscape::Circumflex.to_char() , '\u{0302}');
+    assert_eq!(NamedEscape::Tilde.to_char()      , '\u{0303}');
+    assert_eq!(NamedEscape::Macron.to_char()     , '\u{0304}');
+    assert_eq!(NamedEscape::OverLine.to_char()   , '\u{0305}');
+    assert_eq!(NamedEscape::Breve.to_char()      , '\u{0306}');
+    assert_eq!(NamedEscape::OverDot.to_char()    , '\u{0307}');
+    assert_eq!(NamedEscape::Umlaut.to_char()     , '\u{0308}');
+    assert_eq!(NamedEscape::OverHook.to_char()   , '\u{0309}');
+    assert_eq!(NamedEscape::OverRing.to_char()   , '\u{030A}');
+    assert_eq!(NamedEscape::DoubleAcute.to_char(), '\u{030B}');
+    assert_eq!(NamedEscape::Caron.to_char()      , '\u{030C}');
+    /* ... */
+    assert_eq!(NamedEscape::DoubleGrave.to_char(), '\u{030F}');
+    /* ... */
+    assert_eq!(NamedEscape::Horn.to_char()       , '\u{031B}'); 
+    /* ... */
+    assert_eq!(NamedEscape::UnderDot.to_char()   , '\u{0323}');
+    assert_eq!(NamedEscape::UnderUmlaut.to_char(), '\u{0324}');
+    assert_eq!(NamedEscape::UnderRing.to_char()  , '\u{0325}');
+    assert_eq!(NamedEscape::UnderComma.to_char() , '\u{0326}');
+    assert_eq!(NamedEscape::Cedilla.to_char()    , '\u{0327}');
+    assert_eq!(NamedEscape::Ogonek.to_char()     , '\u{0328}');
+}

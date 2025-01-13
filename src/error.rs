@@ -574,9 +574,14 @@ impl ASCAError for RuleSyntaxError {
 
 #[derive(Debug, Clone)]
 pub enum AliasSyntaxError {
+    InvalidUnicodeEscape(String, AliasKind, LineNum, Pos),
+    InvalidNamedEscape  (String, AliasKind, LineNum, Pos),
     ExpectedAlphabetic  (char, AliasKind, LineNum, Pos),
+    ExpectedRightCurly  (char, AliasKind, LineNum, Pos),
     ExpectedCharArrow   (char, AliasKind, LineNum, Pos),
     ExpectedCharColon   (char, AliasKind, LineNum, Pos),
+    ExpectedLeftCurly   (char, AliasKind, LineNum, Pos),
+    UnknownEscapeChar   (char, AliasKind, LineNum, Pos),
     UnknownCharacter    (char, AliasKind, LineNum, Pos),
     ExpectedNumber      (char, AliasKind, LineNum, Pos),
     EmptyReplacements   (AliasKind, LineNum, Pos),
@@ -600,18 +605,23 @@ pub enum AliasSyntaxError {
 impl ASCAError for AliasSyntaxError {
     fn get_error_message(&self) -> String {
         match self {
-            AliasSyntaxError::ExpectedAlphabetic(ch, kind, ln, pos) => format!("Expected alphabetic character, but received '{ch}' @ '{kind}:{ln}:{pos}'."),
-            AliasSyntaxError::ExpectedCharArrow (ch, kind, ln, pos) => format!("Expected '->', but received -'{ch}' @ '{kind}:{ln}:{pos}'."),
-            AliasSyntaxError::ExpectedCharColon (ch, kind, ln, pos) => format!("Expected ':', but received '{ch}' @ '{kind}:{ln}:{pos}'."),
-            AliasSyntaxError::UnknownCharacter  (ch, kind, ln, pos) => format!("Unknown character {ch} @ '{kind}:{ln}:{pos}'."),
-            AliasSyntaxError::ExpectedNumber    (ch, kind, ln, pos) => format!("Expected a number, but received {ch} @ '{kind}:{ln}:{pos}'."),
-            AliasSyntaxError::EmptyReplacements (..) => "Replacements cannot be empty".to_string(),
-            AliasSyntaxError::OutsideBrackets   (..) => "Features must be inside square brackets".to_string(),
-            AliasSyntaxError::NestedBrackets    (..) => "Cannot have nested brackets of the same type".to_string(),
-            AliasSyntaxError::WrongModTone      (..) => "Tones cannot be ±; they can only be used with numeric values.".to_string(),
-            AliasSyntaxError::EmptyInput        (..) => "Alias input cannot be empty.".to_string(),
-            AliasSyntaxError::UnknownEnbyFeature(feat, pos) => format!("Feature '{feat}' has no modifier @ {}.", pos),
-            AliasSyntaxError::UnknownFeature    (feat, pos) => format!("Unknown feature '{feat}' @ {}'. Did you mean {}? ", pos, get_feat_closest(feat)),
+            AliasSyntaxError::InvalidUnicodeEscape(st, kind, ln, pos) => format!("Malformed unicode escape, '\\u{{{st}}}' is not valid @ '{kind}:{ln}:{pos}'."),
+            AliasSyntaxError::InvalidNamedEscape  (st, kind, ln, pos) => format!("Malformed named escape, '@{{{st}}}' is not valid @ '{kind}:{ln}:{pos}'."),
+            AliasSyntaxError::ExpectedAlphabetic  (ch, kind, ln, pos) => format!("Expected alphabetic character, but received '{ch}' @ '{kind}:{ln}:{pos}'."),
+            AliasSyntaxError::ExpectedRightCurly  (ch, kind, ln, pos) => format!("Expected }}, but received '{ch}' @ '{kind}:{ln}:{pos}'."),
+            AliasSyntaxError::ExpectedCharArrow   (ch, kind, ln, pos) => format!("Expected '->', but received -'{ch}' @ '{kind}:{ln}:{pos}'."),
+            AliasSyntaxError::ExpectedCharColon   (ch, kind, ln, pos) => format!("Expected ':', but received '{ch}' @ '{kind}:{ln}:{pos}'."),
+            AliasSyntaxError::ExpectedLeftCurly   (ch, kind, ln, pos) => format!("Expected {{, but received '{ch}' @ '{kind}:{ln}:{pos}'."),
+            AliasSyntaxError::UnknownEscapeChar   (ch, kind, ln, pos) => format!("Unknown escape '\\{ch}' @ '{kind}:{ln}:{pos}'."),
+            AliasSyntaxError::UnknownCharacter    (ch, kind, ln, pos) => format!("Unknown character {ch} @ '{kind}:{ln}:{pos}'."),
+            AliasSyntaxError::ExpectedNumber      (ch, kind, ln, pos) => format!("Expected a number, but received {ch} @ '{kind}:{ln}:{pos}'."),
+            AliasSyntaxError::EmptyReplacements   (..) => "Replacements cannot be empty".to_string(),
+            AliasSyntaxError::OutsideBrackets     (..) => "Features must be inside square brackets".to_string(),
+            AliasSyntaxError::NestedBrackets      (..) => "Cannot have nested brackets of the same type".to_string(),
+            AliasSyntaxError::WrongModTone        (..) => "Tones cannot be ±; they can only be used with numeric values.".to_string(),
+            AliasSyntaxError::EmptyInput          (..) => "Alias input cannot be empty.".to_string(),
+            AliasSyntaxError::UnknownEnbyFeature  (feat, pos) => format!("Feature '{feat}' has no modifier @ {}.", pos),
+            AliasSyntaxError::UnknownFeature      (feat, pos) => format!("Unknown feature '{feat}' @ {}'. Did you mean {}? ", pos, get_feat_closest(feat)),
             AliasSyntaxError::ExpectedTokenFeature(token) => format!("{} cannot be placed inside a matrix. An element inside `[]` must a distinctive feature. @ {}", token.value, token.position),
             AliasSyntaxError::ExpectedEndLine     (token) => format!("Expected end of line, received '{}' @ {}.", token.value, token.position),
             AliasSyntaxError::ExpectedMatrix      (token) => format!("Expected '[', but received '{}' @ {}.", if token.kind == AliasTokenKind::Eol {"End Of Line"} else {&token.value}, token.position),
@@ -631,16 +641,21 @@ impl ASCAError for AliasSyntaxError {
         let mut result = format!("{} {}", "Syntax Error:".bright_red().bold(), self.get_error_message().bold()); 
 
         let (arrows, kind, line) = match self {
-            AliasSyntaxError::ExpectedAlphabetic(_, kind, line, pos) |
-            AliasSyntaxError::ExpectedCharArrow (_, kind, line, pos) |
-            AliasSyntaxError::ExpectedCharColon (_, kind, line, pos) |
-            AliasSyntaxError::UnknownCharacter  (_, kind, line, pos) |
-            AliasSyntaxError::ExpectedNumber    (_, kind, line, pos) |
-            AliasSyntaxError::EmptyReplacements    (kind, line, pos) |
-            AliasSyntaxError::OutsideBrackets      (kind, line, pos) |
-            AliasSyntaxError::NestedBrackets       (kind, line, pos) |
-            AliasSyntaxError::WrongModTone         (kind, line, pos) |
-            AliasSyntaxError::EmptyInput           (kind, line, pos) => (
+            AliasSyntaxError::InvalidUnicodeEscape(_, kind, line, pos) |
+            AliasSyntaxError::InvalidNamedEscape  (_, kind, line, pos) |
+            AliasSyntaxError::ExpectedAlphabetic  (_, kind, line, pos) |
+            AliasSyntaxError::ExpectedRightCurly  (_, kind, line, pos) |
+            AliasSyntaxError::ExpectedCharArrow   (_, kind, line, pos) |
+            AliasSyntaxError::ExpectedCharColon   (_, kind, line, pos) |
+            AliasSyntaxError::ExpectedLeftCurly   (_, kind, line, pos) |
+            AliasSyntaxError::UnknownEscapeChar   (_, kind, line, pos) |
+            AliasSyntaxError::UnknownCharacter    (_, kind, line, pos) |
+            AliasSyntaxError::ExpectedNumber      (_, kind, line, pos) |
+            AliasSyntaxError::EmptyReplacements      (kind, line, pos) |
+            AliasSyntaxError::OutsideBrackets        (kind, line, pos) |
+            AliasSyntaxError::NestedBrackets         (kind, line, pos) |
+            AliasSyntaxError::WrongModTone           (kind, line, pos) |
+            AliasSyntaxError::EmptyInput             (kind, line, pos) => (
                 " ".repeat(*pos) + "^" + "\n", 
                 *kind,
                 *line,
