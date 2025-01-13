@@ -123,6 +123,8 @@ pub(crate) enum NamedEscape {
     /* ... */
     DoubleGrave = 783, // \u030F
     /* ... */
+    InvBreve    = 785, // \u0311
+    /* ... */
     Horn        = 795, // \u031B
     /* ... */
     UnderDot    = 803, // \u0323
@@ -152,9 +154,10 @@ impl TryFrom<&str> for NamedEscape {
             "apex"  | "act"  | "apx"    => Ok(Self::Acute),
             "circumflex" | "circum"     | 
             "circflex"   | "cflex"      => Ok(Self::Circumflex),
-            "tilde" | "tild" | "tld"    => Ok(Self::Tilde),
-            "macron"                    => Ok(Self::Macron),
-            "overline" | "lineabove"   |
+            "tilde" | "tild" | "tlde"   |
+            "tld"                       => Ok(Self::Tilde),
+            "macron"   | "mcrn"         => Ok(Self::Macron),
+            "overline" | "lineabove"    |
             "line"                      => Ok(Self::OverLine),
             "breve" | "brev" | "brv"    => Ok(Self::Breve),
             "overdot"  | "dotabove"     => Ok(Self::OverDot),
@@ -170,6 +173,9 @@ impl TryFrom<&str> for NamedEscape {
             /* ... */
             "doublegrave" | "dubgrave"  |
             "dubgrav" | "dubgrv"        => Ok(Self::DoubleGrave),
+            /* ... */
+            "invertedbreve" | "invbrev" |
+            "invbreve" | "invbrv"       => Ok(Self::InvBreve),
             /* ... */
             "horn" | "hrn" => Ok(Self::Horn),
             /* ... */
@@ -206,6 +212,8 @@ fn test_escape_repr() {
     assert_eq!(NamedEscape::Caron.to_char()      , '\u{030C}');
     /* ... */
     assert_eq!(NamedEscape::DoubleGrave.to_char(), '\u{030F}');
+    /* ... */
+    assert_eq!(NamedEscape::InvBreve.to_char()   , '\u{0311}'); 
     /* ... */
     assert_eq!(NamedEscape::Horn.to_char()       , '\u{031B}'); 
     /* ... */
