@@ -50,10 +50,14 @@ fn print_result(result: &[String], start_words: &[String], maybe_compare: Option
     }
 }
 
-/// Get input file. 
+
+type Words = Vec<String>;
+type IntoAliases = Vec<String>;
+type FromAliases = Vec<String>;
+/// Gets input file. 
 /// If -j,validate and parse words and rules from it. If -w, use those words instead.
 /// Else, validate and parse -r and -w.
-fn get_input(i_group: InGroup, input: Option<PathBuf>, alias: Option<PathBuf>) -> io::Result<(Vec<String>, Vec<RuleGroup>, Vec<String>, Vec<String>)> {
+fn get_input(i_group: InGroup, input: Option<PathBuf>, alias: Option<PathBuf>) -> io::Result<(Words, Vec<RuleGroup>, IntoAliases, FromAliases)> {
     let InGroup { from_json, rules } = i_group;
     if let Some(json) = from_json {
         let json_file_path = util::validate_or_get_path(Some(&json), &["json"], "json")?;

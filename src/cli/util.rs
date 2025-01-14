@@ -42,7 +42,7 @@ pub(super) fn get_dir_files(path: &str, valid_extensions: &[&str]) -> io::Result
         .map(|dir_entry| dir_entry.path())
         // Filter out files with the wrong extension
         .filter_map(|path| {
-            if path.extension().map_or(false, |ext| match_exts(ext, valid_extensions)) {
+            if path.extension().is_some_and(|ext| match_exts(ext, valid_extensions)) {
                 Some(path)
             } else {
                 None
@@ -197,7 +197,7 @@ pub(super) fn write_to_file(path: &Path, content: String, extension: &str, auto:
     // if path does not exist and has a valid extension, create and write
     // else error
     if path.is_file() {
-        if path.extension().map_or(false, |ext| ext == extension) {
+        if path.extension().is_some_and(|ext| ext == extension) {
             if ask(&(format!("File {path:?} already exists, do you wish to overwrite it?")), auto)? {
                 return file_write(path, content)
             }

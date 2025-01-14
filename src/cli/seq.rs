@@ -93,17 +93,16 @@ pub(super) fn get_orig_alias_into(rule_seqs: &[ASCAConfig], dir: &Path,  conf: &
             return Err(io::Error::other(format!("{} Could not find tag '{}' in config.\nAvailable tags are:\n- {}", "Config Error:".bright_red(), from_tag.yellow(), possible_tags)))
         };
         get_orig_alias_into(rule_seqs, dir,seq)
+    } else if let Some(al_path) = &conf.alias {
+        let mut path = dir.to_path_buf();
+        path.push(al_path);
+        path.set_extension(ALIAS_FILE_EXT);
+        let (into, _) = parse::parse_alias(&util::validate(&path, &[ALIAS_FILE_EXT, "txt"])?)?;
+        Ok(into)           
     } else {
-        if let Some(al_path) = &conf.alias {
-            let mut path = dir.to_path_buf();
-            path.push(al_path);
-            path.set_extension(ALIAS_FILE_EXT);
-            let (into, _) = parse::parse_alias(&util::validate(&path, &[ALIAS_FILE_EXT, "txt"])?)?;
-            Ok(into)           
-        } else {
-            Ok(Vec::new())
-        }
+        Ok(Vec::new())
     }
+    
 }
 
 pub(super) fn get_orig_words(rule_seqs: &[ASCAConfig], dir: &Path,  conf: &ASCAConfig) -> io::Result<Vec<String>> {
