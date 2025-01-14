@@ -50,7 +50,7 @@ pub(crate) enum AliasTokenKind {
 
     Group,            // Primitive Category i.e. C for Cons, V for Vowel
     Number,           // Number
-
+    Plus,             // +
 
 
     Cardinal,         // IPA character

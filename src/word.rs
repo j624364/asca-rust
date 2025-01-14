@@ -5,8 +5,8 @@ use std::{
 };
 
 use crate :: {
-    alias :: { parser::AliasParseElement, AliasPosition, Transformation },
-    error :: { AliasRuntimeError, Error, RuleRuntimeError, WordSyntaxError },
+    alias :: { parser::{AliasParseElement, SegType}, AliasPosition, Transformation },
+    error :: { AliasRuntimeError, AliasSyntaxError, Error, RuleRuntimeError, WordSyntaxError }, 
     feature_to_node_mask,
     lexer :: { FType, NodeType, Position },
     parser:: { BinMod, ModKind, Modifiers, SupraSegs },
@@ -250,7 +250,10 @@ impl Word {
 
     fn fill_segments(&mut self, input_txt: &String, txt: &[char], i: &mut usize, sy: &mut Syllable, aliases: &[Transformation]) -> Result<bool, Error> {
         for alias in aliases {
-            if let AliasParseElement::Replacement(string) = &alias.input.kind {
+            if let AliasParseElement::Replacement(string, plus) = &alias.input.kind {
+                if *plus {
+                    return Err(AliasSyntaxError::PlusInDerom(alias.input.position).into())
+                }
                 let back_pos = *i;
                 let mut is_match = true;
                 for ch in string.chars() {
@@ -261,23 +264,29 @@ impl Word {
                 }
                 if is_match {
                     match &alias.output.kind {
-                        AliasParseElement::Ipa(vec) => for (seg, modifiers) in vec {
-                            let mut seg = *seg;
-                            let mut length = 1;
-                            if let Some(mods) = modifiers {
-                                self.alias_apply_mods(&mut seg, mods, alias.output.position)?;
-                                self.alias_apply_stress(sy, mods, alias.output.position)?;
-                                
-                                length = self.alias_apply_length(mods, alias.output.position)?;
+                        AliasParseElement::Segments(vec) => for segtype in vec {
+                            match segtype {
+                                SegType::Ipa(seg, modifiers) => {
+                                    let mut seg = *seg;
+                                    let mut length = 1;
+                                    if let Some(mods) = modifiers {
+                                        self.alias_apply_mods(&mut seg, mods, alias.output.position)?;
+                                        self.alias_apply_stress(sy, mods, alias.output.position)?;
+                                        
+                                        length = self.alias_apply_length(mods, alias.output.position)?;
 
-                                if let Some(tn) = &mods.suprs.tone {
-                                    sy.tone = tn.clone();
-                                }
-                            }
+                                        if let Some(tn) = &mods.suprs.tone {
+                                            sy.tone = tn.clone();
+                                        }
+                                    }
 
-                            for _ in 0..length {
-                                sy.segments.push_back(seg);
+                                    for _ in 0..length {
+                                        sy.segments.push_back(seg);
+                                    }
+                                },
+                                SegType::Matrix(_) => todo!(),
                             }
+                            
 
                         },
                         _ => unreachable!()
@@ -486,8 +495,7 @@ impl Word {
                 if j != 0 && *seg == syll.segments[j-1] {
                     buffer.push('ː');
                 } else {
-                    let Some(x) = &seg.get_as_grapheme() else { return Err((buffer, i)) };
-                    buffer.push_str(x);
+                    buffer.push_str(&seg.get_as_grapheme());
                 }
             }
             buffer.push_str(&syll.tone);
@@ -685,36 +693,41 @@ impl Word {
                 }
 
                 for alias in aliases {
-                    if let AliasParseElement::Ipa(segments) = &alias.input.kind {
+                    if let AliasParseElement::Segments(segments) = &alias.input.kind {
                         let back_pos = j;
                         let mut is_match = true;
-                        for (segment, modifiers) in segments {
-                            if let Some(mods) = modifiers {
-                                let (m, maybe_len, maybe_tone) = self.alias_match_ipa_with_mods(i, j, segment, mods);
-                                if !m {
-                                    is_match = false;
-                                    break;
-                                }
-                                if let Some(len) = maybe_len {
-                                    j+=len;
-                                } else {
-                                    j+=1;
-                                }
-                                if maybe_tone {
-                                    strip_tone = true;
-                                }
-
-                            } else {
-                                if j >= syll.segments.len() || syll.segments[j] != *segment {
-                                    is_match = false;
-                                    break;
-                                }
-                                j+=1;
+                        // for (segment, modifiers) in segments {
+                        for segtype in segments {
+                            match segtype {
+                                SegType::Ipa(segment, modifiers) => {
+                                    if let Some(mods) = modifiers {
+                                        let (m, maybe_len, maybe_tone) = self.alias_match_ipa_with_mods(i, j, segment, mods);
+                                        if !m { is_match = false; break; }
+                                        if let Some(len) = maybe_len { j+=len; } else { j+=1; }
+                                        if maybe_tone { strip_tone = true; }
+                                    } else {
+                                        if j >= syll.segments.len() || syll.segments[j] != *segment {
+                                            is_match = false; break;
+                                        }
+                                        j+=1;
+                                    }
+                                },
+                                SegType::Matrix(modifiers) => {
+                                    let (m, maybe_len, maybe_tone) = self.alias_match_modifiers(i, j, modifiers);
+                                    if !m { is_match = false; break; }
+                                    if let Some(len) = maybe_len { j+=len; } else { j+=1; }
+                                    if maybe_tone { strip_tone = true; }
+                                },
                             }
                         }
                         if is_match {
                             match &alias.output.kind {
-                                AliasParseElement::Replacement(repl) => buffer.push_str(repl),
+                                AliasParseElement::Replacement(repl, plus) => {
+                                    if *plus {
+                                        buffer.push_str(&seg.get_nearest_grapheme());
+                                    } 
+                                    buffer.push_str(repl);
+                                },
                                 AliasParseElement::Empty => {},
                                 _ => unreachable!()
                             }
@@ -725,15 +738,14 @@ impl Word {
 
                 }
 
-                let Some(x) = &seg.get_as_grapheme() else { return Err((buffer, i)) };
-                buffer.push_str(x);
+                buffer.push_str(&seg.get_as_grapheme());
                 j += 1;
             }
 
             for alias in aliases {
                 if alias.input.kind == AliasParseElement::SyllBound {
                     match &alias.output.kind {
-                        AliasParseElement::Replacement(repl) => bound_repl_str = Some(repl),
+                        AliasParseElement::Replacement(repl, _) => bound_repl_str = Some(repl),
                         AliasParseElement::Empty => bound_repl_str = Some(&empty),
                         _ => unreachable!()
                     }
@@ -746,6 +758,11 @@ impl Word {
         }
 
         if let Some(b_repl) = bound_repl_str {
+            if !b_repl.is_empty() && buffer.starts_with(&['ˈ', 'ˌ']) {
+                let mut chars = buffer.chars();
+                chars.next();
+                buffer = chars.as_str().to_string();
+            }
             buffer = buffer.replace(['.', 'ˈ', 'ˌ'], b_repl);
         }
 
@@ -869,7 +886,7 @@ mod word_tests {
     #[test]
     fn test_get_grapheme() {
         let s = Word::new("n".to_owned(), &[]).unwrap().syllables[0].segments[0];
-        assert_eq!(s.get_as_grapheme().unwrap(), "n")
+        assert_eq!(s.get_as_grapheme(), "n")
     }
 
     #[test]
@@ -989,7 +1006,40 @@ mod word_tests {
     }
 
     #[test]
-    fn test_romanisation_sasdfasfasf() {
+    fn test_romanisation_segment_with_unicode_plus() {
+        let t = AliasParser::new(AliasKind::Romaniser, AliasLexer::new(AliasKind::Romaniser, &"a:[+str], $ > +@{acute}, *".chars().collect::<Vec<_>>(), 0).get_line().unwrap(), 0).parse().unwrap();
+        match Word::new(normalise("'ka.ta"), &[]) {
+            Ok(w) => assert_eq!(w.render(&t).unwrap(), "káta"),
+            Err(e) => {
+                println!("{}", e.format_word_error(&[]));
+                assert!(false);
+            }
+        }
+
+        let t = AliasParser::new(AliasKind::Romaniser, AliasLexer::new(AliasKind::Romaniser, &"a:[+str], $ > @{acute}, *".chars().collect::<Vec<_>>(), 0).get_line().unwrap(), 0).parse().unwrap();
+        match Word::new(normalise("'ka.ta"), &[]) {
+            Ok(w) => assert_eq!(w.render(&t).unwrap(), "ḱta"),
+            Err(e) => {
+                println!("{}", e.format_word_error(&[]));
+                assert!(false);
+            }
+        }
+    }
+
+    #[test]
+    fn test_romanisation_group_with_unicode_plus() {
+        let t = AliasParser::new(AliasKind::Romaniser, AliasLexer::new(AliasKind::Romaniser, &"V:[+str], $ > +@{acute}, *".chars().collect::<Vec<_>>(), 0).get_line().unwrap(), 0).parse().unwrap();
+        match Word::new(normalise("'ka.ta"), &[]) {
+            Ok(w) => assert_eq!(w.render(&t).unwrap(), "káta"),
+            Err(e) => {
+                println!("{}", e.format_word_error(&[]));
+                assert!(false);
+            }
+        }
+    }
+
+    #[test]
+    fn test_romanisation_remove_segment() {
         let t = AliasParser::new(AliasKind::Romaniser, AliasLexer::new(AliasKind::Romaniser, &"a > *".chars().collect::<Vec<_>>(), 0).get_line().unwrap(), 0).parse().unwrap();
         match Word::new(normalise("san.da"), &[]) {
             Ok(w) => assert_eq!(w.render(&t).unwrap(), "sn.d"),

@@ -277,43 +277,50 @@ pub(crate) struct Segment {
 impl fmt::Debug for Segment {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
 
-        if let Some(grapheme) = self.get_as_grapheme(){
-            return write!(f, "{}", grapheme)
-        }
-
-        write!(f, "RUT: {:b} ", self.root)?;
-        write!(f, "MAN: {:b} ", self.manner)?;
-        write!(f, "LAR: {:b} ", self.laryngeal)?;
-
-
-        match self.labial {
-            Some(v) => write!(f, "LAB: {v:b} ")?,
-            None    => write!(f, "LAB: - ")?
-        }
-        match self.coronal {
-            Some(v) => write!(f, "COR: {v:b} ")?,
-            None    => write!(f, "COR: - ")?
-        }
-        match self.dorsal {
-            Some(v) => write!(f, "DOR: {v:b} ")?,
-            None    => write!(f, "DOR: - ")?
-        }
-        match self.pharyngeal {
-            Some(v) => write!(f, "PHR: {v:b} ")?,
-            None    => write!(f, "PHR: - ")?
-        }
-
-        Ok(())
+        let grapheme = self.get_as_grapheme();
+        write!(f, "{}", grapheme)
     }
 }
 
 impl Segment {
-    // TODO(girv): This wouldn't get me any leetcode cred
-    pub(crate) fn get_as_grapheme(&self) -> Option<String> {
+
+    // Get 
+    pub(crate) fn get_nearest_grapheme(&self) -> String {
         // test against all cardinal values for a match
         for c_grapheme in CARDINALS_VEC.iter() {
             let x = CARDINALS_MAP.get(c_grapheme).unwrap();
-            if *x == *self { return Some(c_grapheme.to_string()) }
+            if *x == *self { return c_grapheme.to_string() }
+        }
+
+        let mut candidates = Vec::new();
+        for c_grapheme in CARDINALS_VEC.iter() {
+            let seg: Segment = *CARDINALS_MAP.get(c_grapheme).unwrap();
+            let diff_count = self.diff_count(&seg);
+            if diff_count < 8 {
+                candidates.push((seg, c_grapheme, diff_count))
+            }
+        }
+        
+        // If differences are two numerous, fall back to diacritics
+        // Won't happen when using diff_count < 8, but guarantees
+        // that indexing into candidates doesn't error
+        if candidates.is_empty() {
+            return self.get_as_grapheme()
+        }
+        // Get best candidate
+        // TODO(girv): suffers from same bug as get_as_grapheme where
+        // equal distance candidates are randomly ordered
+        candidates.sort_by(|(.., a), (.., b) | a.cmp(b));
+        candidates[0].1.to_string()
+    }
+
+
+    // TODO(girv): This wouldn't get me any leetcode cred
+    pub(crate) fn get_as_grapheme(&self) -> String {
+        // test against all cardinal values for a match
+        for c_grapheme in CARDINALS_VEC.iter() {
+            let x = CARDINALS_MAP.get(c_grapheme).unwrap();
+            if *x == *self { return c_grapheme.to_string() }
         }
 
         // if no match is found, 
@@ -370,12 +377,12 @@ impl Segment {
                     }
                 }
                 if buf_seg == *self { 
-                    return Some(buf_str);
+                    return buf_str;
                 }
             }
         }
 
-        Some("�".to_string())
+        "�".to_string()
     }
 
     pub(crate) fn match_modifiers(&self, mods: &DiaMods) -> Result<(), (usize, bool)> {

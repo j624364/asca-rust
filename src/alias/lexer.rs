@@ -197,6 +197,13 @@ impl<'a> AliasLexer<'a> {
         Ok(Some(AliasToken::new(tkn_kind, mod_val, AliasPosition::new(self.kind, self.line, start, self.pos))))
     }
 
+    fn get_repl_plus(&mut self) -> Option<AliasToken> {
+        if '+' != self.curr_char() { return None };
+        let start = self.pos;
+        let value = self.chop(1);
+        Some(AliasToken::new(AliasTokenKind::Plus, value, AliasPosition::new(self.kind, self.line, start, self.pos))) 
+    }
+
     fn get_special_char(&mut self) -> Result<Option<AliasToken>, AliasSyntaxError> {
         let start = self.pos;
         let tokenkind: AliasTokenKind;
@@ -530,7 +537,10 @@ impl<'a> AliasLexer<'a> {
                     if let Some(dia_token) = self.get_diacritic()      { return Ok(dia_token) }
                     if let Some(str_token) = self.get_enby()?          { return Ok(str_token) } 
         
-                } else if let Some(str_token) = self.get_unicode_string()? { return Ok(str_token) }
+                } else {
+                    if let Some(plu_token) = self.get_repl_plus()       { return Ok(plu_token) }
+                    if let Some(str_token) = self.get_unicode_string()? { return Ok(str_token) }
+                }
                 
             },
             AliasKind::Romaniser => {
@@ -542,7 +552,10 @@ impl<'a> AliasLexer<'a> {
                     if let Some(dia_token) = self.get_diacritic()      { return Ok(dia_token) }
                     if let Some(str_token) = self.get_enby()?          { return Ok(str_token) } 
         
-                } else if let Some(str_token) = self.get_unicode_string()? { return Ok(str_token) }
+                } else {
+                    if let Some(plu_token) = self.get_repl_plus()       { return Ok(plu_token) }
+                    if let Some(str_token) = self.get_unicode_string()? { return Ok(str_token) }
+                }
             },
         };
 

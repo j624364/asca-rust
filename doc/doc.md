@@ -132,61 +132,6 @@ ASCA allows for a **subset** of the [regular rule syntax](#defining-sound-change
 These mappings are applied before the inbuilt aliases defined above. Segments can be selected with modifiers such as stress and tone. 
 On the web version, these rules are defined through the **alias** button; For cli, see the [cli documentation](./doc-cli.md).
 
-
-#### Romanisation
-A romanisation rule allows you to manipulate the output from ipa into another desired form. 
-The left-hand side of the arrow contains a list of the matching ipa segments. Additionally, `$` can be used to target syllable breaks. 
-Right of the arrow contains a list of replacement strings. A star `*` or empty set symbol `∅` can be used to specify that the matching element should be removed.
-
-Some examples:
-```
-a:[+str, +long], a:[+long] > â, ā
-ʃ:[+long] > ssh
-$ > *
-
-'ʃ:a:.da: (becomes) sshâdā
-```
-```
-xan:[tone: 55] => 憨
-xan:[tone: 51] => 汉
-  y:[tone:214] => 语
-$ > *
-
-han51.y214 (becomes) 汉语
-```
-```
-ka, ta, na => カ, タ, ナ
-$ => *
-
-ka.ta.ka.na (becomes) カタカナ
-```
-
-#### Deromanisation
-A deromanisation rule allows you to modify your input into ipa into a form ASCA can recognise.
-The syntax here is the reverse of a romanisation rule, with replacement strings on the left and the ipa segments on the right of the arrow.
-Deromanisation rules are currently less powerful than romanisation rules as they do not allow for syllable breaks to be specified or inserted.
-```
-â, ā =>  a:[+str, +long], a:[+long] 
-ssh > ʃ:[+long]
-
-sshâ.dā (becomes) 'ʃ:a:.da:
-```
-
-```
-カ => ka
-タ => ta
-ナ => na
-
-カ.タ.カ.ナ (becomes) ka.ta.ka.na
-```
-
-```
-汉 > xan:[tone: 51] 
-语 >   y:[tone:214]
-
-汉.语 (becomes) han51.y214
-```
-
 #### Unicode Escapes
 ASCA allows for unicode character escapes to be used in replacement strings. 
 There are three types, codepoint escapes, named escapes and character escapes:
@@ -251,7 +196,59 @@ Characters that might otherwise cause a syntax error can be used by being preced
 \, (becomes) ,
 ```
 
+#### Romanisation
+A romanisation rule allows you to manipulate the output from ipa into another desired form. 
+The left-hand side of the arrow contains a list of the matching ipa segments. Additionally, `$` can be used to target syllable breaks. 
+Right of the arrow contains a list of replacement strings. A star `*` or empty set symbol `∅` can be used to specify that the matching element should be removed.
 
+Some examples:
+```
+a:[+str, +long], a:[+long] > â, ā
+ʃ:[+long] > ssh
+$ > *
+
+'ʃ:a:.da: (becomes) sshâdā
+```
+```
+xan:[tone: 55] => 憨
+xan:[tone: 51] => 汉
+  y:[tone:214] => 语
+$ > *
+
+han51.y214 (becomes) 汉语
+```
+```
+ka, ta, na => カ, タ, ナ
+$ => *
+
+ka.ta.ka.na (becomes) カタカナ
+```
+
+#### Deromanisation
+A deromanisation rule allows you to modify your input into ipa into a form ASCA can recognise.
+The syntax here is the reverse of a romanisation rule, with replacement strings on the left and the ipa segments on the right of the arrow.
+Deromanisation rules are currently less powerful than romanisation rules as they do not allow for syllable breaks to be specified or inserted.
+```
+â, ā =>  a:[+str, +long], a:[+long] 
+ssh > ʃ:[+long]
+
+sshâ.dā (becomes) 'ʃ:a:.da:
+```
+
+```
+カ => ka
+タ => ta
+ナ => na
+
+カ.タ.カ.ナ (becomes) ka.ta.ka.na
+```
+
+```
+汉 > xan:[tone: 51] 
+语 >   y:[tone:214]
+
+汉.语 (becomes) han51.y214
+```
 #### Future 
 Some things to look out for.
 
@@ -272,6 +269,7 @@ Inserting syllable boundaries:
 ```
 * > $ / V_C         (katakana) > ka.ta.ka.na
 ```
+
 
 ## Defining Sound Changes
 

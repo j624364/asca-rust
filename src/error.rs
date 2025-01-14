@@ -595,11 +595,13 @@ pub enum AliasSyntaxError {
     ExpectedEndLine     (AliasToken),
     ExpectedMatrix      (AliasToken),
     ExpectedArrow       (AliasToken),
+    UnknownGroup        (AliasToken),
     UnknownIPA          (AliasToken),
     DiacriticDoesNotMeetPreReqsFeat(AliasPosition, AliasPosition, String, bool),
     DiacriticDoesNotMeetPreReqsNode(AliasPosition, AliasPosition, String, bool),
     UnexpectedEol(AliasToken, char),
     UnbalancedIO(Vec<AliasItem>),
+    PlusInDerom(AliasPosition),
 }
 
 impl ASCAError for AliasSyntaxError {
@@ -626,13 +628,15 @@ impl ASCAError for AliasSyntaxError {
             AliasSyntaxError::ExpectedEndLine     (token) => format!("Expected end of line, received '{}' @ {}.", token.value, token.position),
             AliasSyntaxError::ExpectedMatrix      (token) => format!("Expected '[', but received '{}' @ {}.", if token.kind == AliasTokenKind::Eol {"End Of Line"} else {&token.value}, token.position),
             AliasSyntaxError::ExpectedArrow       (token) => format!("Expected '>', '->' or '=>', but received '{}' @ {}.", token.value, token.position),
+            AliasSyntaxError::UnknownGroup        (token) => format!("Unknown grouping '{}'. Known groupings are (C)onsonant, (O)bstruent, (S)onorant, (P)losive, (F)ricative, (L)iquid, (N)asal, (G)lide, and (V)owel @ {}.", token.value, token.position),
             AliasSyntaxError::UnknownIPA          (token) => format!("Could not get value of IPA '{}' @ {}.", token.value, token.position),
             AliasSyntaxError::DiacriticDoesNotMeetPreReqsFeat(.., t, pos) |
             AliasSyntaxError::DiacriticDoesNotMeetPreReqsNode(.., t, pos) => {
                 format!("Segment does not have prerequisite properties to have this diacritic. Must be [{}{}]", if *pos { '+' } else { '-' }, t) 
             },
             AliasSyntaxError::UnexpectedEol(token, ch) => format!("Expected `{ch}`, but received End of Line @ {}", token.position),
-            AliasSyntaxError::UnbalancedIO(_) => "Input or Output has too few elements @ ".to_string(),
+            AliasSyntaxError::UnbalancedIO(_) => "Input or Output has too few elements ".to_string(),
+            AliasSyntaxError::PlusInDerom(_) => "Deromaniser rules currently do not support addition".to_string(),
         }
     }
 
@@ -660,7 +664,8 @@ impl ASCAError for AliasSyntaxError {
                 *kind,
                 *line,
             ),
-            AliasSyntaxError::UnknownFeature(_, pos) |
+            AliasSyntaxError::PlusInDerom          (pos) |
+            AliasSyntaxError::UnknownFeature    (_, pos) |
             AliasSyntaxError::UnknownEnbyFeature(_, pos) => (
                 " ".repeat(pos.start) + &"^".repeat(pos.end-pos.start) + "\n", 
                 pos.kind,
@@ -670,6 +675,7 @@ impl ASCAError for AliasSyntaxError {
             AliasSyntaxError::ExpectedEndLine     (token) |
             AliasSyntaxError::ExpectedMatrix      (token) |
             AliasSyntaxError::ExpectedArrow       (token) |
+            AliasSyntaxError::UnknownGroup        (token) |
             AliasSyntaxError::UnknownIPA          (token) |
             AliasSyntaxError::UnexpectedEol       (token, _) => (
                 " ".repeat(token.position.start) + &"^".repeat(token.position.end-token.position.start) + "\n", 

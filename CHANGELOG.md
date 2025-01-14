@@ -1,3 +1,13 @@
+0.4.2 (Unreleased)
+==================
+
+Features:
+* Lib: Allow for groups and matrices to be used in alias rules
+* Lib: Introduce character addition in romanisation alias rules
+
+Tweaks:
+* Lib: Word-initial stress characters are removed when aliasing syllable boundaries
+
 0.4.1
 ==================
 
