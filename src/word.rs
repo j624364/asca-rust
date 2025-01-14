@@ -6,7 +6,7 @@ use std::{
 
 use crate :: {
     alias :: { parser::{AliasParseElement, SegType}, AliasPosition, Transformation },
-    error :: { AliasRuntimeError, AliasSyntaxError, Error, RuleRuntimeError, WordSyntaxError }, 
+    error :: { AliasRuntimeError, Error, RuleRuntimeError, WordSyntaxError }, 
     feature_to_node_mask,
     lexer :: { FType, NodeType, Position },
     parser:: { BinMod, ModKind, Modifiers, SupraSegs },
@@ -251,9 +251,6 @@ impl Word {
     fn fill_segments(&mut self, input_txt: &String, txt: &[char], i: &mut usize, sy: &mut Syllable, aliases: &[Transformation]) -> Result<bool, Error> {
         for alias in aliases {
             if let AliasParseElement::Replacement(string, plus) = &alias.input.kind {
-                if *plus {
-                    return Err(AliasSyntaxError::PlusInDerom(alias.input.position).into())
-                }
                 let back_pos = *i;
                 let mut is_match = true;
                 for ch in string.chars() {
@@ -284,7 +281,51 @@ impl Word {
                                         sy.segments.push_back(seg);
                                     }
                                 },
-                                SegType::Matrix(_) => todo!(),
+                                SegType::Matrix(mods) => if *plus {
+
+                                    let seg_indices = sy.get_seg_indices();
+                                    let Some(pos) = seg_indices.last() else {
+                                        Err(AliasRuntimeError::EmptySyllable(alias.input.position))?
+                                    };
+
+                                    self.alias_apply_stress(sy, mods, alias.output.position)?;                                    
+                                    if let Some(tn) = &mods.suprs.tone {
+                                        sy.tone = tn.clone();
+                                    }
+                                    
+                                    let cur_length = sy.segments.len() - pos;
+                                    let new_length = self.alias_apply_length(mods, alias.output.position)?;
+                                    let seg = {
+                                        let seg = sy.segments.get_mut(*pos).unwrap();
+                                        self.alias_apply_mods(seg, mods, alias.output.position)?;
+                                        *seg
+                                    };
+
+                                    match new_length.cmp(&cur_length) {
+                                        std::cmp::Ordering::Equal => {},
+                                        std::cmp::Ordering::Greater => for _ in cur_length..new_length {
+                                            sy.segments.push_back(seg);
+                                        },
+                                        std::cmp::Ordering::Less => for _ in new_length..cur_length {
+                                            sy.segments.pop_back();
+                                        },
+                                    }
+
+                                } else {
+                                    self.alias_apply_stress(sy, mods, alias.output.position)?;
+                                    if let Some(tn) = &mods.suprs.tone {
+                                        sy.tone = tn.clone();
+                                    }
+                                    
+                                    if mods.nodes.iter().any(|x| x.is_some()) || mods.feats.iter().any(|x| x.is_some()) {
+                                        Err(AliasRuntimeError::IndefiniteFeatures(alias.output.position))?
+                                    }
+
+                                    if mods.suprs.length.iter().any(|x| x.is_some()) {
+                                        Err(AliasRuntimeError::LengthNoSegment(alias.output.position))?
+                                    }
+                                    
+                                },
                             }
                             
 
@@ -758,7 +799,7 @@ impl Word {
         }
 
         if let Some(b_repl) = bound_repl_str {
-            if !b_repl.is_empty() && buffer.starts_with(&['ˈ', 'ˌ']) {
+            if !b_repl.is_empty() && buffer.starts_with(['ˈ', 'ˌ']) {
                 let mut chars = buffer.chars();
                 chars.next();
                 buffer = chars.as_str().to_string();

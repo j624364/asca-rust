@@ -60,6 +60,23 @@ impl Syllable {
         Ok(lc)
     }
 
+    pub fn get_seg_indices(&self) -> Vec<usize> {
+        let mut segments = self.segments.iter();
+
+        let mut vec = Vec::new();
+        
+        let mut i = 0;
+        
+        while i < self.segments.len() {
+            let index = i;
+            let len = self.get_seg_length_at(i);
+            segments.nth(len);
+            i+=len;
+            vec.push(index);
+        }
+        vec
+    }
+
     pub(crate) fn insert_segment(&mut self, pos: usize, seg: &Segment, mods: &Option<Modifiers>, alphas: &RefCell<HashMap<char, Alpha>>, err_pos: Position) -> Result<i8, RuleRuntimeError> {
         let mut lc = 0;
         if pos > self.segments.len() {
@@ -205,4 +222,29 @@ impl fmt::Display for Syllable {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(f, "({},{},'{}')", self.segments.len(), self.stress, self.tone)
     }
+}
+
+
+
+#[test]
+fn test_seg_indices() {
+    use super::*;
+    let indices = (&Word::new("ka:r".to_owned(), &[]).unwrap().syllables[0]).get_seg_indices();
+    assert_eq!(indices.len(), 3);
+    assert_eq!(indices[0], 0);
+    assert_eq!(indices[1], 1);
+    assert_eq!(indices[2], 3);
+
+    let indices = (&Word::new("ka::r".to_owned(), &[]).unwrap().syllables[0]).get_seg_indices();
+    assert_eq!(indices.len(), 3);
+    assert_eq!(indices[0], 0);
+    assert_eq!(indices[1], 1);
+    assert_eq!(indices[2], 4);
+
+    let indices = (&Word::new("k:ar:".to_owned(), &[]).unwrap().syllables[0]).get_seg_indices();
+    assert_eq!(indices.len(), 3);
+    assert_eq!(indices[0], 0);
+    assert_eq!(indices[1], 2);
+    assert_eq!(indices[2], 3);
+
 }

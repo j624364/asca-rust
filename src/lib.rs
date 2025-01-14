@@ -186,7 +186,6 @@ fn words_to_string(words: &[Word], alias_from: &[Transformation]) -> Result<Vec<
 fn parse_words(unparsed_words: &[String], alias_into: &[Transformation]) -> Result<Vec<Word>, Error> {
     let mut words: Vec<Word> = vec![];
     for w in unparsed_words {
-        // TODO: Apply aliases
         words.push(Word::new(normalise(w), alias_into)?);
     }
     Ok(words)
