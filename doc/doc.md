@@ -178,6 +178,8 @@ Named escapes take to form of `@{....}`. They allow for common diacritics to be 
 Capitalisation and spaces have no effect i.e. `@{OverDot}` is equal to `@{over dot}`. 
 Many also have alternatives, for examples as `@{OverX}` can be `@{XAbove}` or just `@{X}`.
 
+It is important to note that at the aliasing stage asca does not decompose any unicode characters, so `ą (U+0105)` will not match `a @{ogonek}` which is the sequence `U+0061 U+0328`.
+
 More characters can be added on request.
 
 ##### Character Escapes
@@ -198,7 +200,7 @@ Characters that might otherwise cause a syntax error can be used by being preced
 
 #### Romanisation
 A romanisation rule allows you to manipulate the output from ipa into another desired form. 
-The left-hand side of the arrow contains a list of the matching ipa segments. Additionally, `$` can be used to target syllable breaks. 
+The left-hand side of the arrow contains a list of the matching ipa segments or features. Additionally, `$` can be used to target syllable breaks. 
 Right of the arrow contains a list of replacement strings. A star `*` or empty set symbol `∅` can be used to specify that the matching element should be removed.
 
 Some examples:
@@ -249,16 +251,31 @@ sshâ.dā (becomes) 'ʃ:a:.da:
 
 汉.语 (becomes) han51.y214
 ```
+
+#### Plus Operator
+The plus operator `+` can be placed at the beginning of a replacement string. 
+This indicates that the string should be **added** to the normal rendering of the segment instead of replacing it.
+
+This can be useful for generalising diacritics to certain features:
+```
+V:[+str, +long] => +@{circumflex}       ( equiv. to:    a:[+str, +long], e:[+str, +long], ... => â, ê, ... )
+V:[-str, +long] => +@{macron}           ( equiv. to:    a:[-str, +long], e:[-str, +long], ... => ā, ē, ... )
+V:[+str, -long] => +@{acute}            ( equiv. to:    a:[+str, -long], e:[+str, -long], ... => á, é, ... )
+V:[+nasal]      => +@{ogonek}           ( equiv. to:    a:[+nasal], e:[+nasal], ...           => ą, ę, ... )
+```
+
+When used in deromanisation rules, this allows for payload to be added to the previously calculated segment.
+```
++@{ogonek} => [+nasal]
+
+as.tą (becomes) /as.tã/
+
+```
+It should be noted that this same rule without '+' errors as incomplete matrices cannot be converted to a canonical segment.
+
 #### Future 
 Some things to look out for.
 
-Generalisation with groupings and additive strings:
-```
-V:[+str, +long] => +@{circumflex}       ( a:[+str, +long], e:[+str, +long], ... => â, ê, ... )
-V:[-str, +long] => +@{macron}           ( a:[-str, +long], e:[-str, +long], ... => ā, ē, ... )
-V:[+str, -long] => +@{acute}            ( a:[+str, -long], e:[+str, -long], ... => á, é, ... )
-V:[+nasal]      => +@{ogonek}           ( a:[+nasal], e:[+nasal], ...           => ą, ę, ... )
-```
 Environments:
 ```
 s > Σ / #_
