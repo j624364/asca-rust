@@ -457,7 +457,7 @@ impl Parser {
         }
     }
 
-    fn group_to_matrix(&self, chr: Token) -> Result<Item, RuleSyntaxError> {
+    fn group_to_matrix(&self, chr: &Token) -> Result<Item, RuleSyntaxError> {
         // returns GROUP ← 'C' / 'O' / 'S' / 'L' / 'N' / 'G' / 'V' 
         use FType::*;
         use ModKind::*;
@@ -493,7 +493,7 @@ impl Parser {
             // "K"  // Velar    [+cons, -fr, +bk, +hi, -lo]
             // "Q"  // Uvular   [+cons, -fr, +bk, -hi, -lo]
 
-            _ => return Err(RuleSyntaxError::UnknownGrouping(chr)),
+            _ => return Err(RuleSyntaxError::UnknownGrouping(chr.clone())),
         }).into_iter().for_each(|(feature, value)| {
             args.feats[feature as usize] = Some(value)
         });
@@ -594,7 +594,7 @@ impl Parser {
 
     fn get_group(&mut self) -> Result<Item, RuleSyntaxError> {
         // returns GROUP (':' PARAMS)?
-        let chr = self.group_to_matrix(self.curr_tkn.clone())?;
+        let chr = self.group_to_matrix(&self.curr_tkn)?;
         self.advance();
 
         if !self.expect(TokenKind::Colon) {
