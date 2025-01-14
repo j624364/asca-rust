@@ -1,9 +1,12 @@
-0.4.2 (Unreleased)
+0.4.2
 ==================
 
 Features:
 * Lib: Allow for groups and matrices to be used in alias rules
-* Lib: Introduce character addition in romanisation alias rules
+* Lib: Introduce character addition in alias rules
+
+Fixes:
+* Cli: Bug introduced in 0.4.0 whereby tags were not being recognised
 
 Tweaks:
 * Lib: Word-initial stress characters are removed when aliasing syllable boundaries
