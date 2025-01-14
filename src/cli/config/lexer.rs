@@ -224,12 +224,8 @@ impl<'a> Lexer<'a> {
         Ok(Some(Token::new(TokenKind::String, buffer, s_line, start, self.l_num, self.l_pos)))
     }
 
-    // fn is_tag_char(x: &char) -> bool {
-    //     x.is_alphanumeric() || *x == '-' || *x == '–' || *x == '—' || *x == '_'
-    // }
-
     fn is_tag_char(x: &char) -> bool {
-        !(*x == '[' || *x == '@' || *x == '%' || *x == '$' || *x == '#'|| *x == ':' )
+        !(x.is_whitespace() || *x == '[' || *x == '@' || *x == '%' || *x == '$' || *x == '#'|| *x == ':' )
     }
 
     fn get_alias(&mut self) -> io::Result<Option<Token>> {
