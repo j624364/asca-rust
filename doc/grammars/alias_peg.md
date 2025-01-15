@@ -17,8 +17,9 @@ ESC_LIT ←   '\' SPC_CHR
 INPUT   ←   INP_TRM ( ',' INP_TRM )* ','?
 INP_TRM ←   SBOUND / SEG+
 
-SEG     ←   IPA (':' PARAMS)?
+SEG     ←   IPA (':' PARAMS)? / GROUP (':' PARAMS)? / PARAMS
 
+GROUP   ←   [A-Z]
 PARAMS  ←   '[' (ARG (',' ARG)*)? ']' 
 ARG     ←   ARG_MOD [a-zA-Z]+ / TONE
 ARG_MOD ←   '+' / '-'

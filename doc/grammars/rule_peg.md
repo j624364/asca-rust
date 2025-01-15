@@ -42,7 +42,7 @@ PIPE    ←   '|' / '//'                                      //
 
 IPA     ←   PRE_NAS? IPA_CHR (TIE IPA_CHR)? IPA_DIA*        //
 PRE_NAS ←   'ᵐ' / 'ⁿ' / 'ᶯ' / 'ᶮ' / 'ᵑ' / 'ᶰ'                  //
-IPA_CHR ←   [Unicode-IPA-character]                         // NOTE: As defined in `cardinals.json`
+IPA_CHR ←   [<Unicode IPA character>]                       // NOTE: As defined in `cardinals.json`
 TIE     ←   '^' / [U+0361] / [U+035C]                       //
 IPA_DIA ←   !PRE_NAS [Unicode-DIACRITIC-character]          // NOTE: As defined in `diacritics.json`
 ```
