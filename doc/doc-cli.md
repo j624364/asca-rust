@@ -66,7 +66,7 @@ Example:
 See the [sequences section](#the-config-file) for more info.
 
 ## Sequences
-The seq command allows for whole language families to be defined as a project within a `.asca` file and ran at once. 
+The seq command allows you to run language family projects, defined within a `.asca` file. 
 This lets you create a pipeline from parent to daughter languages, generating an output lexicon at each stage.
 
 For an example project, see the indo-european example folder [here](../examples/indo-european/germanic).
@@ -76,13 +76,13 @@ For an example project, see the indo-european example folder [here](../examples/
 Each transformation is called a sequence.
 
 A sequence tag is defined with `@`. 
-This tag can be called with `-t` to run only that specified sequence. 
-On output, the results will be stored in the directory `./out/<tag>/*`.
+A single specified tag can be run with `seq -t <tagname>`. 
+On output, the results will be stored in the directory `./out/<tagname>/*`.
 
 After a tag, paths to multiple wsca files can be specified between square brackets. 
-These word files will be joined and used as input. 
-The path is relative to the directory containing the config file, an extension is not necessary. 
-The word list is optional, but they then must be passed by the user at runtime with `-w`.
+These word files will be appended together and used as input. 
+The path is relative to the directory containing the config file, an extension is not necessary.
+The word file list is optional, but they then must be passed by the user with `seq -w <path>`.
 
 This is followed by a colon, after which follows a comma-delimited list of paths to rsca files. 
 Again, the path is relative to the config file and the extension does not need to be specified.
@@ -99,12 +99,12 @@ Again, the path is relative to the config file and the extension does not need t
 
 #### Filters
 A filter can be placed after each rule file to select rules within them. 
-Filters are case insensitive, but they must elsewise be identical in name. 
+Filters are case insensitive, but they must elsewise be identical in name to a rule defined within the file. 
 Multiple filters can be specified, separated by commas, and between curly brackets. 
 
 `!` means to exclude the following rules from the sequence. 
 
-`~` means to select only the following rules from the sequence (NOTE: Will be applied in the order they appear in the filter, not as they are in the rule file). 
+`~` means to select only the following rules from the sequence (NOTE: They will be applied in the order they appear in the filter, not as they are within the rule file). 
 This could be useful for defining commonly used sound changes within a 'global' sound change file and selecting them when needed. 
 
 ```diff
@@ -113,7 +113,7 @@ This could be useful for defining commonly used sound changes within a 'global' 
     "rules2" ~ {"Cluster Simplification", "Hap(lo)logy"},
 
 # The above sequence tagged "beta" means:
-# - Using the words at ./foo.wsca and ./bar.wsca,
+# - Using the words defined in ./foo.wsca and ./bar.wsca,
 # - Apply ./rules1.wsca WITHOUT "Glottal Deletion",
 # - Apply ONLY "Cluster Simplification" and "Hap(lo)logy", in that order, from ./rules2.wsca.
 ```
@@ -121,15 +121,31 @@ This could be useful for defining commonly used sound changes within a 'global' 
 #### Pipelines
 
 Instead of a word list, another defined sequence can be referenced with `%`. This will run the referenced sequence and use the resulting words as input. 
-This can be useful for defining daughter languages or branches without having to manually redefine the words.
+This can be useful for defining daughter languages or branches.
 
 ``` diff
-@gamma %alpha:
-    "rules1" ~ {"Low Vowel Reduction"},
+@old-english %west-germanic:
+    "foo", "bar", "baz",
 
-# The above sequence tagged "gamma" means:
-# - Using the result from @alpha as input,
-# - Apply "Low Vowel Reduction" from ./rules1.rsca
+@old-saxon %west-germanic:
+    "baz", "bar", "foo"
+```
+
+Additional word lists can be added after a pipeline tag,. which will be appended to tag's input. 
+This allows for you to add forms at an intermediate sequence (i.e. loanwords).
+
+```
+@gamma %alpha ["baz"]:
+    "rules1" ~ {"Low Vowel Reduction"},
+```
+
+#### Using Alias Files
+
+A romanisation file can be added to a sequence similarly to a pipeline by using `$`.
+
+```
+@delta %gamma $romanisation:
+    "rules3"
 ```
 
 ## Usage
@@ -165,9 +181,9 @@ Options:
 ```
 ### Seq command
 ```
-usage: asca seq [PATH] [-t | --tag <tag>] [-w | --words <path>] [-o | --output]
-                       [-y | --overwrite] [-n | --no-overwrite] [-i | --output-all]
-                       [-h | --help]
+usage: asca seq [PATH] [-t | --tag <tag>]  [-w | --words <path>] [-a | --all-steps] 
+                       [-y | --overwrite]  [-n | --no-overwrite] [-o | --output]   
+                       [-i | --output-all] [-h | --help]
 Arguments:
     [PATH]  Path to a directory containing an asca config file.
 Options:
