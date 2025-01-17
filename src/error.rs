@@ -98,23 +98,25 @@ impl From<AliasRuntimeError> for Error {
 
 #[derive(Debug, Clone)]
 pub enum WordSyntaxError {
-    UnknownChar(String, usize),
-    NoSegmentBeforeColon(String, usize),
     DiacriticBeforeSegment(String, usize),
+    NoSegmentBeforeColon  (String, usize),
+    UnknownChar           (String, usize),
+    ToneTooBig            (String, usize),
+    CouldNotParseEjective (String),
+    CouldNotParse         (String),
     DiacriticDoesNotMeetPreReqsFeat(String, usize, String, bool),
     DiacriticDoesNotMeetPreReqsNode(String, usize, String, bool),
-    CouldNotParse(String),
-    CouldNotParseEjective(String)
 }
 
 impl ASCAError for WordSyntaxError {
     fn get_error_message(&self) -> String {
         match self {
-            Self::UnknownChar(_, _)                      => "Unknown Char".to_string(),
-            Self::NoSegmentBeforeColon(_, _)             => "No Segment Before Colon".to_string(),
-            Self::DiacriticBeforeSegment(_, _)           => "Diacritic Before Segment".to_string(),
-            Self::CouldNotParse(_)                       => "Unable to parse word".to_string(),
-            Self::CouldNotParseEjective(_)               => "Unable to parse word. If you meant to have an ejective, you must use ʼ".to_string(),
+            Self::DiacriticBeforeSegment(..) => "Diacritic Before Segment".to_string(),
+            Self::NoSegmentBeforeColon  (..) => "No Segment Before Colon".to_string(),
+            Self::UnknownChar           (..) => "Unknown Char".to_string(),
+            Self::ToneTooBig            (..) => "Tone cannot be more than 4 digits long".to_string(),
+            Self::CouldNotParseEjective (..) => "Unable to parse word. If you meant to have an ejective, you must use ʼ".to_string(),
+            Self::CouldNotParse         (..) => "Unable to parse word".to_string(),
             Self::DiacriticDoesNotMeetPreReqsFeat(txt, i, t, pos) |
             Self::DiacriticDoesNotMeetPreReqsNode(txt, i, t, pos) => {
                 format!("Segment does not have prerequisite properties to have diacritic `{}`. Must be [{} {}]", txt.chars().nth(*i).unwrap_or_default(), if *pos { '+' } else { '-' },t)
@@ -134,11 +136,12 @@ impl ASCAError for WordSyntaxError {
                 " ".repeat(text.chars().count() - 1) + "^\n",
                 text
             ),
-            Self::UnknownChar(text, i)            |
-            Self::NoSegmentBeforeColon(text, i)   |
-            Self::DiacriticBeforeSegment(text, i) |
             Self::DiacriticDoesNotMeetPreReqsFeat(text, i, ..) |
-            Self::DiacriticDoesNotMeetPreReqsNode(text, i, ..) => (
+            Self::DiacriticDoesNotMeetPreReqsNode(text, i, ..) |
+            Self::DiacriticBeforeSegment         (text, i    ) |
+            Self::NoSegmentBeforeColon           (text, i    ) |
+            Self::UnknownChar                    (text, i    ) |
+            Self::ToneTooBig                     (text, i    ) => (
                 " ".repeat(*i) + "^" + "\n", 
                 text
             ),
@@ -343,52 +346,53 @@ type Pos = usize;
 
 #[derive(Debug, Clone)]
 pub enum RuleSyntaxError {
-    OptLocError(Position),
-    OptMathError(Token, usize, usize),
-    UnknownIPA(Token),
-    UnknownGrouping(Token),
-    UnknownCharacter(char, GroupNum, LineNum, Pos),
-    ExpectedCharColon(char, GroupNum, LineNum, Pos),
     ExpectedAlphabetic(char, GroupNum, LineNum, Pos),
-    ExpectedCharArrow(char, GroupNum, LineNum, Pos),
-    ExpectedCharDot(char, GroupNum, LineNum, Pos),
-    ExpectedNumber(char, GroupNum, LineNum, Pos),
-    TooManyUnderlines(Token),
-    UnexpectedEol(Token, char),
-    ExpectedEndL(Token),
-    ExpectedArrow(Token),
-    ExpectedComma(Token),
-    ExpectedColon(Token),
-    ExpectedMatrix(Token),
-    ExpectedSegment(Token),
+    ExpectedCharColon (char, GroupNum, LineNum, Pos),
+    ExpectedCharArrow (char, GroupNum, LineNum, Pos),
+    UnknownCharacter  (char, GroupNum, LineNum, Pos),
+    ExpectedCharDot   (char, GroupNum, LineNum, Pos),
+    ExpectedNumber    (char, GroupNum, LineNum, Pos),
     ExpectedTokenFeature(Token),
-    ExpectedVariable(Token),
-    ExpectedUnderline(Token),
     ExpectedRightBracket(Token),
-    BadSyllableMatrix(Token),
-    WrongModTone(GroupNum, LineNum, Pos),
+    TooManyUnderlines   (Token),
+    BadSyllableMatrix   (Token),
+    ExpectedUnderline   (Token),
+    ExpectedVariable    (Token),
+    UnknownGrouping     (Token),
+    ExpectedSegment     (Token),
+    ExpectedEndLine     (Token),
+    ExpectedMatrix      (Token),
+    ExpectedArrow       (Token),
+    ExpectedComma       (Token),
+    ExpectedColon       (Token),
+    ToneTooBig          (Token),
+    UnknownIPA          (Token),
+    InsertErr           (Token),
+    DeleteErr           (Token),
+    MetathErr           (Token),
     OutsideBrackets(GroupNum, LineNum, Pos),
-    NestedBrackets(GroupNum, LineNum, Pos),
-    InsertErr(Token),
-    DeleteErr(Token),
-    MetathErr(Token),
-    EmptyInput(GroupNum, LineNum, Pos),
-    EmptyOutput(GroupNum, LineNum, Pos),
-    EmptyEnv(GroupNum, LineNum, Pos),
-    EmptySet(Position),
+    NestedBrackets (GroupNum, LineNum, Pos),
+    WrongModTone   (GroupNum, LineNum, Pos),
+    EmptyOutput    (GroupNum, LineNum, Pos),
+    EmptyInput     (GroupNum, LineNum, Pos),
+    EmptyEnv       (GroupNum, LineNum, Pos),
     InsertMetath(GroupNum, LineNum, Pos, Pos),
     InsertDelete(GroupNum, LineNum, Pos, Pos),
-    StuffAfterWordBound(Position),
-    StuffBeforeWordBound(Position),
     TooManyWordBoundaries(Position),
-    UnknownFeature(String, Position),
+    StuffBeforeWordBound (Position),
+    StuffAfterWordBound  (Position),
+    WordBoundLoc         (Position),
+    OptLocError          (Position),
+    EmptySet             (Position),
+    UnknownFeature    (String, Position),
     UnknownEnbyFeature(String, Position),
-    UnbalancedRuleIO(Vec<Vec<Item>>),
-    UnbalancedRuleEnv(Vec<Item>),
     DiacriticDoesNotMeetPreReqsFeat(Position, Position, String, bool),
     DiacriticDoesNotMeetPreReqsNode(Position, Position, String, bool),
     UnexpectedDiacritic(Position, Position),
-    WordBoundLoc(Position),
+    UnbalancedRuleIO(Vec<Vec<Item>>),
+    UnbalancedRuleEnv(Vec<Item>),
+    OptMathError(Token, usize, usize),
+    UnexpectedEol(Token, char),
 }
 
 impl ASCAError for RuleSyntaxError {
@@ -411,10 +415,11 @@ impl ASCAError for RuleSyntaxError {
             Self::StuffBeforeWordBound(_)         => "Can't have segments before the beginning of a word".to_string(),
             Self::TooManyWordBoundaries(_)        => "Cannot have multiple word boundaries on each side of an environment".to_string(),
             Self::UnexpectedEol(_, c)             => format!("Expected `{c}`, but received End of Line"),
-            Self::ExpectedEndL(token)             => format!("Expected end of line, received '{}'. Did you forget a '/' between the output and environment?", token.value),
+            Self::ExpectedEndLine(token)             => format!("Expected end of line, received '{}'. Did you forget a '/' between the output and environment?", token.value),
             Self::ExpectedArrow(token)            => format!("Expected '>', '->' or '=>', but received '{}'", token.value),
             Self::ExpectedComma(token)            => format!("Expected ',', but received '{}'", token.value),
             Self::ExpectedColon(token)            => format!("Expected ':', but received '{}'", token.value),
+            Self::ToneTooBig(..)                  => "Tone cannot be more than 4 digits long".to_string(),
             Self::ExpectedUnderline(token)        => format!("Expected '_', but received '{}'", token.value),
             Self::ExpectedRightBracket(token)     => format!("Expected ')', but received '{}'", token.value),
             Self::ExpectedMatrix(token)           => format!("Expected '[', but received '{}'", if token.kind == TokenKind::Eol {"End Of Line"} else {&token.value}),
@@ -428,10 +433,10 @@ impl ASCAError for RuleSyntaxError {
             Self::InsertErr(_)                    => "The input of an insertion rule must only contain `*` or `∅`".to_string(),
             Self::DeleteErr(_)                    => "The output of a deletion rule must only contain `*` or `∅`".to_string(),
             Self::MetathErr(_)                    => "The output of a methathis rule must only contain `&`".to_string(),
-            Self::EmptyInput(..)                  => "Input cannot be empty. Use `*` or '∅' to indicate insertion".to_string(),
-            Self::EmptyOutput(..)                 => "Output cannot be empty. Use `*` or '∅' to indicate deletion".to_string(),
-            Self::EmptyEnv(..)                    => "Environment cannot be empty following a seperator.".to_string(),
-            Self::EmptySet(..)                    => "Sets cannot be empty".to_string(),
+            Self::EmptyOutput (..)                => "Output cannot be empty. Use `*` or '∅' to indicate deletion".to_string(),
+            Self::EmptyInput  (..)                => "Input cannot be empty. Use `*` or '∅' to indicate insertion".to_string(),
+            Self::EmptyEnv    (..)                => "Environment cannot be empty following a seperator.".to_string(),
+            Self::EmptySet    (..)                => "Sets cannot be empty".to_string(),
             Self::InsertMetath(..)                => "A rule cannot be both an Insertion rule and a Metathesis rule".to_string(),
             Self::InsertDelete(..)                => "A rule cannot be both an Insertion rule and a Deletion rule".to_string(),
             Self::UnbalancedRuleIO(_)             => "Input or Output has too few elements".to_string(),
@@ -450,25 +455,26 @@ impl ASCAError for RuleSyntaxError {
         let mut result = format!("{} {}", "Syntax Error:".bright_red().bold(), self.get_error_message().bold()); 
 
         let (arrows, group, line) = match self {
-            Self::OptMathError(t, _, _)   | 
-            Self::UnknownGrouping(t)      | 
-            Self::TooManyUnderlines(t)    | 
-            Self::UnexpectedEol(t, _)     | 
-            Self::ExpectedEndL(t)         | 
-            Self::ExpectedArrow(t)        | 
-            Self::ExpectedComma(t)        | 
-            Self::ExpectedColon(t)        | 
-            Self::ExpectedMatrix(t)       | 
-            Self::ExpectedSegment(t)      | 
+            Self::UnexpectedEol       (t, ..) | 
+            Self::OptMathError        (t, ..) | 
             Self::ExpectedTokenFeature(t) | 
-            Self::ExpectedVariable(t)     | 
-            Self::ExpectedUnderline(t)    | 
             Self::ExpectedRightBracket(t) |
-            Self::UnknownIPA(t)           | 
-            Self::InsertErr(t)            | 
-            Self::DeleteErr(t)            |
-            Self::MetathErr(t)            |
-            Self::BadSyllableMatrix(t)  => (
+            Self::TooManyUnderlines   (t) | 
+            Self::ExpectedUnderline   (t) | 
+            Self::ExpectedVariable    (t) | 
+            Self::UnknownGrouping     (t) | 
+            Self::ExpectedSegment     (t) | 
+            Self::ExpectedEndLine     (t) | 
+            Self::ExpectedMatrix      (t) | 
+            Self::ExpectedArrow       (t) | 
+            Self::ExpectedComma       (t) | 
+            Self::ExpectedColon       (t) | 
+            Self::ToneTooBig          (t) | 
+            Self::UnknownIPA          (t) | 
+            Self::InsertErr           (t) | 
+            Self::DeleteErr           (t) | 
+            Self::MetathErr           (t) | 
+            Self::BadSyllableMatrix   (t) => (
                 " ".repeat(t.position.start) + &"^".repeat(t.position.end-t.position.start) + "\n", 
                 t.position.group,
                 t.position.line

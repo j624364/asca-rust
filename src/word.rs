@@ -273,7 +273,7 @@ impl Word {
                                         length = self.alias_apply_length(mods, alias.output.position)?;
 
                                         if let Some(tn) = &mods.suprs.tone {
-                                            sy.tone = tn.clone();
+                                            sy.tone = *tn;
                                         }
                                     }
 
@@ -290,7 +290,7 @@ impl Word {
 
                                     self.alias_apply_stress(sy, mods, alias.output.position)?;                                    
                                     if let Some(tn) = &mods.suprs.tone {
-                                        sy.tone = tn.clone();
+                                        sy.tone = *tn;
                                     }
                                     
                                     let cur_length = sy.segments.len() - pos;
@@ -314,7 +314,7 @@ impl Word {
                                 } else {
                                     self.alias_apply_stress(sy, mods, alias.output.position)?;
                                     if let Some(tn) = &mods.suprs.tone {
-                                        sy.tone = tn.clone();
+                                        sy.tone = *tn;
                                     }
                                     
                                     if mods.nodes.iter().any(|x| x.is_some()) || mods.feats.iter().any(|x| x.is_some()) {
@@ -483,7 +483,10 @@ impl Word {
                         i+=1;
                     }
                     i-=1;
-                    sy.tone = tone_buffer;                    
+                    if tone_buffer.chars().count() > 4 {
+                        Err(WordSyntaxError::ToneTooBig(input_txt.clone(), i-tone_buffer.chars().count()))?
+                    }
+                    sy.tone = tone_buffer.parse().expect("tone_buffer is ascii digits");                    
                 }
                 self.syllables.push(sy.clone());
                 // Reset syllable for next pass
@@ -507,7 +510,7 @@ impl Word {
             }
         }
         if sy.segments.is_empty() {
-            if !sy.tone.is_empty() || sy.stress != StressKind::Unstressed {
+            if sy.tone != 0 || sy.stress != StressKind::Unstressed {
                 if sy.stress == StressKind::Primary {
                     if let Some(syll) = self.syllables.last() {
                         if !syll.segments.is_empty() {
@@ -524,7 +527,7 @@ impl Word {
 
     }
 
-    fn render_normal(&self) -> Result<String, (String, usize)> {
+    fn render_normal(&self) -> String {
         let mut buffer = String::new();
         for (i, syll) in self.syllables.iter().enumerate() {
             match syll.stress {
@@ -539,20 +542,19 @@ impl Word {
                     buffer.push_str(&seg.get_as_grapheme());
                 }
             }
-            buffer.push_str(&syll.tone);
+            if syll.tone != 0 {
+                buffer.push_str(&syll.tone.to_string());
+            }
         }
 
         if self.americanist {
-            let buffer = buffer
-                .replace("t͡s", "¢")
-                .replace("t͡ɬ",  "ƛ")
-                .replace("d͡ɮ", "λ")
-                .replace("ɬ",  "ł")
-                .replace("ɲ",  "ñ");
-
-            Ok(buffer)
+            buffer.replace("t͡s", "¢")
+                  .replace("t͡ɬ",  "ƛ")
+                  .replace("d͡ɮ", "λ")
+                  .replace("ɬ",  "ł")
+                  .replace("ɲ",  "ñ")
         } else {
-            Ok(buffer)
+            buffer
         }
     }
 
@@ -695,12 +697,12 @@ impl Word {
         for (i, f) in mods.feats.iter().enumerate() {
             if f.is_some() { joined_mods.feats[i] = *f }
         }
-        joined_mods.suprs = mods.suprs.clone();
+        joined_mods.suprs = mods.suprs;
 
         self.alias_match_modifiers(syll_index, seg_index, &joined_mods)   
     }
 
-    pub(crate) fn render(&self, aliases: &[Transformation]) -> Result<String, (String, usize)> {
+    pub(crate) fn render(&self, aliases: &[Transformation]) -> String {
         if aliases.is_empty() {
             return self.render_normal()
         }
@@ -787,8 +789,8 @@ impl Word {
                 }
             }
 
-            if !strip_tone {
-                buffer.push_str(&syll.tone);
+            if !strip_tone && syll.tone != 0{
+                buffer.push_str(&syll.tone.to_string());
             }
         }
 
@@ -801,7 +803,7 @@ impl Word {
             buffer = buffer.replace(['.', 'ˈ', 'ˌ'], b_repl);
         }
 
-        Ok(buffer)
+        buffer
     }
     #[allow(unused)]
     pub(crate) fn get_syll_segments(&self, syll_index: usize) -> &VecDeque<Segment> {
@@ -927,53 +929,74 @@ mod word_tests {
     #[test]
     fn test_render_word() {
         let w = Word::new(normalise("ˌna.kiˈsa"), &[]).unwrap();
-        assert_eq!(w.render(&[]).unwrap(), "ˌna.kiˈsa");
+        assert_eq!(w.render(&[]), "ˌna.kiˈsa");
 
         let w = Word::new(normalise(",na.ki'sa"), &[]).unwrap();
-        assert_eq!(w.render(&[]).unwrap(), "ˌna.kiˈsa");
+        assert_eq!(w.render(&[]), "ˌna.kiˈsa");
 
         let w = Word::new(normalise("ˈna.ki.sa123"), &[]).unwrap();
-        assert_eq!(w.render(&[]).unwrap(), "ˈna.ki.sa123");
+        assert_eq!(w.render(&[]), "ˈna.ki.sa123");
 
         let w = Word::new(normalise("aɫ.ɫa:h"), &[]).unwrap();
-        assert_eq!(w.render(&[]).unwrap(), "aɫ.ɫaːh");
+        assert_eq!(w.render(&[]), "aɫ.ɫaːh");
 
         let w = Word::new(normalise("aɫ.ɫa;hu"), &[]).unwrap();
-        assert_eq!(w.render(&[]).unwrap(), "aɫ.ɫaː.hu");
+        assert_eq!(w.render(&[]), "aɫ.ɫaː.hu");
 
         let w = Word::new(normalise("ˈɫɫaa"), &[]).unwrap();
-        assert_eq!(w.render(&[]).unwrap(), "ˈɫːaː");
+        assert_eq!(w.render(&[]), "ˈɫːaː");
 
         let w = Word::new(normalise("ˈt͡saa"), &[]).unwrap();
-        assert_eq!(w.render(&[]).unwrap(), "ˈt͡saː");
+        assert_eq!(w.render(&[]), "ˈt͡saː");
 
         let w = Word::new(normalise("ˈt^saa"), &[]).unwrap();
-        assert_eq!(w.render(&[]).unwrap(), "ˈt͡saː");
+        assert_eq!(w.render(&[]), "ˈt͡saː");
 
         let w = Word::new(normalise("ɴǃa"), &[]).unwrap();
-        assert_eq!(w.render(&[]).unwrap(), "ɴǃa");
+        assert_eq!(w.render(&[]), "ɴǃa");
 
         let w = Word::new(normalise("ǃɴa"), &[]).unwrap();
-        assert_eq!(w.render(&[]).unwrap(), "ǃɴa");
+        assert_eq!(w.render(&[]), "ǃɴa");
+    }
+
+    #[test]
+    fn test_render_tone() {
+        let w = Word::new(normalise("ma12"), &[]).unwrap(); 
+        assert_eq!(w.render(&[]), "ma12");
+
+        let w = Word::new(normalise("ma196"), &[]).unwrap(); 
+        assert_eq!(w.render(&[]), "ma196");
+
+        let w = Word::new(normalise("ma51"), &[]).unwrap(); 
+        assert_eq!(w.render(&[]), "ma51");
+
+        let w = Word::new(normalise("ma05"), &[]).unwrap(); 
+        assert_eq!(w.render(&[]), "ma5");
+
+        let w = Word::new(normalise("ma00"), &[]).unwrap(); 
+        assert_eq!(w.render(&[]), "ma");
+
+        let w = Word::new(normalise("ma1965"), &[]).unwrap(); 
+        assert_eq!(w.render(&[]), "ma1965");
     }
 
     #[test]
     fn test_render_diacritics() {
         // TODO: Test other diacritic combinations
         let w = Word::new(normalise("ˈmu.ðr̩"), &[]).unwrap(); 
-        assert_eq!(w.render(&[]).unwrap(), "ˈmu.ðr̩");
+        assert_eq!(w.render(&[]), "ˈmu.ðr̩");
 
         let w = Word::new(normalise("ˈpʰiːkʲ"), &[]).unwrap(); 
-        assert_eq!(w.render(&[]).unwrap(), "ˈpʰiːkʲ");
+        assert_eq!(w.render(&[]), "ˈpʰiːkʲ");
 
         let w = Word::new(normalise("ˈpʰiikʲ"), &[]).unwrap(); 
-        assert_eq!(w.render(&[]).unwrap(), "ˈpʰiːkʲ");
+        assert_eq!(w.render(&[]), "ˈpʰiːkʲ");
     }
 
     #[test]
     fn test_render_aliases() {
         match Word::new(normalise("'GAN;CEUN!eB.gRǝ:S.φXOI?,HYZ"), &[]) {
-            Ok(w) => assert_eq!(w.render(&[]).unwrap(), "ˈɢɐɴː.ɕɛʊɴǃeʙ.ɡʀəːʃ.ɸχɔɪʔˌʜʏʒ"),
+            Ok(w) => assert_eq!(w.render(&[]), "ˈɢɐɴː.ɕɛʊɴǃeʙ.ɡʀəːʃ.ɸχɔɪʔˌʜʏʒ"),
             Err(e) => {
                 println!("{}", e.format_word_error(&[]));
                 assert!(false);
@@ -984,7 +1007,7 @@ mod word_tests {
     #[test]
     fn test_americanist_aliases() {
         match Word::new(normalise("¢añ.φλełƛ"), &[]) {
-            Ok(w) => assert_eq!(w.render(&[]).unwrap(), "¢añ.ɸλełƛ"),
+            Ok(w) => assert_eq!(w.render(&[]), "¢añ.ɸλełƛ"),
             Err(e) => {
                 println!("{}", e.format_word_error(&[]));
                 assert!(false);
@@ -996,7 +1019,7 @@ mod word_tests {
     fn test_romanisation_simple() {
         let t = AliasParser::new(crate::alias::AliasKind::Romaniser, AliasLexer::new(crate::alias::AliasKind::Romaniser, &"ʃ, a:[+str], $ > sh, á, *".chars().collect::<Vec<_>>(), 0).get_line().unwrap(), 0).parse().unwrap();
         match Word::new(normalise("ʃa'ta"), &[]) {
-            Ok(w) => assert_eq!(w.render(&t).unwrap(), "shatá"),
+            Ok(w) => assert_eq!(w.render(&t), "shatá"),
             Err(e) => {
                 println!("{}", e.format_word_error(&[]));
                 assert!(false);
@@ -1008,7 +1031,7 @@ mod word_tests {
     fn test_romanisation_length() {
         let t = AliasParser::new(crate::alias::AliasKind::Romaniser, AliasLexer::new(crate::alias::AliasKind::Romaniser, &"ʃ:[+long], a:[+str, +long], t:[+long], $ > ssh, â, tt, *".chars().collect::<Vec<_>>(), 0).get_line().unwrap(), 0).parse().unwrap();
         match Word::new(normalise("ʃ:a't:a:"), &[]) {
-            Ok(w) => assert_eq!(w.render(&t).unwrap(), "sshattâ"),
+            Ok(w) => assert_eq!(w.render(&t), "sshattâ"),
             Err(e) => {
                 println!("{}", e.format_word_error(&[]));
                 assert!(false);
@@ -1020,7 +1043,7 @@ mod word_tests {
     fn test_romanisation_syllables() {
         let t = AliasParser::new(AliasKind::Romaniser, AliasLexer::new(AliasKind::Romaniser, &"ka, ta, na, $ > カ, タ, ナ, *".chars().collect::<Vec<_>>(), 0).get_line().unwrap(), 0).parse().unwrap();
         match Word::new(normalise("ka.ta.ka.na"), &[]) {
-            Ok(w) => assert_eq!(w.render(&t).unwrap(), "カタカナ"),
+            Ok(w) => assert_eq!(w.render(&t), "カタカナ"),
             Err(e) => {
                 println!("{}", e.format_word_error(&[]));
                 assert!(false);
@@ -1032,7 +1055,7 @@ mod word_tests {
     fn test_romanisation_syllables_with_tone() {
         let t = AliasParser::new(AliasKind::Romaniser, AliasLexer::new(AliasKind::Romaniser, &"ha:[tone: 55]n, ha:[tone: 51]n, y:[tone:214], $ > A, 汉, 语, *".chars().collect::<Vec<_>>(), 0).get_line().unwrap(), 0).parse().unwrap();
         match Word::new(normalise("han51.y214"), &[]) {
-            Ok(w) => assert_eq!(w.render(&t).unwrap(), "汉语"),
+            Ok(w) => assert_eq!(w.render(&t), "汉语"),
             Err(e) => {
                 println!("{}", e.format_word_error(&[]));
                 assert!(false);
@@ -1044,7 +1067,7 @@ mod word_tests {
     fn test_romanisation_segment_with_unicode_plus() {
         let t = AliasParser::new(AliasKind::Romaniser, AliasLexer::new(AliasKind::Romaniser, &"a:[+str], $ > +@{acute}, *".chars().collect::<Vec<_>>(), 0).get_line().unwrap(), 0).parse().unwrap();
         match Word::new(normalise("'ka.ta"), &[]) {
-            Ok(w) => assert_eq!(w.render(&t).unwrap(), "káta"),
+            Ok(w) => assert_eq!(w.render(&t), "káta"),
             Err(e) => {
                 println!("{}", e.format_word_error(&[]));
                 assert!(false);
@@ -1053,7 +1076,7 @@ mod word_tests {
 
         let t = AliasParser::new(AliasKind::Romaniser, AliasLexer::new(AliasKind::Romaniser, &"a:[+str], $ > @{acute}, *".chars().collect::<Vec<_>>(), 0).get_line().unwrap(), 0).parse().unwrap();
         match Word::new(normalise("'ka.ta"), &[]) {
-            Ok(w) => assert_eq!(w.render(&t).unwrap(), "ḱta"),
+            Ok(w) => assert_eq!(w.render(&t), "ḱta"),
             Err(e) => {
                 println!("{}", e.format_word_error(&[]));
                 assert!(false);
@@ -1065,7 +1088,7 @@ mod word_tests {
     fn test_romanisation_group_with_unicode_plus() {
         let t = AliasParser::new(AliasKind::Romaniser, AliasLexer::new(AliasKind::Romaniser, &"V:[+str], $ > +@{acute}, *".chars().collect::<Vec<_>>(), 0).get_line().unwrap(), 0).parse().unwrap();
         match Word::new(normalise("'ka.ta"), &[]) {
-            Ok(w) => assert_eq!(w.render(&t).unwrap(), "káta"),
+            Ok(w) => assert_eq!(w.render(&t), "káta"),
             Err(e) => {
                 println!("{}", e.format_word_error(&[]));
                 assert!(false);
@@ -1077,7 +1100,7 @@ mod word_tests {
     fn test_romanisation_remove_segment() {
         let t = AliasParser::new(AliasKind::Romaniser, AliasLexer::new(AliasKind::Romaniser, &"a > *".chars().collect::<Vec<_>>(), 0).get_line().unwrap(), 0).parse().unwrap();
         match Word::new(normalise("san.da"), &[]) {
-            Ok(w) => assert_eq!(w.render(&t).unwrap(), "sn.d"),
+            Ok(w) => assert_eq!(w.render(&t), "sn.d"),
             Err(e) => {
                 println!("{}", e.format_word_error(&[]));
                 assert!(false);
@@ -1085,7 +1108,7 @@ mod word_tests {
         }
         // TODO: Should probably fix this
         match Word::new(normalise("sa:n.da"), &[]) {
-            Ok(w) => assert_eq!(w.render(&t).unwrap(), "sːn.d"),
+            Ok(w) => assert_eq!(w.render(&t), "sːn.d"),
             Err(e) => {
                 println!("{}", e.format_word_error(&[]));
                 assert!(false);
@@ -1094,7 +1117,7 @@ mod word_tests {
 
         let t = AliasParser::new(AliasKind::Romaniser, AliasLexer::new(AliasKind::Romaniser, &"a:[+long] > *".chars().collect::<Vec<_>>(), 0).get_line().unwrap(), 0).parse().unwrap();
         match Word::new(normalise("sa:n.da"), &[]) {
-            Ok(w) => assert_eq!(w.render(&t).unwrap(), "sn.da"),
+            Ok(w) => assert_eq!(w.render(&t), "sn.da"),
             Err(e) => {
                 println!("{}", e.format_word_error(&[]));
                 assert!(false);
@@ -1106,7 +1129,7 @@ mod word_tests {
     fn test_deromanisation_simple() {
         let t = AliasParser::new(AliasKind::Deromaniser, AliasLexer::new(AliasKind::Deromaniser, &"sh, á => ʃ, a:[+str]".chars().collect::<Vec<_>>(), 0).get_line().unwrap(), 0).parse().unwrap();
         match Word::new(normalise("sha.tá"), &t) {
-            Ok(w) => assert_eq!(w.render(&[]).unwrap(), "ʃaˈta"),
+            Ok(w) => assert_eq!(w.render(&[]), "ʃaˈta"),
             Err(e) => {
                 println!("{}", e.format_word_error(&[]));
                 assert!(false);
@@ -1118,7 +1141,16 @@ mod word_tests {
     fn test_deromanisation_length() {
         let t = AliasParser::new(AliasKind::Deromaniser, AliasLexer::new(AliasKind::Deromaniser, &"ssh, â => ʃ:[+long], a:[+str, +long]".chars().collect::<Vec<_>>(), 0).get_line().unwrap(), 0).parse().unwrap();
         match Word::new(normalise("ssha.tâ"), &t) {
-            Ok(w) => assert_eq!(w.render(&[]).unwrap(), "ʃːaˈtaː"),
+            Ok(w) => assert_eq!(w.render(&[]), "ʃːaˈtaː"),
+            Err(e) => {
+                println!("{}", e.format_word_error(&[]));
+                assert!(false);
+            }
+        }
+
+        let t = AliasParser::new(AliasKind::Deromaniser, AliasLexer::new(AliasKind::Deromaniser, &"+@{circum} => [+str, +long]".chars().collect::<Vec<_>>(), 0).get_line().unwrap(), 0).parse().unwrap();
+        match Word::new(normalise("tâ"), &t) {
+            Ok(w) => assert_eq!(w.render(&[]), "ˈtaː"),
             Err(e) => {
                 println!("{}", e.format_word_error(&[]));
                 assert!(false);
@@ -1130,7 +1162,7 @@ mod word_tests {
     fn test_deromanisation_syllables() {
         let t = AliasParser::new(AliasKind::Deromaniser, AliasLexer::new(AliasKind::Deromaniser, &"カ, タ, ナ > ka, ta, na".chars().collect::<Vec<_>>(), 0).get_line().unwrap(), 0).parse().unwrap();
         match Word::new(normalise("カ.タ.カ.ナ"), &t) {
-            Ok(w) => assert_eq!(w.render(&[]).unwrap(), "ka.ta.ka.na"),
+            Ok(w) => assert_eq!(w.render(&[]), "ka.ta.ka.na"),
             Err(e) => {
                 println!("{}", e.format_word_error(&[]));
                 assert!(false);
@@ -1142,7 +1174,7 @@ mod word_tests {
     fn test_deromanisation_syllables_with_tone() {
         let t = AliasParser::new(AliasKind::Deromaniser, AliasLexer::new(AliasKind::Deromaniser, &"汉, 语 => ha:[tn: 51]n, y:[tone:214]".chars().collect::<Vec<_>>(), 0).get_line().unwrap(), 0).parse().unwrap();
         match Word::new(normalise("汉.语"), &t) {
-            Ok(w) => assert_eq!(w.render(&[]).unwrap(), "han51.y214"),
+            Ok(w) => assert_eq!(w.render(&[]), "han51.y214"),
             Err(e) => {
                 println!("{}", e.format_word_error(&[]));
                 assert!(false);

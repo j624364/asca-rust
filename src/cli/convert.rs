@@ -64,7 +64,7 @@ pub fn from_seq(config_dir: Option<PathBuf>, tag: String, output: Option<PathBuf
     let dir_path = util::validate_directory(config_dir)?;
     let conf = get_config(&dir_path)?;
 
-    let Some(seq) = conf.iter().find(|c| c.tag == tag) else {
+    let Some(seq) = conf.iter().find(|c| c.tag.as_ref() == tag) else {
         let possible_tags = conf.iter().map(|c| c.tag.clone()).collect::<Vec<_>>().join("\n- ");
         return Err(io::Error::other(format!("{} Could not find tag '{}' in config.\nAvailable tags are:\n- {}", "Config Error:".bright_red(), tag.yellow(), possible_tags)))
     };
@@ -79,7 +79,7 @@ pub fn from_seq(config_dir: Option<PathBuf>, tag: String, output: Option<PathBuf
 
         let (_ , from) = if let Some(alias) = &seq.alias {
             let mut a_path = dir_path.to_path_buf();
-            a_path.push(alias);
+            a_path.push(alias.as_ref());
             a_path.set_extension(ALIAS_FILE_EXT);
             parse::parse_alias(&util::validate(&a_path, &[ALIAS_FILE_EXT, "txt"])?)?
         } else {
@@ -97,7 +97,7 @@ pub fn from_seq(config_dir: Option<PathBuf>, tag: String, output: Option<PathBuf
 
         let (into, from) = if let Some(alias) = &seq.alias {
             let mut a_path = dir_path.to_path_buf();
-            a_path.push(alias);
+            a_path.push(alias.as_ref());
             a_path.set_extension(ALIAS_FILE_EXT);
             parse::parse_alias(&util::validate(&a_path, &[ALIAS_FILE_EXT, "txt"])?)?
         } else {

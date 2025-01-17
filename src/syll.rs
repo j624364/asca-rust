@@ -33,12 +33,12 @@ impl fmt::Display for StressKind {
 pub(crate) struct Syllable {
     pub(crate) segments: VecDeque<Segment>,
     pub(crate) stress: StressKind,
-    pub(crate) tone: String
+    pub(crate) tone: u32
 }
 
 impl Syllable {
     pub(crate) fn new() -> Self {
-        Self {segments: VecDeque::new(), stress: StressKind::default(), tone: String::new()}
+        Self {segments: VecDeque::new(), stress: StressKind::default(), tone: 0}
     }
 
     pub(crate) fn replace_segment(&mut self, pos: usize, seg: &Segment, mods: &Option<Modifiers>, alphas: &RefCell<HashMap<char, Alpha>>, err_pos: Position) -> Result<i8, RuleRuntimeError> {
@@ -205,7 +205,7 @@ impl Syllable {
         }
 
         if let Some(t) = &mods.tone {
-            self.tone = t.clone();
+            self.tone = *t;
         }
 
         Ok(())

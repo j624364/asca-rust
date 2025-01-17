@@ -1,4 +1,4 @@
-use std::{collections::HashSet, io, path::{Path, PathBuf}};
+use std::{collections::HashSet, io, path::{Path, PathBuf}, rc::Rc};
 
 use asca::RuleGroup;
 use colored::Colorize;
@@ -18,7 +18,7 @@ impl<'a> Parser<'a> {
         let mut s = Self { 
             token_list: lst, 
             pos: 0, 
-            curr_tkn: Token { kind: TokenKind::EoF, value: String::new(), position: Position::new(0, 0, 0, 1 ) },
+            curr_tkn: Token { kind: TokenKind::EoF, value: Rc::default(), position: Position::new(0, 0, 0, 1 ) },
             path,
         };
         s.curr_tkn = s.token_list[s.pos].clone();
@@ -34,7 +34,7 @@ impl<'a> Parser<'a> {
             self.token_list[self.pos].clone()
         } else {
             let last_pos = self.token_list.last().unwrap().position;
-            Token { kind: TokenKind::EoF, value: String::new(), position: Position::new(last_pos.s_line, last_pos.s_pos, last_pos.e_line, last_pos.e_line+1) }
+            Token { kind: TokenKind::EoF, value: Rc::default(), position: Position::new(last_pos.s_line, last_pos.s_pos, last_pos.e_line, last_pos.e_line+1) }
         };
 
         if self.curr_tkn.kind == TokenKind::Comment {
@@ -228,7 +228,7 @@ impl<'a> Parser<'a> {
         Ok(entries)
     }
 
-    fn get_word_paths(&mut self) -> io::Result<Vec<String>> {
+    fn get_word_paths(&mut self) -> io::Result<Vec<Rc<str>>> {
         if !self.expect(TokenKind::LeftSquare) {
             return Ok(Vec::new())
         }

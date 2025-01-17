@@ -1,4 +1,4 @@
-use std::{io, fmt};
+use std::{fmt, io, rc::Rc};
 
 use colored::Colorize;
 
@@ -58,13 +58,13 @@ impl Position {
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Token {
     pub(super) kind: TokenKind,
-    pub(super) value: String, 
+    pub(super) value: Rc<str>, 
     pub(super) position: Position,
 }
 
 impl Token {
-    pub(super) fn new(kind: TokenKind, value: String, s_line: usize, start: usize, e_line:usize, end: usize) -> Self {
-        Self { kind, value, position: Position::new(s_line, start, e_line, end) }
+    pub(super) fn new(kind: TokenKind, value: &str, s_line: usize, start: usize, e_line:usize, end: usize) -> Self {
+        Self { kind, value: Rc::from(value), position: Position::new(s_line, start, e_line, end) }
     }
 }
 
@@ -149,22 +149,22 @@ impl<'a> Lexer<'a> {
         let start_line = self.l_num;
         let start = self.l_pos;
         let tokenkind: TokenKind;
-        let value: String;
+        let value: &str;
 
         match self.curr_char() {
-            '}' => { tokenkind = TokenKind::RightCurly;   value = "}".to_string(); self.inside_curly  = false },
-            ']' => { tokenkind = TokenKind::RightSquare;  value = "]".to_string(); self.inside_square = false },
+            '}' => { tokenkind = TokenKind::RightCurly;   value = "}"; self.inside_curly  = false },
+            ']' => { tokenkind = TokenKind::RightSquare;  value = "]"; self.inside_square = false },
             '{' => { 
                 if self.inside_curly {
                     return Err(self.error(format!("Unclosed brackets at {}:{}", self.l_num, self.l_pos)))
                 }
-                tokenkind = TokenKind::LeftCurly; value = "{".to_string();  self.inside_curly = true
+                tokenkind = TokenKind::LeftCurly; value = "{";  self.inside_curly = true
             },
             '[' => { 
                 if self.inside_square {
                     return Err(self.error(format!("Unclosed brackets at {}:{}", self.l_num, self.l_pos)))
                 }
-                tokenkind = TokenKind::LeftSquare; value = "[".to_string();  self.inside_square = true
+                tokenkind = TokenKind::LeftSquare; value = "[";  self.inside_square = true
             },
             _ => return Ok(None)
         }
@@ -186,7 +186,7 @@ impl<'a> Lexer<'a> {
              _  => return Ok(None)
         };
 
-        Ok(Some(Token::new(tokenkind, value, start_line, start, self.l_num, self.l_pos)))
+        Ok(Some(Token::new(tokenkind, &value, start_line, start, self.l_num, self.l_pos)))
     }
 
     fn get_comment(&mut self) -> Result<Option<Token>, io::Error> {
@@ -200,7 +200,7 @@ impl<'a> Lexer<'a> {
             buffer.pop();
         }
 
-        Ok(Some(Token::new(TokenKind::Comment, buffer, start_line, start, self.l_num, self.l_pos)))
+        Ok(Some(Token::new(TokenKind::Comment, &buffer, start_line, start, self.l_num, self.l_pos)))
     }
 
     fn get_string(&mut self) -> Result<Option<Token>, io::Error> {
@@ -221,7 +221,7 @@ impl<'a> Lexer<'a> {
             return Err(self.error(format!("Empty string at {}:{}", self.l_num, self.l_pos)))
         }
 
-        Ok(Some(Token::new(TokenKind::String, buffer, s_line, start, self.l_num, self.l_pos)))
+        Ok(Some(Token::new(TokenKind::String, &buffer, s_line, start, self.l_num, self.l_pos)))
     }
 
     fn is_tag_char(x: &char) -> bool {
@@ -240,7 +240,7 @@ impl<'a> Lexer<'a> {
             return Err(self.error(format!("Empty alias at {}:{}", self.l_num, self.l_pos)))
         }
 
-        Ok(Some(Token::new(TokenKind::Alias, buffer, s_line, start, self.l_num, self.l_pos)))
+        Ok(Some(Token::new(TokenKind::Alias, &buffer, s_line, start, self.l_num, self.l_pos)))
     }
 
     fn get_from(&mut self) -> io::Result<Option<Token>> {
@@ -255,7 +255,7 @@ impl<'a> Lexer<'a> {
             return Err(self.error(format!("Empty pipeline at {}:{}", self.l_num, self.l_pos)))
         }
 
-        Ok(Some(Token::new(TokenKind::From, buffer, s_line, start, self.l_num, self.l_pos)))
+        Ok(Some(Token::new(TokenKind::From, &buffer, s_line, start, self.l_num, self.l_pos)))
     }
 
     fn get_tag(&mut self) -> io::Result<Option<Token>> {
@@ -270,13 +270,13 @@ impl<'a> Lexer<'a> {
             return Err(self.error(format!("Empty tag at {}:{}", self.l_num, self.l_pos)))
         }
 
-        Ok(Some(Token::new(TokenKind::Tag, buffer, s_line, start, self.l_num, self.l_pos)))
+        Ok(Some(Token::new(TokenKind::Tag, &buffer, s_line, start, self.l_num, self.l_pos)))
     }
 
     fn get_next_token(&mut self) -> Result<Token, io::Error> {
         self.trim_whitespace();
 
-        if !self.has_more_chars() { return Ok(Token::new(TokenKind::EoF, String::new(), self.l_num, self.l_pos, self.l_num,self.l_pos+1)) }
+        if !self.has_more_chars() { return Ok(Token::new(TokenKind::EoF, "", self.l_num, self.l_pos, self.l_num,self.l_pos+1)) }
 
         if let Some(tag) = self.get_tag()?     { return Ok(tag) }
         if let Some(frm) = self.get_from()?    { return Ok(frm) }

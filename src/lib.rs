@@ -9,8 +9,6 @@ mod subrule;
 mod error;
 mod alias;
 
-use alias::{lexer::AliasLexer, parser::AliasParser, AliasKind};
-pub use alias::Transformation;
 pub use error::*;
 
 use serde::Deserialize;
@@ -18,6 +16,7 @@ use std::collections::HashMap;
 use lazy_static::lazy_static;
 use wasm_bindgen::prelude::*;
 
+use alias ::{lexer::AliasLexer, parser::AliasParser, AliasKind, Transformation};
 use lexer ::*;
 use parser::*;
 use trie  ::*;
@@ -118,6 +117,14 @@ impl RuleGroup {
         Self { name: String::new(), rule: Vec::new(), description: String::new() }
     }
 
+    pub fn from<T: Into<String>>(name: T, rule: Vec<String>, description: T) -> Self {
+        Self { name: name.into(), rule, description: description.into() }
+    }
+
+    pub fn from_rules(rule: Vec<String>) -> Self {
+        Self { name: String::new(), rule, description: String::new() }
+    }
+
     pub fn is_empty(&self) -> bool {
         self.name.is_empty() && self.rule.is_empty() && self.description.is_empty()
     }
@@ -156,12 +163,12 @@ pub(crate) fn normalise(s: &str) -> String {
 }
 
 fn apply_rule_groups(rules: &[Vec<Rule>], words: &[Word]) -> Result<Vec<Word>, Error> {
-    let mut transformed_words: Vec<Word> = vec![];
+    let mut transformed_words: Vec<Word> = Vec::with_capacity(words.len());
 
     for word in words {
         let mut res_word = word.clone();
 
-        for rule_group in rules.iter() {
+        for rule_group in rules {
             for rule in rule_group {
                 res_word = rule.apply(res_word)?;
             }
@@ -172,19 +179,16 @@ fn apply_rule_groups(rules: &[Vec<Rule>], words: &[Word]) -> Result<Vec<Word>, E
     Ok(transformed_words)
 }
 
-fn words_to_string(words: &[Word], alias_from: &[Transformation]) -> Result<Vec<String>, WordRuntimeError> {
-    let mut wrds_str: Vec<String> = vec![];
-    for (i, w) in words.iter().enumerate() {
-        match w.render(alias_from) {
-            Ok(r) => wrds_str.push(r),
-            Err((b, j)) => return Err(WordRuntimeError::UnknownSegment(b,i,j)),
-        }
+fn words_to_string(words: Vec<Word>, alias_from: Vec<Transformation>) -> Result<Vec<String>, WordRuntimeError> {
+    let mut wrds_str: Vec<String> = Vec::with_capacity(words.len());
+    for w in words {
+        wrds_str.push(w.render(&alias_from));
     }
     Ok(wrds_str)
 }
 
 fn parse_words(unparsed_words: &[String], alias_into: &[Transformation]) -> Result<Vec<Word>, Error> {
-    let mut words: Vec<Word> = vec![];
+    let mut words: Vec<Word> = Vec::with_capacity(unparsed_words.len());
     for w in unparsed_words {
         words.push(Word::new(normalise(w), alias_into)?);
     }
@@ -192,10 +196,10 @@ fn parse_words(unparsed_words: &[String], alias_into: &[Transformation]) -> Resu
 }
 
 fn parse_rule_groups(unparsed_rule_groups: &[RuleGroup]) -> Result<Vec<Vec<Rule>>, RuleSyntaxError> {
-    let mut rule_groups = vec![];
+    let mut rule_groups = Vec::with_capacity(unparsed_rule_groups.len());
 
     for (rgi, rg) in unparsed_rule_groups.iter().enumerate() {
-        let mut rule_group = vec![];
+        let mut rule_group = Vec::with_capacity(rg.rule.len());
         for (ri, r) in rg.rule.iter().enumerate() {
             if let Some(asdf) = Parser::new(Lexer::new(&r.chars().collect::<Vec<_>>(), rgi, ri).get_line()?, rgi, ri).parse()? {
                 rule_group.push(asdf);
@@ -223,13 +227,14 @@ fn parse_aliases(_into: &[String], _from: &[String]) -> Result<(Vec<Transformati
 
 pub fn run(unparsed_rules: &[RuleGroup], unparsed_words: &[String], alias_into: &[String], alias_from: &[String]) -> Result<Vec<String>, Error> {
     let (alias_into, alias_from) = parse_aliases(alias_into, alias_from)?;
-
+    
     let words = parse_words(unparsed_words, &alias_into)?;
     let rules = parse_rule_groups(unparsed_rules)?;
+    // let rules = vec![];
 
     let res = apply_rule_groups(&rules, &words)?;
-    
-    Ok(words_to_string(&res, &alias_from)?)
+
+    Ok(words_to_string(res, alias_from)?)
 }
 
 

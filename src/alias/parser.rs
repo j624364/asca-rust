@@ -169,7 +169,7 @@ impl AliasParser {
                 match value.as_str() {
                     "+" => (feature, Mods::Binary(BinMod::Positive)),
                     "-" => (feature, Mods::Binary(BinMod::Negative)),
-                    _ if feature == FeatType::Supr(SupraType::Tone) => (feature, Mods::Number(value.to_owned())),
+                    _ if feature == FeatType::Supr(SupraType::Tone) => (feature, Mods::Number(value.parse().expect("value is ascii digit"))),
                     _ => {
                         unreachable!();
                     }

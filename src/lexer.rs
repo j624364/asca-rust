@@ -1,4 +1,4 @@
-use std  ::fmt::{self, Display};
+use std::{fmt::{self, Display}, rc::Rc };
 use serde::Deserialize;
 
 use crate::{
@@ -290,13 +290,13 @@ impl Display for Position {
 #[derive(Clone, PartialEq, Eq)]
 pub struct Token {
     pub(crate) kind: TokenKind,
-    pub(crate) value: String, 
+    pub(crate) value: Rc<str>, 
     pub(crate) position: Position,
 }
 
 impl Token {
-    pub(crate) fn new(kind: TokenKind, value: String, group: usize, line: usize, start: usize, end: usize) -> Self {
-        Self { kind, value, position: Position::new(group, line, start, end) }
+    pub(crate) fn new(kind: TokenKind, value: &str, group: usize, line: usize, start: usize, end: usize) -> Self {
+        Self { kind, value: Rc::from(value), position: Position::new(group, line, start, end) }
     }
 }
 
@@ -375,31 +375,31 @@ impl<'a> Lexer<'a> {
     fn get_bracket(&mut self) -> Result<Option<Token>, RuleSyntaxError> {
         let start = self.pos;
         let tokenkind: TokenKind;
-        let value: String;
+        let value;
 
         match self.curr_char() {
-            ')' => { tokenkind = TokenKind::RightBracket; value = ")".to_string(); self.inside_option = false },
-            ']' => { tokenkind = TokenKind::RightSquare;  value = "]".to_string(); self.inside_matrix = false },
-            '}' => { tokenkind = TokenKind::RightCurly;   value = "}".to_string(); self.inside_set    = false },
+            ')' => { tokenkind = TokenKind::RightBracket; value = ")"; self.inside_option = false },
+            ']' => { tokenkind = TokenKind::RightSquare;  value = "]"; self.inside_matrix = false },
+            '}' => { tokenkind = TokenKind::RightCurly;   value = "}"; self.inside_set    = false },
             '⟨' => unimplemented!(), // { tokenkind = TokenKind::LeftAngle;    value = "⟨".to_string(); },
             '⟩' => unimplemented!(), // { tokenkind = TokenKind::RightAngle;   value = "⟩".to_string(); },
             '{' => { 
                 if self.inside_set {
                     return Err(RuleSyntaxError::NestedBrackets(self.group, self.line, start));
                 }
-                tokenkind = TokenKind::LeftCurly; value = "{".to_string();  self.inside_set = true
+                tokenkind = TokenKind::LeftCurly; value = "{";  self.inside_set = true
             },
             '(' => { 
                 if self.inside_option {
                     return Err(RuleSyntaxError::NestedBrackets(self.group, self.line, start));
                 }
-                tokenkind = TokenKind::LeftBracket; value = "(".to_string(); self.inside_option = true
+                tokenkind = TokenKind::LeftBracket; value = "("; self.inside_option = true
             },
             '[' => { 
                 if self.inside_matrix {
                     return Err(RuleSyntaxError::NestedBrackets(self.group, self.line, start));
                 }
-                tokenkind = TokenKind::LeftSquare; value = "[".to_string();  self.inside_matrix = true
+                tokenkind = TokenKind::LeftSquare; value = "[";  self.inside_matrix = true
             },
             _ => return Ok(None)
         }
@@ -416,7 +416,7 @@ impl<'a> Lexer<'a> {
 
         let c = self.chop(1);
         
-        Some(Token::new(TokenKind::Group, c, self.group, self.line, start, self.pos))
+        Some(Token::new(TokenKind::Group, c.as_ref(), self.group, self.line, start, self.pos))
     }
 
     fn get_numeric(&mut self) -> Option<Token> {
@@ -426,7 +426,7 @@ impl<'a> Lexer<'a> {
 
         let buffer = self.chop_while(|x| x.is_ascii_digit());
 
-        Some(Token::new(TokenKind::Number, buffer, self.group, self.line, start, self.pos))
+        Some(Token::new(TokenKind::Number, buffer.as_str(), self.group, self.line, start, self.pos))
     }
 
     fn get_feature(&mut self) -> Result<Option<Token>, RuleSyntaxError> {
@@ -467,7 +467,7 @@ impl<'a> Lexer<'a> {
             return Err(RuleSyntaxError::WrongModTone(self.group, self.line, start))
         } }
 
-        Ok(Some(Token::new(tkn_kind, mod_val, self.group, self.line, start, self.pos)))
+        Ok(Some(Token::new(tkn_kind, &mod_val, self.group, self.line, start, self.pos)))
     }
 
     fn get_special_char(&mut self) -> Result<Option<Token>, RuleSyntaxError> {
@@ -506,7 +506,7 @@ impl<'a> Lexer<'a> {
             },
             _ => return Ok(None)
         };
-        Ok(Some(Token::new(tokenkind, value, self.group, self.line, start, self.pos)))
+        Ok(Some(Token::new(tokenkind, &value, self.group, self.line, start, self.pos)))
     }
 
     fn get_diacritic(&mut self) -> Option<Token> {
@@ -518,7 +518,7 @@ impl<'a> Lexer<'a> {
         for (i, d) in DIACRITS.iter().enumerate() {
             if char == d.diacrit {
                 self.advance();
-                return Some(Token::new(TokenKind::Diacritic(i as u8), char.to_string(), self.group, self.line, start, self.pos))
+                return Some(Token::new(TokenKind::Diacritic(i as u8), &char.to_string(), self.group, self.line, start, self.pos))
             }
         }
         None
@@ -626,7 +626,7 @@ impl<'a> Lexer<'a> {
                 //     invalid 
                 // }
                 
-                return Some(Token::new(TokenKind::Cardinal, buffer, self.group, self.line, start, self.pos))
+                return Some(Token::new(TokenKind::Cardinal, &buffer, self.group, self.line, start, self.pos))
             }
         }
         None
@@ -656,7 +656,7 @@ impl<'a> Lexer<'a> {
         self.trim_whitespace();
 
         match self.get_numeric() {
-            Some(num) => Ok(Some(Token::new(tkn_kind, num.value, self.group, self.line, start, self.pos))),
+            Some(num) => Ok(Some(Token::new(tkn_kind, &num.value, self.group, self.line, start, self.pos))),
             _ => Err(RuleSyntaxError::ExpectedNumber(self.curr_char(), self.group, self.line, self.pos))
 
         }
@@ -746,7 +746,7 @@ impl<'a> Lexer<'a> {
         
         self.trim_whitespace();
         
-        if !self.has_more_chars() { return Ok(Token::new(TokenKind::Eol, String::new(), self.group, self.line, self.pos, self.pos+1)) }
+        if !self.has_more_chars() { return Ok(Token::new(TokenKind::Eol, "", self.group, self.line, self.pos, self.pos+1)) }
 
         if let Some(bkt_token) = self.get_bracket()?      { return Ok(bkt_token) }
         if let Some(pmt_token) = self.get_primative()     { return Ok(pmt_token) }
@@ -782,13 +782,13 @@ mod lexer_tests {
     #[test]
     fn test_syll() {
 
-        let test_input = String::from("%");
+        let test_input = "%";
         let expected_result = TokenKind::Syllable;
 
         let result = Lexer::new(&test_input.chars().collect::<Vec<_>>(), 0, 0).get_next_token().unwrap();
 
         assert_eq!(result.kind, expected_result);
-        assert_eq!(result.value, test_input);
+        assert_eq!(result.value.as_ref(), test_input);
     }
 
     #[test]
@@ -796,15 +796,15 @@ mod lexer_tests {
         let test_input= String::from("¢ ñ λ ł ƛ ⁿ¢ ⁿλ ⁿƛ");
         //                                    t͡s ɲ d͡ɮ ɬ t͡ɬ ⁿt͡s ⁿd͡ɮ ⁿt͡ɬ 
         let expected_result = vec![
-            Token::new(TokenKind::Cardinal, "t͡s".to_owned(), 0, 0,  0,  1),
-            Token::new(TokenKind::Cardinal,  "ɲ".to_owned(), 0, 0,  2,  3),
-            Token::new(TokenKind::Cardinal,  "d͡ɮ".to_owned(),0,  0,  4,  5),
-            Token::new(TokenKind::Cardinal,  "ɬ".to_owned(), 0, 0, 6, 7),
-            Token::new(TokenKind::Cardinal,  "t͡ɬ".to_owned(), 0, 0, 8, 9),
-            Token::new(TokenKind::Cardinal,  "ⁿt͡s".to_owned(), 0, 0, 10, 12),
-            Token::new(TokenKind::Cardinal,  "ⁿd͡ɮ".to_owned(), 0, 0, 13, 15),
-            Token::new(TokenKind::Cardinal,  "ⁿt͡ɬ".to_owned(), 0, 0, 16, 18),
-            Token::new(TokenKind::Eol,        String::new(), 0, 0, 18, 19),
+            Token::new(TokenKind::Cardinal,  "t͡s"   , 0, 0,  0,  1),
+            Token::new(TokenKind::Cardinal,   "ɲ"   , 0, 0,  2,  3),
+            Token::new(TokenKind::Cardinal,  "d͡ɮ"   , 0,  0,  4,  5),
+            Token::new(TokenKind::Cardinal,   "ɬ"   , 0, 0, 6, 7),
+            Token::new(TokenKind::Cardinal,  "t͡ɬ"   , 0, 0, 8, 9),
+            Token::new(TokenKind::Cardinal, "ⁿt͡s"   , 0, 0, 10, 12),
+            Token::new(TokenKind::Cardinal, "ⁿd͡ɮ"   , 0, 0, 13, 15),
+            Token::new(TokenKind::Cardinal, "ⁿt͡ɬ"   , 0, 0, 16, 18),
+            Token::new(TokenKind::Eol,         ""    ,0, 0, 18, 19),
         ];
 
         let result = Lexer::new(&test_input.chars().collect::<Vec<_>>(), 0, 0).get_line().unwrap();        
@@ -822,11 +822,11 @@ mod lexer_tests {
         let test_input= String::from("t͡ɕ b͡β b a");
         
         let expected_result = vec![
-            Token::new(TokenKind::Cardinal, "t͡ɕ".to_owned(), 0, 0,  0,  3),
-            Token::new(TokenKind::Cardinal, "b͡β".to_owned(), 0, 0,  4,  7),
-            Token::new(TokenKind::Cardinal,  "b".to_owned(), 0, 0,  8,  9),
-            Token::new(TokenKind::Cardinal,  "a".to_owned(), 0, 0, 10, 11),
-            Token::new(TokenKind::Eol,        String::new(), 0, 0, 11, 12),
+            Token::new(TokenKind::Cardinal, "t͡ɕ", 0, 0,  0,  3),
+            Token::new(TokenKind::Cardinal, "b͡β", 0, 0,  4,  7),
+            Token::new(TokenKind::Cardinal,  "b", 0, 0,  8,  9),
+            Token::new(TokenKind::Cardinal,  "a", 0, 0, 10, 11),
+            Token::new(TokenKind::Eol,        "", 0, 0, 11, 12),
         ];
 
         let result = Lexer::new(&test_input.chars().collect::<Vec<_>>(), 0, 0).get_line().unwrap();        
@@ -843,11 +843,11 @@ mod lexer_tests {
         
         let test_input= String::from("t^ɕb͡βba");
         let expected_result = vec![
-            Token::new(TokenKind::Cardinal, "t͡ɕ".to_owned(), 0, 0, 0, 3),
-            Token::new(TokenKind::Cardinal, "b͡β".to_owned(), 0, 0, 3, 6),
-            Token::new(TokenKind::Cardinal,  "b".to_owned(), 0, 0, 6, 7),
-            Token::new(TokenKind::Cardinal,  "a".to_owned(), 0, 0, 7, 8),
-            Token::new(TokenKind::Eol,        String::new(), 0, 0, 8, 9),
+            Token::new(TokenKind::Cardinal, "t͡ɕ", 0, 0, 0, 3),
+            Token::new(TokenKind::Cardinal, "b͡β", 0, 0, 3, 6),
+            Token::new(TokenKind::Cardinal,  "b", 0, 0, 6, 7),
+            Token::new(TokenKind::Cardinal,  "a", 0, 0, 7, 8),
+            Token::new(TokenKind::Eol,        "", 0, 0, 8, 9),
         ];
 
         let result = Lexer::new(&test_input.chars().collect::<Vec<_>>(), 0, 0).get_line().unwrap();  
@@ -864,10 +864,10 @@ mod lexer_tests {
         
         let test_input= String::from("t^ɕ > b^β");
         let expected_result = vec![
-            Token::new(TokenKind::Cardinal,   "t͡ɕ".to_owned(), 0, 0, 0, 3),
-            Token::new(TokenKind::GreaterThan, ">".to_owned(), 0, 0, 4, 5),
-            Token::new(TokenKind::Cardinal,   "b͡β".to_owned(), 0, 0, 6, 9),
-            Token::new(TokenKind::Eol,          String::new(), 0, 0, 9, 10),
+            Token::new(TokenKind::Cardinal,   "t͡ɕ", 0, 0, 0, 3),
+            Token::new(TokenKind::GreaterThan, ">", 0, 0, 4, 5),
+            Token::new(TokenKind::Cardinal,   "b͡β", 0, 0, 6, 9),
+            Token::new(TokenKind::Eol,          "", 0, 0, 9, 10),
         ];
 
         let result = Lexer::new(&test_input.chars().collect::<Vec<_>>(), 0, 0).get_line().unwrap();  
@@ -884,12 +884,12 @@ mod lexer_tests {
         
         let test_input= String::from("t^ɕ...b͡β > &");
         let expected_result = vec![
-            Token::new(TokenKind::Cardinal,   "t͡ɕ".to_owned(), 0, 0,  0,  3),
-            Token::new(TokenKind::Ellipsis,  "...".to_owned(), 0, 0,  3,  6),
-            Token::new(TokenKind::Cardinal,   "b͡β".to_owned(), 0, 0,  6,  9),
-            Token::new(TokenKind::GreaterThan, ">".to_owned(), 0, 0, 10, 11),
-            Token::new(TokenKind::Ampersand,   "&".to_owned(), 0, 0, 12, 13),
-            Token::new(TokenKind::Eol,          String::new(), 0, 0, 13, 14),
+            Token::new(TokenKind::Cardinal,   "t͡ɕ", 0, 0,  0,  3),
+            Token::new(TokenKind::Ellipsis,  "...", 0, 0,  3,  6),
+            Token::new(TokenKind::Cardinal,   "b͡β", 0, 0,  6,  9),
+            Token::new(TokenKind::GreaterThan, ">", 0, 0, 10, 11),
+            Token::new(TokenKind::Ampersand,   "&", 0, 0, 12, 13),
+            Token::new(TokenKind::Eol,          "", 0, 0, 13, 14),
         ];
 
         let result = Lexer::new(&test_input.chars().collect::<Vec<_>>(), 0, 0).get_line().unwrap();        
@@ -906,14 +906,14 @@ mod lexer_tests {
         use FeatType::*;
         let test_input= String::from("[+voi, -sg, αPLACE]");
         let expected_result = vec![
-            Token::new(TokenKind::LeftSquare,                          "[".to_owned(), 0, 0,  0,  1),
-            Token::new(TokenKind::Feature(Feat(FType::Voice)),         "+".to_owned(), 0, 0,  1,  5),
-            Token::new(TokenKind::Comma,                               ",".to_owned(), 0, 0,  5,  6),
-            Token::new(TokenKind::Feature(Feat(FType::SpreadGlottis)), "-".to_owned(), 0, 0,  7, 10),
-            Token::new(TokenKind::Comma,                               ",".to_owned(), 0, 0, 10, 11),
-            Token::new(TokenKind::Feature(Node(NodeType::Place)),      "α".to_owned(), 0, 0, 12, 18),
-            Token::new(TokenKind::RightSquare,                         "]".to_owned(), 0, 0, 18, 19),
-            Token::new(TokenKind::Eol,                                  String::new(), 0, 0, 19, 20),
+            Token::new(TokenKind::LeftSquare,                          "[", 0, 0,  0,  1),
+            Token::new(TokenKind::Feature(Feat(FType::Voice)),         "+", 0, 0,  1,  5),
+            Token::new(TokenKind::Comma,                               ",", 0, 0,  5,  6),
+            Token::new(TokenKind::Feature(Feat(FType::SpreadGlottis)), "-", 0, 0,  7, 10),
+            Token::new(TokenKind::Comma,                               ",", 0, 0, 10, 11),
+            Token::new(TokenKind::Feature(Node(NodeType::Place)),      "α", 0, 0, 12, 18),
+            Token::new(TokenKind::RightSquare,                         "]", 0, 0, 18, 19),
+            Token::new(TokenKind::Eol,                                  "", 0, 0, 19, 20),
         ];
 
         let result = Lexer::new(&test_input.chars().collect::<Vec<_>>(), 0, 0).get_line().unwrap();        
@@ -931,10 +931,10 @@ mod lexer_tests {
         use FeatType::*;
         let test_input= String::from("[-αPLACE]");
         let expected_result = vec![
-            Token::new(TokenKind::LeftSquare,                          "[".to_owned(), 0, 0,  0,  1),
-            Token::new(TokenKind::Feature(Node(NodeType::Place)),     "-α".to_owned(), 0, 0,  1,  8),
-            Token::new(TokenKind::RightSquare,                         "]".to_owned(), 0, 0,  8,  9),
-            Token::new(TokenKind::Eol,                                  String::new(), 0, 0,  9, 10),
+            Token::new(TokenKind::LeftSquare,                          "[", 0, 0,  0,  1),
+            Token::new(TokenKind::Feature(Node(NodeType::Place)),     "-α", 0, 0,  1,  8),
+            Token::new(TokenKind::RightSquare,                         "]", 0, 0,  8,  9),
+            Token::new(TokenKind::Eol,                                  "", 0, 0,  9, 10),
         ];
 
         let result = Lexer::new(&test_input.chars().collect::<Vec<_>>(), 0, 0).get_line().unwrap();        
@@ -952,21 +952,21 @@ mod lexer_tests {
         
         let test_input= String::from("C=1 V=2 > 2 1 / _C // _");
         let expected_result = vec![
-            Token::new(TokenKind::Group,       "C".to_owned(), 0, 0,  0,  1),
-            Token::new(TokenKind::Equals,      "=".to_owned(), 0, 0,  1,  2),
-            Token::new(TokenKind::Number,      "1".to_owned(), 0, 0,  2,  3),
-            Token::new(TokenKind::Group,       "V".to_owned(), 0, 0,  4,  5),
-            Token::new(TokenKind::Equals,      "=".to_owned(), 0, 0,  5,  6),
-            Token::new(TokenKind::Number,      "2".to_owned(), 0, 0,  6,  7),
-            Token::new(TokenKind::GreaterThan, ">".to_owned(), 0, 0,  8,  9),
-            Token::new(TokenKind::Number,      "2".to_owned(), 0, 0, 10, 11),
-            Token::new(TokenKind::Number,      "1".to_owned(), 0, 0, 12, 13),
-            Token::new(TokenKind::Slash,       "/".to_owned(), 0, 0, 14, 15),
-            Token::new(TokenKind::Underline,   "_".to_owned(), 0, 0, 16, 17),
-            Token::new(TokenKind::Group,       "C".to_owned(), 0, 0, 17, 18),
-            Token::new(TokenKind::DubSlash,   "//".to_owned(), 0, 0, 19, 21),
-            Token::new(TokenKind::Underline,   "_".to_owned(), 0, 0, 22, 23),
-            Token::new(TokenKind::Eol,          String::new(), 0, 0, 23, 24),
+            Token::new(TokenKind::Group,       "C", 0, 0,  0,  1),
+            Token::new(TokenKind::Equals,      "=", 0, 0,  1,  2),
+            Token::new(TokenKind::Number,      "1", 0, 0,  2,  3),
+            Token::new(TokenKind::Group,       "V", 0, 0,  4,  5),
+            Token::new(TokenKind::Equals,      "=", 0, 0,  5,  6),
+            Token::new(TokenKind::Number,      "2", 0, 0,  6,  7),
+            Token::new(TokenKind::GreaterThan, ">", 0, 0,  8,  9),
+            Token::new(TokenKind::Number,      "2", 0, 0, 10, 11),
+            Token::new(TokenKind::Number,      "1", 0, 0, 12, 13),
+            Token::new(TokenKind::Slash,       "/", 0, 0, 14, 15),
+            Token::new(TokenKind::Underline,   "_", 0, 0, 16, 17),
+            Token::new(TokenKind::Group,       "C", 0, 0, 17, 18),
+            Token::new(TokenKind::DubSlash,   "//", 0, 0, 19, 21),
+            Token::new(TokenKind::Underline,   "_", 0, 0, 22, 23),
+            Token::new(TokenKind::Eol,          "", 0, 0, 23, 24),
         ];
 
         let result = Lexer::new(&test_input.chars().collect::<Vec<_>>(), 0, 0).get_line().unwrap();        

@@ -1,7 +1,7 @@
 use std::{
     cell::RefCell, 
     collections::HashMap, 
-    fmt
+    fmt, rc::Rc,
 };
 
 use crate :: {
@@ -62,18 +62,18 @@ impl ModKind {
     }
 }
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) enum Mods {
     Binary(BinMod),
-    Number(String),
+    Number(u32),
     Alpha(AlphaMod),
 }
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) struct SupraSegs {
     pub(crate) stress: [Option<ModKind>; 2], // [Stress, SecStress]
     pub(crate) length: [Option<ModKind>; 2], // [Long, Overlong]
-    pub(crate) tone: Option<String>,
+    pub(crate) tone: Option<u32>,
 }
 
 impl SupraSegs {
@@ -81,7 +81,7 @@ impl SupraSegs {
         Self { stress: [None, None], length: [None, None], tone: None }
     }
 
-    pub(crate) fn from(stress: [Option<ModKind>; 2], length: [Option<ModKind>; 2], tone: Option<String>) -> Self {
+    pub(crate) fn from(stress: [Option<ModKind>; 2], length: [Option<ModKind>; 2], tone: Option<u32>) -> Self {
         Self { stress, length, tone }
     }
 }
@@ -117,7 +117,7 @@ pub(crate) enum ParseElement {
     Set         (Vec<Item>),
     Ipa         (Segment, Option<Modifiers>),
     Matrix      (Modifiers, Option<usize>),
-    Syllable    ([Option<ModKind>; 2], Option<String>, Option<usize>),
+    Syllable    ([Option<ModKind>; 2], Option<u32>, Option<usize>),
     Optional    (Vec<Item>, usize, usize),
     Environment (Vec<Item>, Vec<Item>),
     Variable    (Token, Option<Modifiers>),
@@ -222,17 +222,15 @@ pub(crate) struct Parser {
 }
 
 impl Parser {
-    pub(crate) fn new(lst: Vec<Token>, group: usize, line: usize) -> Self {
-        let mut s = Self { 
-            token_list: lst, 
+    pub(crate) fn new(token_list: Vec<Token>, group: usize, line: usize) -> Self {
+        let curr_tkn = token_list[0].clone();
+        Self { 
+            token_list, 
             group,
             line,
             pos: 0, 
-            curr_tkn: Token { kind: TokenKind::Eol, value: String::new(), position: Position::new(group, line, 0, 1 ) },
-        };
-        s.curr_tkn = s.token_list[s.pos].clone();
-
-        s
+            curr_tkn,
+        }
     }
 
     fn advance(&mut self) {
@@ -240,7 +238,7 @@ impl Parser {
         self.curr_tkn = if self.has_more_tokens() {
             self.token_list[self.pos].clone()
         } else {
-            Token { kind: TokenKind::Eol, value: String::new(), position: Position::new(self.group, self.line, self.pos, self.pos+1) }
+            Token { kind: TokenKind::Eol, value: Rc::default(), position: Position::new(self.group, self.line, self.pos, self.pos+1) }
         }
     }
 
@@ -451,7 +449,7 @@ impl Parser {
     }
 
     fn ipa_to_vals(&self, ipa: Token) -> Result<Segment, RuleSyntaxError> {
-        match CARDINALS_MAP.get(&ipa.value) {
+        match CARDINALS_MAP.get(ipa.value.as_ref()) {
             Some(z) => Ok(*z),
             None => Err(RuleSyntaxError::UnknownIPA(ipa))
         }
@@ -477,7 +475,7 @@ impl Parser {
 
         let mut args = Modifiers::new(); 
 
-        (match chr.value.as_str() {
+        (match chr.value.as_ref() {
             "C" => vec![SYLL_M],                                 // -syll                             // Consonant
             "O" => vec![CONS_P, SONR_M, SYLL_M],                 // +cons, -son, -syll                // Obstruent
             "S" => vec![CONS_P, SONR_P, SYLL_M],                 // +cons, +son, -syll                // Sonorant
@@ -503,21 +501,27 @@ impl Parser {
 
     fn is_feature(&self) -> bool{ matches!(self.curr_tkn.kind, TokenKind::Feature(_)) }
 
-    fn curr_token_to_modifier(&self) -> (FeatType, Mods) {
+    fn curr_token_to_modifier(&self) -> Result<(FeatType, Mods), RuleSyntaxError> {
         // returns ARG ← ARG_MOD [a-zA-Z]+ / TONE  
         match self.curr_tkn.kind {
             TokenKind::Feature(feature) => {
                 let value = &self.curr_tkn.value;
-                match value.as_str() {
-                    "+" => (feature, Mods::Binary(BinMod::Positive)),
-                    "-" => (feature, Mods::Binary(BinMod::Negative)),
+                match value.as_ref() {
+                    "+" => Ok((feature, Mods::Binary(BinMod::Positive))),
+                    "-" => Ok((feature, Mods::Binary(BinMod::Negative))),
                     "α"|"β"|"γ"|"δ"|"ε"|"ζ"|"η"|"θ"|"ι"|"κ"|"λ"|"μ"|"ν"|"ξ"|"ο"|"π"|"ρ"|"σ"|"ς"|"τ"|"υ"|"φ"|"χ"|"ψ"|"ω"|
                     "A"|"B"|"C"|"D"|"E"|"F"|"G"|"H"|"I"|"J"|"K"|"L"|"M"|"N"|"O"|"P"|"Q"|"R"|"S"|"T"|"U"|"V"|"W"|"X"|"Y"|"Z" => 
-                    (feature, Mods::Alpha(AlphaMod::Alpha(value.chars().next().unwrap()))),
+                    Ok((feature, Mods::Alpha(AlphaMod::Alpha(value.chars().next().unwrap())))),
                     "-α"|"-β"|"-γ"|"-δ"|"-ε"|"-ζ"|"-η"|"-θ"|"-ι"|"-κ"|"-λ"|"-μ"|"-ν"|"-ξ"|"-ο"|"-π"|"-ρ"|"-σ"|"-ς"|"-τ"|"-υ"|"-φ"|"-χ"|"-ψ"|"-ω"|
                     "-A"|"-B"|"-C"|"-D"|"-E"|"-F"|"-G"|"-H"|"-I"|"-J"|"-K"|"-L"|"-M"|"-N"|"-O"|"-P"|"-Q"|"-R"|"-S"|"-T"|"-U"|"-V"|"-W"|"-X"|"-Y"|"-Z" => 
-                        (feature, Mods::Alpha(AlphaMod::InvAlpha(value.chars().nth(1).unwrap()))),
-                    _ if feature == FeatType::Supr(SupraType::Tone) => (feature, Mods::Number(value.to_owned())),
+                        Ok((feature, Mods::Alpha(AlphaMod::InvAlpha(value.chars().nth(1).unwrap())))),
+                    _ if feature == FeatType::Supr(SupraType::Tone) => {
+                        if value.chars().count() > 4 {
+                            Err(RuleSyntaxError::ToneTooBig(self.curr_tkn.clone()))
+                        } else {
+                            Ok((feature, Mods::Number(value.parse().expect("value is ascii digits"))))
+                        }
+                    },
                     _ => {
                         unreachable!();
                     }
@@ -538,7 +542,7 @@ impl Parser {
                 continue;
             }
             if self.is_feature() {
-                let (ft, mk) = self.curr_token_to_modifier();
+                let (ft, mk) = self.curr_token_to_modifier()?;
                 if ft != FeatType::Supr(SupraType::Tone) && ft != FeatType::Supr(SupraType::Stress) && is_syll {
                     return Err(RuleSyntaxError::BadSyllableMatrix(self.curr_tkn.clone()))
                 }
@@ -992,7 +996,7 @@ impl Parser {
             return Ok(Rule::new(input, output, Vec::new(), Vec::new()))
         }
         if !self.peek_expect(TokenKind::Slash) && !self.peek_expect(TokenKind::Pipe) {
-            return Err(RuleSyntaxError::ExpectedEndL(self.curr_tkn.clone()))
+            return Err(RuleSyntaxError::ExpectedEndLine(self.curr_tkn.clone()))
         }
         // ('/' ENV)
         let context = self.get_context()?;
@@ -1000,7 +1004,7 @@ impl Parser {
         let except = self.get_except_block()?;
         // !EOL
         if !self.expect(TokenKind::Eol) {
-            return Err(RuleSyntaxError::ExpectedEndL(self.curr_tkn.clone()))
+            return Err(RuleSyntaxError::ExpectedEndLine(self.curr_tkn.clone()))
         }
         
         Ok(Rule::new(input, output, context, except))
@@ -1139,11 +1143,11 @@ mod parser_tests {
         assert!(maybe_result.is_ok());
         let result = maybe_result.unwrap().unwrap();
 
-        let exp_input = Item::new(ParseElement::Syllable([None, None], Some("123".to_string()), None), Position::new(0, 0, 0, 13));
+        let exp_input = Item::new(ParseElement::Syllable([None, None], Some(123), None), Position::new(0, 0, 0, 13));
 
         let mut out = Modifiers::new();
 
-        out.suprs.tone = Some("321".to_string());
+        out.suprs.tone = Some(321);
         let exp_output = Item::new(ParseElement::Matrix(out, None), Position::new(0, 0, 16, 27));
 
         assert_eq!(result.input[0][0], exp_input);

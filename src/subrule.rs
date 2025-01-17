@@ -58,25 +58,24 @@ pub(crate) struct SubRule {
 
 impl SubRule {
 
-    fn get_context(&self) -> (&Vec<Item>, &Vec<Item>) {
-        static EMPTY_ENV: Vec<Item> = Vec::new();
+    fn get_context(&self) -> Option<(&Vec<Item>, &Vec<Item>)> {
         match &self.context {
             Some(x) => match &x.kind {
-                ParseElement::Environment(b, a) => (b, a),
+                ParseElement::Environment(b, a) => Some((b, a)),
                 _ => unreachable!()
             },
-            None => (&EMPTY_ENV, &EMPTY_ENV),
+            None => None,
         }
     }
 
-    fn get_exceptions(&self) -> (&Vec<Item>, &Vec<Item>) {
-        static EMPTY_ENV: Vec<Item> = Vec::new();
+    fn get_exceptions(&self) -> Option<(&Vec<Item>, &Vec<Item>)> {
+        // static EMPTY_ENV: Vec<Item> = Vec::new();
         match &self.except {
             Some(x) => match &x.kind {
-                ParseElement::Environment(b, a) => (b, a),
+                ParseElement::Environment(b, a) => Some((b, a)),
                 _ => unreachable!()
             },
-            None => (&EMPTY_ENV, &EMPTY_ENV),
+            None => None,
         }
     }
 
@@ -195,9 +194,10 @@ impl SubRule {
     }
 
     fn match_before_context_and_exception(&self, word: &Word, pos: SegPos) -> Result<bool, RuleRuntimeError> {
-        
-        let (cont_states, _) = self.get_context();
-        let (expt_states, _) = self.get_exceptions();
+        let empty = Vec::new();
+
+        let (cont_states, _) = self.get_context().unwrap_or((&empty, &empty));
+        let (expt_states, _) = self.get_exceptions().unwrap_or((&empty, &empty));
 
         if cont_states.is_empty() && expt_states.is_empty() {
             return Ok(true)
@@ -216,9 +216,9 @@ impl SubRule {
     }
 
     fn match_after_context_and_exception(&self, word: &Word, pos: SegPos, inc: bool) -> Result<bool, RuleRuntimeError> {
-        
-        let (_, cont_states) = self.get_context();
-        let (_, expt_states) = self.get_exceptions();
+        let empty = Vec::new();
+        let (_, cont_states) = self.get_context().unwrap_or((&empty, &empty));
+        let (_, expt_states) = self.get_exceptions().unwrap_or((&empty, &empty));
 
         if cont_states.is_empty() && expt_states.is_empty() {
             return Ok(true)
@@ -439,7 +439,7 @@ impl SubRule {
         Ok(true)
     }
 
-    fn context_match_syll(&self, stress: &[Option<ModKind>; 2], tone: &Option<String>, var: &Option<usize>, word: &Word, pos: &mut SegPos, forwards: bool) -> Result<bool, RuleRuntimeError> {        
+    fn context_match_syll(&self, stress: &[Option<ModKind>; 2], tone: &Option<u32>, var: &Option<usize>, word: &Word, pos: &mut SegPos, forwards: bool) -> Result<bool, RuleRuntimeError> {        
         if !pos.at_syll_start() {
             return Ok(false)
         }
@@ -513,7 +513,7 @@ impl SubRule {
                                 res_word.syllables[bi].segments.push_front(seg);
                                 res_word.syllables[si.syll_index].segments.remove(si.seg_index); // pop_back()                                
                             } else {
-                                res_word.syllables.push(Syllable { segments: VecDeque::new(), stress: StressKind::Unstressed, tone: String::new() });
+                                res_word.syllables.push(Syllable { segments: VecDeque::new(), stress: StressKind::Unstressed, tone: 0 });
                                 res_word.syllables.last_mut().unwrap().segments.push_front(seg);
                                 res_word.syllables[si.syll_index].segments.remove(si.seg_index); // pop_back()
                             }                 
@@ -530,7 +530,7 @@ impl SubRule {
                                 res_word.syllables[si.syll_index].segments.remove(si.seg_index); // pop_front()                                
                             } else {
                                 res_word.syllables[si.syll_index].segments.remove(si.seg_index); // pop_front()
-                                res_word.syllables.insert(0, Syllable { segments: VecDeque::new(), stress: StressKind::Unstressed, tone: String::new() });
+                                res_word.syllables.insert(0, Syllable { segments: VecDeque::new(), stress: StressKind::Unstressed, tone: 0 });
                                 res_word.syllables.first_mut().unwrap().segments.push_front(seg);
                             }
                             if res_word.syllables[si.syll_index].segments.is_empty() {
@@ -607,8 +607,14 @@ impl SubRule {
                                 (StressKind::Unstressed, StressKind::Secondary)  => StressKind::Secondary,
                                 (StressKind::Unstressed, StressKind::Unstressed) => StressKind::Unstressed,
                             };
-                            let syll_tone = res_word.syllables[i].tone.clone();
-                            res_word.syllables[i-1].tone.push_str(&syll_tone);
+                            let syll_tone = res_word.syllables[i].tone;
+                            if syll_tone != 0 && res_word.syllables[i-1].tone != 0  {
+                                // Note: Will not overflow as tone is capped to 4 digits
+                                let new_tone = res_word.syllables[i-1].tone as u64 * 10u64.pow(syll_tone.ilog10()+1) + syll_tone as u64;
+                                res_word.syllables[i-1].tone = new_tone as u32;
+                            } else if syll_tone != 0 {
+                                res_word.syllables[i-1].tone = syll_tone;
+                            }
                             res_word.syllables.remove(i);
                         },
                     }
@@ -622,9 +628,10 @@ impl SubRule {
             RuleType::Insertion => {
                 // find insertion position using context
                 // "Parse" and insert output
+                let empty = Vec::new();
 
-                let (before_cont, after_cont) = self.get_context();
-                let (before_expt, after_expt) = self.get_exceptions();
+                let (before_cont, after_cont) = self.get_context().unwrap_or((&empty, &empty));
+                let (before_expt, after_expt) = self.get_exceptions().unwrap_or((&empty, &empty));
 
                 if before_cont.is_empty() && after_cont.is_empty() && before_expt.is_empty() && after_expt.is_empty() {
                     return Err(RuleRuntimeError::InsertionNoContextOrException(self.output.last().unwrap().position))
@@ -793,7 +800,8 @@ impl SubRule {
     }
 
     fn insertion_match_exceptions(&self, word: &Word, ins_pos: SegPos) -> Result<bool, RuleRuntimeError> {
-        let (before_expt, after_expt) = self.get_exceptions();
+        let empty = Vec::new();
+        let (before_expt, after_expt) = self.get_exceptions().unwrap_or((&empty, &empty));
         let mut before_expt = before_expt.clone();
         before_expt.reverse();
 
@@ -830,8 +838,9 @@ impl SubRule {
 
     fn insertion_match(&self, word: &Word, start_pos: SegPos) -> Result<Option<SegPos>, RuleRuntimeError> {
 
-        let (before_cont, after_cont) = self.get_context();
-        let (before_expt, after_expt) = self.get_exceptions();
+        let empty = Vec::new();
+        let (before_cont, after_cont) = self.get_context().unwrap_or((&empty, &empty));
+        let (before_expt, after_expt) = self.get_exceptions().unwrap_or((&empty, &empty));
 
         if before_cont.is_empty() && after_cont.is_empty() && before_expt.is_empty() && after_expt.is_empty() {
             return Err(RuleRuntimeError::InsertionNoContextOrException(self.output.last().unwrap().position))
@@ -1020,7 +1029,7 @@ impl SubRule {
                     if pos.at_syll_start() {
                         // apply mods to current syllable, possibly not a good idea
                         if let Some(syll) = res_word.syllables.get_mut(pos.syll_index) {
-                            syll.apply_syll_mods(&self.alphas, &SupraSegs { stress: *stress, length: [None, None], tone: tone.clone() }, state.position)?;
+                            syll.apply_syll_mods(&self.alphas, &SupraSegs { stress: *stress, length: [None, None], tone: *tone }, state.position)?;
                             if let Some(v) = var {
                                 self.variables.borrow_mut().insert(*v, VarKind::Syllable(res_word.syllables[pos.syll_index].clone()));
                             }
@@ -1033,7 +1042,7 @@ impl SubRule {
                     // split current syll into two at insert_pos
                     // Apply mods to second syll
                     let mut new_syll = Syllable::new();
-                    new_syll.apply_syll_mods(&self.alphas, /*&self.variables,*/ &SupraSegs { stress: *stress, length: [None, None], tone: tone.clone() }, state.position)?;
+                    new_syll.apply_syll_mods(&self.alphas, /*&self.variables,*/ &SupraSegs { stress: *stress, length: [None, None], tone: *tone }, state.position)?;
 
                     let syll = res_word.syllables.get_mut(pos.syll_index).expect("pos should not be out of bounds");
 
@@ -1347,7 +1356,7 @@ impl SubRule {
                                             self.apply_syll_mods(&mut res_word, sp, &mods.suprs, var, set_output[i].position)?;
                                         },
                                         ParseElement::Syllable(stress, tone, var) => {
-                                            let sups = SupraSegs::from(*stress, [None, None], tone.clone());
+                                            let sups = SupraSegs::from(*stress, [None, None], *tone);
                                             self.apply_syll_mods(&mut res_word, sp, &sups, var, set_output[i].position)?;
                                         },
                                         ParseElement::Variable(num, mods) => {
@@ -1478,7 +1487,7 @@ impl SubRule {
                         if pos.at_syll_start() {
                             // apply mods to current syllable
                             if let Some(syll) = res_word.syllables.get_mut(pos.syll_index) {
-                                syll.apply_syll_mods(&self.alphas, &SupraSegs { stress: *stress, length: [None, None], tone: tone.clone() }, z.position)?;
+                                syll.apply_syll_mods(&self.alphas, &SupraSegs { stress: *stress, length: [None, None], tone: *tone }, z.position)?;
                                 if let Some(v) = var {
                                     self.variables.borrow_mut().insert(*v, VarKind::Syllable(res_word.syllables[pos.syll_index].clone()));
                                 }
@@ -1491,7 +1500,7 @@ impl SubRule {
                         // split current syll into two at insert_pos
                         // Apply mods to second syll
                         let mut new_syll = Syllable::new();
-                        new_syll.apply_syll_mods(&self.alphas, /*&self.variables,*/ &SupraSegs { stress: *stress, length: [None, None], tone: tone.clone() }, z.position)?;
+                        new_syll.apply_syll_mods(&self.alphas, /*&self.variables,*/ &SupraSegs { stress: *stress, length: [None, None], tone: *tone }, z.position)?;
 
                         let syll = res_word.syllables.get_mut(pos.syll_index).expect("pos should not be out of bounds");
 
@@ -1636,8 +1645,15 @@ impl SubRule {
                             (StressKind::Unstressed, StressKind::Secondary)  => StressKind::Secondary,
                             (StressKind::Unstressed, StressKind::Unstressed) => StressKind::Unstressed,
                         };
-                        let syll_tone = res_word.syllables[i].tone.clone();
-                        res_word.syllables[i-1].tone.push_str(&syll_tone);
+                        let syll_tone = res_word.syllables[i].tone;
+                        if syll_tone != 0 && res_word.syllables[i-1].tone != 0 {
+                            // Note: Will not overflow as tone is capped to 4 digits
+                            let new_tone = res_word.syllables[i-1].tone as u64 * 10u64.pow(syll_tone.ilog10()+1) + syll_tone as u64;
+                            res_word.syllables[i-1].tone = new_tone as u32;
+                        } else if syll_tone != 0 {
+                            res_word.syllables[i-1].tone = syll_tone;
+                        }
+
                         res_word.syllables.remove(i);
                     },
                 }
@@ -1791,7 +1807,7 @@ impl SubRule {
         Ok(false)
     }
 
-    fn input_match_syll(&self, captures: &mut Vec<MatchElement>, state_index: &mut usize, stress: &[Option<ModKind>;2], tone: &Option<String>, var: &Option<usize>, word: &Word, pos: &mut SegPos) -> Result<bool, RuleRuntimeError> {
+    fn input_match_syll(&self, captures: &mut Vec<MatchElement>, state_index: &mut usize, stress: &[Option<ModKind>;2], tone: &Option<u32>, var: &Option<usize>, word: &Word, pos: &mut SegPos) -> Result<bool, RuleRuntimeError> {
         // checks current segment is at start of syll
         // matches stress and tone
         // jumps to end of syllable if match
@@ -1918,8 +1934,8 @@ impl SubRule {
         Ok(true)
     }
 
-    fn match_tone(&self, tone: &str, syll: &Syllable) -> bool {        
-        tone == syll.tone
+    fn match_tone(&self, tone: &u32, syll: &Syllable) -> bool {        
+        *tone == syll.tone
     }
 
     fn input_match_syll_bound(&self, captures: &mut Vec<MatchElement>, pos: SegPos) -> bool {
@@ -2087,7 +2103,7 @@ impl SubRule {
         for (i, f) in mods.feats.iter().enumerate() {
             if f.is_some() { joined_mods.feats[i] = *f }
         }
-        joined_mods.suprs = mods.suprs.clone();
+        joined_mods.suprs = mods.suprs;
 
         self.match_modifiers(&joined_mods, word, pos, err_pos)
     }
