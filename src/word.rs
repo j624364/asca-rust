@@ -656,25 +656,19 @@ impl Word {
         }
     }
 
-    fn alias_match_tone(&self, tone: &str, syll: &Syllable) -> bool {        
-        tone == syll.tone
-    }
-
     fn alias_match_supr_mod_seg(&self, mods: &SupraSegs, syll_index: usize, seg_index: usize) -> (bool, Option<usize>, bool) {
         let syll = &self.syllables[syll_index];
-        let mut match_tone = true;
 
         if !self.alias_match_stress(&mods.stress, syll) { return (false, None, false) }
 
-        if let Some(t) = mods.tone.as_ref() {
-            match_tone = true;
-            if !self.alias_match_tone(t, syll) { return (false, None, true) }
+        let is_matching_tone = if let Some(t) = mods.tone.as_ref() {
+            if *t != syll.tone { return (false, None, true) }
+            true
+        } else { false };
 
-        }
+        let (is_match, is_matching_len) = self.alias_match_seg_length(&mods.length, syll_index, seg_index);
 
-        let (is_match, match_len) = self.alias_match_seg_length(&mods.length, syll_index, seg_index);
-
-        (is_match, match_len, match_tone)
+        (is_match, is_matching_len, is_matching_tone)
     }
 
     fn alias_match_modifiers(&self, syll_index: usize, seg_index: usize, mods: &Modifiers) -> (bool, Option<usize>, bool) {
