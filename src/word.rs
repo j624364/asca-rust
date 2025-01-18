@@ -482,11 +482,12 @@ impl Word {
                         tone_buffer.push(txt[i]);
                         i+=1;
                     }
-                    i-=1;
+                    tone_buffer = tone_buffer.replace('0', "");
                     if tone_buffer.chars().count() > 4 {
                         Err(WordSyntaxError::ToneTooBig(input_txt.clone(), i-tone_buffer.chars().count()))?
                     }
-                    sy.tone = tone_buffer.parse().expect("tone_buffer is ascii digits");                    
+                    sy.tone = tone_buffer.parse().unwrap_or(0);
+                    i-=1;
                 }
                 self.syllables.push(sy.clone());
                 // Reset syllable for next pass

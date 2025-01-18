@@ -516,10 +516,11 @@ impl Parser {
                     "-A"|"-B"|"-C"|"-D"|"-E"|"-F"|"-G"|"-H"|"-I"|"-J"|"-K"|"-L"|"-M"|"-N"|"-O"|"-P"|"-Q"|"-R"|"-S"|"-T"|"-U"|"-V"|"-W"|"-X"|"-Y"|"-Z" => 
                         Ok((feature, Mods::Alpha(AlphaMod::InvAlpha(value.chars().nth(1).unwrap())))),
                     _ if feature == FeatType::Supr(SupraType::Tone) => {
-                        if value.chars().count() > 4 {
+                        let v = value.replace('0', "");
+                        if v.chars().count() > 4 {
                             Err(RuleSyntaxError::ToneTooBig(self.curr_tkn.clone()))
                         } else {
-                            Ok((feature, Mods::Number(value.parse().expect("value is ascii digits"))))
+                            Ok((feature, Mods::Number(v.parse().unwrap_or(0))))
                         }
                     },
                     _ => {
