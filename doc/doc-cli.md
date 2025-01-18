@@ -4,6 +4,7 @@
 * [File Formats](#file-formats)
 * [Sequences](#sequences)
 * [Usage](#usage)
+* [Shell Completions](#shell-completions)
 
 ## File Formats
 Asca-cli differs from the web implementation by using three file formats to each define a set of input words, a set of rules, and a set of romanisations.
@@ -249,4 +250,40 @@ Options:
     -r          Follow a pipeline back to its root tag and generate a full rule history
                 - Additional words added after the start of the pipeline will not be included
     -h          Print help
+```
+
+## Shell Completions
+
+ASCA provides completion script generation for Bash, Zsh, Fish, Powershell, & Elvish.
+
+### Bash
+``` bash
+mkdir -p ~/.local/share/bash-completion/completions
+asca --generate=bash > ~/.local/share/bash-completion/completions/asca
+``` 
+macOS with Homebrew:
+```bash
+mkdir -p $(brew --prefix)/etc/bash_completion.d
+asca --generate=bash > $(brew --prefix)/etc/bash_completion.d/asca.bash-completion
+```
+
+### Zsh
+```zsh
+mkdir ~/.zfunc
+asca --generate=zsh > ~/.zfunc/_asca
+```
+Add `fpath+=~/.zfunc` to your `~/.zshrc` before `compinit`
+### Fish
+```fish
+asca --generate=fish > ~/.config/fish/completions/asca.fish
+```
+
+### PowerShell
+```powershell
+asca --generate=powershell >> $PROFILE.CurrentUserCurrentHost
+```
+
+### Elvish
+```Elvish
+asca --generate=elvish >> ~/.config/elvish/lib/completers.elv
 ```
