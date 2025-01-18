@@ -131,19 +131,17 @@ impl SubRule {
                     // end of word
                     break;
                 }
-                // let prev = word.render().unwrap();
-                // println!("Match! {:?}", res);
+
                 word = self.transform(&word, res, &mut next_index)?;
-                // println!("{} => {}", prev, word.render().unwrap());
                 
                 if let Some(ci) = next_index { 
                     cur_index = ci;
                 } else {
-                    // println!("EOW");
+                    // End of Word
                     break;
                 }
             } else {
-                // println!("No match at {:?}", cur_index);
+                // No match
                 break
             }
         }
@@ -337,7 +335,6 @@ impl SubRule {
             return Ok(true)
         }
 
-        // println!("Up to here!");
         *pos = back_pos;
         *state_index = back_state;
         
@@ -633,159 +630,34 @@ impl SubRule {
 
                 let mut res_word = word.clone();
 
-                match (before_cont.is_empty(), after_cont.is_empty()) {
-                    (true, true) => {
-                        let mut pos = SegPos::new(0, 0);
+                let is_context_after = before_cont.is_empty() && !after_cont.is_empty();
 
-                        while res_word.in_bounds(pos) {
-                            self.alphas.borrow_mut().clear();
-                            self.variables.borrow_mut().clear();
-                            // println!("pos {pos:?}");
-
-                            match self.insertion_match(&res_word, pos)? {
-                                Some(ins) => {
-                                    if self.insertion_match_exceptions(word, ins)? {
-                                        pos.increment(word);
-                                        continue;
-                                    }         
-                                    // let prev = res_word.render().unwrap();
-                                    // println!("Match! {} at {:?}", res_word.render().unwrap(), ins);
-                                    let (res, next_pos) = self.insert(&res_word, ins, false)?;
-                                    res_word = res;
-                                    // println!("{} => {}", prev, res_word.render().unwrap());
-                                    // println!("pos: {pos:?} ins: {ins:?} nxt: {next_pos:?}");
-
-                                    if let Some(np) = next_pos {
-                                        pos = np;
-                                        if pos.at_syll_end(&res_word) {
-                                            pos.increment(&res_word);
-                                        }
-                                    } else {
-                                        // println!("EOW");
-                                        break;
-                                    }
-
-                                    // pos.increment(&res_word);
-                                },
-                                None => break
+                let mut pos = SegPos::new(0, 0);
+                while res_word.in_bounds(pos) {
+                    self.alphas.borrow_mut().clear();
+                    self.variables.borrow_mut().clear();
+                    match self.insertion_match(&res_word, pos)? {
+                        Some(ins) => {                                    
+                            if self.insertion_match_exceptions(word, ins)? {
+                                pos.increment(word);
+                                continue;
                             }
-                        }
-                    },
-                    (true, false) => {
-                        // _#
-                        let mut pos = SegPos::new(0, 0);
-
-                        while res_word.in_bounds(pos) {
-                            self.alphas.borrow_mut().clear();
-                            self.variables.borrow_mut().clear();
-                            // println!("pos {pos:?}");
-
-                            match self.insertion_match(&res_word, pos)? {
-                                Some(ins) => {
-                                    if self.insertion_match_exceptions(word, ins)? {
-                                        pos.increment(word);
-                                        continue;
-                                    }
-                                    // let prev = res_word.render().unwrap();
-                                    // println!("Match! {} at {:?}", res_word.render().unwrap(), ins);
-                                    let (res, next_pos) = self.insert(&res_word, ins, true)?;
-                                    res_word = res;
-                                    // println!("{} => {}", prev, res_word.render().unwrap());
-                                    // println!("pos: {pos:?} ins: {ins:?} nxt: {next_pos:?}");
-
-                                    if let Some(np) = next_pos {
-                                        pos = np;
-                                        // if pos.at_syll_end(&res_word) {
-                                        //     pos.increment(&res_word);
-                                        // }
-                                    } else {
-                                        // println!("EOW");
-                                        break;
-                                    }
-
-                                    // pos.increment(&res_word);
-                                },
-                                None => break
+                            let (res, next_pos) = self.insert(&res_word, ins, is_context_after)?;
+                            res_word = res;
+                
+                            if let Some(np) = next_pos {
+                                pos = np;
+                                if !is_context_after && pos.at_syll_end(&res_word) {
+                                    pos.increment(&res_word);
+                                }
+                            } else {
+                                // End of Word
+                                break;
                             }
-                        }
-                    },
-                    (false, true) => {
-                        // #_
-                        let mut pos = SegPos::new(0, 0);
-
-                        while res_word.in_bounds(pos) {
-                            self.alphas.borrow_mut().clear();
-                            self.variables.borrow_mut().clear();
-                            // println!("pos {pos:?}");
-
-                            match self.insertion_match(&res_word, pos)? {
-                                Some(ins) => {
-                                    if self.insertion_match_exceptions(word, ins)? {
-                                        pos.increment(word);
-                                        continue;
-                                    }
-                                    // let prev = res_word.render().unwrap();
-                                    // println!("Match! {} at {:?}", res_word.render().unwrap(), ins);
-                                    let (res, next_pos) = self.insert(&res_word, ins, false)?;
-                                    res_word = res;
-                                    // println!("{} => {}", prev, res_word.render().unwrap());
-                                    // println!("pos: {pos:?} ins: {ins:?} nxt: {next_pos:?}");
-
-                                    if let Some(np) = next_pos {
-                                        pos = np;
-                                        if pos.at_syll_end(&res_word) {
-                                            pos.increment(&res_word);
-                                        }
-                                    } else {
-                                        // println!("EOW");
-                                        break;
-                                    }
-
-                                    // pos.increment(&res_word);
-                                },
-                                None => break
-                            }
-                        }
-                    },
-                    (false, false) => {
-                        let mut pos = SegPos::new(0, 0);
-
-                        while res_word.in_bounds(pos) {
-                            self.alphas.borrow_mut().clear();
-                            self.variables.borrow_mut().clear();
-                            // println!("pos {pos:?}");
-
-                            match self.insertion_match(&res_word, pos)? {
-                                Some(ins) => {                                    
-                                    if self.insertion_match_exceptions(word, ins)? {
-                                        pos.increment(word);
-                                        continue;
-                                    }
-
-                                    // let prev = res_word.render().unwrap();
-                                    // println!("Match! {} at {:?}", res_word.render().unwrap(), ins);
-                                    let (res, next_pos) = self.insert(&res_word, ins, false)?;
-                                    res_word = res;
-                                    // println!("{} => {}", prev, res_word.render().unwrap());
-                                    // println!("pos: {pos:?} ins: {ins:?} nxt: {next_pos:?}");
-
-                                    if let Some(np) = next_pos {
-                                        pos = np;
-                                        if pos.at_syll_end(&res_word) {
-                                            pos.increment(&res_word);
-                                        }
-                                    } else {
-                                        // println!("EOW");
-                                        break;
-                                    }
-
-                                    // pos.increment(&res_word);
-                                },
-                                None => break
-                            }
-                        }
-                    },
-                };
+                        },
+                        None => break
+                    }
+                }
 
                 Ok(res_word)
             },
