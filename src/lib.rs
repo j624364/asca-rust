@@ -230,8 +230,6 @@ pub fn run(unparsed_rules: &[RuleGroup], unparsed_words: &[String], alias_into: 
     
     let words = parse_words(unparsed_words, &alias_into)?;
     let rules = parse_rule_groups(unparsed_rules)?;
-    // let rules = vec![];
-
     let res = apply_rule_groups(&rules, &words)?;
 
     Ok(words_to_string(res, alias_from)?)
