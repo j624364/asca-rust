@@ -625,7 +625,7 @@ impl SubRule {
                 let (before_expt, after_expt) = self.get_exceptions().unwrap_or((&empty, &empty));
 
                 if before_cont.is_empty() && after_cont.is_empty() && before_expt.is_empty() && after_expt.is_empty() {
-                    return Err(RuleRuntimeError::InsertionNoContextOrException(self.output.last().unwrap().position))
+                    return Err(RuleRuntimeError::InsertionNoEnv(self.output.last().unwrap().position))
                 }
 
                 let mut res_word = word.clone();
@@ -709,7 +709,7 @@ impl SubRule {
         let (before_expt, after_expt) = self.get_exceptions().unwrap_or((&empty, &empty));
 
         if before_cont.is_empty() && after_cont.is_empty() && before_expt.is_empty() && after_expt.is_empty() {
-            return Err(RuleRuntimeError::InsertionNoContextOrException(self.output.last().unwrap().position))
+            return Err(RuleRuntimeError::InsertionNoEnv(self.output.last().unwrap().position))
         }
 
         let maybe_ins = match (before_cont.is_empty(), after_cont.is_empty()) {
