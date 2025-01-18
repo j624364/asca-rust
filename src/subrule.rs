@@ -607,14 +607,8 @@ impl SubRule {
                                 (StressKind::Unstressed, StressKind::Secondary)  => StressKind::Secondary,
                                 (StressKind::Unstressed, StressKind::Unstressed) => StressKind::Unstressed,
                             };
-                            let syll_tone = res_word.syllables[i].tone;
-                            if syll_tone != 0 && res_word.syllables[i-1].tone != 0  {
-                                // Note: Will not overflow as tone is capped to 4 digits
-                                let new_tone = res_word.syllables[i-1].tone as u64 * 10u64.pow(syll_tone.ilog10()+1) + syll_tone as u64;
-                                res_word.syllables[i-1].tone = new_tone as u32;
-                            } else if syll_tone != 0 {
-                                res_word.syllables[i-1].tone = syll_tone;
-                            }
+
+                            res_word.syllables[i-1].tone = Self::concat_tone(res_word.syllables[i-1].tone, res_word.syllables[i].tone);
                             res_word.syllables.remove(i);
                         },
                     }
@@ -1645,15 +1639,8 @@ impl SubRule {
                             (StressKind::Unstressed, StressKind::Secondary)  => StressKind::Secondary,
                             (StressKind::Unstressed, StressKind::Unstressed) => StressKind::Unstressed,
                         };
-                        let syll_tone = res_word.syllables[i].tone;
-                        if syll_tone != 0 && res_word.syllables[i-1].tone != 0 {
-                            // Note: Will not overflow as tone is capped to 4 digits
-                            let new_tone = res_word.syllables[i-1].tone as u64 * 10u64.pow(syll_tone.ilog10()+1) + syll_tone as u64;
-                            res_word.syllables[i-1].tone = new_tone as u32;
-                        } else if syll_tone != 0 {
-                            res_word.syllables[i-1].tone = syll_tone;
-                        }
 
+                        res_word.syllables[i-1].tone = Self::concat_tone(res_word.syllables[i-1].tone, res_word.syllables[i].tone);
                         res_word.syllables.remove(i);
                     },
                 }
@@ -1836,6 +1823,51 @@ impl SubRule {
         } else {
             Ok(false)
         }
+    }
+
+    fn concat_tone(prev: u32, aft: u32) -> u32 {
+        if prev == aft {
+            return prev
+        }
+        if prev == 0 || aft == 0 {
+            return prev | aft
+        }
+
+        // Will not overflow as tone is capped to 4 base-10 digits
+        let new_tone = prev as u64 * 10u64.pow(aft.ilog10()+1) + aft as u64;
+
+        // FIXME: may as well not be doing the above if we're gonna convert to a collection anyway
+        let mut nums = new_tone.to_string()
+            .as_str().bytes()
+            .map(|b| b - b'0')
+            .collect::<Vec<_>>();
+        // i.e. 5225 > 525
+        nums.dedup();
+
+        if nums.len() > 4 {
+            // Somehow meld the two tones together
+            // Guaranteed to have no zeros and no adjacent duplicates
+            // Between 5 and 8 digits
+
+            let mut arr = vec![0,0,0];
+            arr[0] = nums[0];
+            arr[2] = nums[nums.len()-1];
+
+            arr[1] = if nums.len() == 5 && nums[1] == nums[3] { // 1 2541 2
+                nums[2]
+            } else {
+                // Find the mean of the middle values
+                let mut acc = 0;
+                for i in nums.iter().take(nums.len()-1).skip(1) {
+                    acc+=i;
+                }
+                acc / (nums.len()-2) as u8
+            };
+
+            nums = arr;
+        }
+
+        nums.iter().fold(0, |acc, elem| acc * 10 + *elem as u32)
     }
 
     fn match_stress(&self, stress: &[Option<ModKind>; 2], syll: &Syllable) -> Result<bool, RuleRuntimeError> {
