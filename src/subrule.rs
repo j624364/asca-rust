@@ -14,7 +14,7 @@ use crate ::{
     parser::{AlphaMod, BinMod, Item, ModKind, Modifiers, ParseElement, SupraSegs}, 
     rule  ::{Alpha, PlaceMod, RuleType}, 
     seg   ::{feature_to_node_mask, NodeKind, Segment}, 
-    syll  ::{StressKind, Syllable}, 
+    syll  ::{StressKind, Syllable, Tone}, 
     word  ::{SegPos, Word},
 };
 
@@ -436,7 +436,7 @@ impl SubRule {
         Ok(true)
     }
 
-    fn context_match_syll(&self, stress: &[Option<ModKind>; 2], tone: &Option<u32>, var: &Option<usize>, word: &Word, pos: &mut SegPos, forwards: bool) -> Result<bool, RuleRuntimeError> {        
+    fn context_match_syll(&self, stress: &[Option<ModKind>; 2], tone: &Option<Tone>, var: &Option<usize>, word: &Word, pos: &mut SegPos, forwards: bool) -> Result<bool, RuleRuntimeError> {        
         if !pos.at_syll_start() {
             return Ok(false)
         }
@@ -1666,7 +1666,7 @@ impl SubRule {
         Ok(false)
     }
 
-    fn input_match_syll(&self, captures: &mut Vec<MatchElement>, state_index: &mut usize, stress: &[Option<ModKind>;2], tone: &Option<u32>, var: &Option<usize>, word: &Word, pos: &mut SegPos) -> Result<bool, RuleRuntimeError> {
+    fn input_match_syll(&self, captures: &mut Vec<MatchElement>, state_index: &mut usize, stress: &[Option<ModKind>;2], tone: &Option<Tone>, var: &Option<usize>, word: &Word, pos: &mut SegPos) -> Result<bool, RuleRuntimeError> {
         // checks current segment is at start of syll
         // matches stress and tone
         // jumps to end of syllable if match
@@ -1697,7 +1697,7 @@ impl SubRule {
         }
     }
 
-    fn concat_tone(prev: u32, aft: u32) -> u32 {
+    fn concat_tone(prev: Tone, aft: Tone) -> Tone {
         if prev == aft {
             return prev
         }
@@ -1705,7 +1705,6 @@ impl SubRule {
             return prev | aft
         }
 
-        // Will not overflow as tone is capped to 4 base-10 digits
         let new_tone = prev as u64 * 10u64.pow(aft.ilog10()+1) + aft as u64;
 
         // FIXME: may as well not be doing the above if we're gonna convert to a collection anyway
@@ -1739,7 +1738,7 @@ impl SubRule {
             nums = arr;
         }
 
-        nums.iter().fold(0, |acc, elem| acc * 10 + *elem as u32)
+        nums.iter().fold(0, |acc, elem| acc * 10 + *elem as Tone)
     }
 
     fn match_stress(&self, stress: &[Option<ModKind>; 2], syll: &Syllable) -> Result<bool, RuleRuntimeError> {
@@ -1838,7 +1837,7 @@ impl SubRule {
         Ok(true)
     }
 
-    fn match_tone(&self, tone: &u32, syll: &Syllable) -> bool {        
+    fn match_tone(&self, tone: &Tone, syll: &Syllable) -> bool {        
         *tone == syll.tone
     }
 

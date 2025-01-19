@@ -29,11 +29,13 @@ impl fmt::Display for StressKind {
     }
 }
 
+pub(crate) type Tone = u16;
+
 #[derive(Debug, Clone)]
 pub(crate) struct Syllable {
     pub(crate) segments: VecDeque<Segment>,
     pub(crate) stress: StressKind,
-    pub(crate) tone: u32
+    pub(crate) tone: Tone
 }
 
 impl Syllable {

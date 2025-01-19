@@ -5,11 +5,12 @@ use std::{
 };
 
 use crate :: {
-    error :: *, 
-    lexer :: *, 
+    error :: *,
+    lexer :: *,
     rule  :: { Alpha, Rule },
-    seg   :: Segment, 
-    CARDINALS_MAP, DIACRITS 
+    seg   :: Segment,
+    syll  :: Tone, 
+    CARDINALS_MAP, DIACRITS
 };
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -65,7 +66,7 @@ impl ModKind {
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) enum Mods {
     Binary(BinMod),
-    Number(u32),
+    Number(Tone),
     Alpha(AlphaMod),
 }
 
@@ -73,7 +74,7 @@ pub(crate) enum Mods {
 pub(crate) struct SupraSegs {
     pub(crate) stress: [Option<ModKind>; 2], // [Stress, SecStress]
     pub(crate) length: [Option<ModKind>; 2], // [Long, Overlong]
-    pub(crate) tone: Option<u32>,
+    pub(crate) tone: Option<Tone>,
 }
 
 impl SupraSegs {
@@ -81,7 +82,7 @@ impl SupraSegs {
         Self { stress: [None, None], length: [None, None], tone: None }
     }
 
-    pub(crate) fn from(stress: [Option<ModKind>; 2], length: [Option<ModKind>; 2], tone: Option<u32>) -> Self {
+    pub(crate) fn from(stress: [Option<ModKind>; 2], length: [Option<ModKind>; 2], tone: Option<Tone>) -> Self {
         Self { stress, length, tone }
     }
 }
@@ -117,7 +118,7 @@ pub(crate) enum ParseElement {
     Set         (Vec<Item>),
     Ipa         (Segment, Option<Modifiers>),
     Matrix      (Modifiers, Option<usize>),
-    Syllable    ([Option<ModKind>; 2], Option<u32>, Option<usize>),
+    Syllable    ([Option<ModKind>; 2], Option<Tone>, Option<usize>),
     Optional    (Vec<Item>, usize, usize),
     Environment (Vec<Item>, Vec<Item>),
     Variable    (Token, Option<Modifiers>),
