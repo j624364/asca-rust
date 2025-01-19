@@ -1,10 +1,13 @@
 Unreleased changes
 ==================
 
-Performance:
-* Reduction in unnecessary allocations
+Fixes:
+* Matching multiple segments with the plus operator will no longer overwrite the tail segments
+
 
 Tweaks:
+* Performance
+    * Reduction in unnecessary allocations
 * Changes to tone
     * Capped at 4 digits
     * Tone of `0` is now equivalent to no tone
