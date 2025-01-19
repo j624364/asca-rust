@@ -285,6 +285,34 @@ pub(super) fn map_io_error(error: io::Error) -> io::Error {
     }
 }
 
+#[inline]
+// Rust's built-in padding algo doesn't account for nonspacing characters for some reason
+pub(super) fn fix_combining_char_pad(string: &str) -> usize {
+    let mut pad = 0;
+    for s in string.chars() {
+        // Not an exhaustive list
+        match s {
+            // Combining Diacritical Marks 
+            '\u{0300}'..'\u{036F}' |
+            // Combining Diacritical Marks Extended
+            '\u{1AB0}'..'\u{1AFF}' |
+            // Combining Diacritical Marks Supplement
+            '\u{1DC0}'..'\u{1DFF}' |
+            // Combining Diacritical Marks for Symbols 
+            '\u{20D0}'..'\u{20FF}' |
+            // Cyrillic Extended-A
+            '\u{2DE0}'..'\u{2DFF}' |
+            // Combining Half Marks
+            '\u{FE20}'..'\u{FE2F}' |
+            // Dakuten & Handakuten
+            '\u{3099}' | '\u{309A}' => pad += 1,
+            _ => {}
+        }
+    }
+
+    pad
+}
+
 pub(super) fn print_asca_errors(err: asca::Error, words: &[String], rules: &[RuleGroup], into: &[String], from: &[String]) {
     match err {
         asca::Error::WordSyn(e) => println!("{}", asca::ASCAError::format_word_error(&e, words)),

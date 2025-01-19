@@ -8,24 +8,34 @@ use super::{args::InGroup, parse, util::{self, ALIAS_FILE_EXT, LINE_ENDING, RULE
 // Handle comparing the output to the contents of a wsca file.
 fn print_comparison(result: &[String], comp_path: &Path) -> io::Result<()> {
     let (comparison, _) = parse::parse_wsca(&util::validate_or_get_path(Some(comp_path), &[WORD_FILE_EXT, "txt"], "word")?)?;
-    println!("{} {} {}\n", comp_path.to_str().expect("File path has been validated").bright_blue().bold(), "|".bright_red().bold(), "OUTPUT".bright_green().bold());
+    let sep = "|".bright_red().bold();
+    
+    let mut cmp_len = 0;
+    for comp in &comparison {
+        let cmp_sp = comp.chars().count() - util::fix_combining_char_pad(comp);
+        cmp_len = std::cmp::max(cmp_len, cmp_sp);
+    }
+
+    println!("{} {} {}\n", comp_path.to_str().expect("File path has been validated").bright_blue().bold(), sep, "OUTPUT".bright_green().bold());
     for (comp, res) in comparison.iter().zip(result) {
+        let pad = cmp_len + util::fix_combining_char_pad(comp);
         if comp.is_empty() && res.is_empty() {
             println!()
         } else if res != comp {
-            println!("{} {} {}", comp.bright_blue().bold(), "|".bright_red().bold(), res.bright_green().bold());
+            println!("{:<pad$} {} {}", comp.bright_blue().bold(), sep, res.bright_green().bold());
         } else {
-            println!("{} {} {}", comp, "|".bright_red().bold(), res);
+            println!("{:<pad$} {} {}", comp, sep, res);
         }
     }
     // In edge cases where one file is longer then the other
     match result.len().cmp(&comparison.len()) {
         std::cmp::Ordering::Equal => {},
-        std::cmp::Ordering::Less => for i in comparison.iter().skip(result.len()) {
-            println!("{} {} {}", i.bright_blue().bold(), "|".bright_red().bold(), "*".bright_green().bold());
+        std::cmp::Ordering::Less => for comp in comparison.iter().skip(result.len()) {
+            let pad = cmp_len + util::fix_combining_char_pad(comp);
+            println!("{:<pad$} {} {}", comp.bright_blue().bold(), sep, "");
         },
         std::cmp::Ordering::Greater => for i in result.iter().skip(comparison.len()) {
-            println!("{} {} {}", "*".bright_blue().bold(), "|".bright_red().bold(), i.bright_green().bold());
+            println!("{:<cmp_len$} {} {}", "", sep, i.bright_green().bold());
         },
     }
     Ok(())
@@ -37,15 +47,22 @@ fn print_result(result: &[String], start_words: &[String], maybe_compare: Option
         print_comparison(result, &comp_path)
     } else {
         println!("OUTPUT");
-        println!("{} {} {}\n", "BEFORE".bright_blue().bold(), "=>".bright_red().bold(), "AFTER".bright_green().bold());
+        let arr = "=>".bright_red().bold();
+
+        let mut bef_len = 0;
+        for bef in start_words {
+            let bef_sp = bef.chars().count() - util::fix_combining_char_pad(bef);
+            bef_len = std::cmp::max(bef_len, bef_sp);
+        }
+
         for (bef, aft) in start_words.iter().zip(result) {
             if bef.is_empty() && aft.is_empty() {
                 println!();
             } else {
-                println!("{} {} {}", bef.bright_blue().bold(), "=>".bright_red().bold(), aft.bright_green().bold());
+                let pad = bef_len + util::fix_combining_char_pad(bef);
+                println!("{:<pad$} {} {}", bef.bright_blue().bold(), arr, aft.bright_green().bold());
             }
         }
-        println!();
         Ok(())
     }
 }

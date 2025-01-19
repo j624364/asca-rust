@@ -206,6 +206,21 @@ fn output_result(dir: &Path, tag: &str, trace: &[Vec<String>], seq_names: &[Path
     Ok(())
 }
 
+fn calc_padding(trace: &[Vec<String>]) -> Vec<usize> {
+    let mut arr  = Vec::with_capacity(trace.len());
+
+    for col in trace {
+        let mut len = 0;
+        for word in col {
+            let spacing_chars_num = word.chars().count() - util::fix_combining_char_pad(word);
+            len = std::cmp::max(len, spacing_chars_num)
+        }
+        arr.push(len+1);
+    }
+
+    arr
+}
+
 // Handle printing result to the terminal
 fn print_result(trace: &[Vec<String>], tag: &str, all_steps: bool) {
     debug_assert!(!trace.is_empty());
@@ -214,6 +229,7 @@ fn print_result(trace: &[Vec<String>], tag: &str, all_steps: bool) {
 
     let num_steps = trace.len();
     let num_words = trace[0].len();
+    let base_pad = calc_padding(trace);
 
     for word in 0..num_words {
         if trace[0][word].is_empty() {
@@ -221,18 +237,21 @@ fn print_result(trace: &[Vec<String>], tag: &str, all_steps: bool) {
             continue;
         }
         // Concat start word
-        let mut str = format!("{}", &trace[0][word].bright_blue().bold());
+        let pad = base_pad[0] + util::fix_combining_char_pad(&trace[0][word]);
+        let mut str = format!("{:<pad$}", &trace[0][word].bright_blue().bold());
         if all_steps {
             // Concat intermediate steps
-            for step in trace.iter().take(num_steps-1).skip(1) {
-                str = format!("{str} {arr} {}", &step[word]);
+            for (s, step) in trace.iter().take(num_steps-1).skip(1).enumerate() {
+                let pad = base_pad[s] + util::fix_combining_char_pad(&step[word]);
+                str = format!("{str}{arr} {:<pad$}", &step[word]);
             }
         }
         // Concat final result
-        str = format!("{str} {arr} {}", &trace[num_steps-1][word].bright_green().bold());
+        let pad = base_pad[num_steps-1] + util::fix_combining_char_pad(&trace[num_steps-1][word]);
+        str = format!("{str} {arr} {:<pad$}", &trace[num_steps-1][word].bright_green().bold());
         println!("{}", str)
     }
-    println!();
+    // println!();
 }
 
 /// Pass a sequence to ASCA and return a trace and the name of each file that was used
