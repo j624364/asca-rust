@@ -1,3 +1,15 @@
+Unreleased changes
+==================
+
+Performance:
+* Reduction in unnecessary allocations
+
+Tweaks:
+* Changes to tone
+    * Capped at 4 digits
+    * Tone of `0` is now equivalent to no tone
+    * Improvements to how tone is dealt with when merging syllables
+
 0.4.2
 ==================
 
