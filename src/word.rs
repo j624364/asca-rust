@@ -723,8 +723,7 @@ impl Word {
 
             let mut j = 0;
             'outer: while j < syll.segments.len() {
-                let seg = syll.segments[j];
-                if j != 0 && seg == syll.segments[j-1] {
+                if j != 0 && syll.segments[j] == syll.segments[j-1] {
                     // TODO: Need to skip if we matched length last time
                     buffer.push('ː');
                     j+=1; continue;
@@ -736,6 +735,9 @@ impl Word {
                         let mut is_match = true;
                         // for (segment, modifiers) in segments {
                         for segtype in segments {
+                            if j >= syll.segments.len() {
+                                is_match = false; break;
+                            }
                             match segtype {
                                 SegType::Ipa(segment, modifiers) => {
                                     if let Some(mods) = modifiers {
@@ -762,7 +764,9 @@ impl Word {
                             match &alias.output.kind {
                                 AliasParseElement::Replacement(repl, plus) => {
                                     if *plus {
-                                        buffer.push_str(&seg.get_nearest_grapheme());
+                                        for ind in back_pos..j {
+                                            buffer.push_str(&syll.segments[ind].get_nearest_grapheme());
+                                        }
                                     } 
                                     buffer.push_str(repl);
                                 },
@@ -776,7 +780,7 @@ impl Word {
 
                 }
 
-                buffer.push_str(&seg.get_as_grapheme());
+                buffer.push_str(&syll.segments[j].get_as_grapheme());
                 j += 1;
             }
 
