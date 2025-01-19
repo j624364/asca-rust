@@ -1,16 +1,15 @@
-Unreleased changes
+0.4.3
 ==================
 
 Fixes:
-* Matching multiple segments with the plus operator will no longer overwrite the tail segments
-
+* Aliases: Matching multiple segments with the plus operator will no longer overwrite the tail segments
 
 Tweaks:
 * Performance
     * Reduction in unnecessary allocations
 * Changes to tone
     * Capped at 4 digits
-    * Tone of `0` is now equivalent to no tone
+    * Tone of `0` is now equivalent to no tone, matching documentation
     * Improvements to how tone is dealt with when merging syllables
 
 0.4.2
