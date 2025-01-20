@@ -209,28 +209,28 @@ impl Word {
         Ok(())
     }
 
-    fn alias_apply_length(&self, mods: &Modifiers, err_pos: AliasPosition) -> Result<usize, AliasRuntimeError> {
+    fn alias_apply_length(&self, mods: &Modifiers, err_pos: AliasPosition) -> Result<Option<usize>, AliasRuntimeError> {
         match mods.suprs.length {
-            [None, None] => Ok(1),
+            [None, None] => Ok(None),
             [None, Some(over)] => match over {
                 ModKind::Binary(bm) => match bm {
-                    BinMod::Positive => Ok(3),
-                    BinMod::Negative => Ok(1),
+                    BinMod::Positive => Ok(Some(3)),
+                    BinMod::Negative => Ok(Some(1)),
                 },
                 ModKind::Alpha(_) => unreachable!(),
             },
             [Some(long), None] => match long {
                 ModKind::Binary(bm) => match bm {
-                    BinMod::Positive => Ok(2),
-                    BinMod::Negative => Ok(1),
+                    BinMod::Positive => Ok(Some(2)),
+                    BinMod::Negative => Ok(Some(1)),
                 },
                 ModKind::Alpha(_) => unreachable!(),
             },
             [Some(long), Some(over)] => match (long, over) {
                 (ModKind::Binary(bl), ModKind::Binary(bo)) => match (bl, bo) {
-                    (BinMod::Positive, BinMod::Positive) => Ok(3),
-                    (BinMod::Positive, BinMod::Negative) => Ok(2),
-                    (BinMod::Negative, BinMod::Negative) => Ok(1),
+                    (BinMod::Positive, BinMod::Positive) => Ok(Some(3)),
+                    (BinMod::Positive, BinMod::Negative) => Ok(Some(2)),
+                    (BinMod::Negative, BinMod::Negative) => Ok(Some(1)),
                     (BinMod::Negative, BinMod::Positive) => Err(AliasRuntimeError::OverlongPosLongNeg(err_pos)),
                 },
                 _ => unreachable!()
@@ -284,7 +284,7 @@ impl Word {
                                         self.alias_apply_mods(&mut seg, mods, alias.output.position)?;
                                         self.alias_apply_stress(sy, mods, alias.output.position)?;
                                         
-                                        length = self.alias_apply_length(mods, alias.output.position)?;
+                                        length = self.alias_apply_length(mods, alias.output.position)?.unwrap_or(1);
 
                                         if let Some(tn) = &mods.suprs.tone {
                                             sy.tone = *tn;
@@ -302,27 +302,28 @@ impl Word {
                                         Err(AliasRuntimeError::EmptySyllable(alias.input.position))?
                                     };
 
-                                    self.alias_apply_stress(sy, mods, alias.output.position)?;                                    
+                                    self.alias_apply_stress(sy, mods, alias.output.position)?;
                                     if let Some(tn) = &mods.suprs.tone {
                                         sy.tone = *tn;
                                     }
                                     
                                     let cur_length = sy.segments.len() - pos;
-                                    let new_length = self.alias_apply_length(mods, alias.output.position)?;
+                                    let maybe_new_length = self.alias_apply_length(mods, alias.output.position)?;
                                     let seg = {
                                         let seg = sy.segments.get_mut(*pos).unwrap();
                                         self.alias_apply_mods(seg, mods, alias.output.position)?;
                                         *seg
                                     };
-
-                                    match new_length.cmp(&cur_length) {
-                                        std::cmp::Ordering::Equal => {},
-                                        std::cmp::Ordering::Greater => for _ in cur_length..new_length {
-                                            sy.segments.push_back(seg);
-                                        },
-                                        std::cmp::Ordering::Less => for _ in new_length..cur_length {
-                                            sy.segments.pop_back();
-                                        },
+                                    if let Some(new_length) = maybe_new_length {
+                                        match new_length.cmp(&cur_length) {
+                                            std::cmp::Ordering::Equal => {},
+                                            std::cmp::Ordering::Greater => for _ in cur_length..new_length {
+                                                sy.segments.push_back(seg);
+                                            },
+                                            std::cmp::Ordering::Less => for _ in new_length..cur_length {
+                                                sy.segments.pop_back();
+                                            },
+                                        }
                                     }
 
                                 } else {
