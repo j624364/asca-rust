@@ -12,9 +12,9 @@ An existing web json file can be converted into these formats (and vice-versa) u
 
 ### Word file (.wsca)
 Words are defined similarly as to the input field on [asca-web](doc.md). That is, each word is declared on a new line in ipa form.
-Unlike the current web format however, wsca files allow for comments delimited by `#`.
+Unlike the current web format, wsca files allow for comments marked by `#`.
 
-See [pie-uvular](../examples/indo-european/pie-uvular.wsca) for an example.
+See [pie-uvular](../examples/indo-european/pie-uvular-common.wsca) for an example.
 
 ### Rule file (.rsca)
 
@@ -23,11 +23,12 @@ Each rule group is defined as follows:
 - A rule title, preceded by `@`.
 - A list of sub rules.
     - Can be indented for clarity
+    - Empty lines are allowed
 - A rule description, preceded by `#`
     - Can be multiple lines, with each line starting with `#`.
 
 Example from a [germanic](../examples/indo-european/germanic/early-pgmc.rsca) implementation.
-```
+``` diff
 @ Grimms Law 
     [+cons, -son, -cont, -voice] > [+cont]
     [+cons, -son, -cont, +voice, -sg] > [-voice]
@@ -46,7 +47,7 @@ Example from a [germanic](../examples/indo-european/germanic/early-pgmc.rsca) im
 ```
 
 ### Romanisation file (.alias)
-An alias file has two sections, `into` and `from`. These encode deromanisation and romanisation, respectively.
+An alias file has two sections, `into` and `from`. These describe deromanisation and romanisation, respectively.
 
 Each section is introduced with a tag preceded by '@', then followed by a new line delimited list of alias rules (similiar to a rule file).
 
@@ -106,7 +107,7 @@ Multiple filters can be specified, separated by commas, and between curly bracke
 `!` means to exclude the following rules from the sequence. 
 
 `~` means to select only the following rules from the sequence (NOTE: They will be applied in the order they appear in the filter, not as they are within the rule file). 
-This could be useful for defining commonly used sound changes within a 'global' sound change file and selecting them when needed. 
+This is useful for defining commonly used sound changes within a 'global' sound change file and selecting them when needed. 
 
 ```diff
 @beta ["foo", "bar"]:
@@ -122,18 +123,21 @@ This could be useful for defining commonly used sound changes within a 'global' 
 #### Pipelines
 
 Instead of a word list, another defined sequence can be referenced with `%`. This will run the referenced sequence and use the resulting words as input. 
-This can be useful for defining daughter languages or branches.
+This is useful for defining daughter languages or branches.
 
 ``` diff
-@old-english %west-germanic:
+@latin ["example-lex"]:
+    "foo", "bar"
+
+@old-spanish %latin:
     "foo", "bar", "baz",
 
-@old-saxon %west-germanic:
+@spanish %old-spanish:
     "baz", "bar", "foo"
 ```
 
-Additional word lists can be added after a pipeline tag,. which will be appended to tag's input. 
-This allows for you to add forms at an intermediate sequence (i.e. loanwords).
+A word list can be optionally added after a pipeline tag, with its contents being appended to tag's input. 
+This allows for you to add forms at an intermediate sequence (i.e. loanwords or neologisms).
 
 ```
 @gamma %alpha ["baz"]:
