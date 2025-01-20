@@ -1,3 +1,12 @@
+0.4.4
+==================
+Fixes:
+* Aliases: Non-node segment features are now correctly applied.
+* Aliases: Applying stress or tone with the plus operator no longer sets the segment length to 1.
+
+Features:
+* Cli: Terminal output is now aligned for easier comprehension
+
 0.4.3
 ==================
 
