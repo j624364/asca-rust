@@ -192,6 +192,20 @@ impl Word {
                 }
             }
         }
+
+        for (i, m) in mods.feats.iter().enumerate() {
+            let (n, f) = feature_to_node_mask(FType::from_usize(i));
+            if let Some(kind) = m {
+                match kind {
+                    ModKind::Binary(bm) => match bm {
+                        BinMod::Negative => seg.set_feat(n, f, false),
+                        BinMod::Positive => seg.set_feat(n, f, true),
+                    },
+                    ModKind::Alpha(_) => unreachable!(),
+                }
+            }
+        }
+
         Ok(())
     }
 
