@@ -35,8 +35,8 @@
 #
 
 @ Long-A Raising
-    ɑ:[+vlong] > ɔ:[+vlong]
-    ɑ:[+long] > ɔ:[+long]
+    ɑ:[+vlong, Anasal] > ɔ:[+vlong, Anasal]
+    ɑ:[+long, Anasal] > ɔ:[+long, Anasal]
 #
 
 @ Early i-mutation

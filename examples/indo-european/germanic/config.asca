@@ -5,13 +5,18 @@
 @setup $../pie ["../pie-uvular-common", "../pie-pronouns"]: "setup"
 
 @proto-germanic %setup:
-    "pre-pgmc",
-    "early-pgmc",
-    "late-pgmc",
+    "./pgmc/pre",
+    "./pgmc/early",
+    "./pgmc/late",
+
+
+################# NorthWest Germanic ##################
+
+@proto-nw-germanic %proto-germanic: "./nwg/asdf"
 
 #################### West Germanic ####################
 
-# @proto-west-germanic %proto-germanic: TODO
+@proto-west-germanic %proto-nw-germanic: "./wg/asdf"
 
 ########## North Sea Germanic ##########
 
@@ -35,10 +40,13 @@
 
 #################### North Germanic ####################
 
-# @proto-norse %proto-germanic: TODO
+# @proto-norse %proto-nw-germanic: TODO
     # @old-norse %proto-norse: TODO
         # old-east-norse %old-norse: TODO
         # old-west-norse %old-norse: TODO
+
+
+
 
 #################### East Germanic ####################
 

@@ -1,0 +1,35 @@
+# TODO! NOT COMPLETE
+# Based on Ringe 2014 ISBN 978-0199207848
+
+@
+    e:[+str, +long] > ɑ:[+long]
+
+#
+
+@
+    i > * / _# | r_
+    $C > & / _#
+#
+
+@ 
+    o:[-str, +lng, -vlong] > u:[+lng] / _#
+#
+
+@
+    V:[-str, +hi, +long, -overlong] > [-long] / _#
+#
+
+@
+    w > * / _u#
+    C$ > & / _u#
+#
+
+@ 
+    a:[-str, -long] > u / _m
+#    a:[-str, -long] > i / {i,j}(C)_n
+#
+
+
+@
+    e:[-str, -long] > a / _r
+#

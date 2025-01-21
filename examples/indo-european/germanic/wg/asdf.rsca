@@ -1,0 +1,58 @@
+# TODO! NOT COMPLETE
+
+@ Delabialisation
+    [+cons, +dor, +lab] > [-lab] | #_ 
+# All labiovelar consonants delabialise except word-initially
+
+@
+    {z, ð} > w / _w
+#
+
+@
+    ð > d
+#
+
+@
+    z > [+rho]
+#
+
+@ Word Final loss of -az/-anz
+    z:[+rho] > * / _#
+    ɑ:[-long, -str, Anasal] > * / _#
+
+    j > V:[+tens] / C_#
+    w > V:[+tens] / C_# | Vj_
+    ij > i:[+long] / _#
+    C$ > & / _V:[+hi]#
+    $C > & / _#
+    $ > * / V_CC#
+#
+
+@ West Germanic Gemination
+    C:[-rho]=1 j > 1:[-bk, +hi] 1:[-bk, +hi]
+    $C:[-rho, -bk, +hi] > & / V_  
+#
+
+@
+    e > i / _{i, j}
+#
+
+@ Gemmination before r and l
+    {P:[-voi], h} > [+long] / V_{r, l}
+# TODO: Should only be in disyllables (Ringe, 2014)
+
+
+@
+    V:[+nasal] > [-nasal] / _#
+#
+
+
+
+
+@
+    ɔ:[+long, -overlong, -str] > a:[+long] 
+#
+
+@
+    [+overlong] > [-overlong]
+#
