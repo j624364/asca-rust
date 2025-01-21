@@ -796,11 +796,10 @@ impl SubRule {
             match self.insertion_after(bef_states, word, start_pos)? {
                 Some(ins_pos) => {
                     let mut pos = ins_pos;
-                    start_pos = ins_pos;
                     let mut state_index = 0;
+                    start_pos = ins_pos;
                     while state_index < aft_states.len() {
                         if !self.context_match(aft_states, &mut state_index, word, &mut pos, true, false)? {
-                            start_pos.increment(word);
                             continue 'outer;
                         }
                         state_index +=1;
