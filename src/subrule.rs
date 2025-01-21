@@ -790,21 +790,28 @@ impl SubRule {
     }
 
     fn insertion_between(&self, bef_states: &[Item], aft_states: &[Item], word: &Word, start_pos: SegPos) -> Result<Option<SegPos>, RuleRuntimeError> {
-        match self.insertion_after(bef_states, word, start_pos)? {
-            Some(ins_pos) => {
-                let mut pos = ins_pos;
-                // pos.increment(word);
-                let mut state_index = 0;
-                while state_index < aft_states.len() {
-                    if !self.context_match(aft_states, &mut state_index, word, &mut pos, true, false)? {
-                        return Ok(None)
+        let mut start_pos = start_pos;
+        
+        'outer: while word.in_bounds(start_pos) {
+            match self.insertion_after(bef_states, word, start_pos)? {
+                Some(ins_pos) => {
+                    let mut pos = ins_pos;
+                    start_pos = ins_pos;
+                    let mut state_index = 0;
+                    while state_index < aft_states.len() {
+                        if !self.context_match(aft_states, &mut state_index, word, &mut pos, true, false)? {
+                            start_pos.increment(word);
+                            continue 'outer;
+                        }
+                        state_index +=1;
                     }
-                    state_index +=1;
-                }
-                Ok(Some(ins_pos)) 
-            },
-            None => Ok(None),
+                    return Ok(Some(ins_pos)) 
+                },
+                None => return Ok(None),
+            }
         }
+
+        Ok(None)
     }
 
     fn insertion_after(&self, states: &[Item], word: &Word, start_pos: SegPos) -> Result<Option<SegPos>, RuleRuntimeError> {
