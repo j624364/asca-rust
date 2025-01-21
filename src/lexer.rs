@@ -189,11 +189,11 @@ pub(crate) enum TokenKind {
     RightSquare,      // ]
     LeftCurly,        // {
     RightCurly,       // }
-    // LeftAngle,     // <
-    // RightAngle,    // >
+    RightAngle,       // ⟩
+    LeftAngle,        // ⟨
     LeftBracket,      // (
     RightBracket,     // )
-    LessThan,         // <
+    // LessThan,         // <
     GreaterThan,      // >
     Equals,           // =
     Underline,        // _
@@ -230,39 +230,39 @@ impl TokenKind {
 
 impl Display for TokenKind {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        use TokenKind::*;
+        
         match self {
-            LeftSquare   => write!(f, "LSquare"),
-            RightSquare  => write!(f, "RSquare"),
-            LeftCurly    => write!(f, "LCurly"),
-            RightCurly   => write!(f, "RCurly"),
-            // LeftAngle  => write!(f, "LAngle"),
-            // RightAngle => write!(f, "RAngle"),
-            LeftBracket  => write!(f, "LBrack"),
-            RightBracket => write!(f, "RBrack"),
-            LessThan     => write!(f, "LT"),
-            GreaterThan  => write!(f, "GT"),
-            Equals       => write!(f, "Eq"),
-            Underline    => write!(f, "UL"),
-            Arrow        => write!(f, "Arrow"),
-            Comma        => write!(f, "Comma"),
-            Colon        => write!(f, "Colon"),
-            WordBoundary => write!(f, "WBound"),
-            SyllBoundary => write!(f, "SBound"),
-            Syllable     => write!(f, "Syll"),
-            Ampersand    => write!(f, "Amper"),
-            Group        => write!(f, "Prim"),
-            Number       => write!(f, "Num"),
-            Slash        => write!(f, "Slash"),
-            DubSlash     => write!(f, "DoubleSlash"),
-            Pipe         => write!(f, "Pipe"),
-            Cardinal     => write!(f, "Cardinal"),
-            Diacritic(_) => write!(f, "Diacritic"),
-            Star         => write!(f, "Star"),
-            EmptySet     => write!(f, "Empty"),
-            Ellipsis     => write!(f, "Ellipsis"),
-            Feature(x)   => write!(f, "{x}"),
-            Eol          => write!(f, "End of Line"),
+            TokenKind::LeftSquare   => write!(f, "LSquare"),
+            TokenKind::RightSquare  => write!(f, "RSquare"),
+            TokenKind::LeftCurly    => write!(f, "LCurly"),
+            TokenKind::RightCurly   => write!(f, "RCurly"),
+            TokenKind::LeftAngle    => write!(f, "LAngle"),
+            TokenKind::RightAngle   => write!(f, "RAngle"),
+            TokenKind::LeftBracket  => write!(f, "LBrack"),
+            TokenKind::RightBracket => write!(f, "RBrack"),
+            // TokenKind::LessThan     => write!(f, "LT"),
+            TokenKind::GreaterThan  => write!(f, "GT"),
+            TokenKind::Equals       => write!(f, "Eq"),
+            TokenKind::Underline    => write!(f, "UL"),
+            TokenKind::Arrow        => write!(f, "Arrow"),
+            TokenKind::Comma        => write!(f, "Comma"),
+            TokenKind::Colon        => write!(f, "Colon"),
+            TokenKind::WordBoundary => write!(f, "WBound"),
+            TokenKind::SyllBoundary => write!(f, "SBound"),
+            TokenKind::Syllable     => write!(f, "Syll"),
+            TokenKind::Ampersand    => write!(f, "Amper"),
+            TokenKind::Group        => write!(f, "Prim"),
+            TokenKind::Number       => write!(f, "Num"),
+            TokenKind::Slash        => write!(f, "Slash"),
+            TokenKind::DubSlash     => write!(f, "DoubleSlash"),
+            TokenKind::Pipe         => write!(f, "Pipe"),
+            TokenKind::Cardinal     => write!(f, "Cardinal"),
+            TokenKind::Diacritic(_) => write!(f, "Diacritic"),
+            TokenKind::Star         => write!(f, "Star"),
+            TokenKind::EmptySet     => write!(f, "Empty"),
+            TokenKind::Ellipsis     => write!(f, "Ellipsis"),
+            TokenKind::Feature(x)   => write!(f, "{x}"),
+            TokenKind::Eol          => write!(f, "End of Line"),
         }
     }
 }
@@ -320,12 +320,13 @@ pub(crate) struct Lexer<'a> {
     pos: usize,
     inside_matrix: bool,
     inside_option: bool,
+    inside_syll: bool,
     inside_set: bool,
 }
 
 impl<'a> Lexer<'a> {
     pub(crate) fn new(source: &'a [char], group: usize, line: usize) -> Self {
-        Self { source, group, line, pos: 0, inside_matrix: false , inside_option: false, inside_set: false}
+        Self { source, group, line, pos: 0, inside_matrix: false , inside_option: false, inside_syll: false, inside_set: false}
     }
 
     fn has_more_chars(&self) -> bool { !self.source.is_empty() }
@@ -381,25 +382,30 @@ impl<'a> Lexer<'a> {
             ')' => { tokenkind = TokenKind::RightBracket; value = ")"; self.inside_option = false },
             ']' => { tokenkind = TokenKind::RightSquare;  value = "]"; self.inside_matrix = false },
             '}' => { tokenkind = TokenKind::RightCurly;   value = "}"; self.inside_set    = false },
-            '⟨' => unimplemented!(), // { tokenkind = TokenKind::LeftAngle;    value = "⟨".to_string(); },
-            '⟩' => unimplemented!(), // { tokenkind = TokenKind::RightAngle;   value = "⟩".to_string(); },
+            '⟩' => { tokenkind = TokenKind::RightAngle;   value = "⟩"; self.inside_syll   = false },
+            '⟨' => { 
+                if self.inside_syll {
+                    return Err(RuleSyntaxError::NestedBrackets(self.group, self.line, start));
+                }
+                tokenkind = TokenKind::LeftAngle; value = "⟨"; self.inside_syll = true;
+            },
             '{' => { 
                 if self.inside_set {
                     return Err(RuleSyntaxError::NestedBrackets(self.group, self.line, start));
                 }
-                tokenkind = TokenKind::LeftCurly; value = "{";  self.inside_set = true
+                tokenkind = TokenKind::LeftCurly; value = "{";  self.inside_set = true;
             },
             '(' => { 
                 if self.inside_option {
                     return Err(RuleSyntaxError::NestedBrackets(self.group, self.line, start));
                 }
-                tokenkind = TokenKind::LeftBracket; value = "("; self.inside_option = true
+                tokenkind = TokenKind::LeftBracket; value = "("; self.inside_option = true;
             },
             '[' => { 
                 if self.inside_matrix {
                     return Err(RuleSyntaxError::NestedBrackets(self.group, self.line, start));
                 }
-                tokenkind = TokenKind::LeftSquare; value = "[";  self.inside_matrix = true
+                tokenkind = TokenKind::LeftSquare; value = "[";  self.inside_matrix = true;
             },
             _ => return Ok(None)
         }
@@ -484,8 +490,21 @@ impl<'a> Lexer<'a> {
             '∅' => { tokenkind = TokenKind::EmptySet;     self.chop(1) },
             '&' => { tokenkind = TokenKind::Ampersand;    self.chop(1) },
             '_' => { tokenkind = TokenKind::Underline;    self.chop(1) },
-            '<' => { tokenkind = TokenKind::LessThan;     self.chop(1) },
-            '>' => { tokenkind = TokenKind::GreaterThan;  self.chop(1) },
+            '<' => { 
+                if self.inside_syll {
+                    return Err(RuleSyntaxError::NestedBrackets(self.group, self.line, start));
+                }
+                tokenkind = TokenKind::LeftAngle; self.inside_syll = true;
+                self.chop(1)
+            },
+            '>' => {
+                match self.inside_syll {
+                    true  => tokenkind = TokenKind::RightAngle,
+                    false => tokenkind = TokenKind::GreaterThan,
+                }
+                self.inside_syll = false;
+                self.chop(1) 
+            },
             '|' => { tokenkind = TokenKind::Pipe;         self.chop(1) },
             '/' => match self.next_char() {
                 '/' => { tokenkind = TokenKind::DubSlash; self.chop(2) },

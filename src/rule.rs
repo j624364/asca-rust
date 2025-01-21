@@ -1596,11 +1596,42 @@ mod rule_tests {
         }   
     }
 
-
     #[test]
     fn test_clicks() {
         let test_rule = setup_rule("[+clk] > [+dr]");
         
         assert_eq!(test_rule.apply(setup_word("ɴǃa")).unwrap().render(&[]), "ǃɴa");
+    }
+
+    #[test]
+    fn test_structure_substitution() {
+        let test_rule = setup_rule("% > <han>:[tone:51]");
+        assert_eq!(test_rule.apply(setup_word("sleft")).unwrap().render(&[]), "han51");
+
+        let test_rule = setup_rule("% > <han>:[+str] / _#");
+        assert_eq!(test_rule.apply(setup_word("sleft")).unwrap().render(&[]), "ˈhan");
+        assert_eq!(test_rule.apply(setup_word("sleft.te")).unwrap().render(&[]), "sleftˈhan");
+
+        let test_rule = setup_rule("% > <ha:[+long]n> / #_");
+        assert_eq!(test_rule.apply(setup_word("sleft")).unwrap().render(&[]), "haːn");
+        assert_eq!(test_rule.apply(setup_word("sleft.te")).unwrap().render(&[]), "haːn.te");
+    }
+
+    #[test]
+    fn test_structure_input_match() {
+        let test_rule = setup_rule("% > <han>:[tone:51] / <sleft> _");
+        assert_eq!(test_rule.apply(setup_word("sleft.te")).unwrap().render(&[]), "sleft.han51");
+
+        let test_rule = setup_rule("% > <han>:[tone:51] / <...eft> _");
+        assert_eq!(test_rule.apply(setup_word("sleft.te")).unwrap().render(&[]), "sleft.han51");
+
+        let test_rule = setup_rule("% > <han>:[tone:51] / <...CC> _");
+        assert_eq!(test_rule.apply(setup_word("sleft.te")).unwrap().render(&[]), "sleft.han51");
+
+        let test_rule = setup_rule("% > <han>:[tone:51] / <..VCC> _");
+        assert_eq!(test_rule.apply(setup_word("sleft.te")).unwrap().render(&[]), "sleft.han51");
+
+        let test_rule = setup_rule("% > <han>:[tone:51] / <CCVCC> _");
+        assert_eq!(test_rule.apply(setup_word("sleft.te")).unwrap().render(&[]), "sleft.han51");
     }
 }

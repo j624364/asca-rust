@@ -119,6 +119,7 @@ pub(crate) enum ParseElement {
     Ipa         (Segment, Option<Modifiers>),
     Matrix      (Modifiers, Option<usize>),
     Syllable    ([Option<ModKind>; 2], Option<Tone>, Option<usize>),
+    Structure   (Vec<Item>, [Option<ModKind>; 2], Option<Tone>, Option<usize>),
     Optional    (Vec<Item>, usize, usize),
     Environment (Vec<Item>, Vec<Item>),
     Variable    (Token, Option<Modifiers>),
@@ -158,6 +159,14 @@ impl fmt::Display for ParseElement {
             ParseElement::Syllable(str, tone, var) => {
                 write!(f, "SYLL=>{str:?}:{tone:#?}={var:#?}")
             },
+            ParseElement::Structure(segs, str, tone, var) => {
+                write!(f, "STRUCT=>{str:?}:{tone:#?}={var:#?} <")?;
+                for i in segs {
+                    write!(f, "{}", i)?;
+                    write!(f, ", ")?;
+                }
+                write!(f, ">")
+            }
             ParseElement::Set(s) => {
                 write!(f, "{{")?;
                 for i in s {
@@ -835,13 +844,63 @@ impl Parser {
         Ok(Some(Item::new(ParseElement::Syllable(mods.suprs.stress, mods.suprs.tone, None), Position::new(self.group, self.line, start_pos, end_pos))))
     }
 
+    fn get_struct(&mut self) -> Result<Option<Item>, RuleSyntaxError> {
+        let start_pos = self.curr_tkn.position.start;
+
+        if !self.expect(TokenKind::LeftAngle) { return Ok(None) }
+        let mut terms = Vec::new();
+
+        while self.has_more_tokens() {
+            if self.eat_expect(TokenKind::RightAngle).is_some() { break; }
+            if let Some(x) = self.get_seg()?{ 
+                terms.push(x);
+                continue;
+            }
+            if let Some(el) = self.eat_expect(TokenKind::Ellipsis) {
+                terms.push(Item::new(ParseElement::Ellipsis, el.position));
+                continue;
+            }
+
+            return Err(RuleSyntaxError::ExpectedSegment(self.curr_tkn.clone()))
+        }
+
+        if !self.expect(TokenKind::Colon) {
+            let end_pos = self.curr_tkn.position.start - 1;
+            if self.expect(TokenKind::Equals) {
+                let Some(number) = self.eat_expect(TokenKind::Number) else {
+                    return Err(RuleSyntaxError::ExpectedVariable(self.curr_tkn.clone()))
+                };
+                let num = number.value.parse::<usize>().unwrap();
+                return Ok(Some(Item::new(ParseElement::Structure(terms, [None, None], None, Some(num)), Position::new(self.group, self.line, start_pos, end_pos))))
+            }
+            return Ok(Some(Item::new(ParseElement::Structure(terms, [None, None], None, None), Position::new(self.group, self.line, start_pos, end_pos))))
+        }
+        if !self.expect(TokenKind::LeftSquare) {
+            return Err(RuleSyntaxError::ExpectedMatrix(self.curr_tkn.clone()))
+        }
+
+        let mods = self.get_param_args(true)?;
+        let end_pos = self.token_list[self.pos-1].position.end;
+                    
+        if self.expect(TokenKind::Equals) {
+            let Some(number) = self.eat_expect(TokenKind::Number) else {
+                return Err(RuleSyntaxError::ExpectedVariable(self.curr_tkn.clone()))
+            };
+            let num = number.value.parse::<usize>().unwrap();
+            return Ok(Some(Item::new(ParseElement::Structure(terms, mods.suprs.stress, mods.suprs.tone, Some(num)), Position::new(self.group, self.line, start_pos, end_pos))))
+        }
+
+        Ok(Some(Item::new(ParseElement::Structure(terms, mods.suprs.stress, mods.suprs.tone, None), Position::new(self.group, self.line, start_pos, end_pos))))
+    }
+
     fn get_term(&mut self) -> Result<Option<Item>, RuleSyntaxError> {
-        // returns TERM ← SYL / SET / SEG / OPT / VAR 
-        if let Some(x) = self.get_syll()? { return Ok(Some(x)) }
-        if let Some(x) = self.get_set()?  { return Ok(Some(x)) }
-        if let Some(x) = self.get_seg()?  { return Ok(Some(x)) }
-        if let Some(x) = self.get_var()?  { return Ok(Some(x)) }
-        if let Some(x) = self.get_opt()?  { return Err(RuleSyntaxError::OptLocError(x.position)) }
+        // returns TERM ← SYL / STRUCT / SET / SEG / OPT / VAR 
+        if let Some(x) = self.get_syll()?   { return Ok(Some(x)) }
+        if let Some(x) = self.get_struct()? { return Ok(Some(x)) }
+        if let Some(x) = self.get_set()?    { return Ok(Some(x)) }
+        if let Some(x) = self.get_seg()?    { return Ok(Some(x)) }
+        if let Some(x) = self.get_var()?    { return Ok(Some(x)) }
+        if let Some(x) = self.get_opt()?    { return Err(RuleSyntaxError::OptLocError(x.position)) }
 
         Ok(None)
     }
@@ -870,6 +929,7 @@ impl Parser {
         // NOTE: a set in the output only makes sense when matched to a set in the input w/ the same # of elements
         // This will be validated when applying
         if let Some(x) = self.get_syll()?      { return Ok(Some(x)) }
+        if let Some(x) = self.get_struct()?    { return Ok(Some(x)) }
         if let Some(x) = self.get_set()?       { return Ok(Some(x)) }
         if let Some(x) = self.get_seg()?       { return Ok(Some(x)) }
         if let Some(x) = self.get_var()?       { return Ok(Some(x)) }
