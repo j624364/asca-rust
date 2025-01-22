@@ -67,9 +67,13 @@ pub enum RuleRuntimeError {
     NodeCannotBeNone(String, Position),
     NodeCannotBeSet (String, Position),
     WordBoundSetLocError(Position),
+    SubstitutionEllipsis(Position),
+    SyllVarInsideStruct (Position),
     AlphaNodeAssignInv  (Position),
     OverlongPosLongNeg  (Position),
     AlphaIsNotSameNode  (Position),
+    SubstitutionMatrix  (Position),
+    InsertionEllipsis   (Position),
     SubstitutionSyll    (Position),
     SecStrPosStrNeg     (Position),
     AlphaUnknownInv     (Position),
@@ -104,10 +108,14 @@ impl ASCAError for RuleRuntimeError {
             Self::NodeCannotBeNone(node, _) => format!("{} node cannot be removed", node),
             Self::NodeCannotBeSet (node, _) => format!("{} node cannot be assigned using PLACE alpha", node),
             Self::WordBoundSetLocError(_) => "Word Boundaries cannot be in the input or output".to_string(),
+            Self::SubstitutionEllipsis(_) => "An ellipsis cannot be substituted".to_string(),
+            Self::SyllVarInsideStruct (_) => "Variables assigned to syllables cannot be used inside a structure".to_string(),
             Self::AlphaNodeAssignInv  (_) => "Node alphas cannot be assigned inverse. First occurrence of a node alpha must be positive.".to_string(),
             Self::OverlongPosLongNeg  (_) => "A segment cannot be both [+overlong] and [-long]".to_string(),
             Self::AlphaIsNotSameNode  (_) => "Node alphas must only be used on the same node.".to_string(),
-            Self::SubstitutionSyll    (_) => "Syllables cannot be in substitution output. If you wish to modify a syllable, use a matrix.".to_string(),
+            Self::SubstitutionMatrix  (_) => "A matrix cannot be used inside a structure when substituting".to_string(),
+            Self::InsertionEllipsis   (_) => "An ellipsis cannot be inserted".to_string(),
+            Self::SubstitutionSyll    (_) => "Blank syllables cannot be used in substitution output.".to_string(),
             Self::SecStrPosStrNeg     (_) => "A syllable cannot be both [+sec.stress] and [-stress]".to_string(),
             Self::AlphaUnknownInv     (_) => "First occurence of a node alpha must not be inverted.".to_string(),
             Self::InsertionMatrix     (_) => "An incomplete matrix cannot be inserted".to_string(),
@@ -138,9 +146,13 @@ impl ASCAError for RuleRuntimeError {
                 pos.line
             ),
             Self::WordBoundSetLocError(pos) |
+            Self::SubstitutionEllipsis(pos) |
+            Self::SyllVarInsideStruct (pos) |
             Self::AlphaNodeAssignInv  (pos) |
-            Self::AlphaIsNotSameNode  (pos) |
             Self::OverlongPosLongNeg  (pos) |
+            Self::AlphaIsNotSameNode  (pos) |
+            Self::SubstitutionMatrix  (pos) |
+            Self::InsertionEllipsis   (pos) |
             Self::SubstitutionSyll    (pos) |
             Self::SecStrPosStrNeg     (pos) |
             Self::AlphaUnknownInv     (pos) |

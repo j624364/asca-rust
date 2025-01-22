@@ -852,12 +852,17 @@ impl Parser {
 
         while self.has_more_tokens() {
             if self.eat_expect(TokenKind::RightAngle).is_some() { break; }
-            if let Some(x) = self.get_seg()?{ 
+            if let Some(x) = self.get_seg()? { 
                 terms.push(x);
                 continue;
             }
             if let Some(el) = self.eat_expect(TokenKind::Ellipsis) {
                 terms.push(Item::new(ParseElement::Ellipsis, el.position));
+                continue;
+            }
+
+            if let Some(x) = self.get_var()? {
+                terms.push(x);
                 continue;
             }
 
@@ -971,7 +976,6 @@ impl Parser {
             // Input elements
             let inp_term = self.get_input_els()?;
             if inp_term.is_empty() && inputs.is_empty() {
-                println!("{:?}", self.curr_tkn);
                 return Err(RuleSyntaxError::UnknownCharacter(self.curr_tkn.value.chars().next().unwrap(), self.group, self.line, self.pos))
             } else if inp_term.is_empty() && !self.expect(TokenKind::Comma) {
                 break;

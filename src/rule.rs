@@ -133,7 +133,6 @@ impl Rule {
         let mut res_word = word; 
         for i in sub_rules {
             res_word = i.apply(res_word)?;
-            // println!("{i:#?} ---> {res_word:#?}");
         }
         Ok(res_word)
     }
@@ -844,8 +843,13 @@ mod rule_tests {
     #[test]
     fn test_insertion_segment_between_ipa() {
         let test_rule = setup_rule("* > e / s_k");
-        let test_word = setup_word("kskis");
-        assert_eq!(test_rule.apply(test_word).unwrap().render(&[]), "ksekis");
+        assert_eq!(test_rule.apply(setup_word("kskis")).unwrap().render(&[]), "ksekis");
+
+        let test_rule = setup_rule("* > j / t_e");
+        assert_eq!(test_rule.apply(setup_word("steft.steft")).unwrap().render(&[]), "stjeft.stjeft");
+
+        let test_rule = setup_rule("* > j / t_e");
+        assert_eq!(test_rule.apply(setup_word("steft.teft")).unwrap().render(&[]), "stjeft.tjeft");
     }
 
     #[test]
@@ -1618,20 +1622,162 @@ mod rule_tests {
     }
 
     #[test]
-    fn test_structure_input_match() {
+    fn test_structure_var() {
+        let test_rule = setup_rule("% > <ha1>:[tone:51] / _C=1");
+        assert_eq!(test_rule.apply(setup_word("sleft.sa")).unwrap().render(&[]), "has51.sa");
+
+        let test_rule = setup_rule("C > 1 / _<C=1as>");
+        assert_eq!(test_rule.apply(setup_word("sleft.has")).unwrap().render(&[]), "slefh.has");
+    }
+
+    #[test]
+    fn test_structure_substitution_insert() {
+        let test_rule = setup_rule("te > ten<han>:[tone:51] / _#");
+        assert_eq!(test_rule.apply(setup_word("sleft.te")).unwrap().render(&[]), "sleft.ten.han51");
+        let test_rule = setup_rule("ef > eft<han>:[tone:51]");
+        assert_eq!(test_rule.apply(setup_word("slef.te")).unwrap().render(&[]), "sleft.han51.te");
+        let test_rule = setup_rule("a > a<han>:[tone:51]");
+        assert_eq!(test_rule.apply(setup_word("slaft.te")).unwrap().render(&[]), "sla.han51.ft.te");
+        let test_rule = setup_rule("e > e<han>:[tone:51]");
+        assert_eq!(test_rule.apply(setup_word("sleft.te")).unwrap().render(&[]), "sle.han51.ft.te.han51");
+        let test_rule = setup_rule("<>:[+stress]=1 > 1 <han>:[tone:51]");
+        assert_eq!(test_rule.apply(setup_word("'sleft.te")).unwrap().render(&[]), "ˈsleft.han51.te");
+        let test_rule = setup_rule("f > <han>:[tone:51]");
+        assert_eq!(test_rule.apply(setup_word("sleft.te")).unwrap().render(&[]), "sle.han51.t.te");
+
+        // Segment Replacements
+        let test_rule = setup_rule("a > <hen>:[tone:51]");
+        assert_eq!(test_rule.apply(setup_word("sleft.a.te")).unwrap().render(&[]), "sleft.hen51.te");
+        let test_rule = setup_rule("a > <hen>:[tone:51]");
+        assert_eq!(test_rule.apply(setup_word("sleft.a.a")).unwrap().render(&[]), "sleft.hen51.hen51");
+        let test_rule = setup_rule("a > <han>:[tone:51]");
+        assert_eq!(test_rule.apply(setup_word("sleft.a.te")).unwrap().render(&[]), "sleft.han51.te");
+        let test_rule = setup_rule("a > <han>:[tone:51]");
+        assert_eq!(test_rule.apply(setup_word("sleft.a.a")).unwrap().render(&[]), "sleft.han51.han51");
+        let test_rule = setup_rule("a > <han>:[tone:51]");
+        assert_eq!(test_rule.apply(setup_word("a.a.a")).unwrap().render(&[]), "han51.han51.han51");
+        let test_rule = setup_rule("a > <han>:[tone:51]");
+        assert_eq!(test_rule.apply(setup_word("a.e.a")).unwrap().render(&[]), "han51.e.han51");
+        let test_rule = setup_rule("a > <han>:[tone:51]t");
+        assert_eq!(test_rule.apply(setup_word("a.e.a")).unwrap().render(&[]), "han51.te.hant51");
+        let test_rule = setup_rule("a > <han>:[tone:51]<te>");
+        assert_eq!(test_rule.apply(setup_word("a.e.a")).unwrap().render(&[]), "han51.te.e.han51.te");
+        let test_rule = setup_rule("a > <han>:[tone:51]$t");
+        assert_eq!(test_rule.apply(setup_word("a.e.a")).unwrap().render(&[]), "han51.te.hant51");
+    }
+    
+
+    #[test]
+    fn test_structure_context_match() {
         let test_rule = setup_rule("% > <han>:[tone:51] / <sleft> _");
         assert_eq!(test_rule.apply(setup_word("sleft.te")).unwrap().render(&[]), "sleft.han51");
-
         let test_rule = setup_rule("% > <han>:[tone:51] / <...eft> _");
         assert_eq!(test_rule.apply(setup_word("sleft.te")).unwrap().render(&[]), "sleft.han51");
-
+        let test_rule = setup_rule("% > <han>:[tone:51] / <s..eft> _");
+        assert_eq!(test_rule.apply(setup_word("sleft.te")).unwrap().render(&[]), "sleft.han51");
+        let test_rule = setup_rule("% > <han>:[tone:51] / <s...t> _");
+        assert_eq!(test_rule.apply(setup_word("sleft.te")).unwrap().render(&[]), "sleft.han51");
+        let test_rule = setup_rule("% > <han>:[tone:51] / <sl...> _");
+        assert_eq!(test_rule.apply(setup_word("sleft.te")).unwrap().render(&[]), "sleft.han51");
         let test_rule = setup_rule("% > <han>:[tone:51] / <...CC> _");
         assert_eq!(test_rule.apply(setup_word("sleft.te")).unwrap().render(&[]), "sleft.han51");
-
         let test_rule = setup_rule("% > <han>:[tone:51] / <..VCC> _");
         assert_eq!(test_rule.apply(setup_word("sleft.te")).unwrap().render(&[]), "sleft.han51");
-
+        let test_rule = setup_rule("% > <han>:[tone:51] / <CC..CC> _");
+        assert_eq!(test_rule.apply(setup_word("sleft.te")).unwrap().render(&[]), "sleft.han51");
         let test_rule = setup_rule("% > <han>:[tone:51] / <CCVCC> _");
         assert_eq!(test_rule.apply(setup_word("sleft.te")).unwrap().render(&[]), "sleft.han51");
     }
-}
+
+    #[test]
+    fn test_structure_context_match_multiple_ellipsis() {
+        let test_rule = setup_rule("% > <han>:[tone:51] / <s..e..t> _");
+        assert_eq!(test_rule.apply(setup_word("sleft.te")).unwrap().render(&[]), "sleft.han51");
+        let test_rule = setup_rule("% > <han>:[tone:51] / <..e..t> _");
+        assert_eq!(test_rule.apply(setup_word("sleft.te")).unwrap().render(&[]), "sleft.han51");
+        let test_rule = setup_rule("% > <han>:[tone:51] / <..e..> _");
+        assert_eq!(test_rule.apply(setup_word("sleft.te")).unwrap().render(&[]), "sleft.han51");
+        let test_rule = setup_rule("% > <han>:[tone:51] / <..l..> _");
+        assert_eq!(test_rule.apply(setup_word("sleft.te")).unwrap().render(&[]), "sleft.han51");
+        let test_rule = setup_rule("% > <han>:[tone:51] / <..f..> _");
+        assert_eq!(test_rule.apply(setup_word("sleft.te")).unwrap().render(&[]), "sleft.han51");
+        // True Negatives
+        let test_rule = setup_rule("% > <han>:[tone:51] / <..t..> _");
+        assert_eq!(test_rule.apply(setup_word("sleft.te")).unwrap().render(&[]), "sleft.te");
+        let test_rule = setup_rule("% > <han>:[tone:51] / <..s..> _");
+        assert_eq!(test_rule.apply(setup_word("sleft.te")).unwrap().render(&[]), "sleft.te");
+        let test_rule = setup_rule("% > <han>:[tone:51] / <xs..e..t> _");
+        assert_eq!(test_rule.apply(setup_word("sleft.te")).unwrap().render(&[]), "sleft.te");
+    }
+
+    #[test]
+    fn test_structure_input_match() {
+        let test_rule = setup_rule("<sleft> > <han>:[tone:51]");
+        assert_eq!(test_rule.apply(setup_word("sleft.te")).unwrap().render(&[]), "han51.te");
+        let test_rule = setup_rule("<...eft> > <han>:[tone:51]");
+        assert_eq!(test_rule.apply(setup_word("sleft.te")).unwrap().render(&[]), "han51.te");
+        let test_rule = setup_rule("<s..eft> > <han>:[tone:51]");
+        assert_eq!(test_rule.apply(setup_word("sleft.te")).unwrap().render(&[]), "han51.te");
+        let test_rule = setup_rule("<s...t> > <han>:[tone:51]");
+        assert_eq!(test_rule.apply(setup_word("sleft.te")).unwrap().render(&[]), "han51.te");
+        let test_rule = setup_rule("<sl...> > <han>:[tone:51]");
+        assert_eq!(test_rule.apply(setup_word("sleft.te")).unwrap().render(&[]), "han51.te");
+        let test_rule = setup_rule("<...CC> > <han>:[tone:51]");
+        assert_eq!(test_rule.apply(setup_word("sleft.te")).unwrap().render(&[]), "han51.te");
+        let test_rule = setup_rule("<..VCC> > <han>:[tone:51]");
+        assert_eq!(test_rule.apply(setup_word("sleft.te")).unwrap().render(&[]), "han51.te");
+        let test_rule = setup_rule("<CC..CC> > <han>:[tone:51]");
+        assert_eq!(test_rule.apply(setup_word("sleft.te")).unwrap().render(&[]), "han51.te");
+        let test_rule = setup_rule("<CCVCC> > <han>:[tone:51]");
+        assert_eq!(test_rule.apply(setup_word("sleft.te")).unwrap().render(&[]), "han51.te");
+    }
+
+    #[test]
+    fn test_structure_input_match_multiple_ellipsis() {
+        let test_rule = setup_rule("<s..e..t> > <han>:[tone:51]");
+        assert_eq!(test_rule.apply(setup_word("sleft.te")).unwrap().render(&[]), "han51.te");
+        let test_rule = setup_rule("<..e..t> > <han>:[tone:51]");
+        assert_eq!(test_rule.apply(setup_word("sleft.te")).unwrap().render(&[]), "han51.te");
+        let test_rule = setup_rule("<..e..> > <han>:[tone:51]");
+        assert_eq!(test_rule.apply(setup_word("sleft.te")).unwrap().render(&[]), "han51.te");
+        let test_rule = setup_rule("<..l..> > <han>:[tone:51]");
+        assert_eq!(test_rule.apply(setup_word("sleft.te")).unwrap().render(&[]), "han51.te");
+        let test_rule = setup_rule("<..f..> > <han>:[tone:51]");
+        assert_eq!(test_rule.apply(setup_word("sleft.te")).unwrap().render(&[]), "han51.te");
+        let test_rule = setup_rule("<..V..> > <han>:[tone:51]");
+        assert_eq!(test_rule.apply(setup_word("sleft.te")).unwrap().render(&[]), "han51.te");
+        let test_rule = setup_rule("<...CC> > <han>:[tone:51]");
+        assert_eq!(test_rule.apply(setup_word("sleft.te")).unwrap().render(&[]), "han51.te");
+        let test_rule = setup_rule("<..VCC> > <han>:[tone:51]");
+        assert_eq!(test_rule.apply(setup_word("sleft.te")).unwrap().render(&[]), "han51.te");
+        let test_rule = setup_rule("<CC..CC> > <han>:[tone:51]");
+        assert_eq!(test_rule.apply(setup_word("sleft.te")).unwrap().render(&[]), "han51.te");
+        let test_rule = setup_rule("<CCVCC> > <han>:[tone:51]");
+        assert_eq!(test_rule.apply(setup_word("sleft.te")).unwrap().render(&[]), "han51.te");
+        // True Negatives
+        let test_rule = setup_rule("<..t..> > <han>:[tone:51]");
+        assert_eq!(test_rule.apply(setup_word("sleft.te")).unwrap().render(&[]), "sleft.te");
+        let test_rule = setup_rule("<..s..> > <han>:[tone:51]");
+        assert_eq!(test_rule.apply(setup_word("sleft.te")).unwrap().render(&[]), "sleft.te");
+        let test_rule = setup_rule("<xs..e..t> > <han>:[tone:51]");
+        assert_eq!(test_rule.apply(setup_word("sleft.te")).unwrap().render(&[]), "sleft.te");
+        let test_rule = setup_rule("<s...Vt> > <han>:[tone:51]");
+        assert_eq!(test_rule.apply(setup_word("sleft.te")).unwrap().render(&[]), "sleft.te");
+    }
+
+    #[test]
+    fn test_structure_insert() {
+        let test_rule = setup_rule("* > <han>:[tone:51] / _#");
+        assert_eq!(test_rule.apply(setup_word("sleft.te")).unwrap().render(&[]), "sleft.te.han51");
+        let test_rule = setup_rule("* > <han>:[tone:51] / #_");
+        assert_eq!(test_rule.apply(setup_word("sleft.te")).unwrap().render(&[]), "han51.sleft.te");
+        let test_rule = setup_rule("* > <han>:[tone:51] / e_f");
+        assert_eq!(test_rule.apply(setup_word("sleft.te")).unwrap().render(&[]), "sle.han51.ft.te");
+        let test_rule = setup_rule("* > <han>:[tone:51] / t_e");
+        assert_eq!(test_rule.apply(setup_word("sleft.te")).unwrap().render(&[]), "sleft.t.han51.e");
+        let test_rule = setup_rule("* > <han>:[tone:51] / t_");
+        assert_eq!(test_rule.apply(setup_word("sleft.te")).unwrap().render(&[]), "sleft.han51.t.han51.e");
+        let test_rule = setup_rule("* > <han>:[tone:51] / e_");
+        assert_eq!(test_rule.apply(setup_word("sleft.te")).unwrap().render(&[]), "sle.han51.ft.te.han51");
+    }
+} 
