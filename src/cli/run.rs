@@ -32,7 +32,7 @@ fn print_comparison(result: &[String], comp_path: &Path) -> io::Result<()> {
         std::cmp::Ordering::Equal => {},
         std::cmp::Ordering::Less => for comp in comparison.iter().skip(result.len()) {
             let pad = cmp_len + util::fix_combining_char_pad(comp);
-            println!("{:<pad$} {} {}", comp.bright_blue().bold(), sep, "");
+            println!("{:<pad$} {}", comp.bright_blue().bold(), sep);
         },
         std::cmp::Ordering::Greater => for i in result.iter().skip(comparison.len()) {
             println!("{:<cmp_len$} {} {}", "", sep, i.bright_green().bold());
