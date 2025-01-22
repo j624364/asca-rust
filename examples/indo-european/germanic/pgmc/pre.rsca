@@ -41,7 +41,11 @@
     V:[+long] > [+overlong] / _{h, x, ɣʷ} | _$
     V:[-long] > [+long] / _{h, x, ɣʷ} |  _$
     {h, x, ɣʷ} > * / V_
+    
+    V:[+hi] > G:[-tense] / V_$
+    $G > & / _$
 #
+
 @ Cowgill's Law 
     {ɣʷ, x} > g / S_w
 # h₃ /ɣʷ/ (and possibly h₂ /x/) is strengthened to /g/ between a sonorant and /w/
