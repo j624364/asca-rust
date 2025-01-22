@@ -1244,7 +1244,7 @@ impl SubRule {
                             },
                             (VarKind::Syllable(syll), MatchElement::Syllable(sp, _)) => {
                                 res_word.syllables[sp] = syll.clone();
-                                last_pos.syll_index = sp;
+                                last_pos.syll_index = sp+1;
                                 last_pos.seg_index = 0;
                                 if let Some(m) = mods {
                                     res_word.syllables[sp].apply_syll_mods(&self.alphas, &m.suprs, num.position)?;
