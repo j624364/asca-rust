@@ -61,7 +61,6 @@ Example:
     xan:[tone: 51] => 汉
       y:[tone:214] => 语
     $ > *
-    
 ```
 
 ### Config file (.asca)

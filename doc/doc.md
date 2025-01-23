@@ -178,7 +178,7 @@ Named escapes take to form of `@{....}`. They allow for common diacritics to be 
 Capitalisation and spaces have no effect i.e. `@{OverDot}` is equal to `@{over dot}`. 
 Many also have alternatives, for examples as `@{OverX}` can be `@{XAbove}` or just `@{X}`.
 
-It is important to note that at the aliasing stage asca does not decompose any unicode characters, so `ą (U+0105)` will not match `a @{ogonek}` which is the sequence `U+0061 U+0328`.
+It is important to note that at the aliasing stage asca does not decompose any unicode characters, so `ą (U+0105)` will not match `a @{ogonek}` which is the sequence `U+0061 U+0328` (This may change).
 
 More characters can be added on request.
 
@@ -337,8 +337,8 @@ Unlike [SCA²](https://www.zompist.com/sca2.html), the input and output cannot b
 The input or output must contain *only* this operator to be valid.
 
 ```
-e > * / #_      (Apheresis: a vowel elides at the beginning of a word)
-e > * / _#      (Apocope: a vowel elides at the end of a word)
+e > * / #_      (Apheresis: /e/ elides at the beginning of a word)
+e > * / _#      (Apocope: /e/ elides at the end of a word)
 * > e / #_      (Prothesis: /e/ is inserted at the beginning of a word)
 * > e / _#      (Paragoge: /e/ is inserted at the end of a word)
 ```
@@ -637,12 +637,27 @@ A set in the output, if matched to a set in the input, must contain the same num
 A set in the input or output cannot contain word boundaries.
 
 ## Gemination
-Geminating a consonant is as simple as making a vowel long.
+Syllable final consonant gemination is as simple as making a vowel long.
 
 ```
 C > [+long] / V:[-long]_#
 (A consonant is geminated at the end of a word, before a short vowel)
 ```
+
+To have a geminate cross a syllable boundary, we can do one of a few things (not exhaustive): 
+
+```
+Using a Variable (see below)
+
+* > 1 / V:[-long] C=1 $ _
+```
+
+```
+Using Structure Matching (coming soon)
+
+* > 1 / ⟨..V:[-long]C=1⟩ _
+```
+
 
 ## Optional Segments
 Optional Segments are declared as `(S, M:N)` where: 
