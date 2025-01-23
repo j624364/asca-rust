@@ -1,3 +1,19 @@
+0.5.0 (Unreleased)
+==================
+Features:
+* Structure Matching
+    * Allows for matching a syllable based upon its segments
+    * Easy insertion of whole syllables
+* Syllables can now be substituted in the place of a segment
+
+Fixes:
+* Modifying a syllable `%` with secondary stress is no longer a syntax error 🙃🙃🙃
+* Insertion between segments propagates properly after a previous "no match"
+* Inserting before a syllable boundary where a pre-environment is specified now works as expected
+    * Previously, `* > ? / V_$C` would not work as expected, while `* > ? / _$C` would
+* Applying a negative feature to a node that is not present does not attach the node
+    * For example, assigning `[-round]` to `/t/` would make it `[+lab, -ldental, -rnd]` when it should have no effect.
+
 0.4.4
 ==================
 Fixes:
