@@ -648,15 +648,14 @@ C > [+long] / V:[-long]_#
 To have a geminate cross a syllable boundary, we can do one of a few things (not exhaustive): 
 
 ```
-Using a Variable (see below)
+Insertion with a Variable (see below)
 
-* > 1 / V:[-long] C=1 $ _
+* > 1 / V:[-long] _ $ C=1 ('lu.ka => 'luk.ka)
 ```
 
 ```
 Using Structure Matching (coming soon)
-
-* > 1 / ⟨..V:[-long]C=1⟩ _
+* > 1 / ⟨..V:[-long]⟩ _ <C=1...> ('lu.ka => 'luk.ka)
 ```
 
 
