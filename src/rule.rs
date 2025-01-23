@@ -1208,6 +1208,18 @@ mod rule_tests {
         assert_eq!(test_rule.apply(setup_word("'nus.tri")).unwrap().render(&[]), "ˈnus.tri");
     }
 
+    #[test]
+    fn test_gemination() {
+        let test_rule = setup_rule("* > s /  V:[+str, -long] _ $");
+        assert_eq!(test_rule.apply(setup_word("'nu.sa")).unwrap().render(&[]), "ˈnus.sa");
+        
+        let test_rule = setup_rule("* > 1 / V:[-long] _ $ C=1");
+        assert_eq!(test_rule.apply(setup_word("'nu.sa")).unwrap().render(&[]), "ˈnus.sa");
+        
+        let test_rule = setup_rule("* > 1 / ⟨..V:[-long]⟩ _ <C=1...>");
+        assert_eq!(test_rule.apply(setup_word("'nu.sa")).unwrap().render(&[]), "ˈnus.sa");
+    }
+
 
     #[test]
     fn test_engala_thingy() {

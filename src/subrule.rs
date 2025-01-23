@@ -848,7 +848,7 @@ impl SubRule {
         
         'outer: while word.in_bounds(start_pos) {
             match self.insertion_after(bef_states, word, start_pos)? {
-                Some(ins_pos) => {
+                Some(mut ins_pos) => {
                     let mut pos = ins_pos;
                     let mut state_index = 0;
                     start_pos = ins_pos;
@@ -857,6 +857,13 @@ impl SubRule {
                             continue 'outer;
                         }
                         state_index +=1;
+                    }
+                    // Fix for insertion before a mid-word syllable boundary
+                    if let ParseElement::SyllBound | ParseElement::Structure(..) = aft_states[0].kind {
+                        if ins_pos.at_syll_start() {
+                            ins_pos.decrement(word);
+                            ins_pos.seg_index += 1;
+                        }
                     }
                     return Ok(Some(ins_pos)) 
                 },
@@ -886,9 +893,6 @@ impl SubRule {
         while word.in_bounds(cur_pos) {
             if self.context_match(states, &mut state_index, word, &mut cur_pos, true, false)? {
                 if state_index >= states.len() - 1 {
-                    // if states.last().unwrap().kind == ParseElement::SyllBound {
-                    //     cur_pos.increment(word);
-                    // }
                     return Ok(Some(cur_pos))
                 }
                 if match_begin.is_none() {
@@ -960,7 +964,7 @@ impl SubRule {
         }
 
         if match_begin.is_none() {
-            if let ParseElement::WordBound | ParseElement::SyllBound = states.first().unwrap().kind {
+            if let ParseElement::WordBound | ParseElement::SyllBound | ParseElement::Structure(..) = states.first().unwrap().kind {
                 let sy = word.syllables.len() - 1;
                 let sg = word.syllables[sy].segments.len();
                 Ok(Some(SegPos::new(sy, sg)))
