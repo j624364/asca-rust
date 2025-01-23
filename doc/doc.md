@@ -645,17 +645,17 @@ C > [+long] / V:[-long]_#
 (A consonant is geminated at the end of a word, before a short vowel)
 ```
 
-To have a geminate cross a syllable boundary, we can do one of a few things (not exhaustive): 
+To geminate across a syllable boundary, we can do one of a few things (not exhaustive): 
 
 ```
 Insertion with a Variable (see below)
 
-* > 1 / V:[-long] _ $ C=1 ('lu.ka => 'luk.ka)
+* > 1 / V:[-long, +str] _ $ C=1 ('lu.ka => 'luk.ka, 'lu:.ka => 'lu:.ka)
 ```
 
 ```
-Using Structure Matching (coming soon)
-* > 1 / ⟨..V:[-long]⟩ _ <C=1...> ('lu.ka => 'luk.ka)
+Insertion with Structure Matching (coming soon)
+* > 1 / ⟨..V:[-long]⟩:[+str] _ <C=1...> ('lu.ka => 'luk.ka, 'lu:.ka => 'lu:.ka)
 ```
 
 
@@ -702,7 +702,7 @@ Any alpha in the output must be prior set in either the input or context.
 
 ### Nodes and Subnodes
 
-An node alpha carries all the features within it. This can be very useful for assimilation rules.
+A node alpha carries all the features within it. This can be very useful for assimilation rules.
 
 ```
 Rule Example: Nasal Assimilation
@@ -710,7 +710,14 @@ Rule Example: Nasal Assimilation
 [+cons, +nasal] > [α PLACE] / _[+cons, αPLACE] 
 (A nasal consonant takes the place of a following consonant i.e. [nk] > [ŋk])
 ```
-An alpha assigned to a subnode can be +/- when used on a binary feature. The place node is positive when any subnode is.
+When an alpha first assigned to a node is used on a binary feature, it is coerced positive or negative. The place node is positive when the segment has any place subnode.
+
+```
+Random Example: 
+
+P:[α DOR] > [α round]
+(Any dorsal plosive becomes +round, any non-dorsal plosive becomes -round )
+```
 
 ### Inversion
 Imagine we have two debuccalisation rules, one for plosives and one for fricatives
