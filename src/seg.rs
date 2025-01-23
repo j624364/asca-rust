@@ -470,36 +470,31 @@ impl Segment {
         Modifiers { nodes, feats, suprs }
     }
 
-    fn diff(&self, other: &Segment) -> Segment {
+    fn diff_count(&self, other: &Segment) -> usize {
         fn dif_option(f: Option<u8>, s: Option<u8>) -> Option<u8> {
             let Some(a) = f else { return s };
             let Some(b) = s else { return f };
             Some(a ^ b)
         }
 
-        Segment { 
-            root: self.root ^ other.root,
-            manner: self.manner ^ other.manner, 
-            laryngeal: self.laryngeal ^ other.laryngeal, 
-            labial:  dif_option(self.labial, other.labial),
-            coronal: dif_option(self.coronal, other.coronal), 
-            dorsal:  dif_option(self.dorsal, other.dorsal), 
-            pharyngeal: dif_option(self.pharyngeal, other.pharyngeal), 
-        }
+        let rut = self.root ^ other.root;
+        let man = self.manner ^ other.manner;
+        let lar = self.laryngeal ^ other.laryngeal;
+        let lab = dif_option(self.labial, other.labial).unwrap_or(0);
+        let cor = dif_option(self.coronal, other.coronal).unwrap_or(0);
+        let dor = dif_option(self.dorsal, other.dorsal).unwrap_or(0);
+        let phr = dif_option(self.pharyngeal, other.pharyngeal).unwrap_or(0);
+
+        ( rut.count_ones()
+        + man.count_ones()
+        + lar.count_ones()
+        + lab.count_ones()
+        + cor.count_ones()
+        + dor.count_ones()
+        + phr.count_ones() ) as usize
     }
 
-    fn diff_count(&self, other: &Segment) -> usize {
-        let diff = self.diff(other);
-
-          diff.root.count_ones() as usize
-        + diff.manner.count_ones() as usize
-        + diff.laryngeal.count_ones() as usize
-        + diff.labial.unwrap_or(0).count_ones() as usize
-        + diff.coronal.unwrap_or(0).count_ones() as usize
-        + diff.dorsal.unwrap_or(0).count_ones() as usize
-        + diff.pharyngeal.unwrap_or(0).count_ones() as usize
-    }
-
+    #[inline]
     pub(crate) fn get_node(&self, node: NodeKind) -> Option<u8> {
         match node {
             NodeKind::Root       => Some(self.root),
@@ -513,6 +508,7 @@ impl Segment {
         }
     }
 
+    #[inline]
     pub(crate) fn set_node(&mut self, node: NodeKind, val: Option<u8>) {
         match node {
             NodeKind::Root       => self.root = val.expect("RootNode cannot be null"),
@@ -526,6 +522,7 @@ impl Segment {
         }
     }
 
+    #[inline]
     pub(crate) fn get_feat(&self, node: NodeKind, feat: u8) -> Option<u8> {
         Some(self.get_node(node)? & feat)
     }
@@ -551,10 +548,12 @@ impl Segment {
         }
     }
 
+    #[inline]
     pub(crate) fn is_node_some(&self, node: NodeKind) -> bool {
         self.get_node(node).is_some()
     }
 
+    #[inline]
     pub(crate) fn is_node_none(&self, node: NodeKind) -> bool {
         self.get_node(node).is_none()
     }
