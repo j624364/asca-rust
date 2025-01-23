@@ -1391,8 +1391,8 @@ impl SubRule {
                 },
                 ParseElement::Variable(num, mods) => {
                     if let Some(var) = self.variables.borrow_mut().get(&num.value.parse().unwrap()) {
-                        match (var, input[state_index]) {
-                            (VarKind::Segment(seg), MatchElement::Segment(mut sp, _)) => {
+                        match (input[state_index], var) {
+                            (MatchElement::Segment(mut sp, _), VarKind::Segment(seg)) => {
                                 match total_len_change[sp.syll_index].cmp(&0) {
                                     std::cmp::Ordering::Greater => sp.seg_index += total_len_change[sp.syll_index].unsigned_abs() as usize,
                                     std::cmp::Ordering::Less    => sp.seg_index -= total_len_change[sp.syll_index].unsigned_abs() as usize,
@@ -1416,7 +1416,7 @@ impl SubRule {
                                     last_pos.seg_index +=1;
                                 }
                             },
-                            (VarKind::Syllable(syll), MatchElement::Syllable(sp, _)) => {
+                            (MatchElement::Syllable(sp, _), VarKind::Syllable(syll)) => {
                                 res_word.syllables[sp] = syll.clone();
                                 last_pos.syll_index = sp+1;
                                 last_pos.seg_index = 0;
@@ -1424,10 +1424,48 @@ impl SubRule {
                                     res_word.syllables[sp].apply_syll_mods(&self.alphas, &m.suprs, num.position)?;
                                 }
                             },
-                            (VarKind::Segment(_), MatchElement::Syllable(..)) |
-                            (VarKind::Segment(_), MatchElement::SyllBound(..)) |
-                            (VarKind::Syllable(_), MatchElement::Segment(..)) => return Err(RuleRuntimeError::SubstitutionSegtoSyll(in_state.position, out_state.position)),
-                            (VarKind::Syllable(_), MatchElement::SyllBound(..)) => return Err(RuleRuntimeError::SubstitutionSylltoBound(in_state.position, out_state.position)),
+                            (MatchElement::Segment(sp, _), VarKind::Syllable(insert_syll)) => {
+                                // Remove segment and then insert syllable in its place
+                                let old_syll = res_word.syllables.get_mut(sp.syll_index).unwrap();
+                                // If the matched segment is the only segment in the syllable
+                                // We can just replace the segment with the new one
+                                if old_syll.segments.len() <= 1 {
+                                    *old_syll = insert_syll.clone();
+                                    last_pos.syll_index = sp.syll_index + 1;
+                                    last_pos.seg_index = 0;
+                                    if state_index >= self.output.len()-1 {
+                                        last_pos.decrement(&res_word);
+                                    }
+                                    continue;
+                                }
+                                // If not, we need to remove the segment and split the syllable in two
+                                // with the created syllable being inserted in between
+                                old_syll.segments.remove(sp.seg_index);
+
+                                let mut new_syll = Syllable::new();
+                                new_syll.stress = old_syll.stress;
+                                new_syll.tone = old_syll.tone;
+
+                                while old_syll.segments.len() > sp.seg_index {
+                                    new_syll.segments.push_front(old_syll.segments.pop_back().unwrap());
+                                }
+            
+                                res_word.syllables.insert(sp.syll_index+1, insert_syll.clone());
+                                
+                                if !new_syll.segments.is_empty() {
+                                    res_word.syllables.insert(sp.syll_index+2, new_syll);
+                                    last_pos.syll_index += 3;
+                                } else {
+                                    last_pos.syll_index += 2;
+                                }
+                                last_pos.seg_index = 0;
+                                if state_index >= self.output.len()-1 {
+                                    last_pos.decrement(&res_word);
+                                }
+                            },
+                            (MatchElement::SyllBound(..), VarKind::Segment(..)) |
+                            (MatchElement::Syllable(..),  VarKind::Segment(..)) => return Err(RuleRuntimeError::SubstitutionSylltoSeg(in_state.position, out_state.position)),
+                            (MatchElement::SyllBound(..), VarKind::Syllable(_), ) => return Err(RuleRuntimeError::SubstitutionSyllBound(in_state.position, out_state.position)),
                         }
                     } else {
                         return Err(RuleRuntimeError::UnknownVariable(num.clone()))
@@ -1500,14 +1538,51 @@ impl SubRule {
                                                             last_pos.seg_index +=1;
                                                         }
                                                     },
-                                                    VarKind::Syllable(_) => return Err(RuleRuntimeError::SubstitutionSegtoSyll(in_state.position, set_output[i].position)),
+                                                    VarKind::Syllable(insert_syll) => {
+                                                        let old_syll = res_word.syllables.get_mut(sp.syll_index).unwrap();
+                                                        // If the matched segment is the only segment in the syllable
+                                                        // We can just replace the segment with the new one
+                                                        if old_syll.segments.len() <= 1 {
+                                                            *old_syll = insert_syll.clone();
+                                                            last_pos.syll_index = sp.syll_index + 1;
+                                                            last_pos.seg_index = 0;
+                                                            if state_index >= self.output.len()-1 {
+                                                                last_pos.decrement(&res_word);
+                                                            }
+                                                            continue;
+                                                        }
+                                                        // If not, we need to remove the segment and split the syllable in two
+                                                        // with the created syllable being inserted in between
+                                                        old_syll.segments.remove(sp.seg_index);
+
+                                                        let mut new_syll = Syllable::new();
+                                                        new_syll.stress = old_syll.stress;
+                                                        new_syll.tone = old_syll.tone;
+
+                                                        while old_syll.segments.len() > sp.seg_index {
+                                                            new_syll.segments.push_front(old_syll.segments.pop_back().unwrap());
+                                                        }
+                                    
+                                                        res_word.syllables.insert(sp.syll_index+1, insert_syll.clone());
+                                                        
+                                                        if !new_syll.segments.is_empty() {
+                                                            res_word.syllables.insert(sp.syll_index+2, new_syll);
+                                                            last_pos.syll_index += 3;
+                                                        } else {
+                                                            last_pos.syll_index += 2;
+                                                        }
+                                                        last_pos.seg_index = 0;
+                                                        if state_index >= self.output.len()-1 {
+                                                            last_pos.decrement(&res_word);
+                                                        }
+                                                    }
                                                 }
                                             } else {
                                                 return Err(RuleRuntimeError::UnknownVariable(num.clone()))
                                             }
                                         },
                                         ParseElement::SyllBound |
-                                        ParseElement::Syllable(..) => return Err(RuleRuntimeError::SubstitutionSegtoSyll(in_state.position, set_output[i].position)),
+                                        ParseElement::Syllable(..) => return Err(RuleRuntimeError::SubstitutionSylltoSeg(in_state.position, set_output[i].position)),
                                         ParseElement::WordBound => return Err(RuleRuntimeError::WordBoundSetLocError(set_output[i].position)),
                                         _ => unreachable!(),
                                     }

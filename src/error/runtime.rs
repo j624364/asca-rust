@@ -58,7 +58,7 @@ pub enum RuleRuntimeError {
     SubstitutionSylltoMatrix(Position, Position),
     SubstitutionSylltoBound (Position, Position),
     SubstitutionSyllBound   (Position, Position),
-    SubstitutionSegtoSyll   (Position, Position),
+    SubstitutionSylltoSeg   (Position, Position),
     SubstitutionBoundMod    (Position, Position),
     MetathSyllBoundary      (Position, Position),
     MetathSyllSegment       (Position, Position),
@@ -99,7 +99,8 @@ impl ASCAError for RuleRuntimeError {
             Self::SubstitutionSylltoMatrix(..) => "Syllables and boundaries cannot be substituted by a segment".to_string(),
             Self::SubstitutionSylltoBound (..) => "Syllables cannot be substituted by a boundary".to_string(),
             Self::SubstitutionSyllBound   (..) => "Syllable boundaries cannot be substituted.".to_string(),
-            Self::SubstitutionSegtoSyll   (..) => "Segments cannot be substituted by a syllable or a boundary".to_string(),
+            Self::SubstitutionSylltoSeg   (..) => "Segments cannot be substituted by a syllable or a boundary".to_string(),
+            // Self::SubstitutionSegtoSyll   (..) => "Segments cannot be substituted by a syllable or a boundary".to_string(),
             Self::SubstitutionBoundMod    (..) => "Syllable boundaries cannot be modified by a matrix.".to_string(),
             Self::MetathSyllBoundary      (..) => "Cannot swap a syllable with a syllable".to_string(),
             Self::MetathSyllSegment       (..) => "Cannot swap a syllable with a segment".to_string(),
@@ -169,7 +170,7 @@ impl ASCAError for RuleRuntimeError {
             ),
             Self::SubstitutionSylltoMatrix(a, b) |
             Self::SubstitutionSylltoBound (a, b) |
-            Self::SubstitutionSegtoSyll   (a, b) |
+            Self::SubstitutionSylltoSeg   (a, b) |
             Self::SubstitutionSyllBound   (a, b) |
             Self::SubstitutionBoundMod    (a, b) |
             Self::MetathSyllBoundary      (a, b) |

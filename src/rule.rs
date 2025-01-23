@@ -1197,6 +1197,19 @@ mod rule_tests {
     }
 
     #[test]
+    fn test_reduplication() {
+        let test_rule = setup_rule("* > 1:[-stress] / <CV>:[+stress]=1 _");
+        assert_eq!(test_rule.apply(setup_word("'nu.tri")).unwrap().render(&[]), "ˈnu.nu.tri");
+        assert_eq!(test_rule.apply(setup_word("'sa")).unwrap().render(&[]), "ˈsa.sa");
+        assert_eq!(test_rule.apply(setup_word("'to.lo.ma")).unwrap().render(&[]), "ˈto.to.lo.ma");
+        assert_eq!(test_rule.apply(setup_word("to'lo.ma")).unwrap().render(&[]), "toˈlo.lo.ma");
+        
+        assert_eq!(test_rule.apply(setup_word("'as.tri")).unwrap().render(&[]), "ˈas.tri");
+        assert_eq!(test_rule.apply(setup_word("'nus.tri")).unwrap().render(&[]), "ˈnus.tri");
+    }
+
+
+    #[test]
     fn test_engala_thingy() {
         let test_rule = setup_rule("O:[+nas, Aplace]=1,$N > n:[Aplace]1:[-nas], & / _ , V_C");
         assert_eq!(test_rule.apply(setup_word("a.ᵐbo")).unwrap().render(&[]), "am.bo");
@@ -1780,4 +1793,10 @@ mod rule_tests {
         let test_rule = setup_rule("* > <han>:[tone:51] / e_");
         assert_eq!(test_rule.apply(setup_word("sleft.te")).unwrap().render(&[]), "sle.han51.ft.te.han51");
     }
-} 
+
+    #[test]
+    fn test_tmesis() {
+        let test_rule = setup_rule("* > ⟨blu⟩:[+sec.stress] ⟨mɪn⟩ / %_%:[+stress]");
+        assert_eq!(test_rule.apply(setup_word("ˌab.soˈlut.ly")).unwrap().render(&[]), "ˌab.soˌblu.mɪnˈlut.ly");
+    }
+}
