@@ -27,7 +27,7 @@ Each rule group is defined as follows:
 - A rule description, preceded by `#`
     - Can be multiple lines, with each line starting with `#`.
 
-Example from a [germanic](../examples/indo-european/germanic/early-pgmc.rsca) implementation.
+Example from a [germanic](../examples/indo-european/germanic/pgmc/early.rsca) implementation.
 ``` diff
 @ Grimms Law 
     [+cons, -son, -cont, -voice] > [+cont]
