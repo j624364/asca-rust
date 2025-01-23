@@ -29,6 +29,7 @@
 * [Alpha Notation](#alpha-notation)
     * [Nodes and Subnodes](#nodes-and-subnodes)
 * [Variables](#variables)
+* [Syllable Structure Matching](#syllable-structure-matching)
 * [Propagation](#propagation)
 * [Considerations](#considerations) 
 * [Web Interface](#web-interface)
@@ -747,6 +748,46 @@ It can also be used to define a simple haplology rule.
 %=1 > * / 1_ (A syllable is deleted if preceded by an identical syllable)
 ```
 Despite the name, variables cannot be reassigned. However, they can be modified with a feature matrix.
+
+## Syllable Structure Matching (Coming to Libasca Version 0.5.0)
+
+Sometimes it can be useful to match a syllable based on the segments within. We can do this by using a Structure. 
+
+Structures are defined between angle brackets `⟨ ⟩` or less-than/greater-than signs `< >`. They can contain segments, matrices, variables, or ellipses.
+Ellipses are useful for only matching a certain part of the syllable, such as the onset or coda.
+```
+⟨..P:[-voi]⟩ => [tone: 35]
+(A closed syllable ending with a voiceless plosive gains rising tone)
+```
+
+```
+Example: Latin Stress Rule using Structures
+
+% > [+str] / #_#                (If there is only one syllable, it is stressed)
+⟨...V[+long]⟩ > [+stress] / _%# (A penult syllable ending with a long vowel becomes stressed)
+⟨...VC⟩ > [+stress] / _%#       (A penult syllable ending with a consonant becomes stressed)
+% > [+stress] / _ %:[-str]%#    (If the penult is unstressed, the antepenult becomes stressed)
+
+(Like the other Latin stress example, rules 2 and 3 can be condensed)
+(But slightly differently)
+
+⟨...V[+long]⟩, ⟨...VC⟩ > [+stress] / _%#
+```
+
+Structures can also be used to insert whole syllables
+```
+Example: Expletive infixation
+
+* > ⟨blu:⟩:[+sec.stress] ⟨mɪn⟩ / %_%:[+stress] (absolutely => abso-bloomin'-lutely)
+```
+
+```
+Example: Conditional Reduplication
+
+* > 1:[-stress] / <CV>:[+stress]=1 _ (A stressed CV syllable is reduplicated)
+
+/'to.ka/ => /'to.to.ka/, /'ton.ka/ => /'ton.ka/
+```
 
 ## Propagation 
 As ASCA changes all matching environments in a word sequentially, left-to-right harmonies naturally propagate.
