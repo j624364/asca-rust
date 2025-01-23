@@ -1220,6 +1220,12 @@ mod rule_tests {
         assert_eq!(test_rule.apply(setup_word("'nu.sa")).unwrap().render(&[]), "ˈnus.sa");
     }
 
+    #[test]
+    fn test_set_feat_neg_when_node_neg() {
+        let test_rule = setup_rule("P:[α DOR] > [α round]");
+        assert_eq!(test_rule.apply(setup_word("dor.kap")).unwrap().render(&[]), "dor.kʷap");
+    }
+
 
     #[test]
     fn test_engala_thingy() {

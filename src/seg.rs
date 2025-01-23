@@ -532,10 +532,10 @@ impl Segment {
 
     pub(crate) fn set_feat(&mut self, node: NodeKind, feat: u8, to_positive: bool) {
         debug_assert_ne!(node, NodeKind::Place);
-        let n = self.get_node(node).unwrap_or(0u8);
         if to_positive {
+            let n = self.get_node(node).unwrap_or(0u8);
             self.set_node(node, Some(n | feat)) 
-        } else {
+        } else if let Some(n) = self.get_node(node) {
             self.set_node(node, Some(n & !(feat)))
         }
     }
