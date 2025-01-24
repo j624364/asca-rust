@@ -654,7 +654,7 @@ Insertion with a Variable (see below)
 ```
 
 ```
-Insertion with Structure Matching (coming soon)
+Insertion with Structure Matching
 * > 1 / ⟨..V:[-long]⟩:[+str] _ <C=1...> ('lu.ka => 'luk.ka, 'lu:.ka => 'lu:.ka)
 ```
 
