@@ -1,7 +1,7 @@
-0.5.0 (Unreleased)
+0.5.0
 ==================
 Features:
-* Structure Matching
+* Structure Matching [(see docs)](/doc/doc.md#syllable-structure-matching)
     * Allows for matching a syllable based upon its segments
     * Easy insertion of whole syllables
 * Syllables can now be substituted in the place of a segment

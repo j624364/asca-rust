@@ -1695,6 +1695,12 @@ mod rule_tests {
         assert_eq!(test_rule.apply(setup_word("a.e.a")).unwrap().render(&[]), "han51.te.e.han51.te");
         let test_rule = setup_rule("a > <han>:[tone:51]$t");
         assert_eq!(test_rule.apply(setup_word("a.e.a")).unwrap().render(&[]), "han51.te.hant51");
+
+        let test_rule = setup_rule("a > <wed>");
+        assert_eq!(test_rule.apply(setup_word("asd.has")).unwrap().render(&[]), "wed.sd.h.wed.s");
+
+        let test_rule = setup_rule("a > <wad>");
+        assert_eq!(test_rule.apply(setup_word("asd.has")).unwrap().render(&[]), "wad.sd.h.wad.s");
     }
     
 

@@ -755,7 +755,7 @@ It can also be used to define a simple haplology rule.
 ```
 Despite the name, variables cannot be reassigned. However, they can be modified with a feature matrix.
 
-## Syllable Structure Matching (Coming to Libasca Version 0.5.0)
+## Syllable Structure Matching
 
 Sometimes it can be useful to match a syllable based on the segments within. We can do this by using a Structure. 
 

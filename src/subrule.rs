@@ -1075,13 +1075,19 @@ impl SubRule {
                         new_syll.segments.push_front(old_syll.segments.pop_back().unwrap());
                     }
 
-                    res_word.syllables.insert(pos.syll_index+1, insert_syll);
+                    let mut adjustment = 0;
+                    if old_syll.segments.is_empty() {
+                        *old_syll = insert_syll;
+                    } else {
+                        res_word.syllables.insert(pos.syll_index+1, insert_syll);
+                        adjustment = 1;
+                    }
                     
                     if !new_syll.segments.is_empty() {
-                        res_word.syllables.insert(pos.syll_index+2, new_syll);
-                        pos.syll_index += 3;
+                        res_word.syllables.insert(pos.syll_index+1+adjustment, new_syll);
+                        pos.syll_index += 2 + adjustment;
                     } else {
-                        pos.syll_index += 2;
+                        pos.syll_index += 1 + adjustment;
                     }
                     
                     pos.seg_index = 0;
@@ -1316,14 +1322,19 @@ impl SubRule {
                             while old_syll.segments.len() > sp.seg_index {
                                 new_syll.segments.push_front(old_syll.segments.pop_back().unwrap());
                             }
-        
-                            res_word.syllables.insert(sp.syll_index+1, insert_syll);
-                            
-                            if !new_syll.segments.is_empty() {
-                                res_word.syllables.insert(sp.syll_index+2, new_syll);
-                                last_pos.syll_index += 3;
+
+                            let mut adjustment = 0;
+                            if old_syll.segments.is_empty() {
+                                *old_syll = insert_syll;
                             } else {
-                                last_pos.syll_index += 2;
+                                res_word.syllables.insert(sp.syll_index+1, insert_syll);
+                                adjustment = 1;
+                            }
+                            if !new_syll.segments.is_empty() {
+                                res_word.syllables.insert(sp.syll_index+1+adjustment, new_syll);
+                                last_pos.syll_index = sp.syll_index + 2 + adjustment;
+                            } else {
+                                last_pos.syll_index = sp.syll_index + 1 + adjustment;
                             }
                             last_pos.seg_index = 0;
                             if state_index >= self.output.len()-1 {
@@ -1453,14 +1464,19 @@ impl SubRule {
                                 while old_syll.segments.len() > sp.seg_index {
                                     new_syll.segments.push_front(old_syll.segments.pop_back().unwrap());
                                 }
-            
-                                res_word.syllables.insert(sp.syll_index+1, insert_syll.clone());
-                                
-                                if !new_syll.segments.is_empty() {
-                                    res_word.syllables.insert(sp.syll_index+2, new_syll);
-                                    last_pos.syll_index += 3;
+
+                                let mut adjustment = 0;
+                                if old_syll.segments.is_empty() {
+                                    *old_syll = insert_syll.clone();
                                 } else {
-                                    last_pos.syll_index += 2;
+                                    res_word.syllables.insert(sp.syll_index+1, insert_syll.clone());
+                                    adjustment = 1;
+                                }
+                                if !new_syll.segments.is_empty() {
+                                    res_word.syllables.insert(sp.syll_index+1+adjustment, new_syll);
+                                    last_pos.syll_index = sp.syll_index + 2 + adjustment;
+                                } else {
+                                    last_pos.syll_index = sp.syll_index + 1 + adjustment;
                                 }
                                 last_pos.seg_index = 0;
                                 if state_index >= self.output.len()-1 {
@@ -1566,14 +1582,19 @@ impl SubRule {
                                                         while old_syll.segments.len() > sp.seg_index {
                                                             new_syll.segments.push_front(old_syll.segments.pop_back().unwrap());
                                                         }
-                                    
-                                                        res_word.syllables.insert(sp.syll_index+1, insert_syll.clone());
                                                         
-                                                        if !new_syll.segments.is_empty() {
-                                                            res_word.syllables.insert(sp.syll_index+2, new_syll);
-                                                            last_pos.syll_index += 3;
+                                                        let mut adjustment = 0;
+                                                        if old_syll.segments.is_empty() {
+                                                            *old_syll = insert_syll.clone();
                                                         } else {
-                                                            last_pos.syll_index += 2;
+                                                            res_word.syllables.insert(sp.syll_index+1, insert_syll.clone());
+                                                            adjustment = 1;
+                                                        }
+                                                        if !new_syll.segments.is_empty() {
+                                                            res_word.syllables.insert(sp.syll_index+1+adjustment, new_syll);
+                                                            last_pos.syll_index = sp.syll_index + 2 + adjustment;
+                                                        } else {
+                                                            last_pos.syll_index = sp.syll_index + 1 + adjustment;
                                                         }
                                                         last_pos.seg_index = 0;
                                                         if state_index >= self.output.len()-1 {
@@ -1747,23 +1768,28 @@ impl SubRule {
                             continue;
                         }
 
-                        let syll = res_word.syllables.get_mut(pos.syll_index).expect("pos should not be out of bounds");
+                        let old_syll = res_word.syllables.get_mut(pos.syll_index).expect("pos should not be out of bounds");
                     
                         let mut new_syll = Syllable::new();
-                        new_syll.stress = syll.stress;
-                        new_syll.tone = syll.tone;
+                        new_syll.stress = old_syll.stress;
+                        new_syll.tone = old_syll.tone;
     
-                        while syll.segments.len() > pos.seg_index {
-                            new_syll.segments.push_front(syll.segments.pop_back().unwrap());
+                        while old_syll.segments.len() > pos.seg_index {
+                            new_syll.segments.push_front(old_syll.segments.pop_back().unwrap());
                         }
-    
-                        res_word.syllables.insert(pos.syll_index+1, insert_syll);
-                        
-                        if !new_syll.segments.is_empty() {
-                            res_word.syllables.insert(pos.syll_index+2, new_syll);
-                            pos.syll_index += 3;
+
+                        let mut adjustment = 0;
+                        if old_syll.segments.is_empty() {
+                            *old_syll = insert_syll.clone();
                         } else {
-                            pos.syll_index += 2;
+                            res_word.syllables.insert(pos.syll_index+1, insert_syll.clone());
+                            adjustment = 1;
+                        }
+                        if !new_syll.segments.is_empty() {
+                            res_word.syllables.insert(pos.syll_index+1+adjustment, new_syll);
+                            pos.syll_index += 2 + adjustment;
+                        } else {
+                            pos.syll_index += 1 + adjustment;
                         }
                         
                         pos.seg_index = 0;
