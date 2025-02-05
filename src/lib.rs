@@ -149,27 +149,37 @@ impl Default for RuleGroup {
 
 // We are only normalising a few characters as most would be invalid anyway.
 pub(crate) fn normalise(s: &str) -> String {
-    s.replace('ã', "ã")
-        .replace('ẽ', "ẽ")
-        .replace('ĩ', "ĩ")
-        .replace('õ', "õ")
-        .replace('ũ', "ũ")
-        .replace('ỹ', "ỹ")
-        .replace('ℇ', "ɛ")
-        .replace('ꭤ', "ɑ")
-        .replace('ǝ', "ə")
-        .replace('ɚ', "ə˞")
-        .replace('ɝ', "ɜ˞")
-        // cause why not?
-        .replace('ℎ', "h")
-        .replace('ℏ', "ħ")
-        .replace('ﬁ', "fi")
-        .replace('ﬂ', "fl")
-        .replace('ĳ', "ij")
-        .replace('ǌ', "nj")
-        .replace('ǉ', "lj")
-    // .replace('ǳ', "d͡z")
-    // .replace('ǆ', "d͡ʒ")
+    let mut output = String::with_capacity(s.len());
+    for ch in s.chars() {
+        match ch {
+            'ã' => output.push_str("ã"),
+            'ẽ' => output.push_str("ẽ"),
+            'ĩ' => output.push_str("ĩ"),
+            'õ' => output.push_str("õ"),
+            'ũ' => output.push_str("ũ"),
+            'ỹ' => output.push_str("ỹ"),
+            'ℇ' => output.push_str("ɛ"),
+            'ꭤ' => output.push_str("ɑ"),
+            'ǝ' => output.push_str("ə"),
+            'ɚ' => output.push_str("ə˞"),
+            'ɝ' => output.push_str("ɜ˞"),
+            // cause why not?
+            'ℎ' => output.push_str("h"),
+            'ℏ' => output.push_str("ħ"),
+            'ﬁ' => output.push_str("fi"),
+            'ﬂ' => output.push_str("fl"),
+            'ĳ' => output.push_str("ij"),
+            'ǌ' => output.push_str("nj"),
+            'ǉ' => output.push_str("lj"),
+            // 'ǳ' => output.push_str("d͡z"),
+            // 'ǆ' => output.push_str("d͡ʒ"),
+            _ => {
+                output.push(ch);
+            }
+        }
+    }
+
+    output
 }
 
 fn apply_rule_groups(rules: &[Vec<Rule>], words: &[Word]) -> Result<Vec<Word>, Error> {
