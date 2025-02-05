@@ -28,14 +28,3 @@ The original project can be found [here](https://github.com/Girv98/asca-rust).
 - Some slight performance improvements.
 - (API) ParsedRules struct added so that repeated calls to run() are less expensive.
 
-### Installation
-
-[Precompiled binaries are available for Linux, Windows, and macOS.](https://github.com/Girv98/asca-rust/releases)
-Add it to your path to have the `asca` command available in your terminal.
-
-Alternatively, if you have **Rust** installed, asca can be installed with `cargo`.
-
-
-```bash
-cargo install asca
-```
