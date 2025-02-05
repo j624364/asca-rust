@@ -201,7 +201,7 @@ fn apply_rule_groups(rules: &[Vec<Rule>], words: &[Word]) -> Result<Vec<Word>, E
 
 fn words_to_string(
     words: Vec<Word>,
-    alias_from: Vec<Transformation>,
+    alias_from: &Vec<Transformation>,
 ) -> Result<Vec<String>, WordRuntimeError> {
     let mut wrds_str: Vec<String> = Vec::with_capacity(words.len());
     for w in words {
@@ -298,7 +298,38 @@ pub fn run(
     let rules = parse_rule_groups(unparsed_rules)?;
     let res = apply_rule_groups(&rules, &words)?;
 
-    Ok(words_to_string(res, alias_from)?)
+    Ok(words_to_string(res, &alias_from)?)
+}
+
+/// Stores parsed rules ahead of time so that subsequent calls to run() are less expensive.
+pub struct ParsedRules {
+    alias_into: Vec<Transformation>,
+    alias_from: Vec<Transformation>,
+
+    rules: Vec<Vec<Rule>>,
+}
+
+impl ParsedRules {
+    pub fn parse(
+        unparsed_rules: &[RuleGroup],
+        alias_into: &[String],
+        alias_from: &[String],
+    ) -> Result<Self, Error> {
+        let (alias_into, alias_from) = parse_aliases(alias_into, alias_from)?;
+        let rules = parse_rule_groups(unparsed_rules)?;
+        Ok(Self {
+            alias_into,
+            alias_from,
+            rules,
+        })
+    }
+
+    pub fn run(&self, unparsed_words: &[String]) -> Result<Vec<String>, Error> {
+        let words = parse_words(unparsed_words, &self.alias_into)?;
+        let res = apply_rule_groups(&self.rules, &words)?;
+
+        Ok(words_to_string(res, &self.alias_from)?)
+    }
 }
 
 #[wasm_bindgen]
