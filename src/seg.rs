@@ -1,48 +1,48 @@
-use std::{cell::RefCell, collections::HashMap, fmt};
 use serde::Deserialize;
+use std::{cell::RefCell, collections::HashMap, fmt};
 
-use crate :: {
-    error :: RuleRuntimeError, 
-    lexer :: { FType, NodeType, Position }, 
-    parser:: { AlphaMod, BinMod, ModKind, Modifiers, SupraSegs }, 
-    rule  :: Alpha, 
-    CARDINALS_MAP, CARDINALS_VEC, DIACRITS 
+use crate::{
+    error::RuleRuntimeError,
+    lexer::{FType, NodeType, Position},
+    parser::{AlphaMod, BinMod, ModKind, Modifiers, SupraSegs},
+    rule::Alpha,
+    CARDINALS_MAP, CARDINALS_VEC, DIACRITS,
 };
 
 pub(crate) const fn feature_to_node_mask(feat: FType) -> (NodeKind, u8) {
     use FType::*;
     match feat {
-        Consonantal         => (NodeKind::Root, 0b100),
-        Sonorant            => (NodeKind::Root, 0b010),
-        Syllabic            => (NodeKind::Root, 0b001),
-        
-        Continuant          => (NodeKind::Manner, 0b10000000),
-        Approximant         => (NodeKind::Manner, 0b01000000),
-        Lateral             => (NodeKind::Manner, 0b00100000),
-        Nasal               => (NodeKind::Manner, 0b00010000),
-        DelayedRelease      => (NodeKind::Manner, 0b00001000),
-        Strident            => (NodeKind::Manner, 0b00000100),
-        Rhotic              => (NodeKind::Manner, 0b00000010),
-        Click               => (NodeKind::Manner, 0b00000001),
-        
-        Voice               => (NodeKind::Laryngeal, 0b100),
-        SpreadGlottis       => (NodeKind::Laryngeal, 0b010),
-        ConstrGlottis       => (NodeKind::Laryngeal, 0b001),
-        
-        Labiodental         => (NodeKind::Labial, 0b10),
-        Round               => (NodeKind::Labial, 0b01),
+        Consonantal => (NodeKind::Root, 0b100),
+        Sonorant => (NodeKind::Root, 0b010),
+        Syllabic => (NodeKind::Root, 0b001),
 
-        Anterior            => (NodeKind::Coronal, 0b10),
-        Distributed         => (NodeKind::Coronal, 0b01),
+        Continuant => (NodeKind::Manner, 0b10000000),
+        Approximant => (NodeKind::Manner, 0b01000000),
+        Lateral => (NodeKind::Manner, 0b00100000),
+        Nasal => (NodeKind::Manner, 0b00010000),
+        DelayedRelease => (NodeKind::Manner, 0b00001000),
+        Strident => (NodeKind::Manner, 0b00000100),
+        Rhotic => (NodeKind::Manner, 0b00000010),
+        Click => (NodeKind::Manner, 0b00000001),
 
-        Front               => (NodeKind::Dorsal, 0b100000),
-        Back                => (NodeKind::Dorsal, 0b010000),
-        High                => (NodeKind::Dorsal, 0b001000),
-        Low                 => (NodeKind::Dorsal, 0b000100),
-        Tense               => (NodeKind::Dorsal, 0b000010),
-        Reduced             => (NodeKind::Dorsal, 0b000001),
+        Voice => (NodeKind::Laryngeal, 0b100),
+        SpreadGlottis => (NodeKind::Laryngeal, 0b010),
+        ConstrGlottis => (NodeKind::Laryngeal, 0b001),
 
-        AdvancedTongueRoot  => (NodeKind::Pharyngeal, 0b10),
+        Labiodental => (NodeKind::Labial, 0b10),
+        Round => (NodeKind::Labial, 0b01),
+
+        Anterior => (NodeKind::Coronal, 0b10),
+        Distributed => (NodeKind::Coronal, 0b01),
+
+        Front => (NodeKind::Dorsal, 0b100000),
+        Back => (NodeKind::Dorsal, 0b010000),
+        High => (NodeKind::Dorsal, 0b001000),
+        Low => (NodeKind::Dorsal, 0b000100),
+        Tense => (NodeKind::Dorsal, 0b000010),
+        Reduced => (NodeKind::Dorsal, 0b000001),
+
+        AdvancedTongueRoot => (NodeKind::Pharyngeal, 0b10),
         RetractedTongueRoot => (NodeKind::Pharyngeal, 0b01),
     }
 }
@@ -61,7 +61,6 @@ pub(crate) struct Diacritic {
     pub(crate) payload: DiaMods,
 }
 
-
 #[derive(Clone, Copy, PartialEq, Eq)]
 pub(crate) struct DiaMods {
     pub(crate) nodes: [Option<ModKind>; NodeType::Pharyngeal as usize + 1],
@@ -70,16 +69,15 @@ pub(crate) struct DiaMods {
 
 impl DiaMods {
     pub(crate) fn new() -> Self {
-        Self { 
-            nodes: [();NodeType::Pharyngeal as usize + 1].map(|_| None), 
-            feats: [();FType::RetractedTongueRoot as usize + 1].map(|_| None), 
+        Self {
+            nodes: [(); NodeType::Pharyngeal as usize + 1].map(|_| None),
+            feats: [(); FType::RetractedTongueRoot as usize + 1].map(|_| None),
         }
     }
 }
 
 impl fmt::Debug for DiaMods {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-
         let mut nodes = String::new();
         for val in self.nodes.iter() {
             match val {
@@ -90,7 +88,9 @@ impl fmt::Debug for DiaMods {
                     },
                     ModKind::Alpha(am) => match am {
                         crate::parser::AlphaMod::Alpha(a) => nodes.push(*a),
-                        crate::parser::AlphaMod::InvAlpha(ia) => nodes.push_str(&ia.to_uppercase().to_string()),
+                        crate::parser::AlphaMod::InvAlpha(ia) => {
+                            nodes.push_str(&ia.to_uppercase().to_string())
+                        }
                     },
                 },
                 None => nodes.push('0'),
@@ -107,18 +107,21 @@ impl fmt::Debug for DiaMods {
                     },
                     ModKind::Alpha(am) => match am {
                         crate::parser::AlphaMod::Alpha(a) => feats.push(*a),
-                        crate::parser::AlphaMod::InvAlpha(ia) => feats.push_str(&ia.to_uppercase().to_string()),
+                        crate::parser::AlphaMod::InvAlpha(ia) => {
+                            feats.push_str(&ia.to_uppercase().to_string())
+                        }
                     },
                 },
                 None => feats.push('0'),
             }
         }
 
-        f.debug_struct("DiaMods").field("nodes", &nodes).field("feats", &feats).finish()
+        f.debug_struct("DiaMods")
+            .field("nodes", &nodes)
+            .field("feats", &feats)
+            .finish()
     }
 }
-
-
 
 #[derive(Debug, Copy, Clone, PartialEq)]
 pub(crate) enum NodeKind {
@@ -129,25 +132,53 @@ pub(crate) enum NodeKind {
     Labial,
     Coronal,
     Dorsal,
-    Pharyngeal
+    Pharyngeal,
 }
 
 impl NodeKind {
-    pub(crate) const fn count() -> usize { 8 }
+    pub(crate) const fn count() -> usize {
+        8
+    }
 
     pub(crate) fn from_usize(value: usize) -> Self {
         debug_assert!(NodeKind::count() == 8);
         use NodeKind::*;
         match value {
-            0 => {debug_assert_eq!(value, Root as usize); Root}
-            1 => {debug_assert_eq!(value, Manner as usize); Manner}
-            2 => {debug_assert_eq!(value, Laryngeal as usize); Laryngeal}
-            3 => {debug_assert_eq!(value, Place as usize); Place}
-            4 => {debug_assert_eq!(value, Labial as usize); Labial}
-            5 => {debug_assert_eq!(value, Coronal as usize); Coronal}
-            6 => {debug_assert_eq!(value, Dorsal as usize); Dorsal}
-            7 => {debug_assert_eq!(value, Pharyngeal as usize); Pharyngeal},
-            _ => unreachable!("\nOut of Range converting `{value}` to `NodeType`(max: 7) \nThis is a bug!\n")
+            0 => {
+                debug_assert_eq!(value, Root as usize);
+                Root
+            }
+            1 => {
+                debug_assert_eq!(value, Manner as usize);
+                Manner
+            }
+            2 => {
+                debug_assert_eq!(value, Laryngeal as usize);
+                Laryngeal
+            }
+            3 => {
+                debug_assert_eq!(value, Place as usize);
+                Place
+            }
+            4 => {
+                debug_assert_eq!(value, Labial as usize);
+                Labial
+            }
+            5 => {
+                debug_assert_eq!(value, Coronal as usize);
+                Coronal
+            }
+            6 => {
+                debug_assert_eq!(value, Dorsal as usize);
+                Dorsal
+            }
+            7 => {
+                debug_assert_eq!(value, Pharyngeal as usize);
+                Pharyngeal
+            }
+            _ => unreachable!(
+                "\nOut of Range converting `{value}` to `NodeType`(max: 7) \nThis is a bug!\n"
+            ),
         }
     }
 }
@@ -171,7 +202,7 @@ impl NodeKind {
 //             }
 //         }).collect()
 //     }
-    
+
 //     let mut rut_cache = std::collections::HashMap::<u8, u64>::new();
 //     let mut man_cache = std::collections::HashMap::<u8, u64>::new();
 //     let mut lar_cache = std::collections::HashMap::<u8, u64>::new();
@@ -181,10 +212,10 @@ impl NodeKind {
 //     let mut phr_cache = std::collections::HashMap::<Option<u8>, u64>::new();
 
 //     let mut count = 0;
-    
+
 //     CARDINALS_VEC.iter().for_each(|s| {
 //         let seg = CARDINALS_MAP.get(s).unwrap();
-        
+
 //         *rut_cache.entry(seg.root).or_default() += 1;
 //         *man_cache.entry(seg.manner).or_default() += 1;
 //         *lar_cache.entry(seg.laryngeal).or_default() += 1;
@@ -259,37 +290,37 @@ impl NodeKind {
 //             }
 //         }
 //         println!("{root}/7: {errs} out of {count} ");
-//     } 
+//     }
 //     println!("Total {errs} out of {count}");
 // }
 
 #[derive(Default, Clone, Copy, PartialEq, Eq, Deserialize)]
 pub(crate) struct Segment {
-    pub(crate) root      : u8,
-    pub(crate) manner    : u8,
-    pub(crate) laryngeal : u8,
-    pub(crate) labial    : Option<u8>,
-    pub(crate) coronal   : Option<u8>,
-    pub(crate) dorsal    : Option<u8>,
+    pub(crate) root: u8,
+    pub(crate) manner: u8,
+    pub(crate) laryngeal: u8,
+    pub(crate) labial: Option<u8>,
+    pub(crate) coronal: Option<u8>,
+    pub(crate) dorsal: Option<u8>,
     pub(crate) pharyngeal: Option<u8>,
 }
- 
+
 impl fmt::Debug for Segment {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-
         let grapheme = self.get_as_grapheme();
         write!(f, "{}", grapheme)
     }
 }
 
 impl Segment {
-
-    // Get 
+    // Get
     pub(crate) fn get_nearest_grapheme(&self) -> String {
         // test against all cardinal values for a match
         for c_grapheme in CARDINALS_VEC.iter() {
             let x = CARDINALS_MAP.get(c_grapheme).unwrap();
-            if *x == *self { return c_grapheme.to_string() }
+            if *x == *self {
+                return c_grapheme.to_string();
+            }
         }
 
         let mut candidates = Vec::new();
@@ -300,30 +331,31 @@ impl Segment {
                 candidates.push((seg, c_grapheme, diff_count))
             }
         }
-        
+
         // If differences are two numerous, fall back to diacritics
         // Won't happen when using diff_count < 8, but guarantees
         // that indexing into candidates doesn't error
         if candidates.is_empty() {
-            return self.get_as_grapheme()
+            return self.get_as_grapheme();
         }
         // Get best candidate
         // TODO(girv): suffers from same bug as get_as_grapheme where
         // equal distance candidates are randomly ordered
-        candidates.sort_by(|(.., a), (.., b) | a.cmp(b));
+        candidates.sort_by(|(.., a), (.., b)| a.cmp(b));
         candidates[0].1.to_string()
     }
-
 
     // TODO(girv): This wouldn't get me any leetcode cred
     pub(crate) fn get_as_grapheme(&self) -> String {
         // test against all cardinal values for a match
         for c_grapheme in CARDINALS_VEC.iter() {
             let x = CARDINALS_MAP.get(c_grapheme).unwrap();
-            if *x == *self { return c_grapheme.to_string() }
+            if *x == *self {
+                return c_grapheme.to_string();
+            }
         }
 
-        // if no match is found, 
+        // if no match is found,
         // loop through again, but this time test cardinal + diacritics
 
         // Sort by difference (filter out diff >= 8 to cut on size)
@@ -352,18 +384,20 @@ impl Segment {
         //     }
         // }).collect::<Vec<_>>();
 
-        candidates.sort_by(|(.., a), (.., b) | a.cmp(b));
+        candidates.sort_by(|(.., a), (.., b)| a.cmp(b));
 
         // for (a,_, b) in &candidates {
         //     eprintln!("{} {}", a.get_as_grapheme().unwrap(), b);
         // }
         // eprintln!("{}", candidates.len());
-        
-        for (cand_seg , cand_graph, _) in candidates {
+
+        for (cand_seg, cand_graph, _) in candidates {
             let mut buf_seg = cand_seg;
             let mut buf_str = cand_graph.clone();
             for d in DIACRITS.iter() {
-                if self.match_modifiers(&d.prereqs).is_ok() && self.match_modifiers(&d.payload).is_ok() {
+                if self.match_modifiers(&d.prereqs).is_ok()
+                    && self.match_modifiers(&d.payload).is_ok()
+                {
                     let before = buf_seg;
                     buf_seg.apply_diacritic_payload(&d.payload);
                     if buf_seg == before {
@@ -376,7 +410,7 @@ impl Segment {
                         buf_str.push(d.diacrit);
                     }
                 }
-                if buf_seg == *self { 
+                if buf_seg == *self {
                     return buf_str;
                 }
             }
@@ -388,12 +422,12 @@ impl Segment {
     pub(crate) fn match_modifiers(&self, mods: &DiaMods) -> Result<(), (usize, bool)> {
         for (i, m) in mods.feats.iter().enumerate() {
             if !self.match_feat_mod(m, i) {
-                return Err((i, false))
+                return Err((i, false));
             }
         }
         for (i, m) in mods.nodes.iter().enumerate() {
             if !self.match_node_mod(m, i) {
-                return Err((i, true))
+                return Err((i, true));
             }
         }
         Ok(())
@@ -402,7 +436,7 @@ impl Segment {
     pub(crate) fn match_node_mod(&self, md: &Option<ModKind>, node_index: usize) -> bool {
         if let Some(kind) = md {
             let node = NodeKind::from_usize(node_index);
-            return self.match_node_mod_kind(kind, node)
+            return self.match_node_mod_kind(kind, node);
         }
         true
     }
@@ -422,7 +456,7 @@ impl Segment {
     pub(crate) fn match_feat_mod(&self, md: &Option<ModKind>, feat_index: usize) -> bool {
         if let Some(kind) = md {
             let (node, mask) = feature_to_node_mask(FType::from_usize(feat_index));
-            return self.match_feat_mod_kind(kind, node, mask)
+            return self.match_feat_mod_kind(kind, node, mask);
         }
         true
     }
@@ -440,10 +474,18 @@ impl Segment {
     }
 
     pub(crate) fn as_modifiers(&self) -> Modifiers {
-        
-        let to_bin_mod = |b: bool | { if b {BinMod::Positive} else {BinMod::Negative}};
-        
-        let place = self.labial.is_some() || self.coronal.is_some() || self.dorsal.is_some() || self.pharyngeal.is_some();
+        let to_bin_mod = |b: bool| {
+            if b {
+                BinMod::Positive
+            } else {
+                BinMod::Negative
+            }
+        };
+
+        let place = self.labial.is_some()
+            || self.coronal.is_some()
+            || self.dorsal.is_some()
+            || self.pharyngeal.is_some();
 
         let nodes = [
             Some(ModKind::Binary(BinMod::Positive)),
@@ -454,20 +496,26 @@ impl Segment {
             Some(ModKind::Binary(to_bin_mod(self.coronal.is_some()))),
             Some(ModKind::Binary(to_bin_mod(self.dorsal.is_some()))),
             Some(ModKind::Binary(to_bin_mod(self.pharyngeal.is_some()))),
-            ];
+        ];
 
-        let mut feats = [();FType::count()].map(|_| None);     
-        #[allow(clippy::needless_range_loop)] 
+        let mut feats = [(); FType::count()].map(|_| None);
+        #[allow(clippy::needless_range_loop)]
         for i in 0..FType::count() {
-            let (n, f) = feature_to_node_mask(FType::from_usize(i));   
-            let Some(x) = self.get_feat(n, f) else { continue };
-            
+            let (n, f) = feature_to_node_mask(FType::from_usize(i));
+            let Some(x) = self.get_feat(n, f) else {
+                continue;
+            };
+
             feats[i] = Some(ModKind::Binary(to_bin_mod(x != 0)))
         }
-        
+
         let suprs = SupraSegs::new();
 
-        Modifiers { nodes, feats, suprs }
+        Modifiers {
+            nodes,
+            feats,
+            suprs,
+        }
     }
 
     fn diff_count(&self, other: &Segment) -> usize {
@@ -485,40 +533,40 @@ impl Segment {
         let dor = dif_option(self.dorsal, other.dorsal).unwrap_or(0);
         let phr = dif_option(self.pharyngeal, other.pharyngeal).unwrap_or(0);
 
-        ( rut.count_ones()
-        + man.count_ones()
-        + lar.count_ones()
-        + lab.count_ones()
-        + cor.count_ones()
-        + dor.count_ones()
-        + phr.count_ones() ) as usize
+        (rut.count_ones()
+            + man.count_ones()
+            + lar.count_ones()
+            + lab.count_ones()
+            + cor.count_ones()
+            + dor.count_ones()
+            + phr.count_ones()) as usize
     }
 
     #[inline]
     pub(crate) fn get_node(&self, node: NodeKind) -> Option<u8> {
         match node {
-            NodeKind::Root       => Some(self.root),
-            NodeKind::Manner     => Some(self.manner),
-            NodeKind::Laryngeal  => Some(self.laryngeal),
-            NodeKind::Labial     => self.labial,
-            NodeKind::Coronal    => self.coronal,
-            NodeKind::Dorsal     => self.dorsal,
+            NodeKind::Root => Some(self.root),
+            NodeKind::Manner => Some(self.manner),
+            NodeKind::Laryngeal => Some(self.laryngeal),
+            NodeKind::Labial => self.labial,
+            NodeKind::Coronal => self.coronal,
+            NodeKind::Dorsal => self.dorsal,
             NodeKind::Pharyngeal => self.pharyngeal,
-            NodeKind::Place      => unreachable!(),
+            NodeKind::Place => unreachable!(),
         }
     }
 
     #[inline]
     pub(crate) fn set_node(&mut self, node: NodeKind, val: Option<u8>) {
         match node {
-            NodeKind::Root       => self.root = val.expect("RootNode cannot be null"),
-            NodeKind::Manner     => self.manner = val.expect("MannerNode cannot be null"),
-            NodeKind::Laryngeal  => self.laryngeal = val.expect("LaryngealNode cannot be null"),
-            NodeKind::Labial     => self.labial = val,
-            NodeKind::Coronal    => self.coronal = val,
-            NodeKind::Dorsal     => self.dorsal = val,
+            NodeKind::Root => self.root = val.expect("RootNode cannot be null"),
+            NodeKind::Manner => self.manner = val.expect("MannerNode cannot be null"),
+            NodeKind::Laryngeal => self.laryngeal = val.expect("LaryngealNode cannot be null"),
+            NodeKind::Labial => self.labial = val,
+            NodeKind::Coronal => self.coronal = val,
+            NodeKind::Dorsal => self.dorsal = val,
             NodeKind::Pharyngeal => self.pharyngeal = val,
-            NodeKind::Place      => unreachable!(),
+            NodeKind::Place => unreachable!(),
         }
     }
 
@@ -531,7 +579,7 @@ impl Segment {
         debug_assert_ne!(node, NodeKind::Place);
         if to_positive {
             let n = self.get_node(node).unwrap_or(0u8);
-            self.set_node(node, Some(n | feat)) 
+            self.set_node(node, Some(n | feat))
         } else if let Some(n) = self.get_node(node) {
             self.set_node(node, Some(n & !(feat)))
         }
@@ -539,7 +587,7 @@ impl Segment {
 
     pub(crate) fn feat_match(&self, node: NodeKind, mask: u8, positive: bool) -> bool {
         let Some(n) = self.get_node(node) else {
-            return false
+            return false;
         };
         if positive {
             n & mask == mask
@@ -561,14 +609,14 @@ impl Segment {
     pub(crate) fn node_match(&self, node: NodeKind, match_value: Option<u8>) -> bool {
         debug_assert_ne!(node, NodeKind::Place);
         let Some(n) = self.get_node(node) else {
-            return match_value.is_none()
+            return match_value.is_none();
         };
-        let Some(m) = match_value else {return false};
+        let Some(m) = match_value else { return false };
 
         n == m
     }
 
-    fn apply_diacritic_payload(&mut self, dm:&DiaMods) {
+    fn apply_diacritic_payload(&mut self, dm: &DiaMods) {
         for (i, m) in dm.nodes.iter().enumerate() {
             if let Some(kind) = m {
                 let node = NodeKind::from_usize(i);
@@ -576,7 +624,7 @@ impl Segment {
                 match kind {
                     ModKind::Binary(b) => match b {
                         BinMod::Negative => self.set_node(node, None),
-                        BinMod::Positive => self.set_node(node, Some(0))
+                        BinMod::Positive => self.set_node(node, Some(0)),
                     },
                     ModKind::Alpha(_) => unreachable!(),
                 }
@@ -584,7 +632,7 @@ impl Segment {
         }
         for (i, m) in dm.feats.iter().enumerate() {
             if let Some(kind) = m {
-                let (n,f) = feature_to_node_mask(FType::from_usize(i));
+                let (n, f) = feature_to_node_mask(FType::from_usize(i));
                 match kind {
                     ModKind::Binary(b) => match b {
                         BinMod::Negative => self.set_feat(n, f, false),
@@ -602,97 +650,164 @@ impl Segment {
         Ok(())
     }
 
-    pub(crate) fn apply_seg_mods(&mut self, alphas: &RefCell<HashMap<char, Alpha>> , nodes: [Option<ModKind>; NodeType::count()], feats: [Option<ModKind>; FType::count()], err_pos: Position, is_matching_ipa: bool) -> Result<(), RuleRuntimeError>{
-        for (i, m) in nodes.iter().enumerate() { 
+    pub(crate) fn apply_seg_mods(
+        &mut self,
+        alphas: &RefCell<HashMap<char, Alpha>>,
+        nodes: [Option<ModKind>; NodeType::count()],
+        feats: [Option<ModKind>; FType::count()],
+        err_pos: Position,
+        is_matching_ipa: bool,
+    ) -> Result<(), RuleRuntimeError> {
+        for (i, m) in nodes.iter().enumerate() {
             let node = NodeKind::from_usize(i);
             if let Some(kind) = m {
                 match kind {
                     ModKind::Binary(bm) => match bm {
                         BinMod::Negative => match node {
-                            NodeKind::Root      => return Err(RuleRuntimeError::NodeCannotBeNone("Root".to_owned(), err_pos)),
-                            NodeKind::Manner    => return Err(RuleRuntimeError::NodeCannotBeNone("Manner".to_owned(), err_pos)),
-                            NodeKind::Laryngeal => return Err(RuleRuntimeError::NodeCannotBeNone("Largyneal".to_owned(), err_pos)),
+                            NodeKind::Root => {
+                                return Err(RuleRuntimeError::NodeCannotBeNone(
+                                    "Root".to_owned(),
+                                    err_pos,
+                                ))
+                            }
+                            NodeKind::Manner => {
+                                return Err(RuleRuntimeError::NodeCannotBeNone(
+                                    "Manner".to_owned(),
+                                    err_pos,
+                                ))
+                            }
+                            NodeKind::Laryngeal => {
+                                return Err(RuleRuntimeError::NodeCannotBeNone(
+                                    "Largyneal".to_owned(),
+                                    err_pos,
+                                ))
+                            }
                             NodeKind::Place => {
                                 // e.g. Debuccalization
-                                self.set_node(NodeKind::Labial    , None);
-                                self.set_node(NodeKind::Coronal   , None);
-                                self.set_node(NodeKind::Dorsal    , None);
+                                self.set_node(NodeKind::Labial, None);
+                                self.set_node(NodeKind::Coronal, None);
+                                self.set_node(NodeKind::Dorsal, None);
                                 self.set_node(NodeKind::Pharyngeal, None);
-                            },
+                            }
                             _ => self.set_node(node, None),
-                            
                         },
                         BinMod::Positive => match node {
-                            NodeKind::Root      => return Err(RuleRuntimeError::NodeCannotBeSome("Root".to_owned(), err_pos)),
-                            NodeKind::Manner    => return Err(RuleRuntimeError::NodeCannotBeSome("Manner".to_owned(), err_pos)),
-                            NodeKind::Laryngeal => return Err(RuleRuntimeError::NodeCannotBeSome("Largyneal".to_owned(), err_pos)),
-                            NodeKind::Place     => return Err(RuleRuntimeError::NodeCannotBeSome("Place".to_owned(), err_pos)),
+                            NodeKind::Root => {
+                                return Err(RuleRuntimeError::NodeCannotBeSome(
+                                    "Root".to_owned(),
+                                    err_pos,
+                                ))
+                            }
+                            NodeKind::Manner => {
+                                return Err(RuleRuntimeError::NodeCannotBeSome(
+                                    "Manner".to_owned(),
+                                    err_pos,
+                                ))
+                            }
+                            NodeKind::Laryngeal => {
+                                return Err(RuleRuntimeError::NodeCannotBeSome(
+                                    "Largyneal".to_owned(),
+                                    err_pos,
+                                ))
+                            }
+                            NodeKind::Place => {
+                                return Err(RuleRuntimeError::NodeCannotBeSome(
+                                    "Place".to_owned(),
+                                    err_pos,
+                                ))
+                            }
                             _ => {
                                 // preserve node if already positive
                                 if self.get_node(node).is_none() {
                                     self.set_node(node, Some(0))
                                 }
-                            },
+                            }
                         },
                     },
                     ModKind::Alpha(am) => match am {
                         AlphaMod::Alpha(ch) => {
-                        let mut alpha_assigned = false; // needed because of borrow checker weirdness. See: https://github.com/rust-lang/rust/issues/113792
+                            let mut alpha_assigned = false; // needed because of borrow checker weirdness. See: https://github.com/rust-lang/rust/issues/113792
                             if let Some(alpha) = alphas.borrow().get(ch) {
                                 if let Some((n, m)) = alpha.as_node() {
                                     if n == node {
                                         self.set_node(n, m);
                                     } else {
-                                        return Err(RuleRuntimeError::AlphaIsNotSameNode(err_pos))
+                                        return Err(RuleRuntimeError::AlphaIsNotSameNode(err_pos));
                                     }
                                 } else if let Some(place) = alpha.as_place() {
                                     match node {
-                                        NodeKind::Root      => return Err(RuleRuntimeError::NodeCannotBeSet("Root".to_owned(), err_pos)),
-                                        NodeKind::Manner    => return Err(RuleRuntimeError::NodeCannotBeSet("Manner".to_owned(), err_pos)),
-                                        NodeKind::Laryngeal => return Err(RuleRuntimeError::NodeCannotBeSet("Laryngeal".to_owned(), err_pos)),
+                                        NodeKind::Root => {
+                                            return Err(RuleRuntimeError::NodeCannotBeSet(
+                                                "Root".to_owned(),
+                                                err_pos,
+                                            ))
+                                        }
+                                        NodeKind::Manner => {
+                                            return Err(RuleRuntimeError::NodeCannotBeSet(
+                                                "Manner".to_owned(),
+                                                err_pos,
+                                            ))
+                                        }
+                                        NodeKind::Laryngeal => {
+                                            return Err(RuleRuntimeError::NodeCannotBeSet(
+                                                "Laryngeal".to_owned(),
+                                                err_pos,
+                                            ))
+                                        }
                                         NodeKind::Place => {
-                                            self.set_node(NodeKind::Labial    , place.lab);
-                                            self.set_node(NodeKind::Coronal   , place.cor);
-                                            self.set_node(NodeKind::Dorsal    , place.dor);
+                                            self.set_node(NodeKind::Labial, place.lab);
+                                            self.set_node(NodeKind::Coronal, place.cor);
+                                            self.set_node(NodeKind::Dorsal, place.dor);
                                             self.set_node(NodeKind::Pharyngeal, place.phr);
-                                        },
+                                        }
                                         // Partial Place application
-                                        NodeKind::Labial     => self.set_node(NodeKind::Labial    , place.lab),
-                                        NodeKind::Coronal    => self.set_node(NodeKind::Coronal   , place.cor),
-                                        NodeKind::Dorsal     => self.set_node(NodeKind::Dorsal    , place.dor),
-                                        NodeKind::Pharyngeal => self.set_node(NodeKind::Pharyngeal, place.phr),
+                                        NodeKind::Labial => {
+                                            self.set_node(NodeKind::Labial, place.lab)
+                                        }
+                                        NodeKind::Coronal => {
+                                            self.set_node(NodeKind::Coronal, place.cor)
+                                        }
+                                        NodeKind::Dorsal => {
+                                            self.set_node(NodeKind::Dorsal, place.dor)
+                                        }
+                                        NodeKind::Pharyngeal => {
+                                            self.set_node(NodeKind::Pharyngeal, place.phr)
+                                        }
                                     }
-                                    
                                 } else {
-                                    return Err(RuleRuntimeError::AlphaIsNotNode(err_pos))
+                                    return Err(RuleRuntimeError::AlphaIsNotNode(err_pos));
                                 }
                                 alpha_assigned = true;
                             }
                             if !alpha_assigned {
                                 if is_matching_ipa {
                                     if node == NodeKind::Place {
-                                        let pm = crate::PlaceMod { 
-                                            lab: self.get_node(NodeKind::Labial), 
-                                            cor: self.get_node(NodeKind::Coronal), 
-                                            dor: self.get_node(NodeKind::Dorsal), 
-                                            phr: self.get_node(NodeKind::Pharyngeal) 
+                                        let pm = crate::PlaceMod {
+                                            lab: self.get_node(NodeKind::Labial),
+                                            cor: self.get_node(NodeKind::Coronal),
+                                            dor: self.get_node(NodeKind::Dorsal),
+                                            phr: self.get_node(NodeKind::Pharyngeal),
                                         };
                                         alphas.borrow_mut().insert(*ch, Alpha::Place(pm));
                                     } else {
-                                        alphas.borrow_mut().insert(*ch, Alpha::Node(node, self.get_node(node)));
+                                        alphas
+                                            .borrow_mut()
+                                            .insert(*ch, Alpha::Node(node, self.get_node(node)));
                                     }
                                 } else {
-                                    return Err(RuleRuntimeError::AlphaUnknown(err_pos))
+                                    return Err(RuleRuntimeError::AlphaUnknown(err_pos));
                                 }
                             }
-                        },
-                        AlphaMod::InvAlpha(_) => return Err(RuleRuntimeError::AlphaNodeAssignInv(err_pos))
+                        }
+                        AlphaMod::InvAlpha(_) => {
+                            return Err(RuleRuntimeError::AlphaNodeAssignInv(err_pos))
+                        }
                     },
                 }
             }
         }
         for (i, m) in feats.iter().enumerate() {
-            if let Some(kind) = m { 
+            if let Some(kind) = m {
                 let (n, f) = feature_to_node_mask(FType::from_usize(i));
                 match kind {
                     ModKind::Binary(b) => match b {
@@ -706,18 +821,20 @@ impl Segment {
                                 let tp = alpha.as_binary();
                                 self.set_feat(n, f, tp);
                                 alpha_assigned = true;
-                            } 
+                            }
                             if !alpha_assigned {
                                 if is_matching_ipa {
                                     let x = if let Some(feat) = self.get_feat(n, f) {
                                         feat != 0
-                                    } else {false};
+                                    } else {
+                                        false
+                                    };
                                     alphas.borrow_mut().insert(*ch, Alpha::Feature(x));
                                 } else {
-                                    return Err(RuleRuntimeError::AlphaUnknown(err_pos))
+                                    return Err(RuleRuntimeError::AlphaUnknown(err_pos));
                                 }
                             }
-                        },
+                        }
                         AlphaMod::InvAlpha(ch) => {
                             let mut alpha_assigned = false;
                             if let Some(alpha) = alphas.borrow().get(ch) {
@@ -729,17 +846,19 @@ impl Segment {
                                 if is_matching_ipa {
                                     let x = if let Some(feat) = self.get_feat(n, f) {
                                         feat != 0
-                                    } else {false};
+                                    } else {
+                                        false
+                                    };
                                     alphas.borrow_mut().insert(*ch, Alpha::Feature(!x));
                                 } else {
-                                    return Err(RuleRuntimeError::AlphaUnknown(err_pos))
+                                    return Err(RuleRuntimeError::AlphaUnknown(err_pos));
                                 }
                             }
-                        },
+                        }
                     },
                 }
             }
         }
         Ok(())
-    } 
+    }
 }

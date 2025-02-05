@@ -1,8 +1,6 @@
 use std::path::PathBuf;
 
-use clap:: {
-    Args, Command, Parser, Subcommand, ValueHint
-};
+use clap::{Args, Command, Parser, Subcommand, ValueHint};
 use clap_complete::{generate, Generator, Shell};
 
 #[derive(Debug, Parser)]
@@ -44,13 +42,13 @@ pub enum AscaCommand {
         output: Option<PathBuf>,
     },
     // Mult {
-    //     /// 
+    //     ///
     //     rules: Vec<PathBuf>,
     //     /// Path to the wsca file containing the words to be changed
     //     /// - If not provided, asca will look for a  file in the current directory
     //     #[arg(short, long, verbatim_doc_comment)]
     //     words: Option<PathBuf>,
-    //     /// Path of a wsca file to compare with the output 
+    //     /// Path of a wsca file to compare with the output
     //     #[arg(short, long, verbatim_doc_comment)]
     //     compare: Option<PathBuf>,
     //     /// Desired path of output file
@@ -63,7 +61,7 @@ pub enum AscaCommand {
         /// Path to a directory containing an asca config file.
         #[arg(value_hint=clap::ValueHint::DirPath)]
         path: Option<PathBuf>,
-        
+
         /// Run a given tag in the config file.
         /// - If not provided, all tags in the config will be run.
         #[arg(short='t', long, verbatim_doc_comment, value_hint=clap::ValueHint::Other)]
@@ -84,17 +82,31 @@ pub enum AscaCommand {
 
         /// Accept cases where an output file would be overwritten.
         /// - Requires --output
-        #[arg(short='y', long, action, requires="output", conflicts_with="no_overwrite", verbatim_doc_comment)]
+        #[arg(
+            short = 'y',
+            long,
+            action,
+            requires = "output",
+            conflicts_with = "no_overwrite",
+            verbatim_doc_comment
+        )]
         overwrite: bool,
 
         /// Reject cases where an output file would be overwritten.
         /// - Requires --output
-        #[arg(short='n', long, action, requires="output", conflicts_with="overwrite", verbatim_doc_comment)]
+        #[arg(
+            short = 'n',
+            long,
+            action,
+            requires = "output",
+            conflicts_with = "overwrite",
+            verbatim_doc_comment
+        )]
         no_overwrite: bool,
 
         /// Save all intermediate steps
         /// - Requires --output
-        #[arg(short='i', long, action, requires="output", verbatim_doc_comment)]
+        #[arg(short = 'i', long, action, requires = "output", verbatim_doc_comment)]
         output_all: bool,
     },
     /// Convert between an asca-web json file and the wsca/rsca format.

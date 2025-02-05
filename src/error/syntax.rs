@@ -1,9 +1,9 @@
 use colored::Colorize;
 
-use crate ::{
-    alias ::{parser::AliasItem, AliasKind, AliasPosition, AliasToken, AliasTokenKind}, 
-    parser::Item, 
-    lexer ::{Position, Token, TokenKind}
+use crate::{
+    alias::{parser::AliasItem, AliasKind, AliasPosition, AliasToken, AliasTokenKind},
+    lexer::{Position, Token, TokenKind},
+    parser::Item,
 };
 
 use super::{get_feat_closest, ASCAError, Error, RuleGroup};
@@ -11,11 +11,11 @@ use super::{get_feat_closest, ASCAError, Error, RuleGroup};
 #[derive(Debug, Clone)]
 pub enum WordSyntaxError {
     DiacriticBeforeSegment(String, usize),
-    NoSegmentBeforeColon  (String, usize),
-    UnknownChar           (String, usize),
-    ToneTooBig            (String, usize),
-    CouldNotParseEjective (String),
-    CouldNotParse         (String),
+    NoSegmentBeforeColon(String, usize),
+    UnknownChar(String, usize),
+    ToneTooBig(String, usize),
+    CouldNotParseEjective(String),
+    CouldNotParse(String),
     DiacriticDoesNotMeetPreReqsFeat(String, usize, String, bool),
     DiacriticDoesNotMeetPreReqsNode(String, usize, String, bool),
 }
@@ -30,44 +30,44 @@ impl ASCAError for WordSyntaxError {
     fn get_error_message(&self) -> String {
         match self {
             Self::DiacriticBeforeSegment(..) => "Diacritic Before Segment".to_string(),
-            Self::NoSegmentBeforeColon  (..) => "No Segment Before Colon".to_string(),
-            Self::UnknownChar           (..) => "Unknown Char".to_string(),
-            Self::ToneTooBig            (..) => "Tone cannot be more than 4 digits long".to_string(),
-            Self::CouldNotParseEjective (..) => "Unable to parse word. If you meant to have an ejective, you must use ʼ".to_string(),
-            Self::CouldNotParse         (..) => "Unable to parse word".to_string(),
-            Self::DiacriticDoesNotMeetPreReqsFeat(txt, i, t, pos) |
-            Self::DiacriticDoesNotMeetPreReqsNode(txt, i, t, pos) => {
+            Self::NoSegmentBeforeColon(..) => "No Segment Before Colon".to_string(),
+            Self::UnknownChar(..) => "Unknown Char".to_string(),
+            Self::ToneTooBig(..) => "Tone cannot be more than 4 digits long".to_string(),
+            Self::CouldNotParseEjective(..) => {
+                "Unable to parse word. If you meant to have an ejective, you must use ʼ".to_string()
+            }
+            Self::CouldNotParse(..) => "Unable to parse word".to_string(),
+            Self::DiacriticDoesNotMeetPreReqsFeat(txt, i, t, pos)
+            | Self::DiacriticDoesNotMeetPreReqsNode(txt, i, t, pos) => {
                 format!("Segment does not have prerequisite properties to have diacritic `{}`. Must be [{} {}]", txt.chars().nth(*i).unwrap_or_default(), if *pos { '+' } else { '-' },t)
-            },
+            }
         }
     }
 
     fn format_word_error(&self, _: &[String]) -> String {
         const MARG: &str = "\n    |     ";
-        let mut result = format!("{} {}", "Word Syntax Error:".bright_red().bold(), self.get_error_message().bold());
+        let mut result = format!(
+            "{} {}",
+            "Word Syntax Error:".bright_red().bold(),
+            self.get_error_message().bold()
+        );
         let (arrows, text) = match self {
-            Self::CouldNotParse(text) => (
-                "^".repeat(text.chars().count()) + "\n", 
-                text
-            ),
-            Self::CouldNotParseEjective(text) => (
-                " ".repeat(text.chars().count() - 1) + "^\n",
-                text
-            ),
-            Self::DiacriticDoesNotMeetPreReqsFeat(text, i, ..) |
-            Self::DiacriticDoesNotMeetPreReqsNode(text, i, ..) |
-            Self::DiacriticBeforeSegment         (text, i    ) |
-            Self::NoSegmentBeforeColon           (text, i    ) |
-            Self::UnknownChar                    (text, i    ) |
-            Self::ToneTooBig                     (text, i    ) => (
-                " ".repeat(*i) + "^" + "\n", 
-                text
-            ),
+            Self::CouldNotParse(text) => ("^".repeat(text.chars().count()) + "\n", text),
+            Self::CouldNotParseEjective(text) => {
+                (" ".repeat(text.chars().count() - 1) + "^\n", text)
+            }
+            Self::DiacriticDoesNotMeetPreReqsFeat(text, i, ..)
+            | Self::DiacriticDoesNotMeetPreReqsNode(text, i, ..)
+            | Self::DiacriticBeforeSegment(text, i)
+            | Self::NoSegmentBeforeColon(text, i)
+            | Self::UnknownChar(text, i)
+            | Self::ToneTooBig(text, i) => (" ".repeat(*i) + "^" + "\n", text),
         };
-        result.push_str(&format!("{}{}{}{}",  
-            MARG.bright_cyan().bold(), 
-            text, 
-            MARG.bright_cyan().bold(), 
+        result.push_str(&format!(
+            "{}{}{}{}",
+            MARG.bright_cyan().bold(),
+            text,
+            MARG.bright_cyan().bold(),
             arrows.bright_red().bold()
         ));
 
@@ -81,7 +81,6 @@ impl ASCAError for WordSyntaxError {
     fn format_alias_error(&self, _: &[String], _: &[String]) -> String {
         unreachable!()
     }
-
 }
 
 type GroupNum = usize;
@@ -91,52 +90,52 @@ type Pos = usize;
 #[derive(Debug, Clone)]
 pub enum RuleSyntaxError {
     ExpectedAlphabetic(char, GroupNum, LineNum, Pos),
-    ExpectedCharColon (char, GroupNum, LineNum, Pos),
-    ExpectedCharArrow (char, GroupNum, LineNum, Pos),
-    UnknownCharacter  (char, GroupNum, LineNum, Pos),
-    ExpectedCharDot   (char, GroupNum, LineNum, Pos),
-    ExpectedNumber    (char, GroupNum, LineNum, Pos),
+    ExpectedCharColon(char, GroupNum, LineNum, Pos),
+    ExpectedCharArrow(char, GroupNum, LineNum, Pos),
+    UnknownCharacter(char, GroupNum, LineNum, Pos),
+    ExpectedCharDot(char, GroupNum, LineNum, Pos),
+    ExpectedNumber(char, GroupNum, LineNum, Pos),
     ExpectedTokenFeature(Token),
     ExpectedRightBracket(Token),
-    TooManyUnderlines   (Token),
-    BadSyllableMatrix   (Token),
-    ExpectedUnderline   (Token),
-    ExpectedVariable    (Token),
-    UnknownGrouping     (Token),
-    ExpectedSegment     (Token),
-    ExpectedEndLine     (Token),
-    ExpectedMatrix      (Token),
-    ExpectedArrow       (Token),
-    ExpectedComma       (Token),
-    ExpectedColon       (Token),
-    ToneTooBig          (Token),
-    UnknownIPA          (Token),
-    InsertErr           (Token),
-    DeleteErr           (Token),
-    MetathErr           (Token),
+    TooManyUnderlines(Token),
+    BadSyllableMatrix(Token),
+    ExpectedUnderline(Token),
+    ExpectedVariable(Token),
+    UnknownGrouping(Token),
+    ExpectedSegment(Token),
+    ExpectedEndLine(Token),
+    ExpectedMatrix(Token),
+    ExpectedArrow(Token),
+    ExpectedComma(Token),
+    ExpectedColon(Token),
+    ToneTooBig(Token),
+    UnknownIPA(Token),
+    InsertErr(Token),
+    DeleteErr(Token),
+    MetathErr(Token),
     OutsideBrackets(GroupNum, LineNum, Pos),
-    NestedBrackets (GroupNum, LineNum, Pos),
-    WrongModTone   (GroupNum, LineNum, Pos),
-    EmptyOutput    (GroupNum, LineNum, Pos),
-    EmptyInput     (GroupNum, LineNum, Pos),
-    EmptyEnv       (GroupNum, LineNum, Pos),
+    NestedBrackets(GroupNum, LineNum, Pos),
+    WrongModTone(GroupNum, LineNum, Pos),
+    EmptyOutput(GroupNum, LineNum, Pos),
+    EmptyInput(GroupNum, LineNum, Pos),
+    EmptyEnv(GroupNum, LineNum, Pos),
     InsertMetath(GroupNum, LineNum, Pos, Pos),
     InsertDelete(GroupNum, LineNum, Pos, Pos),
     TooManyWordBoundaries(Position),
-    StuffBeforeWordBound (Position),
-    StuffAfterWordBound  (Position),
-    WordBoundLoc         (Position),
-    OptLocError          (Position),
-    EmptySet             (Position),
+    StuffBeforeWordBound(Position),
+    StuffAfterWordBound(Position),
+    WordBoundLoc(Position),
+    OptLocError(Position),
+    EmptySet(Position),
     UnknownEnbyFeature(String, Position),
-    UnknownFeature    (String, Position),
+    UnknownFeature(String, Position),
     DiacriticDoesNotMeetPreReqsFeat(Position, Position, String, bool),
     DiacriticDoesNotMeetPreReqsNode(Position, Position, String, bool),
     UnexpectedDiacritic(Position, Position),
     UnbalancedRuleEnv(Vec<Item>),
-    UnbalancedRuleIO (Vec<Vec<Item>>),
+    UnbalancedRuleIO(Vec<Vec<Item>>),
     UnexpectedEol(Token, char),
-    OptMathError (Token, usize, usize),
+    OptMathError(Token, usize, usize),
 }
 
 impl From<RuleSyntaxError> for Error {
@@ -197,124 +196,129 @@ impl ASCAError for RuleSyntaxError {
             Self::UnbalancedRuleIO (_) => "Input or Output has too few elements".to_string(),
             Self::UnexpectedEol(_, c) => format!("Expected `{c}`, but received End of Line"),
             Self::OptMathError (_, lo, hi) => format!("An Option's second argument '{hi}' must be greater than or equal to it's first argument '{lo}'"),
-            
-            
         }
     }
 
     fn format_rule_error(&self, rules: &[RuleGroup]) -> String {
         const MARG: &str = "\n    |     ";
-        let mut result = format!("{} {}", "Syntax Error:".bright_red().bold(), self.get_error_message().bold()); 
+        let mut result = format!(
+            "{} {}",
+            "Syntax Error:".bright_red().bold(),
+            self.get_error_message().bold()
+        );
 
         let (arrows, group, line) = match self {
-            Self::UnexpectedEol       (t, ..) | 
-            Self::OptMathError        (t, ..) | 
-            Self::ExpectedTokenFeature(t) | 
-            Self::ExpectedRightBracket(t) |
-            Self::TooManyUnderlines   (t) | 
-            Self::ExpectedUnderline   (t) | 
-            Self::ExpectedVariable    (t) | 
-            Self::UnknownGrouping     (t) | 
-            Self::ExpectedSegment     (t) | 
-            Self::ExpectedEndLine     (t) | 
-            Self::ExpectedMatrix      (t) | 
-            Self::ExpectedArrow       (t) | 
-            Self::ExpectedComma       (t) | 
-            Self::ExpectedColon       (t) | 
-            Self::ToneTooBig          (t) | 
-            Self::UnknownIPA          (t) | 
-            Self::InsertErr           (t) | 
-            Self::DeleteErr           (t) | 
-            Self::MetathErr           (t) | 
-            Self::BadSyllableMatrix   (t) => (
-                " ".repeat(t.position.start) + &"^".repeat(t.position.end-t.position.start) + "\n", 
+            Self::UnexpectedEol(t, ..)
+            | Self::OptMathError(t, ..)
+            | Self::ExpectedTokenFeature(t)
+            | Self::ExpectedRightBracket(t)
+            | Self::TooManyUnderlines(t)
+            | Self::ExpectedUnderline(t)
+            | Self::ExpectedVariable(t)
+            | Self::UnknownGrouping(t)
+            | Self::ExpectedSegment(t)
+            | Self::ExpectedEndLine(t)
+            | Self::ExpectedMatrix(t)
+            | Self::ExpectedArrow(t)
+            | Self::ExpectedComma(t)
+            | Self::ExpectedColon(t)
+            | Self::ToneTooBig(t)
+            | Self::UnknownIPA(t)
+            | Self::InsertErr(t)
+            | Self::DeleteErr(t)
+            | Self::MetathErr(t)
+            | Self::BadSyllableMatrix(t) => (
+                " ".repeat(t.position.start)
+                    + &"^".repeat(t.position.end - t.position.start)
+                    + "\n",
                 t.position.group,
-                t.position.line
+                t.position.line,
             ),
             Self::UnknownFeature(_, pos) | Self::UnknownEnbyFeature(_, pos) => (
-                " ".repeat(pos.start) + &"^".repeat(pos.end-pos.start) + "\n", 
+                " ".repeat(pos.start) + &"^".repeat(pos.end - pos.start) + "\n",
                 pos.group,
-                pos.line
+                pos.line,
             ),
-            Self::ExpectedAlphabetic(_, group, line, pos) |
-            Self::ExpectedCharArrow (_, group, line, pos) |
-            Self::ExpectedCharColon (_, group, line, pos) |
-            Self::UnknownCharacter  (_, group, line, pos) |
-            Self::ExpectedCharDot   (_, group, line, pos) |
-            Self::ExpectedNumber    (_, group, line, pos) |
-            Self::OutsideBrackets      (group, line, pos) |
-            Self::NestedBrackets       (group, line, pos) | 
-            Self::WrongModTone         (group, line, pos) |
-            Self::EmptyOutput          (group, line, pos) |
-            Self::EmptyInput           (group, line, pos) | 
-            Self::EmptyEnv             (group, line, pos) => (
-                " ".repeat(*pos) + "^" + "\n", 
+            Self::ExpectedAlphabetic(_, group, line, pos)
+            | Self::ExpectedCharArrow(_, group, line, pos)
+            | Self::ExpectedCharColon(_, group, line, pos)
+            | Self::UnknownCharacter(_, group, line, pos)
+            | Self::ExpectedCharDot(_, group, line, pos)
+            | Self::ExpectedNumber(_, group, line, pos)
+            | Self::OutsideBrackets(group, line, pos)
+            | Self::NestedBrackets(group, line, pos)
+            | Self::WrongModTone(group, line, pos)
+            | Self::EmptyOutput(group, line, pos)
+            | Self::EmptyInput(group, line, pos)
+            | Self::EmptyEnv(group, line, pos) => (" ".repeat(*pos) + "^" + "\n", *group, *line),
+            Self::InsertDelete(group, line, pos1, pos2)
+            | Self::InsertMetath(group, line, pos1, pos2) => (
+                " ".repeat(*pos1) + "^" + " ".repeat(pos2 - pos1 - 1).as_str() + "^" + "\n",
                 *group,
-                *line
+                *line,
             ),
-            Self::InsertDelete(group, line, pos1, pos2) | 
-            Self::InsertMetath(group, line, pos1, pos2) => (
-                " ".repeat(*pos1) + "^" + " ".repeat(pos2 - pos1 - 1).as_str() + "^" + "\n", 
-                *group,
-                *line
-            ),
-            Self::TooManyWordBoundaries(pos) |
-            Self::StuffBeforeWordBound(pos)  | 
-            Self::StuffAfterWordBound(pos) => (
-                " ".repeat(pos.start) + "^" + "\n", 
-                pos.group,
-                pos.line
-            ),
+            Self::TooManyWordBoundaries(pos)
+            | Self::StuffBeforeWordBound(pos)
+            | Self::StuffAfterWordBound(pos) => {
+                (" ".repeat(pos.start) + "^" + "\n", pos.group, pos.line)
+            }
             Self::UnbalancedRuleEnv(items) => {
                 let first_item = items.first().expect("Env should not be empty");
                 let last_item = items.last().expect("Env should not be empty");
                 let start = first_item.position.start;
                 let end = last_item.position.end;
                 (
-                    " ".repeat(start) + &"^".repeat(end-start) + "\n", 
+                    " ".repeat(start) + &"^".repeat(end - start) + "\n",
                     first_item.position.group,
-                    first_item.position.line
+                    first_item.position.line,
                 )
-            },
-            Self::WordBoundLoc(pos) |
-            Self::OptLocError (pos) |
-            Self::EmptySet    (pos) => (
-                " ".repeat(pos.start) + &"^".repeat(pos.end-pos.start) + "\n",
+            }
+            Self::WordBoundLoc(pos) | Self::OptLocError(pos) | Self::EmptySet(pos) => (
+                " ".repeat(pos.start) + &"^".repeat(pos.end - pos.start) + "\n",
                 pos.group,
-                pos.line
+                pos.line,
             ),
             Self::UnbalancedRuleIO(items) => {
-                let first_item = items.first().expect("IO should not be empty").first().expect("IO should not be empty");
-                let last_item = items.last().expect("IO should not be empty").last().expect("IO should not be empty");
+                let first_item = items
+                    .first()
+                    .expect("IO should not be empty")
+                    .first()
+                    .expect("IO should not be empty");
+                let last_item = items
+                    .last()
+                    .expect("IO should not be empty")
+                    .last()
+                    .expect("IO should not be empty");
                 let start = first_item.position.start;
                 let end = last_item.position.end;
                 (
-                    " ".repeat(start) + &"^".repeat(end-start) + "\n", 
+                    " ".repeat(start) + &"^".repeat(end - start) + "\n",
                     first_item.position.group,
-                    first_item.position.line
+                    first_item.position.line,
                 )
-            },
-            Self::UnexpectedDiacritic(elm_pos, dia_pos) | 
-            Self::DiacriticDoesNotMeetPreReqsFeat(elm_pos, dia_pos, ..) | 
-            Self::DiacriticDoesNotMeetPreReqsNode(elm_pos, dia_pos, ..) => (
-                " ".repeat(elm_pos.start) 
+            }
+            Self::UnexpectedDiacritic(elm_pos, dia_pos)
+            | Self::DiacriticDoesNotMeetPreReqsFeat(elm_pos, dia_pos, ..)
+            | Self::DiacriticDoesNotMeetPreReqsNode(elm_pos, dia_pos, ..) => (
+                " ".repeat(elm_pos.start)
                     + &"^".repeat(elm_pos.end - elm_pos.start)
                     + &" ".repeat(dia_pos.start - elm_pos.end)
                     + &"^".repeat(dia_pos.end - dia_pos.start)
-                    + "\n", 
+                    + "\n",
                 elm_pos.group,
-                elm_pos.line
+                elm_pos.line,
             ),
         };
 
-        result.push_str(&format!("{}{}{}{}    {} Rule {}, Line {}",  
-            MARG.bright_cyan().bold(), 
+        result.push_str(&format!(
+            "{}{}{}{}    {} Rule {}, Line {}",
+            MARG.bright_cyan().bold(),
             rules[group].rule[line],
-            MARG.bright_cyan().bold(), 
+            MARG.bright_cyan().bold(),
             arrows.bright_red().bold(),
             "@".bright_cyan().bold(),
-            group+1,
-            line+1,
+            group + 1,
+            line + 1,
         ));
 
         result
@@ -332,28 +336,28 @@ impl ASCAError for RuleSyntaxError {
 #[derive(Debug, Clone)]
 pub enum AliasSyntaxError {
     InvalidUnicodeEscape(String, AliasKind, LineNum, Pos),
-    InvalidNamedEscape  (String, AliasKind, LineNum, Pos),
-    ExpectedAlphabetic  (char, AliasKind, LineNum, Pos),
-    ExpectedRightCurly  (char, AliasKind, LineNum, Pos),
-    ExpectedCharArrow   (char, AliasKind, LineNum, Pos),
-    ExpectedCharColon   (char, AliasKind, LineNum, Pos),
-    ExpectedLeftCurly   (char, AliasKind, LineNum, Pos),
-    UnknownEscapeChar   (char, AliasKind, LineNum, Pos),
-    UnknownCharacter    (char, AliasKind, LineNum, Pos),
-    ExpectedNumber      (char, AliasKind, LineNum, Pos),
-    EmptyReplacements   (AliasKind, LineNum, Pos),
-    OutsideBrackets     (AliasKind, LineNum, Pos),
-    NestedBrackets      (AliasKind, LineNum, Pos),
-    WrongModTone        (AliasKind, LineNum, Pos),
-    EmptyInput          (AliasKind, LineNum, Pos),
-    UnknownEnbyFeature  (String, AliasPosition),
-    UnknownFeature      (String, AliasPosition),
+    InvalidNamedEscape(String, AliasKind, LineNum, Pos),
+    ExpectedAlphabetic(char, AliasKind, LineNum, Pos),
+    ExpectedRightCurly(char, AliasKind, LineNum, Pos),
+    ExpectedCharArrow(char, AliasKind, LineNum, Pos),
+    ExpectedCharColon(char, AliasKind, LineNum, Pos),
+    ExpectedLeftCurly(char, AliasKind, LineNum, Pos),
+    UnknownEscapeChar(char, AliasKind, LineNum, Pos),
+    UnknownCharacter(char, AliasKind, LineNum, Pos),
+    ExpectedNumber(char, AliasKind, LineNum, Pos),
+    EmptyReplacements(AliasKind, LineNum, Pos),
+    OutsideBrackets(AliasKind, LineNum, Pos),
+    NestedBrackets(AliasKind, LineNum, Pos),
+    WrongModTone(AliasKind, LineNum, Pos),
+    EmptyInput(AliasKind, LineNum, Pos),
+    UnknownEnbyFeature(String, AliasPosition),
+    UnknownFeature(String, AliasPosition),
     ExpectedTokenFeature(AliasToken),
-    ExpectedEndLine     (AliasToken),
-    ExpectedMatrix      (AliasToken),
-    ExpectedArrow       (AliasToken),
-    UnknownGroup        (AliasToken),
-    UnknownIPA          (AliasToken),
+    ExpectedEndLine(AliasToken),
+    ExpectedMatrix(AliasToken),
+    ExpectedArrow(AliasToken),
+    UnknownGroup(AliasToken),
+    UnknownIPA(AliasToken),
     DiacriticDoesNotMeetPreReqsFeat(AliasPosition, AliasPosition, String, bool),
     DiacriticDoesNotMeetPreReqsNode(AliasPosition, AliasPosition, String, bool),
     UnexpectedEol(AliasToken, char),
@@ -405,55 +409,57 @@ impl ASCAError for AliasSyntaxError {
 
     fn format_alias_error(&self, into: &[String], from: &[String]) -> String {
         const MARG: &str = "\n    |     ";
-        let mut result = format!("{} {}", "Syntax Error:".bright_red().bold(), self.get_error_message().bold()); 
+        let mut result = format!(
+            "{} {}",
+            "Syntax Error:".bright_red().bold(),
+            self.get_error_message().bold()
+        );
 
         let (arrows, kind, line) = match self {
-            Self::InvalidUnicodeEscape(_, kind, line, pos) |
-            Self::InvalidNamedEscape  (_, kind, line, pos) |
-            Self::ExpectedAlphabetic  (_, kind, line, pos) |
-            Self::ExpectedRightCurly  (_, kind, line, pos) |
-            Self::ExpectedCharArrow   (_, kind, line, pos) |
-            Self::ExpectedCharColon   (_, kind, line, pos) |
-            Self::ExpectedLeftCurly   (_, kind, line, pos) |
-            Self::UnknownEscapeChar   (_, kind, line, pos) |
-            Self::UnknownCharacter    (_, kind, line, pos) |
-            Self::ExpectedNumber      (_, kind, line, pos) |
-            Self::EmptyReplacements      (kind, line, pos) |
-            Self::OutsideBrackets        (kind, line, pos) |
-            Self::NestedBrackets         (kind, line, pos) |
-            Self::WrongModTone           (kind, line, pos) |
-            Self::EmptyInput             (kind, line, pos) => (
-                " ".repeat(*pos) + "^" + "\n", 
-                *kind,
-                *line,
-            ),
-            Self::PlusInDerom          (pos) |
-            Self::UnknownFeature    (_, pos) |
-            Self::UnknownEnbyFeature(_, pos) => (
-                " ".repeat(pos.start) + &"^".repeat(pos.end-pos.start) + "\n", 
+            Self::InvalidUnicodeEscape(_, kind, line, pos)
+            | Self::InvalidNamedEscape(_, kind, line, pos)
+            | Self::ExpectedAlphabetic(_, kind, line, pos)
+            | Self::ExpectedRightCurly(_, kind, line, pos)
+            | Self::ExpectedCharArrow(_, kind, line, pos)
+            | Self::ExpectedCharColon(_, kind, line, pos)
+            | Self::ExpectedLeftCurly(_, kind, line, pos)
+            | Self::UnknownEscapeChar(_, kind, line, pos)
+            | Self::UnknownCharacter(_, kind, line, pos)
+            | Self::ExpectedNumber(_, kind, line, pos)
+            | Self::EmptyReplacements(kind, line, pos)
+            | Self::OutsideBrackets(kind, line, pos)
+            | Self::NestedBrackets(kind, line, pos)
+            | Self::WrongModTone(kind, line, pos)
+            | Self::EmptyInput(kind, line, pos) => (" ".repeat(*pos) + "^" + "\n", *kind, *line),
+            Self::PlusInDerom(pos)
+            | Self::UnknownFeature(_, pos)
+            | Self::UnknownEnbyFeature(_, pos) => (
+                " ".repeat(pos.start) + &"^".repeat(pos.end - pos.start) + "\n",
                 pos.kind,
                 pos.line,
             ),
-            Self::ExpectedTokenFeature(token) |
-            Self::ExpectedEndLine     (token) |
-            Self::ExpectedMatrix      (token) |
-            Self::ExpectedArrow       (token) |
-            Self::UnknownGroup        (token) |
-            Self::UnknownIPA          (token) |
-            Self::UnexpectedEol       (token, _) => (
-                " ".repeat(token.position.start) + &"^".repeat(token.position.end-token.position.start) + "\n", 
+            Self::ExpectedTokenFeature(token)
+            | Self::ExpectedEndLine(token)
+            | Self::ExpectedMatrix(token)
+            | Self::ExpectedArrow(token)
+            | Self::UnknownGroup(token)
+            | Self::UnknownIPA(token)
+            | Self::UnexpectedEol(token, _) => (
+                " ".repeat(token.position.start)
+                    + &"^".repeat(token.position.end - token.position.start)
+                    + "\n",
                 token.position.kind,
-                token.position.line
+                token.position.line,
             ),
-            Self::DiacriticDoesNotMeetPreReqsFeat(elm_pos, dia_pos, ..) |
-            Self::DiacriticDoesNotMeetPreReqsNode(elm_pos, dia_pos, ..) => (
-                " ".repeat(elm_pos.start) 
+            Self::DiacriticDoesNotMeetPreReqsFeat(elm_pos, dia_pos, ..)
+            | Self::DiacriticDoesNotMeetPreReqsNode(elm_pos, dia_pos, ..) => (
+                " ".repeat(elm_pos.start)
                     + &"^".repeat(elm_pos.end - elm_pos.start)
                     + &" ".repeat(dia_pos.start - elm_pos.end)
                     + &"^".repeat(dia_pos.end - dia_pos.start)
-                    + "\n", 
+                    + "\n",
                 elm_pos.kind,
-                elm_pos.line
+                elm_pos.line,
             ),
             Self::UnbalancedIO(items) => {
                 let first_item = items.first().expect("IO should not be empty");
@@ -461,34 +467,36 @@ impl ASCAError for AliasSyntaxError {
                 let start = first_item.position.start;
                 let end = last_item.position.end;
                 (
-                    " ".repeat(start) + &"^".repeat(end-start) + "\n", 
+                    " ".repeat(start) + &"^".repeat(end - start) + "\n",
                     first_item.position.kind,
-                    first_item.position.line
+                    first_item.position.line,
                 )
-            },
+            }
         };
 
         match kind {
             AliasKind::Deromaniser => {
-                result.push_str(&format!("{}{}{}{}    {} deromaniser, line {}",  
+                result.push_str(&format!(
+                    "{}{}{}{}    {} deromaniser, line {}",
                     MARG.bright_cyan().bold(),
                     into[line],
                     MARG.bright_cyan().bold(),
                     arrows.bright_red().bold(),
                     "@".bright_cyan().bold(),
-                    line+1,
+                    line + 1,
                 ));
-            },
+            }
             AliasKind::Romaniser => {
-                result.push_str(&format!("{}{}{}{}    {} romaniser, line {}",  
+                result.push_str(&format!(
+                    "{}{}{}{}    {} romaniser, line {}",
                     MARG.bright_cyan().bold(),
                     from[line],
                     MARG.bright_cyan().bold(),
                     arrows.bright_red().bold(),
                     "@".bright_cyan().bold(),
-                    line+1,
+                    line + 1,
                 ));
-            },
+            }
         }
 
         result

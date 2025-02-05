@@ -1,28 +1,29 @@
-use std::{
-    fmt::Display, 
-    collections::VecDeque
-};
+use std::{collections::VecDeque, fmt::Display};
 
 #[derive(Clone)]
 struct Node {
     key: Option<char>,
     val: Option<String>,
     is_terminal: bool,
-    children: Vec<Node>
-
+    children: Vec<Node>,
 }
 
 impl Node {
     fn new() -> Self {
-        Self {key: None, val: None, is_terminal: false, children: Vec::new() }
+        Self {
+            key: None,
+            val: None,
+            is_terminal: false,
+            children: Vec::new(),
+        }
     }
 
     fn with_key(c: char) -> Self {
-        Node { 
-            key: Some(c), 
+        Node {
+            key: Some(c),
             val: None,
-            is_terminal: false, 
-            children: Vec::new()
+            is_terminal: false,
+            children: Vec::new(),
         }
     }
 }
@@ -30,18 +31,23 @@ impl Node {
 #[derive(Clone)]
 pub(crate) struct Trie {
     root: Node,
-    elements: usize
+    elements: usize,
 }
 
 impl Trie {
     pub(crate) fn new() -> Self {
-        Self { root: Node::new(), elements: 0 }
+        Self {
+            root: Node::new(),
+            elements: 0,
+        }
     }
 
     #[allow(dead_code)]
     /// Returns the number of words in the tree
-    pub(crate) fn length(&self) -> usize { self.elements + 1 }
-    
+    pub(crate) fn length(&self) -> usize {
+        self.elements + 1
+    }
+
     /// Inserts a word into the tree without duplication
     pub(crate) fn insert(&mut self, s: &str) {
         let mut cur = &mut self.root;
@@ -65,7 +71,7 @@ impl Trie {
 
     /// returns true if input matches a leaf in the tree
     #[allow(dead_code)]
-    pub(crate) fn contains(&self, s: &str) -> bool { 
+    pub(crate) fn contains(&self, s: &str) -> bool {
         let mut curr_node = &self.root;
 
         for c in s.chars() {
@@ -83,8 +89,8 @@ impl Trie {
     }
 
     /// Returns true if input is a 'prefix' of a leaf in the tree
-    /// A prefix can also end in a leaf 
-    pub(crate) fn contains_prefix(&self, s: &str) -> bool { 
+    /// A prefix can also end in a leaf
+    pub(crate) fn contains_prefix(&self, s: &str) -> bool {
         let mut curr_node = &self.root;
 
         for c in s.chars() {
@@ -103,7 +109,7 @@ impl Trie {
 
     /// Traverses the tree using a given string input and then returns vector of all leaf nodes past the end of input
     #[allow(dead_code)]
-    pub(crate) fn find_all(&self, s: &str) -> Vec<String> { 
+    pub(crate) fn find_all(&self, s: &str) -> Vec<String> {
         let mut cur = &self.root;
 
         for c in s.chars() {
@@ -132,15 +138,13 @@ impl Trie {
         }
 
         results
-
-     }
-
+    }
 }
 
 impl Display for Trie {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         let mut q: VecDeque<&Node> = VecDeque::new();
-        let root  = &self.root;
+        let root = &self.root;
         q.push_back(root);
 
         while !q.is_empty() {
@@ -163,8 +167,6 @@ impl Display for Trie {
         Ok(())
     }
 }
-
-
 
 #[cfg(test)]
 mod tests {
@@ -196,6 +198,3 @@ mod tests {
         assert_eq!(trie.length(), 7);
     }
 }
-
-
-

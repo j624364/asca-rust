@@ -1,8 +1,8 @@
-mod syntax;
 mod runtime;
+mod syntax;
 
-pub use syntax::*;
 pub use runtime::*;
+pub use syntax::*;
 
 use crate::RuleGroup;
 
@@ -40,7 +40,7 @@ impl ASCAError for Error {
         match self {
             Self::WordSyn(e) => e.format_word_error(s),
             Self::WordRun(e) => e.format_word_error(s),
-            _ => unreachable!()
+            _ => unreachable!(),
         }
     }
 
@@ -56,63 +56,196 @@ impl ASCAError for Error {
         match self {
             Self::AliasSyn(e) => e.format_alias_error(into, from),
             Self::AliasRun(e) => e.format_alias_error(into, from),
-            _ => unreachable!()
+            _ => unreachable!(),
         }
     }
 }
 
-const FEAT_VARIANTS: [&str; 171] = [ 
-    "root", "rut", "rt", 
-    "consonantal", "consonant", "cons" , "cns",          
-    "sonorant", "sonor", "son" , "snrt", "sn",
-    "syllabic", "syllab", "syll" , "syl",          
+const FEAT_VARIANTS: [&str; 171] = [
+    "root",
+    "rut",
+    "rt",
+    "consonantal",
+    "consonant",
+    "cons",
+    "cns",
+    "sonorant",
+    "sonor",
+    "son",
+    "snrt",
+    "sn",
+    "syllabic",
+    "syllab",
+    "syll",
+    "syl",
     // Manner Node Features
-    "manner", "mann", "man", "mnnr" , "mnr" ,
-    "continuant", "contin", "cont" , "cnt",
-    "approximant", "approx", "appr", "app",
-    "lateral", "latrl", "ltrl", "lat",
-    "nasal", "nsl", "nas",
-    "delayedrelease", "delrel", "d.r.", "del.rel.", "delayed", "dl", "dlrl", "dr", "delay", "del.rel", "drel",
-    "strident", "strid", "stri", "stridnt",
-    "rhotic", "rhot", "rho", "rhtc", "rh",
-    "click", "clik", "clk", "clck",
+    "manner",
+    "mann",
+    "man",
+    "mnnr",
+    "mnr",
+    "continuant",
+    "contin",
+    "cont",
+    "cnt",
+    "approximant",
+    "approx",
+    "appr",
+    "app",
+    "lateral",
+    "latrl",
+    "ltrl",
+    "lat",
+    "nasal",
+    "nsl",
+    "nas",
+    "delayedrelease",
+    "delrel",
+    "d.r.",
+    "del.rel.",
+    "delayed",
+    "dl",
+    "dlrl",
+    "dr",
+    "delay",
+    "del.rel",
+    "drel",
+    "strident",
+    "strid",
+    "stri",
+    "stridnt",
+    "rhotic",
+    "rhot",
+    "rho",
+    "rhtc",
+    "rh",
+    "click",
+    "clik",
+    "clk",
+    "clck",
     // Laryngeal Node Features
-    "laryngeal", "laryng", "laryn", "lar",
-    "voice", "voi", "vce", "vc",
-    "spreadglottis", "spreadglot", "spread", "s.g.", "s.g", "sg",
-    "constrictedglottis", "constricted", "constglot", "constr", "c.g.", "c.g", "cg",
+    "laryngeal",
+    "laryng",
+    "laryn",
+    "lar",
+    "voice",
+    "voi",
+    "vce",
+    "vc",
+    "spreadglottis",
+    "spreadglot",
+    "spread",
+    "s.g.",
+    "s.g",
+    "sg",
+    "constrictedglottis",
+    "constricted",
+    "constglot",
+    "constr",
+    "c.g.",
+    "c.g",
+    "cg",
     // Place Node Feature
-    "place", "plce", "plc",   
+    "place",
+    "plce",
+    "plc",
     // Labial Place Node Features
-    "labial", "lbl", "lab",
-    "labiodental", "ldental", "labiodent", "labdent", "lbdntl", "ldent", "ldl",
-    "round", "rund", "rnd", "rd",
+    "labial",
+    "lbl",
+    "lab",
+    "labiodental",
+    "ldental",
+    "labiodent",
+    "labdent",
+    "lbdntl",
+    "ldent",
+    "ldl",
+    "round",
+    "rund",
+    "rnd",
+    "rd",
     // Coronal Place Node Features
-    "coronal", "coron", "crnl", "cor",
-    "anterior", "anter", "antr", "ant",
-    "distributed", "distrib", "dist", "dis" , "dst",
+    "coronal",
+    "coron",
+    "crnl",
+    "cor",
+    "anterior",
+    "anter",
+    "antr",
+    "ant",
+    "distributed",
+    "distrib",
+    "dist",
+    "dis",
+    "dst",
     // Dorsal Place Node Features
-    "dorsal", "drsl", "dors", "dor",
-    "front", "frnt", "fnt", "fro", "frt", "fr",
-    "back", "bck", "bk",
-    "high", "hgh", "hi",
-    "low", "lw", "lo",
-    "tense", "tens", "tns", "ten",
-    "reduced", "reduc", "redu", "rdcd", "red",
+    "dorsal",
+    "drsl",
+    "dors",
+    "dor",
+    "front",
+    "frnt",
+    "fnt",
+    "fro",
+    "frt",
+    "fr",
+    "back",
+    "bck",
+    "bk",
+    "high",
+    "hgh",
+    "hi",
+    "low",
+    "lw",
+    "lo",
+    "tense",
+    "tens",
+    "tns",
+    "ten",
+    "reduced",
+    "reduc",
+    "redu",
+    "rdcd",
+    "red",
     // Pharyngeal Place Node Features
-    "pharyngeal", "pharyng", "pharyn", "phar", "phr",
-    "advancedtongueroot", "a.t.r.", "a.t.r", "a.tr", "at.r", "atr",
-    "retractedtongueroot", "r.t.r.", "r.t.r", "r.tr", "rt.r", "rtr",
+    "pharyngeal",
+    "pharyng",
+    "pharyn",
+    "phar",
+    "phr",
+    "advancedtongueroot",
+    "a.t.r.",
+    "a.t.r",
+    "a.tr",
+    "at.r",
+    "atr",
+    "retractedtongueroot",
+    "r.t.r.",
+    "r.t.r",
+    "r.tr",
+    "rt.r",
+    "rtr",
     // Suprasegmental Features
-    "long", "lng",
-    "overlong", "overlng", "ovrlng", "vlng",
-    "stress", "str",
-    "secondarystress", "sec.stress", "secstress", "sec.str.", "sec.str", "secstr", "sec"
+    "long",
+    "lng",
+    "overlong",
+    "overlng",
+    "ovrlng",
+    "vlng",
+    "stress",
+    "str",
+    "secondarystress",
+    "sec.stress",
+    "secstress",
+    "sec.str.",
+    "sec.str",
+    "secstr",
+    "sec",
 ];
 
 fn get_feat_closest(s: &str) -> &'static str {
     let mut best_lev = usize::MAX;
-    let mut best_str= "";
+    let mut best_str = "";
 
     for var in FEAT_VARIANTS {
         let len = lev(s, var);
@@ -123,12 +256,14 @@ fn get_feat_closest(s: &str) -> &'static str {
     }
 
     best_str
-} 
+}
 
 fn lev(a: &str, b: &str) -> usize {
     let mut dist = 0;
 
-    if a == b { return dist }
+    if a == b {
+        return dist;
+    }
 
     let a_len = a.chars().count();
     let b_len = b.chars().count();

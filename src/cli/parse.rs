@@ -43,7 +43,7 @@ pub fn parse_rsca(path: &Path) -> io::Result<Vec<RuleGroup>> {
         if r.description.is_empty() {
             r.rule.push(line.to_string());
             continue;
-        } 
+        }
 
         rules.push(r);
         r = RuleGroup::new();
@@ -78,25 +78,29 @@ pub fn parse_alias(path: &Path) -> io::Result<(Vec<String>, Vec<String>)> {
         }
 
         match state {
-            Some(state_into) => if state_into {
-                into.push(line.to_string());
-            } else {
-                from.push(line.to_string());
-            },
-            None => {/* Skip, TODO: maybe err */},
+            Some(state_into) => {
+                if state_into {
+                    into.push(line.to_string());
+                } else {
+                    from.push(line.to_string());
+                }
+            }
+            None => { /* Skip, TODO: maybe err */ }
         }
     }
 
     Ok((into, from))
 }
 
-
 pub fn parse_wsca(path: &Path) -> io::Result<(Vec<String>, Vec<String>)> {
-    Ok(util::file_read(path)?.lines().map(|line| {
-        let mut line_iter = line.trim().split('#');
+    Ok(util::file_read(path)?
+        .lines()
+        .map(|line| {
+            let mut line_iter = line.trim().split('#');
 
-        let word = line_iter.next().unwrap().trim().to_owned();
-        let comment = line_iter.collect::<String>().trim().to_owned();
-        (word, comment)
-    }).collect::<(Vec<String>, Vec<String>)>())
+            let word = line_iter.next().unwrap().trim().to_owned();
+            let comment = line_iter.collect::<String>().trim().to_owned();
+            (word, comment)
+        })
+        .collect::<(Vec<String>, Vec<String>)>())
 }

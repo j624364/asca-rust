@@ -1,12 +1,15 @@
 use colored::Colorize;
 
-use crate::{alias::{AliasKind, AliasPosition}, lexer::{Position, Token}};
+use crate::{
+    alias::{AliasKind, AliasPosition},
+    lexer::{Position, Token},
+};
 
 use super::{ASCAError, Error, RuleGroup};
 
 #[derive(Debug, Clone)]
 pub enum WordRuntimeError {
-    UnknownSegment(String, usize,  usize), // (Segs before, Word Pos in list, Segment Pos in Words)
+    UnknownSegment(String, usize, usize), // (Segs before, Word Pos in list, Segment Pos in Words)
 }
 
 impl From<WordRuntimeError> for Error {
@@ -18,25 +21,30 @@ impl From<WordRuntimeError> for Error {
 impl ASCAError for WordRuntimeError {
     fn get_error_message(&self) -> String {
         match self {
-            Self::UnknownSegment(buf, ..) => format!("Unknown Segment `{}`", buf)
+            Self::UnknownSegment(buf, ..) => format!("Unknown Segment `{}`", buf),
         }
     }
 
     fn format_word_error(&self, words: &[String]) -> String {
         const MARG: &str = "\n    |     ";
-        let mut result = format!("{} {}", "Runtime Error:".bright_red().bold(), self.get_error_message().bold());
+        let mut result = format!(
+            "{} {}",
+            "Runtime Error:".bright_red().bold(),
+            self.get_error_message().bold()
+        );
 
         match self {
             Self::UnknownSegment(buffer, word, seg) => {
                 let arrows = " ".repeat(words[*word].len() + seg) + "^" + "\n";
-                result.push_str(&format!("{}{} => {}{}{}",  
-                    MARG.bright_cyan().bold(), 
-                    words[*word], 
+                result.push_str(&format!(
+                    "{}{} => {}{}{}",
+                    MARG.bright_cyan().bold(),
+                    words[*word],
                     buffer,
-                    MARG.bright_cyan().bold(), 
+                    MARG.bright_cyan().bold(),
                     arrows.bright_red().bold()
                 ));
-            },
+            }
         }
 
         result
@@ -51,37 +59,35 @@ impl ASCAError for WordRuntimeError {
     }
 }
 
-
-
 #[derive(Debug, Clone)]
-pub enum RuleRuntimeError { 
+pub enum RuleRuntimeError {
     SubstitutionSylltoMatrix(Position, Position),
-    SubstitutionSylltoBound (Position, Position),
-    SubstitutionSyllBound   (Position, Position),
-    SubstitutionSylltoSeg   (Position, Position),
-    SubstitutionBoundMod    (Position, Position),
-    MetathSyllBoundary      (Position, Position),
-    MetathSyllSegment       (Position, Position),
-    UnevenSet               (Position, Position),
+    SubstitutionSylltoBound(Position, Position),
+    SubstitutionSyllBound(Position, Position),
+    SubstitutionSylltoSeg(Position, Position),
+    SubstitutionBoundMod(Position, Position),
+    MetathSyllBoundary(Position, Position),
+    MetathSyllSegment(Position, Position),
+    UnevenSet(Position, Position),
     NodeCannotBeSome(String, Position),
     NodeCannotBeNone(String, Position),
-    NodeCannotBeSet (String, Position),
+    NodeCannotBeSet(String, Position),
     WordBoundSetLocError(Position),
     SubstitutionEllipsis(Position),
-    SyllVarInsideStruct (Position),
-    AlphaNodeAssignInv  (Position),
-    OverlongPosLongNeg  (Position),
-    AlphaIsNotSameNode  (Position),
-    SubstitutionMatrix  (Position),
-    InsertionEllipsis   (Position),
-    SubstitutionSyll    (Position),
-    SecStrPosStrNeg     (Position),
-    AlphaUnknownInv     (Position),
-    InsertionMatrix     (Position),
-    AlphaIsNotNode      (Position),
-    InsertionNoEnv      (Position),
-    AlphaUnknown        (Position),
-    LonelySet           (Position),
+    SyllVarInsideStruct(Position),
+    AlphaNodeAssignInv(Position),
+    OverlongPosLongNeg(Position),
+    AlphaIsNotSameNode(Position),
+    SubstitutionMatrix(Position),
+    InsertionEllipsis(Position),
+    SubstitutionSyll(Position),
+    SecStrPosStrNeg(Position),
+    AlphaUnknownInv(Position),
+    InsertionMatrix(Position),
+    AlphaIsNotNode(Position),
+    InsertionNoEnv(Position),
+    AlphaUnknown(Position),
+    LonelySet(Position),
     UnknownVariable(Token),
     DeletionOnlySeg,
     DeletionOnlySyll,
@@ -132,65 +138,71 @@ impl ASCAError for RuleRuntimeError {
 
     fn format_rule_error(&self, rules: &[RuleGroup]) -> String {
         const MARG: &str = "\n    |     ";
-        let mut result = format!("{} {}", "Runtime Error:".bright_red().bold(), self.get_error_message().bold());
-        
-        let (arrows, group , line) =  match self {
+        let mut result = format!(
+            "{} {}",
+            "Runtime Error:".bright_red().bold(),
+            self.get_error_message().bold()
+        );
+
+        let (arrows, group, line) = match self {
             Self::DeletionOnlySyll | Self::DeletionOnlySeg => return result,
             Self::UnknownVariable(t) => (
-                " ".repeat(t.position.start) + &"^".repeat(t.position.end-t.position.start) + "\n", 
+                " ".repeat(t.position.start)
+                    + &"^".repeat(t.position.end - t.position.start)
+                    + "\n",
                 t.position.group,
-                t.position.line
+                t.position.line,
             ),
-            Self::InsertionNoEnv(pos) => (
-                " ".repeat(pos.end) + "^" + "\n", 
+            Self::InsertionNoEnv(pos) => (" ".repeat(pos.end) + "^" + "\n", pos.group, pos.line),
+            Self::WordBoundSetLocError(pos)
+            | Self::SubstitutionEllipsis(pos)
+            | Self::SyllVarInsideStruct(pos)
+            | Self::AlphaNodeAssignInv(pos)
+            | Self::OverlongPosLongNeg(pos)
+            | Self::AlphaIsNotSameNode(pos)
+            | Self::SubstitutionMatrix(pos)
+            | Self::InsertionEllipsis(pos)
+            | Self::SubstitutionSyll(pos)
+            | Self::SecStrPosStrNeg(pos)
+            | Self::AlphaUnknownInv(pos)
+            | Self::InsertionMatrix(pos)
+            | Self::AlphaIsNotNode(pos)
+            | Self::AlphaUnknown(pos)
+            | Self::LonelySet(pos)
+            | Self::NodeCannotBeSome(_, pos)
+            | Self::NodeCannotBeNone(_, pos)
+            | Self::NodeCannotBeSet(_, pos) => (
+                " ".repeat(pos.start) + &"^".repeat(pos.end - pos.start) + "\n",
                 pos.group,
-                pos.line
+                pos.line,
             ),
-            Self::WordBoundSetLocError(pos) |
-            Self::SubstitutionEllipsis(pos) |
-            Self::SyllVarInsideStruct (pos) |
-            Self::AlphaNodeAssignInv  (pos) |
-            Self::OverlongPosLongNeg  (pos) |
-            Self::AlphaIsNotSameNode  (pos) |
-            Self::SubstitutionMatrix  (pos) |
-            Self::InsertionEllipsis   (pos) |
-            Self::SubstitutionSyll    (pos) |
-            Self::SecStrPosStrNeg     (pos) |
-            Self::AlphaUnknownInv     (pos) |
-            Self::InsertionMatrix     (pos) |
-            Self::AlphaIsNotNode      (pos) |
-            Self::AlphaUnknown        (pos) |
-            Self::LonelySet           (pos) | 
-            Self::NodeCannotBeSome (_, pos) |
-            Self::NodeCannotBeNone (_, pos) |
-            Self::NodeCannotBeSet  (_, pos) => (
-                " ".repeat(pos.start) + &"^".repeat(pos.end-pos.start) + "\n",
-                pos.group,
-                pos.line
-            ),
-            Self::SubstitutionSylltoMatrix(a, b) |
-            Self::SubstitutionSylltoBound (a, b) |
-            Self::SubstitutionSylltoSeg   (a, b) |
-            Self::SubstitutionSyllBound   (a, b) |
-            Self::SubstitutionBoundMod    (a, b) |
-            Self::MetathSyllBoundary      (a, b) |
-            Self::MetathSyllSegment       (a, b) |
-            Self::UnevenSet               (a, b) => (
-                   " ".repeat(a.start) + &"^".repeat(a.end - a.start) 
-                + &" ".repeat(b.start) + &"^".repeat(b.end - b.start) + "\n",
+            Self::SubstitutionSylltoMatrix(a, b)
+            | Self::SubstitutionSylltoBound(a, b)
+            | Self::SubstitutionSylltoSeg(a, b)
+            | Self::SubstitutionSyllBound(a, b)
+            | Self::SubstitutionBoundMod(a, b)
+            | Self::MetathSyllBoundary(a, b)
+            | Self::MetathSyllSegment(a, b)
+            | Self::UnevenSet(a, b) => (
+                " ".repeat(a.start)
+                    + &"^".repeat(a.end - a.start)
+                    + &" ".repeat(b.start)
+                    + &"^".repeat(b.end - b.start)
+                    + "\n",
                 a.group,
-                a.line
+                a.line,
             ),
         };
 
-        result.push_str(&format!("{}{}{}{}    {} Rule {}, Line {}",  
+        result.push_str(&format!(
+            "{}{}{}{}    {} Rule {}, Line {}",
             MARG.bright_cyan().bold(),
             rules[group].rule[line],
             MARG.bright_cyan().bold(),
             arrows.bright_red().bold(),
             "@".bright_cyan().bold(),
-            group+1,
-            line+1,
+            group + 1,
+            line + 1,
         ));
 
         result
@@ -205,16 +217,15 @@ impl ASCAError for RuleRuntimeError {
     }
 }
 
-
 #[derive(Debug, Clone)]
 pub enum AliasRuntimeError {
-    NodeCannotBeNone  (String, AliasPosition),
-    NodeCannotBeSome  (String, AliasPosition),
+    NodeCannotBeNone(String, AliasPosition),
+    NodeCannotBeSome(String, AliasPosition),
     IndefiniteFeatures(AliasPosition),
     OverlongPosLongNeg(AliasPosition),
-    SecStrPosStrNeg   (AliasPosition),
-    LengthNoSegment   (AliasPosition),
-    EmptySyllable     (AliasPosition),
+    SecStrPosStrNeg(AliasPosition),
+    LengthNoSegment(AliasPosition),
+    EmptySyllable(AliasPosition),
 }
 
 impl From<AliasRuntimeError> for Error {
@@ -238,45 +249,51 @@ impl ASCAError for AliasRuntimeError {
 
     fn format_alias_error(&self, into: &[String], from: &[String]) -> String {
         const MARG: &str = "\n    |     ";
-        let mut result = format!("{} {}", "Syntax Error:".bright_red().bold(), self.get_error_message().bold()); 
+        let mut result = format!(
+            "{} {}",
+            "Syntax Error:".bright_red().bold(),
+            self.get_error_message().bold()
+        );
 
         let (arrows, kind, line) = match self {
-            Self::NodeCannotBeNone(_, pos) |
-            Self::NodeCannotBeSome(_, pos) |
-            Self::IndefiniteFeatures (pos) |
-            Self::OverlongPosLongNeg (pos) |
-            Self::SecStrPosStrNeg    (pos) |
-            Self::LengthNoSegment    (pos) |
-            Self::EmptySyllable      (pos) => (
-                " ".repeat(pos.start) + &"^".repeat(pos.end-pos.start) + "\n",
+            Self::NodeCannotBeNone(_, pos)
+            | Self::NodeCannotBeSome(_, pos)
+            | Self::IndefiniteFeatures(pos)
+            | Self::OverlongPosLongNeg(pos)
+            | Self::SecStrPosStrNeg(pos)
+            | Self::LengthNoSegment(pos)
+            | Self::EmptySyllable(pos) => (
+                " ".repeat(pos.start) + &"^".repeat(pos.end - pos.start) + "\n",
                 pos.kind,
-                pos.line
+                pos.line,
             ),
         };
 
         match kind {
             AliasKind::Deromaniser => {
-                result.push_str(&format!("{}{}{}{}    {} deromaniser, line {}",  
+                result.push_str(&format!(
+                    "{}{}{}{}    {} deromaniser, line {}",
                     MARG.bright_cyan().bold(),
                     into[line],
                     MARG.bright_cyan().bold(),
                     arrows.bright_red().bold(),
                     "@".bright_cyan().bold(),
-                    line+1,
+                    line + 1,
                 ));
-            },
+            }
             AliasKind::Romaniser => {
-                result.push_str(&format!("{}{}{}{}    {} romaniser, line {}",  
+                result.push_str(&format!(
+                    "{}{}{}{}    {} romaniser, line {}",
                     MARG.bright_cyan().bold(),
                     from[line],
                     MARG.bright_cyan().bold(),
                     arrows.bright_red().bold(),
                     "@".bright_cyan().bold(),
-                    line+1,
+                    line + 1,
                 ));
-            },
+            }
         }
-        
+
         result
     }
 

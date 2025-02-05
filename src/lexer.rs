@@ -1,39 +1,64 @@
-use std::{fmt::{self, Display}, rc::Rc };
 use serde::Deserialize;
-
-use crate::{
-    error::RuleSyntaxError, 
-    CARDINALS_TRIE, 
-    DIACRITS
+use std::{
+    fmt::{self, Display},
+    rc::Rc,
 };
+
+use crate::{error::RuleSyntaxError, CARDINALS_TRIE, DIACRITS};
 
 #[derive(Debug, Copy, Clone, PartialEq, Eq, Deserialize, Hash)]
 pub(crate) enum NodeType {
-    Root,      
+    Root,
     Manner,
-    Laryngeal,   
-    Place,      
-    Labial,      
-    Coronal,     
-    Dorsal,      
-    Pharyngeal, 
+    Laryngeal,
+    Place,
+    Labial,
+    Coronal,
+    Dorsal,
+    Pharyngeal,
 }
 
 impl NodeType {
-    pub(crate) const fn count() -> usize { 8 }
+    pub(crate) const fn count() -> usize {
+        8
+    }
 
     pub(crate) fn from_usize(value: usize) -> Self {
         use NodeType::*;
         match value {
-            0 => {debug_assert_eq!(value, Root as usize); Root},
-            1 => {debug_assert_eq!(value, Manner as usize); Manner},
-            2 => {debug_assert_eq!(value, Laryngeal as usize); Laryngeal},
-            3 => {debug_assert_eq!(value, Place as usize); Place},
-            4 => {debug_assert_eq!(value, Labial as usize); Labial},
-            5 => {debug_assert_eq!(value, Coronal as usize); Coronal},
-            6 => {debug_assert_eq!(value, Dorsal as usize); Dorsal},
-            7 => {debug_assert_eq!(value, Pharyngeal as usize); Pharyngeal},
-            _ => unreachable!()
+            0 => {
+                debug_assert_eq!(value, Root as usize);
+                Root
+            }
+            1 => {
+                debug_assert_eq!(value, Manner as usize);
+                Manner
+            }
+            2 => {
+                debug_assert_eq!(value, Laryngeal as usize);
+                Laryngeal
+            }
+            3 => {
+                debug_assert_eq!(value, Place as usize);
+                Place
+            }
+            4 => {
+                debug_assert_eq!(value, Labial as usize);
+                Labial
+            }
+            5 => {
+                debug_assert_eq!(value, Coronal as usize);
+                Coronal
+            }
+            6 => {
+                debug_assert_eq!(value, Dorsal as usize);
+                Dorsal
+            }
+            7 => {
+                debug_assert_eq!(value, Pharyngeal as usize);
+                Pharyngeal
+            }
+            _ => unreachable!(),
         }
     }
 }
@@ -41,126 +66,227 @@ impl NodeType {
 impl Display for NodeType {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            NodeType::Root         => write!(f, "RUT"),
-            NodeType::Manner       => write!(f, "MAN"),
-            NodeType::Laryngeal    => write!(f, "LAR"),
-            NodeType::Place        => write!(f, "PLC"),
-            NodeType::Labial       => write!(f, "LAB"),
-            NodeType::Coronal      => write!(f, "COR"),
-            NodeType::Dorsal       => write!(f, "DOR"),
-            NodeType::Pharyngeal   => write!(f, "PHR")
+            NodeType::Root => write!(f, "RUT"),
+            NodeType::Manner => write!(f, "MAN"),
+            NodeType::Laryngeal => write!(f, "LAR"),
+            NodeType::Place => write!(f, "PLC"),
+            NodeType::Labial => write!(f, "LAB"),
+            NodeType::Coronal => write!(f, "COR"),
+            NodeType::Dorsal => write!(f, "DOR"),
+            NodeType::Pharyngeal => write!(f, "PHR"),
         }
     }
 }
 
 #[derive(Debug, Copy, Clone, PartialEq, Eq, Deserialize, Hash)]
 pub(crate) enum SupraType {
-    Long,       // ±long
-    Overlong,   // ±overlong
-    Stress,     // ±stress    (+ matches prim and sec, - matches unstressed)
-    SecStress,  // ±secstress (+ matches sec, - matches prim and unstressed)
-    Tone,       // Can only be used with : notation (e.g. Tone : 213 )
+    Long,      // ±long
+    Overlong,  // ±overlong
+    Stress,    // ±stress    (+ matches prim and sec, - matches unstressed)
+    SecStress, // ±secstress (+ matches sec, - matches prim and unstressed)
+    Tone,      // Can only be used with : notation (e.g. Tone : 213 )
 }
 
 impl Display for SupraType {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            SupraType::Long            => write!(f, "long"),
-            SupraType::Overlong        => write!(f, "overlng"),
-            SupraType::Stress          => write!(f, "str"),
-            SupraType::SecStress       => write!(f, "secstr"),
-            SupraType::Tone            => write!(f, "tone"),
+            SupraType::Long => write!(f, "long"),
+            SupraType::Overlong => write!(f, "overlng"),
+            SupraType::Stress => write!(f, "str"),
+            SupraType::SecStress => write!(f, "secstr"),
+            SupraType::Tone => write!(f, "tone"),
         }
     }
 }
 
 #[derive(Debug, Copy, Clone, PartialEq, Eq, Deserialize, Hash)]
-pub(crate) enum FType { 
-    // can be ± || α.ω 
-    /*RUT*/ Consonantal, Sonorant, Syllabic,      
-    /*MAN*/ Continuant, Approximant, Lateral, Nasal, DelayedRelease, Strident, Rhotic, Click,          
-    /*LAR*/ Voice, SpreadGlottis, ConstrGlottis,   
+pub(crate) enum FType {
+    // can be ± || α.ω
+    /*RUT*/ Consonantal,
+    Sonorant,
+    Syllabic,
+    /*MAN*/ Continuant,
+    Approximant,
+    Lateral,
+    Nasal,
+    DelayedRelease,
+    Strident,
+    Rhotic,
+    Click,
+    /*LAR*/ Voice,
+    SpreadGlottis,
+    ConstrGlottis,
     // PLACE Node
-    /*LAB*/ Labiodental, Round,          
-    /*COR*/ Anterior, Distributed,     
-    /*DOR*/ Front, Back, High, Low, Tense, Reduced,        
-    /*PHR*/ AdvancedTongueRoot, RetractedTongueRoot, 
+    /*LAB*/ Labiodental,
+    Round,
+    /*COR*/ Anterior,
+    Distributed,
+    /*DOR*/ Front,
+    Back,
+    High,
+    Low,
+    Tense,
+    Reduced,
+    /*PHR*/ AdvancedTongueRoot,
+    RetractedTongueRoot,
 }
 
 impl Display for FType {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            FType::Consonantal         => write!(f, "consonantal"),
-            FType::Sonorant            => write!(f, "sonorant"),
-            FType::Syllabic            => write!(f, "syllablic"),
-            FType::Continuant          => write!(f, "continuant"),
-            FType::Approximant         => write!(f, "approx."),
-            FType::Lateral             => write!(f, "lateral"),
-            FType::Nasal               => write!(f, "nasas"),
-            FType::DelayedRelease      => write!(f, "del.rel."),
-            FType::Strident            => write!(f, "strident"),
-            FType::Rhotic              => write!(f, "rhotic"),
-            FType::Click               => write!(f, "click"),
-            FType::Voice               => write!(f, "voice"),
-            FType::SpreadGlottis       => write!(f, "s.g."),
-            FType::ConstrGlottis       => write!(f, "c.g."),
-            FType::Labiodental         => write!(f, "labiodental"),
-            FType::Round               => write!(f, "round"),
-            FType::Anterior            => write!(f, "anterior"),
-            FType::Distributed         => write!(f, "distributed"),
-            FType::Front               => write!(f, "front"),
-            FType::Back                => write!(f, "back"),
-            FType::High                => write!(f, "high"),
-            FType::Low                 => write!(f, "low"),
-            FType::Tense               => write!(f, "tense"),
-            FType::Reduced             => write!(f, "reduced"),
-            FType::AdvancedTongueRoot  => write!(f, "atr"),
-            FType::RetractedTongueRoot => write!(f, "rtr")
+            FType::Consonantal => write!(f, "consonantal"),
+            FType::Sonorant => write!(f, "sonorant"),
+            FType::Syllabic => write!(f, "syllablic"),
+            FType::Continuant => write!(f, "continuant"),
+            FType::Approximant => write!(f, "approx."),
+            FType::Lateral => write!(f, "lateral"),
+            FType::Nasal => write!(f, "nasas"),
+            FType::DelayedRelease => write!(f, "del.rel."),
+            FType::Strident => write!(f, "strident"),
+            FType::Rhotic => write!(f, "rhotic"),
+            FType::Click => write!(f, "click"),
+            FType::Voice => write!(f, "voice"),
+            FType::SpreadGlottis => write!(f, "s.g."),
+            FType::ConstrGlottis => write!(f, "c.g."),
+            FType::Labiodental => write!(f, "labiodental"),
+            FType::Round => write!(f, "round"),
+            FType::Anterior => write!(f, "anterior"),
+            FType::Distributed => write!(f, "distributed"),
+            FType::Front => write!(f, "front"),
+            FType::Back => write!(f, "back"),
+            FType::High => write!(f, "high"),
+            FType::Low => write!(f, "low"),
+            FType::Tense => write!(f, "tense"),
+            FType::Reduced => write!(f, "reduced"),
+            FType::AdvancedTongueRoot => write!(f, "atr"),
+            FType::RetractedTongueRoot => write!(f, "rtr"),
         }
     }
 }
 
 impl FType {
-    pub(crate) const fn count() -> usize { 26 }
+    pub(crate) const fn count() -> usize {
+        26
+    }
 
     pub(crate) fn from_usize(value: usize) -> Self {
         use FType::*;
         match value {
             // ROOT node
-             0 => {debug_assert_eq!(value, Consonantal as usize); Consonantal},
-             1 => {debug_assert_eq!(value, Sonorant as usize); Sonorant},
-             2 => {debug_assert_eq!(value, Syllabic as usize); Syllabic},
+            0 => {
+                debug_assert_eq!(value, Consonantal as usize);
+                Consonantal
+            }
+            1 => {
+                debug_assert_eq!(value, Sonorant as usize);
+                Sonorant
+            }
+            2 => {
+                debug_assert_eq!(value, Syllabic as usize);
+                Syllabic
+            }
             // MANNER node
-             3 => {debug_assert_eq!(value, Continuant as usize); Continuant},
-             4 => {debug_assert_eq!(value, Approximant as usize); Approximant},
-             5 => {debug_assert_eq!(value, Lateral as usize); Lateral},
-             6 => {debug_assert_eq!(value, Nasal as usize); Nasal},
-             7 => {debug_assert_eq!(value, DelayedRelease as usize); DelayedRelease},
-             8 => {debug_assert_eq!(value, Strident as usize); Strident},
-             9 => {debug_assert_eq!(value, Rhotic as usize); Rhotic},
-            10 => {debug_assert_eq!(value, Click as usize); Click},
+            3 => {
+                debug_assert_eq!(value, Continuant as usize);
+                Continuant
+            }
+            4 => {
+                debug_assert_eq!(value, Approximant as usize);
+                Approximant
+            }
+            5 => {
+                debug_assert_eq!(value, Lateral as usize);
+                Lateral
+            }
+            6 => {
+                debug_assert_eq!(value, Nasal as usize);
+                Nasal
+            }
+            7 => {
+                debug_assert_eq!(value, DelayedRelease as usize);
+                DelayedRelease
+            }
+            8 => {
+                debug_assert_eq!(value, Strident as usize);
+                Strident
+            }
+            9 => {
+                debug_assert_eq!(value, Rhotic as usize);
+                Rhotic
+            }
+            10 => {
+                debug_assert_eq!(value, Click as usize);
+                Click
+            }
             // LAR node
-            11 => {debug_assert_eq!(value, Voice as usize); Voice},
-            12 => {debug_assert_eq!(value, SpreadGlottis as usize); SpreadGlottis},
-            13 => {debug_assert_eq!(value, ConstrGlottis as usize); ConstrGlottis},
+            11 => {
+                debug_assert_eq!(value, Voice as usize);
+                Voice
+            }
+            12 => {
+                debug_assert_eq!(value, SpreadGlottis as usize);
+                SpreadGlottis
+            }
+            13 => {
+                debug_assert_eq!(value, ConstrGlottis as usize);
+                ConstrGlottis
+            }
             // PLACE Node
             // LABIAL subnode
-            14 => {debug_assert_eq!(value, Labiodental as usize); Labiodental},
-            15 => {debug_assert_eq!(value, Round as usize); Round},
+            14 => {
+                debug_assert_eq!(value, Labiodental as usize);
+                Labiodental
+            }
+            15 => {
+                debug_assert_eq!(value, Round as usize);
+                Round
+            }
             // CORONAL subnode
-            16 => {debug_assert_eq!(value, Anterior as usize); Anterior},
-            17 => {debug_assert_eq!(value, Distributed as usize); Distributed},
+            16 => {
+                debug_assert_eq!(value, Anterior as usize);
+                Anterior
+            }
+            17 => {
+                debug_assert_eq!(value, Distributed as usize);
+                Distributed
+            }
             // DORSAL subnode
-            18 => {debug_assert_eq!(value, Front as usize); Front},
-            19 => {debug_assert_eq!(value, Back as usize); Back},
-            20 => {debug_assert_eq!(value, High as usize); High},
-            21 => {debug_assert_eq!(value, Low as usize); Low},
-            22 => {debug_assert_eq!(value, Tense as usize); Tense},
-            23 => {debug_assert_eq!(value, Reduced as usize); Reduced},
+            18 => {
+                debug_assert_eq!(value, Front as usize);
+                Front
+            }
+            19 => {
+                debug_assert_eq!(value, Back as usize);
+                Back
+            }
+            20 => {
+                debug_assert_eq!(value, High as usize);
+                High
+            }
+            21 => {
+                debug_assert_eq!(value, Low as usize);
+                Low
+            }
+            22 => {
+                debug_assert_eq!(value, Tense as usize);
+                Tense
+            }
+            23 => {
+                debug_assert_eq!(value, Reduced as usize);
+                Reduced
+            }
             // PHAR subnode
-            24 => {debug_assert_eq!(value, AdvancedTongueRoot as usize); AdvancedTongueRoot},
-            25 => {debug_assert_eq!(value, RetractedTongueRoot as usize); RetractedTongueRoot},
-            _  => unreachable!("\nOut of Range Error converting `usize` to `FeatType`\nThis is a bug!\n")
+            24 => {
+                debug_assert_eq!(value, AdvancedTongueRoot as usize);
+                AdvancedTongueRoot
+            }
+            25 => {
+                debug_assert_eq!(value, RetractedTongueRoot as usize);
+                RetractedTongueRoot
+            }
+            _ => unreachable!(
+                "\nOut of Range Error converting `usize` to `FeatType`\nThis is a bug!\n"
+            ),
         }
     }
 }
@@ -185,37 +311,37 @@ impl Display for FeatType {
 // #[derive(Debug, Copy, Clone, PartialEq, Eq, Ord, PartialOrd)]
 #[derive(Debug, Copy, Clone, PartialEq, Eq)]
 pub(crate) enum TokenKind {
-    LeftSquare,       // [
-    RightSquare,      // ]
-    LeftCurly,        // {
-    RightCurly,       // }
-    RightAngle,       // ⟩
-    LeftAngle,        // ⟨
-    LeftBracket,      // (
-    RightBracket,     // )
+    LeftSquare,   // [
+    RightSquare,  // ]
+    LeftCurly,    // {
+    RightCurly,   // }
+    RightAngle,   // ⟩
+    LeftAngle,    // ⟨
+    LeftBracket,  // (
+    RightBracket, // )
     // LessThan,         // <
-    GreaterThan,      // >
-    Equals,           // =
-    Underline,        // _
-    Arrow,            // -> or =>
-    Comma,            // ,
-    Colon,            // :
-    WordBoundary,     // #
-    SyllBoundary,     // $
-    Syllable,         // %
-    Ampersand,        // &
-    Group,            // Primitive Category i.e. C for Cons, V for Vowel
-    Number,           // Number
-    Slash,            // /
-    DubSlash,         // //
-    Pipe,             // | 
-    Cardinal,         // IPA character
-    Diacritic(u8),    // IPA Diacritic
-    Star,             // *
-    EmptySet,         // ∅
-    Ellipsis,         // ... or .. or … or ⋯
+    GreaterThan,   // >
+    Equals,        // =
+    Underline,     // _
+    Arrow,         // -> or =>
+    Comma,         // ,
+    Colon,         // :
+    WordBoundary,  // #
+    SyllBoundary,  // $
+    Syllable,      // %
+    Ampersand,     // &
+    Group,         // Primitive Category i.e. C for Cons, V for Vowel
+    Number,        // Number
+    Slash,         // /
+    DubSlash,      // //
+    Pipe,          // |
+    Cardinal,      // IPA character
+    Diacritic(u8), // IPA Diacritic
+    Star,          // *
+    EmptySet,      // ∅
+    Ellipsis,      // ... or .. or … or ⋯
     Feature(FeatType),
-    Eol,              // End of Line 
+    Eol, // End of Line
 }
 
 impl TokenKind {
@@ -230,39 +356,38 @@ impl TokenKind {
 
 impl Display for TokenKind {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        
         match self {
-            TokenKind::LeftSquare   => write!(f, "LSquare"),
-            TokenKind::RightSquare  => write!(f, "RSquare"),
-            TokenKind::LeftCurly    => write!(f, "LCurly"),
-            TokenKind::RightCurly   => write!(f, "RCurly"),
-            TokenKind::LeftAngle    => write!(f, "LAngle"),
-            TokenKind::RightAngle   => write!(f, "RAngle"),
-            TokenKind::LeftBracket  => write!(f, "LBrack"),
+            TokenKind::LeftSquare => write!(f, "LSquare"),
+            TokenKind::RightSquare => write!(f, "RSquare"),
+            TokenKind::LeftCurly => write!(f, "LCurly"),
+            TokenKind::RightCurly => write!(f, "RCurly"),
+            TokenKind::LeftAngle => write!(f, "LAngle"),
+            TokenKind::RightAngle => write!(f, "RAngle"),
+            TokenKind::LeftBracket => write!(f, "LBrack"),
             TokenKind::RightBracket => write!(f, "RBrack"),
             // TokenKind::LessThan     => write!(f, "LT"),
-            TokenKind::GreaterThan  => write!(f, "GT"),
-            TokenKind::Equals       => write!(f, "Eq"),
-            TokenKind::Underline    => write!(f, "UL"),
-            TokenKind::Arrow        => write!(f, "Arrow"),
-            TokenKind::Comma        => write!(f, "Comma"),
-            TokenKind::Colon        => write!(f, "Colon"),
+            TokenKind::GreaterThan => write!(f, "GT"),
+            TokenKind::Equals => write!(f, "Eq"),
+            TokenKind::Underline => write!(f, "UL"),
+            TokenKind::Arrow => write!(f, "Arrow"),
+            TokenKind::Comma => write!(f, "Comma"),
+            TokenKind::Colon => write!(f, "Colon"),
             TokenKind::WordBoundary => write!(f, "WBound"),
             TokenKind::SyllBoundary => write!(f, "SBound"),
-            TokenKind::Syllable     => write!(f, "Syll"),
-            TokenKind::Ampersand    => write!(f, "Amper"),
-            TokenKind::Group        => write!(f, "Prim"),
-            TokenKind::Number       => write!(f, "Num"),
-            TokenKind::Slash        => write!(f, "Slash"),
-            TokenKind::DubSlash     => write!(f, "DoubleSlash"),
-            TokenKind::Pipe         => write!(f, "Pipe"),
-            TokenKind::Cardinal     => write!(f, "Cardinal"),
+            TokenKind::Syllable => write!(f, "Syll"),
+            TokenKind::Ampersand => write!(f, "Amper"),
+            TokenKind::Group => write!(f, "Prim"),
+            TokenKind::Number => write!(f, "Num"),
+            TokenKind::Slash => write!(f, "Slash"),
+            TokenKind::DubSlash => write!(f, "DoubleSlash"),
+            TokenKind::Pipe => write!(f, "Pipe"),
+            TokenKind::Cardinal => write!(f, "Cardinal"),
             TokenKind::Diacritic(_) => write!(f, "Diacritic"),
-            TokenKind::Star         => write!(f, "Star"),
-            TokenKind::EmptySet     => write!(f, "Empty"),
-            TokenKind::Ellipsis     => write!(f, "Ellipsis"),
-            TokenKind::Feature(x)   => write!(f, "{x}"),
-            TokenKind::Eol          => write!(f, "End of Line"),
+            TokenKind::Star => write!(f, "Star"),
+            TokenKind::EmptySet => write!(f, "Empty"),
+            TokenKind::Ellipsis => write!(f, "Ellipsis"),
+            TokenKind::Feature(x) => write!(f, "{x}"),
+            TokenKind::Eol => write!(f, "End of Line"),
         }
     }
 }
@@ -277,7 +402,12 @@ pub struct Position {
 
 impl Position {
     pub(crate) fn new(group: usize, line: usize, start: usize, end: usize) -> Self {
-        Self {group, line, start, end }
+        Self {
+            group,
+            line,
+            start,
+            end,
+        }
     }
 }
 
@@ -290,24 +420,43 @@ impl Display for Position {
 #[derive(Clone, PartialEq, Eq)]
 pub struct Token {
     pub(crate) kind: TokenKind,
-    pub(crate) value: Rc<str>, 
+    pub(crate) value: Rc<str>,
     pub(crate) position: Position,
 }
 
 impl Token {
-    pub(crate) fn new(kind: TokenKind, value: &str, group: usize, line: usize, start: usize, end: usize) -> Self {
-        Self { kind, value: Rc::from(value), position: Position::new(group, line, start, end) }
+    pub(crate) fn new(
+        kind: TokenKind,
+        value: &str,
+        group: usize,
+        line: usize,
+        start: usize,
+        end: usize,
+    ) -> Self {
+        Self {
+            kind,
+            value: Rc::from(value),
+            position: Position::new(group, line, start, end),
+        }
     }
 }
 
 impl fmt::Debug for Token {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         let mut spaces = " ".to_string();
-        if self.position.end   <= 9 {spaces += " "}
-        if self.position.start <= 9 {spaces += " "}
+        if self.position.end <= 9 {
+            spaces += " "
+        }
+        if self.position.start <= 9 {
+            spaces += " "
+        }
         match self.kind {
-            TokenKind::Feature(x) => write!(f, "{}{}`{}{}`",  self.position, spaces, self.value, x),
-            _ => write!(f, "{}{}{} `{}`",  self.position, spaces, self.kind, self.value)
+            TokenKind::Feature(x) => write!(f, "{}{}`{}{}`", self.position, spaces, self.value, x),
+            _ => write!(
+                f,
+                "{}{}{} `{}`",
+                self.position, spaces, self.kind, self.value
+            ),
         }
     }
 }
@@ -326,10 +475,21 @@ pub(crate) struct Lexer<'a> {
 
 impl<'a> Lexer<'a> {
     pub(crate) fn new(source: &'a [char], group: usize, line: usize) -> Self {
-        Self { source, group, line, pos: 0, inside_matrix: false , inside_option: false, inside_syll: false, inside_set: false}
+        Self {
+            source,
+            group,
+            line,
+            pos: 0,
+            inside_matrix: false,
+            inside_option: false,
+            inside_syll: false,
+            inside_set: false,
+        }
     }
 
-    fn has_more_chars(&self) -> bool { !self.source.is_empty() }
+    fn has_more_chars(&self) -> bool {
+        !self.source.is_empty()
+    }
 
     fn trim_whitespace(&mut self) {
         while self.has_more_chars() && self.source[0].is_whitespace() {
@@ -344,7 +504,10 @@ impl<'a> Lexer<'a> {
         token.iter().collect()
     }
 
-    fn chop_while<P>(&mut self, mut predicate: P) -> String where P: FnMut(&char) -> bool {
+    fn chop_while<P>(&mut self, mut predicate: P) -> String
+    where
+        P: FnMut(&char) -> bool,
+    {
         let mut n = 0;
         while n < self.source.len() && predicate(&self.source[n]) {
             n += 1;
@@ -379,74 +542,133 @@ impl<'a> Lexer<'a> {
         let value;
 
         match self.curr_char() {
-            ')' => { tokenkind = TokenKind::RightBracket; value = ")"; self.inside_option = false },
-            ']' => { tokenkind = TokenKind::RightSquare;  value = "]"; self.inside_matrix = false },
-            '}' => { tokenkind = TokenKind::RightCurly;   value = "}"; self.inside_set    = false },
-            '⟩' => { tokenkind = TokenKind::RightAngle;   value = "⟩"; self.inside_syll   = false },
-            '⟨' => { 
+            ')' => {
+                tokenkind = TokenKind::RightBracket;
+                value = ")";
+                self.inside_option = false
+            }
+            ']' => {
+                tokenkind = TokenKind::RightSquare;
+                value = "]";
+                self.inside_matrix = false
+            }
+            '}' => {
+                tokenkind = TokenKind::RightCurly;
+                value = "}";
+                self.inside_set = false
+            }
+            '⟩' => {
+                tokenkind = TokenKind::RightAngle;
+                value = "⟩";
+                self.inside_syll = false
+            }
+            '⟨' => {
                 if self.inside_syll {
-                    return Err(RuleSyntaxError::NestedBrackets(self.group, self.line, start));
+                    return Err(RuleSyntaxError::NestedBrackets(
+                        self.group, self.line, start,
+                    ));
                 }
-                tokenkind = TokenKind::LeftAngle; value = "⟨"; self.inside_syll = true;
-            },
-            '{' => { 
+                tokenkind = TokenKind::LeftAngle;
+                value = "⟨";
+                self.inside_syll = true;
+            }
+            '{' => {
                 if self.inside_set {
-                    return Err(RuleSyntaxError::NestedBrackets(self.group, self.line, start));
+                    return Err(RuleSyntaxError::NestedBrackets(
+                        self.group, self.line, start,
+                    ));
                 }
-                tokenkind = TokenKind::LeftCurly; value = "{";  self.inside_set = true;
-            },
-            '(' => { 
+                tokenkind = TokenKind::LeftCurly;
+                value = "{";
+                self.inside_set = true;
+            }
+            '(' => {
                 if self.inside_option {
-                    return Err(RuleSyntaxError::NestedBrackets(self.group, self.line, start));
+                    return Err(RuleSyntaxError::NestedBrackets(
+                        self.group, self.line, start,
+                    ));
                 }
-                tokenkind = TokenKind::LeftBracket; value = "("; self.inside_option = true;
-            },
-            '[' => { 
+                tokenkind = TokenKind::LeftBracket;
+                value = "(";
+                self.inside_option = true;
+            }
+            '[' => {
                 if self.inside_matrix {
-                    return Err(RuleSyntaxError::NestedBrackets(self.group, self.line, start));
+                    return Err(RuleSyntaxError::NestedBrackets(
+                        self.group, self.line, start,
+                    ));
                 }
-                tokenkind = TokenKind::LeftSquare; value = "[";  self.inside_matrix = true;
-            },
-            _ => return Ok(None)
+                tokenkind = TokenKind::LeftSquare;
+                value = "[";
+                self.inside_matrix = true;
+            }
+            _ => return Ok(None),
         }
         self.advance();
 
-        Ok(Some(Token::new(tokenkind, value, self.group, self.line, start, self.pos)))
-
+        Ok(Some(Token::new(
+            tokenkind, value, self.group, self.line, start, self.pos,
+        )))
     }
 
     fn get_primative(&mut self) -> Option<Token> {
-        if self.inside_matrix || !self.curr_char().is_ascii_uppercase() { return None }
+        if self.inside_matrix || !self.curr_char().is_ascii_uppercase() {
+            return None;
+        }
 
         let start = self.pos;
 
         let c = self.chop(1);
-        
-        Some(Token::new(TokenKind::Group, c.as_ref(), self.group, self.line, start, self.pos))
+
+        Some(Token::new(
+            TokenKind::Group,
+            c.as_ref(),
+            self.group,
+            self.line,
+            start,
+            self.pos,
+        ))
     }
 
     fn get_numeric(&mut self) -> Option<Token> {
-        if !self.curr_char().is_ascii_digit() { return None }
+        if !self.curr_char().is_ascii_digit() {
+            return None;
+        }
 
         let start = self.pos;
 
         let buffer = self.chop_while(|x| x.is_ascii_digit());
 
-        Some(Token::new(TokenKind::Number, buffer.as_str(), self.group, self.line, start, self.pos))
+        Some(Token::new(
+            TokenKind::Number,
+            buffer.as_str(),
+            self.group,
+            self.line,
+            start,
+            self.pos,
+        ))
     }
 
     fn get_feature(&mut self) -> Result<Option<Token>, RuleSyntaxError> {
-        if !self.inside_matrix || self.curr_char() != '+' && self.curr_char() != '-' && !matches!(self.curr_char(), 'α'..='ω') && !self.curr_char().is_ascii_uppercase() {
+        if !self.inside_matrix
+            || self.curr_char() != '+'
+                && self.curr_char() != '-'
+                && !matches!(self.curr_char(), 'α'..='ω')
+                && !self.curr_char().is_ascii_uppercase()
+        {
             return Ok(None);
         }
-        
+
         let start = self.pos;
         let val = self.curr_char();
 
         self.advance();
-        
-        let mod_val = if val == '-' && (matches!(self.curr_char(), 'α'..='ω') || self.curr_char().is_ascii_uppercase()) {
-            let mut tmp = String::from('-'); tmp.push(self.curr_char());
+
+        let mod_val = if val == '-'
+            && (matches!(self.curr_char(), 'α'..='ω') || self.curr_char().is_ascii_uppercase())
+        {
+            let mut tmp = String::from('-');
+            tmp.push(self.curr_char());
             self.advance();
             tmp
         } else {
@@ -454,7 +676,7 @@ impl<'a> Lexer<'a> {
         };
 
         self.trim_whitespace();
-        
+
         let mut buffer = String::new();
 
         while self.curr_char().is_ascii_alphabetic() || self.curr_char() == '.' {
@@ -463,86 +685,176 @@ impl<'a> Lexer<'a> {
             self.trim_whitespace();
         }
 
-        if buffer.len() <= 1 { 
-            return Err(RuleSyntaxError::ExpectedAlphabetic(self.curr_char(), self.group, self.line, self.pos))
+        if buffer.len() <= 1 {
+            return Err(RuleSyntaxError::ExpectedAlphabetic(
+                self.curr_char(),
+                self.group,
+                self.line,
+                self.pos,
+            ));
         }
 
         let tkn_kind = self.feature_match(buffer, start, self.pos)?;
-        
-        if let TokenKind::Feature(FeatType::Supr(SupraType::Tone)) = tkn_kind { if mod_val == "+" || mod_val == "-" {
-            return Err(RuleSyntaxError::WrongModTone(self.group, self.line, start))
-        } }
 
-        Ok(Some(Token::new(tkn_kind, &mod_val, self.group, self.line, start, self.pos)))
+        if let TokenKind::Feature(FeatType::Supr(SupraType::Tone)) = tkn_kind {
+            if mod_val == "+" || mod_val == "-" {
+                return Err(RuleSyntaxError::WrongModTone(self.group, self.line, start));
+            }
+        }
+
+        Ok(Some(Token::new(
+            tkn_kind, &mod_val, self.group, self.line, start, self.pos,
+        )))
     }
 
     fn get_special_char(&mut self) -> Result<Option<Token>, RuleSyntaxError> {
         let start = self.pos;
         let tokenkind: TokenKind;
-        
+
         let value = match self.curr_char() {
-            ',' => { tokenkind = TokenKind::Comma;        self.chop(1) },
-            ':' => { tokenkind = TokenKind::Colon;        self.chop(1) },
-            '#' => { tokenkind = TokenKind::WordBoundary; self.chop(1) },
-            '$' => { tokenkind = TokenKind::SyllBoundary; self.chop(1) },
-            '%' => { tokenkind = TokenKind::Syllable;     self.chop(1) },
-            '*' => { tokenkind = TokenKind::Star;         self.chop(1) },
-            '∅' => { tokenkind = TokenKind::EmptySet;     self.chop(1) },
-            '&' => { tokenkind = TokenKind::Ampersand;    self.chop(1) },
-            '_' => { tokenkind = TokenKind::Underline;    self.chop(1) },
-            '<' => { 
-                if self.inside_syll {
-                    return Err(RuleSyntaxError::NestedBrackets(self.group, self.line, start));
-                }
-                tokenkind = TokenKind::LeftAngle; self.inside_syll = true;
+            ',' => {
+                tokenkind = TokenKind::Comma;
                 self.chop(1)
-            },
+            }
+            ':' => {
+                tokenkind = TokenKind::Colon;
+                self.chop(1)
+            }
+            '#' => {
+                tokenkind = TokenKind::WordBoundary;
+                self.chop(1)
+            }
+            '$' => {
+                tokenkind = TokenKind::SyllBoundary;
+                self.chop(1)
+            }
+            '%' => {
+                tokenkind = TokenKind::Syllable;
+                self.chop(1)
+            }
+            '*' => {
+                tokenkind = TokenKind::Star;
+                self.chop(1)
+            }
+            '∅' => {
+                tokenkind = TokenKind::EmptySet;
+                self.chop(1)
+            }
+            '&' => {
+                tokenkind = TokenKind::Ampersand;
+                self.chop(1)
+            }
+            '_' => {
+                tokenkind = TokenKind::Underline;
+                self.chop(1)
+            }
+            '<' => {
+                if self.inside_syll {
+                    return Err(RuleSyntaxError::NestedBrackets(
+                        self.group, self.line, start,
+                    ));
+                }
+                tokenkind = TokenKind::LeftAngle;
+                self.inside_syll = true;
+                self.chop(1)
+            }
             '>' => {
                 match self.inside_syll {
-                    true  => tokenkind = TokenKind::RightAngle,
+                    true => tokenkind = TokenKind::RightAngle,
                     false => tokenkind = TokenKind::GreaterThan,
                 }
                 self.inside_syll = false;
-                self.chop(1) 
-            },
-            '|' => { tokenkind = TokenKind::Pipe;         self.chop(1) },
+                self.chop(1)
+            }
+            '|' => {
+                tokenkind = TokenKind::Pipe;
+                self.chop(1)
+            }
             '/' => match self.next_char() {
-                '/' => { tokenkind = TokenKind::DubSlash; self.chop(2) },
-                 _  => { tokenkind = TokenKind::Slash;    self.chop(1) }
+                '/' => {
+                    tokenkind = TokenKind::DubSlash;
+                    self.chop(2)
+                }
+                _ => {
+                    tokenkind = TokenKind::Slash;
+                    self.chop(1)
+                }
             },
-            '=' => match self.next_char() { 
-                '>' => { tokenkind = TokenKind::Arrow;    self.chop(2) },
-                 _  => { tokenkind = TokenKind::Equals;   self.chop(1) },
-             },
+            '=' => match self.next_char() {
+                '>' => {
+                    tokenkind = TokenKind::Arrow;
+                    self.chop(2)
+                }
+                _ => {
+                    tokenkind = TokenKind::Equals;
+                    self.chop(1)
+                }
+            },
             '-' => match self.next_char() {
-                '>' => { tokenkind = TokenKind::Arrow;    self.chop(2) },
-                 _  => return Err(RuleSyntaxError::ExpectedCharArrow(self.next_char(), self.group, self.line, self.pos))
+                '>' => {
+                    tokenkind = TokenKind::Arrow;
+                    self.chop(2)
+                }
+                _ => {
+                    return Err(RuleSyntaxError::ExpectedCharArrow(
+                        self.next_char(),
+                        self.group,
+                        self.line,
+                        self.pos,
+                    ))
+                }
             },
-            '…' | '⋯' => { tokenkind = TokenKind::Ellipsis; self.chop(1) },
+            '…' | '⋯' => {
+                tokenkind = TokenKind::Ellipsis;
+                self.chop(1)
+            }
             '.' => match self.next_char() {
-                '.' => { tokenkind = TokenKind::Ellipsis; self.chop_while(|x| *x == '.') },
-                _ => return Err(RuleSyntaxError::ExpectedCharDot(self.next_char(), self.group, self.line, self.pos))
+                '.' => {
+                    tokenkind = TokenKind::Ellipsis;
+                    self.chop_while(|x| *x == '.')
+                }
+                _ => {
+                    return Err(RuleSyntaxError::ExpectedCharDot(
+                        self.next_char(),
+                        self.group,
+                        self.line,
+                        self.pos,
+                    ))
+                }
             },
-            _ => return Ok(None)
+            _ => return Ok(None),
         };
-        Ok(Some(Token::new(tokenkind, &value, self.group, self.line, start, self.pos)))
+        Ok(Some(Token::new(
+            tokenkind, &value, self.group, self.line, start, self.pos,
+        )))
     }
 
     fn get_diacritic(&mut self) -> Option<Token> {
-        if self.inside_matrix { return None }
+        if self.inside_matrix {
+            return None;
+        }
         let start = self.pos;
 
         let mut char = self.curr_char();
-        if char == '\'' { char = 'ʼ'; }
+        if char == '\'' {
+            char = 'ʼ';
+        }
         for (i, d) in DIACRITS.iter().enumerate() {
             if char == d.diacrit {
                 self.advance();
-                return Some(Token::new(TokenKind::Diacritic(i as u8), &char.to_string(), self.group, self.line, start, self.pos))
+                return Some(Token::new(
+                    TokenKind::Diacritic(i as u8),
+                    &char.to_string(),
+                    self.group,
+                    self.line,
+                    start,
+                    self.pos,
+                ));
             }
         }
         None
     }
-    
+
     fn cur_as_ipa(&self) -> char {
         match self.curr_char() {
             'g' => 'ɡ',
@@ -571,7 +883,9 @@ impl<'a> Lexer<'a> {
     }
 
     fn get_ipa(&mut self) -> Option<Token> {
-        if self.inside_matrix { return None }
+        if self.inside_matrix {
+            return None;
+        }
         let start = self.pos;
 
         let mut buffer = self.cur_as_ipa().to_string();
@@ -585,11 +899,11 @@ impl<'a> Lexer<'a> {
         } else if buffer == "λ" {
             buffer = "d͡ɮ".to_string()
         }
-        
+
         if CARDINALS_TRIE.contains_prefix(buffer.as_str()) {
             self.advance();
             loop {
-                let mut tmp = buffer.clone(); 
+                let mut tmp = buffer.clone();
                 tmp.push(self.cur_as_ipa());
                 if CARDINALS_TRIE.contains_prefix(tmp.as_str()) {
                     buffer.push(self.cur_as_ipa());
@@ -613,13 +927,15 @@ impl<'a> Lexer<'a> {
                 }
 
                 if self.curr_char() == '^' {
-                    tmp.pop(); tmp.push('\u{0361}');
+                    tmp.pop();
+                    tmp.push('\u{0361}');
                     if CARDINALS_TRIE.contains_prefix(tmp.as_str()) {
                         buffer.push('\u{0361}');
                         self.advance();
                         continue;
                     }
-                    tmp.pop(); tmp.push('\u{035C}');
+                    tmp.pop();
+                    tmp.push('\u{035C}');
                     if CARDINALS_TRIE.contains_prefix(tmp.as_str()) {
                         buffer.push('\u{035C}');
                         self.advance();
@@ -627,14 +943,17 @@ impl<'a> Lexer<'a> {
                     }
                     // if a click consonant
                     if let 'ʘ' | 'ǀ' | 'ǁ' | 'ǃ' | '!' | '‼' | 'ǂ' = self.next_char() {
-                        tmp.pop(); tmp.push(self.cur_as_ipa());
+                        tmp.pop();
+                        tmp.push(self.cur_as_ipa());
                         self.advance();
                         continue;
                     }
                     // if a contour click
-                    if let 'q'| 'ɢ' | 'ɴ' | 'χ' | 'ʁ' = self.next_char() {
-                        if let Some('ʘ' | 'ǀ' | 'ǁ' | 'ǃ' | '!' | '‼' | 'ǂ') = tmp.chars().next() {
-                            tmp.pop(); tmp.push(self.cur_as_ipa());
+                    if let 'q' | 'ɢ' | 'ɴ' | 'χ' | 'ʁ' = self.next_char() {
+                        if let Some('ʘ' | 'ǀ' | 'ǁ' | 'ǃ' | '!' | '‼' | 'ǂ') = tmp.chars().next()
+                        {
+                            tmp.pop();
+                            tmp.push(self.cur_as_ipa());
                             self.advance();
                             continue;
                         }
@@ -642,21 +961,31 @@ impl<'a> Lexer<'a> {
                 }
 
                 // if buffer.ends_with('\u{0361}') || buffer.ends_with('\u{035C}') {
-                //     invalid 
+                //     invalid
                 // }
-                
-                return Some(Token::new(TokenKind::Cardinal, &buffer, self.group, self.line, start, self.pos))
+
+                return Some(Token::new(
+                    TokenKind::Cardinal,
+                    &buffer,
+                    self.group,
+                    self.line,
+                    start,
+                    self.pos,
+                ));
             }
         }
         None
     }
 
-    fn get_string(&mut self) -> Result<Option<Token>, RuleSyntaxError> { 
+    fn get_string(&mut self) -> Result<Option<Token>, RuleSyntaxError> {
+        if !self.curr_char().is_ascii_alphabetic() {
+            return Ok(None);
+        }
 
-        if !self.curr_char().is_ascii_alphabetic() { return Ok(None) }
-
-        if !self.inside_matrix { 
-            return Err(RuleSyntaxError::OutsideBrackets(self.group, self.line, self.pos))
+        if !self.inside_matrix {
+            return Err(RuleSyntaxError::OutsideBrackets(
+                self.group, self.line, self.pos,
+            ));
         }
 
         let start = self.pos;
@@ -669,123 +998,177 @@ impl<'a> Lexer<'a> {
 
         match self.curr_char() {
             ':' => self.advance(),
-            _ => return Err(RuleSyntaxError::ExpectedCharColon(self.curr_char(), self.group, self.line, self.pos))
-        } 
-        
+            _ => {
+                return Err(RuleSyntaxError::ExpectedCharColon(
+                    self.curr_char(),
+                    self.group,
+                    self.line,
+                    self.pos,
+                ))
+            }
+        }
+
         self.trim_whitespace();
 
         match self.get_numeric() {
-            Some(num) => Ok(Some(Token::new(tkn_kind, &num.value, self.group, self.line, start, self.pos))),
-            _ => Err(RuleSyntaxError::ExpectedNumber(self.curr_char(), self.group, self.line, self.pos))
-
+            Some(num) => Ok(Some(Token::new(
+                tkn_kind, &num.value, self.group, self.line, start, self.pos,
+            ))),
+            _ => Err(RuleSyntaxError::ExpectedNumber(
+                self.curr_char(),
+                self.group,
+                self.line,
+                self.pos,
+            )),
         }
     }
 
     fn string_match(&mut self, buffer: String, start: usize) -> Result<TokenKind, RuleSyntaxError> {
-        use TokenKind::*;
         use FeatType::*;
         use SupraType::*;
+        use TokenKind::*;
         match buffer.to_lowercase().as_str() {
             "tone" | "ton" | "tne" | "tn" => Ok(Feature(Supr(Tone))),
-            _ => Err(RuleSyntaxError::UnknownEnbyFeature(buffer.clone(), Position::new(self.group, self.line, start, start+buffer.len())))
+            _ => Err(RuleSyntaxError::UnknownEnbyFeature(
+                buffer.clone(),
+                Position::new(self.group, self.line, start, start + buffer.len()),
+            )),
         }
     }
 
-    fn feature_match(&mut self, buffer: String, start: usize, end: usize) -> Result<TokenKind, RuleSyntaxError> {
-        use TokenKind::*;
+    fn feature_match(
+        &mut self,
+        buffer: String,
+        start: usize,
+        end: usize,
+    ) -> Result<TokenKind, RuleSyntaxError> {
+        use FType::*;
         use FeatType::*;
         use NodeType::*;
-        use FType::*;
         use SupraType::*;
+        use TokenKind::*;
         match buffer.to_lowercase().as_str() {
             // Root Node Features
-            "root"        | "rut"       | "rt"                    => Ok(Feature(Node(Root))),
-            "consonantal" | "consonant" | "cons" | "cns"          => Ok(Feature(Feat(Consonantal))),
-            "sonorant"    | "sonor"     | "son"  | "snrt" | "sn"  => Ok(Feature(Feat(Sonorant))),
-            "syllabic"    | "syllab"    | "syll" | "syl"          => Ok(Feature(Feat(Syllabic))),
+            "root" | "rut" | "rt" => Ok(Feature(Node(Root))),
+            "consonantal" | "consonant" | "cons" | "cns" => Ok(Feature(Feat(Consonantal))),
+            "sonorant" | "sonor" | "son" | "snrt" | "sn" => Ok(Feature(Feat(Sonorant))),
+            "syllabic" | "syllab" | "syll" | "syl" => Ok(Feature(Feat(Syllabic))),
             // Manner Node Features
-            "manner"         | "mann"   | "man"  | "mnnr" | "mnr" => Ok(Feature(Node(Manner))),
-            "continuant"     | "contin" | "cont" | "cnt"          => Ok(Feature(Feat(Continuant))),
-            "approximant"    | "approx" | "appr" | "app"          => Ok(Feature(Feat(Approximant))),
-            "lateral"        | "latrl"  | "ltrl" | "lat"          => Ok(Feature(Feat(Lateral))),
-            "nasal"          | "nsl"    | "nas"                   => Ok(Feature(Feat(Nasal))),
-            "delayedrelease" | "delrel" | "d.r." | "del.rel." | 
-            "delayed" | "dl" | "dlrl"   | "dr"   | "delay"    |
-            "drelease"       | "del.rel"| "drel"                  => Ok(Feature(Feat(DelayedRelease))),
-            "strident"       | "strid"  | "stri" | "stridnt"      => Ok(Feature(Feat(Strident))),
-            "rhotic"         | "rhot"   | "rho"  | "rhtc" | "rh"  => Ok(Feature(Feat(Rhotic))),
-            "click"          | "clik"   | "clk"  | "clck"          => Ok(Feature(Feat(Click))),
+            "manner" | "mann" | "man" | "mnnr" | "mnr" => Ok(Feature(Node(Manner))),
+            "continuant" | "contin" | "cont" | "cnt" => Ok(Feature(Feat(Continuant))),
+            "approximant" | "approx" | "appr" | "app" => Ok(Feature(Feat(Approximant))),
+            "lateral" | "latrl" | "ltrl" | "lat" => Ok(Feature(Feat(Lateral))),
+            "nasal" | "nsl" | "nas" => Ok(Feature(Feat(Nasal))),
+            "delayedrelease" | "delrel" | "d.r." | "del.rel." | "delayed" | "dl" | "dlrl"
+            | "dr" | "delay" | "drelease" | "del.rel" | "drel" => Ok(Feature(Feat(DelayedRelease))),
+            "strident" | "strid" | "stri" | "stridnt" => Ok(Feature(Feat(Strident))),
+            "rhotic" | "rhot" | "rho" | "rhtc" | "rh" => Ok(Feature(Feat(Rhotic))),
+            "click" | "clik" | "clk" | "clck" => Ok(Feature(Feat(Click))),
             // Laryngeal Node Features
-            "laryngeal"      | "laryng"     | "laryn"  | "lar"    => Ok(Feature(Node(Laryngeal))),
-            "voice"          | "voi"        | "vce"    | "vc"     => Ok(Feature(Feat(Voice))),
-            "spreadglottis"  | "spreadglot" | 
-            "spread"         | "s.g."       | "s.g"    | "sg"     => Ok(Feature(Feat(SpreadGlottis))),
-            "constrictedglottis"            | "constricted"  |
-            "constglot"      | "constr"     | "c.g." | "c.g" | 
-            "cg"                                                  => Ok(Feature(Feat(ConstrGlottis))),
+            "laryngeal" | "laryng" | "laryn" | "lar" => Ok(Feature(Node(Laryngeal))),
+            "voice" | "voi" | "vce" | "vc" => Ok(Feature(Feat(Voice))),
+            "spreadglottis" | "spreadglot" | "spread" | "s.g." | "s.g" | "sg" => {
+                Ok(Feature(Feat(SpreadGlottis)))
+            }
+            "constrictedglottis" | "constricted" | "constglot" | "constr" | "c.g." | "c.g"
+            | "cg" => Ok(Feature(Feat(ConstrGlottis))),
             // Place Node Feature
-            "place"       | "plce"    | "plc"                     => Ok(Feature(Node(Place))),
+            "place" | "plce" | "plc" => Ok(Feature(Node(Place))),
             // Labial Place Node Features
-            "labial"      | "lbl"     | "lab"                     => Ok(Feature(Node(Labial))),
-            "labiodental" | "ldental" | "labiodent" | "labio" | 
-            "labiod" | "labdent" | "lbdntl" | "ldent" | "ldl"     => Ok(Feature(Feat(Labiodental))),
-            "round"       | "rund"    | "rnd"       | "rd"        => Ok(Feature(Feat(Round))),
+            "labial" | "lbl" | "lab" => Ok(Feature(Node(Labial))),
+            "labiodental" | "ldental" | "labiodent" | "labio" | "labiod" | "labdent" | "lbdntl"
+            | "ldent" | "ldl" => Ok(Feature(Feat(Labiodental))),
+            "round" | "rund" | "rnd" | "rd" => Ok(Feature(Feat(Round))),
             // Coronal Place Node Features
-            "coronal"     | "coron"   | "crnl" | "cor"            => Ok(Feature(Node(Coronal))),
-            "anterior"    | "anter"   | "antr" | "ant"            => Ok(Feature(Feat(Anterior))),
-            "distributed" | "distrib" | "dist" | "dis" | "dst"    => Ok(Feature(Feat(Distributed))),
+            "coronal" | "coron" | "crnl" | "cor" => Ok(Feature(Node(Coronal))),
+            "anterior" | "anter" | "antr" | "ant" => Ok(Feature(Feat(Anterior))),
+            "distributed" | "distrib" | "dist" | "dis" | "dst" => Ok(Feature(Feat(Distributed))),
             // Dorsal Place Node Features
-            "dorsal"  | "drsl"  | "dors" | "dor"                  => Ok(Feature(Node(Dorsal))),
-            "front"   | "frnt"  | "fnt"  | "fro" | "frt" | "fr"   => Ok(Feature(Feat(Front))),
-            "back"    | "bck"   | "bk"                            => Ok(Feature(Feat(Back))),
-            "high"    | "hgh"   | "hi"                            => Ok(Feature(Feat(High))),
-            "low"     | "lw"    | "lo"                            => Ok(Feature(Feat(Low))),
-            "tense"   | "tens"  | "tns"  | "ten"                  => Ok(Feature(Feat(Tense))),
-            "reduced" | "reduc" | "redu" | "rdcd" | "red"         => Ok(Feature(Feat(Reduced))),
+            "dorsal" | "drsl" | "dors" | "dor" => Ok(Feature(Node(Dorsal))),
+            "front" | "frnt" | "fnt" | "fro" | "frt" | "fr" => Ok(Feature(Feat(Front))),
+            "back" | "bck" | "bk" => Ok(Feature(Feat(Back))),
+            "high" | "hgh" | "hi" => Ok(Feature(Feat(High))),
+            "low" | "lw" | "lo" => Ok(Feature(Feat(Low))),
+            "tense" | "tens" | "tns" | "ten" => Ok(Feature(Feat(Tense))),
+            "reduced" | "reduc" | "redu" | "rdcd" | "red" => Ok(Feature(Feat(Reduced))),
             // Pharyngeal Place Node Features
-            "pharyngeal" | "pharyng" | "pharyn"  |
-            "phar"       | "phr"                                  => Ok(Feature(Node(Pharyngeal))),
-            "advancedtongueroot"     | "a.t.r."  | "a.t.r" | 
-            "a.tr" | "at.r" | "atr"                               => Ok(Feature(Feat(AdvancedTongueRoot))),
-            "retractedtongueroot"    | "r.t.r."  | "r.t.r" | 
-            "r.tr" | "rt.r" | "rtr"                               => Ok(Feature(Feat(RetractedTongueRoot))),
+            "pharyngeal" | "pharyng" | "pharyn" | "phar" | "phr" => Ok(Feature(Node(Pharyngeal))),
+            "advancedtongueroot" | "a.t.r." | "a.t.r" | "a.tr" | "at.r" | "atr" => {
+                Ok(Feature(Feat(AdvancedTongueRoot)))
+            }
+            "retractedtongueroot" | "r.t.r." | "r.t.r" | "r.tr" | "rt.r" | "rtr" => {
+                Ok(Feature(Feat(RetractedTongueRoot)))
+            }
             // Suprasegmental Features
-            "long"     | "lng"                                    => Ok(Feature(Supr(Long))),
-            "overlong" | "overlng" | "ovrlng" | "vlong" | 
-            "olong" | "vlng" | "olng"                             => Ok(Feature(Supr(Overlong))),
-            "stress"   | "str"                                    => Ok(Feature(Supr(Stress))),
-            "secondarystress"| "sec.stress" | "secstress" |
-            "sec.str."       | "sec.str"    | "secstr"    | "sec" => Ok(Feature(Supr(SecStress))),
-            
-            _ => Err(RuleSyntaxError::UnknownFeature(buffer, Position::new(self.group, self.line, start, end)))
+            "long" | "lng" => Ok(Feature(Supr(Long))),
+            "overlong" | "overlng" | "ovrlng" | "vlong" | "olong" | "vlng" | "olng" => {
+                Ok(Feature(Supr(Overlong)))
+            }
+            "stress" | "str" => Ok(Feature(Supr(Stress))),
+            "secondarystress" | "sec.stress" | "secstress" | "sec.str." | "sec.str" | "secstr"
+            | "sec" => Ok(Feature(Supr(SecStress))),
+
+            _ => Err(RuleSyntaxError::UnknownFeature(
+                buffer,
+                Position::new(self.group, self.line, start, end),
+            )),
         }
     }
 
     fn get_next_token(&mut self) -> Result<Token, RuleSyntaxError> {
-        
         self.trim_whitespace();
-        
-        if !self.has_more_chars() { return Ok(Token::new(TokenKind::Eol, "", self.group, self.line, self.pos, self.pos+1)) }
 
-        if let Some(bkt_token) = self.get_bracket()?      { return Ok(bkt_token) }
-        if let Some(pmt_token) = self.get_primative()     { return Ok(pmt_token) }
-        if let Some(num_token) = self.get_numeric()       { return Ok(num_token) }
-        if let Some(ftr_token) = self.get_feature()?      { return Ok(ftr_token) }
-        if let Some(spc_token) = self.get_special_char()? { return Ok(spc_token) }
-        if let Some(ipa_token) = self.get_ipa()           { return Ok(ipa_token) }
-        if let Some(dia_token) = self.get_diacritic()     { return Ok(dia_token) }
-        if let Some(str_token) = self.get_string()?       { return Ok(str_token) } 
-        
-        Err(RuleSyntaxError::UnknownCharacter(self.curr_char(), self.group, self.line, self.pos))
+        if !self.has_more_chars() {
+            return Ok(Token::new(
+                TokenKind::Eol,
+                "",
+                self.group,
+                self.line,
+                self.pos,
+                self.pos + 1,
+            ));
+        }
+
+        if let Some(bkt_token) = self.get_bracket()? {
+            return Ok(bkt_token);
+        }
+        if let Some(pmt_token) = self.get_primative() {
+            return Ok(pmt_token);
+        }
+        if let Some(num_token) = self.get_numeric() {
+            return Ok(num_token);
+        }
+        if let Some(ftr_token) = self.get_feature()? {
+            return Ok(ftr_token);
+        }
+        if let Some(spc_token) = self.get_special_char()? {
+            return Ok(spc_token);
+        }
+        if let Some(ipa_token) = self.get_ipa() {
+            return Ok(ipa_token);
+        }
+        if let Some(dia_token) = self.get_diacritic() {
+            return Ok(dia_token);
+        }
+        if let Some(str_token) = self.get_string()? {
+            return Ok(str_token);
+        }
+
+        Err(RuleSyntaxError::UnknownCharacter(
+            self.curr_char(),
+            self.group,
+            self.line,
+            self.pos,
+        ))
     }
 
     pub(crate) fn get_line(&mut self) -> Result<Vec<Token>, RuleSyntaxError> {
-        let mut token_list: Vec<Token> =  Vec::new();
+        let mut token_list: Vec<Token> = Vec::new();
         loop {
             let next_token = self.get_next_token()?;
             if let TokenKind::Eol = next_token.kind {
                 token_list.push(next_token);
-                break
+                break;
             }
             token_list.push(next_token);
         }
@@ -800,11 +1183,12 @@ mod lexer_tests {
 
     #[test]
     fn test_syll() {
-
         let test_input = "%";
         let expected_result = TokenKind::Syllable;
 
-        let result = Lexer::new(&test_input.chars().collect::<Vec<_>>(), 0, 0).get_next_token().unwrap();
+        let result = Lexer::new(&test_input.chars().collect::<Vec<_>>(), 0, 0)
+            .get_next_token()
+            .unwrap();
 
         assert_eq!(result.kind, expected_result);
         assert_eq!(result.value.as_ref(), test_input);
@@ -812,21 +1196,23 @@ mod lexer_tests {
 
     #[test]
     fn test_americanist_aliases() {
-        let test_input= String::from("¢ ñ λ ł ƛ ⁿ¢ ⁿλ ⁿƛ");
-        //                                    t͡s ɲ d͡ɮ ɬ t͡ɬ ⁿt͡s ⁿd͡ɮ ⁿt͡ɬ 
+        let test_input = String::from("¢ ñ λ ł ƛ ⁿ¢ ⁿλ ⁿƛ");
+        //                                    t͡s ɲ d͡ɮ ɬ t͡ɬ ⁿt͡s ⁿd͡ɮ ⁿt͡ɬ
         let expected_result = vec![
-            Token::new(TokenKind::Cardinal,  "t͡s"   , 0, 0,  0,  1),
-            Token::new(TokenKind::Cardinal,   "ɲ"   , 0, 0,  2,  3),
-            Token::new(TokenKind::Cardinal,  "d͡ɮ"   , 0,  0,  4,  5),
-            Token::new(TokenKind::Cardinal,   "ɬ"   , 0, 0, 6, 7),
-            Token::new(TokenKind::Cardinal,  "t͡ɬ"   , 0, 0, 8, 9),
-            Token::new(TokenKind::Cardinal, "ⁿt͡s"   , 0, 0, 10, 12),
-            Token::new(TokenKind::Cardinal, "ⁿd͡ɮ"   , 0, 0, 13, 15),
-            Token::new(TokenKind::Cardinal, "ⁿt͡ɬ"   , 0, 0, 16, 18),
-            Token::new(TokenKind::Eol,         ""    ,0, 0, 18, 19),
+            Token::new(TokenKind::Cardinal, "t͡s", 0, 0, 0, 1),
+            Token::new(TokenKind::Cardinal, "ɲ", 0, 0, 2, 3),
+            Token::new(TokenKind::Cardinal, "d͡ɮ", 0, 0, 4, 5),
+            Token::new(TokenKind::Cardinal, "ɬ", 0, 0, 6, 7),
+            Token::new(TokenKind::Cardinal, "t͡ɬ", 0, 0, 8, 9),
+            Token::new(TokenKind::Cardinal, "ⁿt͡s", 0, 0, 10, 12),
+            Token::new(TokenKind::Cardinal, "ⁿd͡ɮ", 0, 0, 13, 15),
+            Token::new(TokenKind::Cardinal, "ⁿt͡ɬ", 0, 0, 16, 18),
+            Token::new(TokenKind::Eol, "", 0, 0, 18, 19),
         ];
 
-        let result = Lexer::new(&test_input.chars().collect::<Vec<_>>(), 0, 0).get_line().unwrap();        
+        let result = Lexer::new(&test_input.chars().collect::<Vec<_>>(), 0, 0)
+            .get_line()
+            .unwrap();
 
         // assert_eq!(result.len(), expected_result.len());
 
@@ -837,18 +1223,19 @@ mod lexer_tests {
 
     #[test]
     fn test_ipa_sep() {
-        
-        let test_input= String::from("t͡ɕ b͡β b a");
-        
+        let test_input = String::from("t͡ɕ b͡β b a");
+
         let expected_result = vec![
-            Token::new(TokenKind::Cardinal, "t͡ɕ", 0, 0,  0,  3),
-            Token::new(TokenKind::Cardinal, "b͡β", 0, 0,  4,  7),
-            Token::new(TokenKind::Cardinal,  "b", 0, 0,  8,  9),
-            Token::new(TokenKind::Cardinal,  "a", 0, 0, 10, 11),
-            Token::new(TokenKind::Eol,        "", 0, 0, 11, 12),
+            Token::new(TokenKind::Cardinal, "t͡ɕ", 0, 0, 0, 3),
+            Token::new(TokenKind::Cardinal, "b͡β", 0, 0, 4, 7),
+            Token::new(TokenKind::Cardinal, "b", 0, 0, 8, 9),
+            Token::new(TokenKind::Cardinal, "a", 0, 0, 10, 11),
+            Token::new(TokenKind::Eol, "", 0, 0, 11, 12),
         ];
 
-        let result = Lexer::new(&test_input.chars().collect::<Vec<_>>(), 0, 0).get_line().unwrap();        
+        let result = Lexer::new(&test_input.chars().collect::<Vec<_>>(), 0, 0)
+            .get_line()
+            .unwrap();
 
         assert_eq!(result.len(), expected_result.len());
 
@@ -859,17 +1246,18 @@ mod lexer_tests {
 
     #[test]
     fn test_ipa_joined() {
-        
-        let test_input= String::from("t^ɕb͡βba");
+        let test_input = String::from("t^ɕb͡βba");
         let expected_result = vec![
             Token::new(TokenKind::Cardinal, "t͡ɕ", 0, 0, 0, 3),
             Token::new(TokenKind::Cardinal, "b͡β", 0, 0, 3, 6),
-            Token::new(TokenKind::Cardinal,  "b", 0, 0, 6, 7),
-            Token::new(TokenKind::Cardinal,  "a", 0, 0, 7, 8),
-            Token::new(TokenKind::Eol,        "", 0, 0, 8, 9),
+            Token::new(TokenKind::Cardinal, "b", 0, 0, 6, 7),
+            Token::new(TokenKind::Cardinal, "a", 0, 0, 7, 8),
+            Token::new(TokenKind::Eol, "", 0, 0, 8, 9),
         ];
 
-        let result = Lexer::new(&test_input.chars().collect::<Vec<_>>(), 0, 0).get_line().unwrap();  
+        let result = Lexer::new(&test_input.chars().collect::<Vec<_>>(), 0, 0)
+            .get_line()
+            .unwrap();
 
         assert_eq!(result.len(), expected_result.len());
 
@@ -880,16 +1268,17 @@ mod lexer_tests {
 
     #[test]
     fn test_ipa_tie() {
-        
-        let test_input= String::from("t^ɕ > b^β");
+        let test_input = String::from("t^ɕ > b^β");
         let expected_result = vec![
-            Token::new(TokenKind::Cardinal,   "t͡ɕ", 0, 0, 0, 3),
+            Token::new(TokenKind::Cardinal, "t͡ɕ", 0, 0, 0, 3),
             Token::new(TokenKind::GreaterThan, ">", 0, 0, 4, 5),
-            Token::new(TokenKind::Cardinal,   "b͡β", 0, 0, 6, 9),
-            Token::new(TokenKind::Eol,          "", 0, 0, 9, 10),
+            Token::new(TokenKind::Cardinal, "b͡β", 0, 0, 6, 9),
+            Token::new(TokenKind::Eol, "", 0, 0, 9, 10),
         ];
 
-        let result = Lexer::new(&test_input.chars().collect::<Vec<_>>(), 0, 0).get_line().unwrap();  
+        let result = Lexer::new(&test_input.chars().collect::<Vec<_>>(), 0, 0)
+            .get_line()
+            .unwrap();
 
         assert_eq!(result.len(), expected_result.len());
 
@@ -900,18 +1289,19 @@ mod lexer_tests {
 
     #[test]
     fn test_metathesis() {
-        
-        let test_input= String::from("t^ɕ...b͡β > &");
+        let test_input = String::from("t^ɕ...b͡β > &");
         let expected_result = vec![
-            Token::new(TokenKind::Cardinal,   "t͡ɕ", 0, 0,  0,  3),
-            Token::new(TokenKind::Ellipsis,  "...", 0, 0,  3,  6),
-            Token::new(TokenKind::Cardinal,   "b͡β", 0, 0,  6,  9),
+            Token::new(TokenKind::Cardinal, "t͡ɕ", 0, 0, 0, 3),
+            Token::new(TokenKind::Ellipsis, "...", 0, 0, 3, 6),
+            Token::new(TokenKind::Cardinal, "b͡β", 0, 0, 6, 9),
             Token::new(TokenKind::GreaterThan, ">", 0, 0, 10, 11),
-            Token::new(TokenKind::Ampersand,   "&", 0, 0, 12, 13),
-            Token::new(TokenKind::Eol,          "", 0, 0, 13, 14),
+            Token::new(TokenKind::Ampersand, "&", 0, 0, 12, 13),
+            Token::new(TokenKind::Eol, "", 0, 0, 13, 14),
         ];
 
-        let result = Lexer::new(&test_input.chars().collect::<Vec<_>>(), 0, 0).get_line().unwrap();        
+        let result = Lexer::new(&test_input.chars().collect::<Vec<_>>(), 0, 0)
+            .get_line()
+            .unwrap();
 
         assert_eq!(result.len(), expected_result.len());
 
@@ -923,72 +1313,82 @@ mod lexer_tests {
     #[test]
     fn test_feature_matrix() {
         use FeatType::*;
-        let test_input= String::from("[+voi, -sg, αPLACE]");
+        let test_input = String::from("[+voi, -sg, αPLACE]");
         let expected_result = vec![
-            Token::new(TokenKind::LeftSquare,                          "[", 0, 0,  0,  1),
-            Token::new(TokenKind::Feature(Feat(FType::Voice)),         "+", 0, 0,  1,  5),
-            Token::new(TokenKind::Comma,                               ",", 0, 0,  5,  6),
-            Token::new(TokenKind::Feature(Feat(FType::SpreadGlottis)), "-", 0, 0,  7, 10),
-            Token::new(TokenKind::Comma,                               ",", 0, 0, 10, 11),
-            Token::new(TokenKind::Feature(Node(NodeType::Place)),      "α", 0, 0, 12, 18),
-            Token::new(TokenKind::RightSquare,                         "]", 0, 0, 18, 19),
-            Token::new(TokenKind::Eol,                                  "", 0, 0, 19, 20),
+            Token::new(TokenKind::LeftSquare, "[", 0, 0, 0, 1),
+            Token::new(TokenKind::Feature(Feat(FType::Voice)), "+", 0, 0, 1, 5),
+            Token::new(TokenKind::Comma, ",", 0, 0, 5, 6),
+            Token::new(
+                TokenKind::Feature(Feat(FType::SpreadGlottis)),
+                "-",
+                0,
+                0,
+                7,
+                10,
+            ),
+            Token::new(TokenKind::Comma, ",", 0, 0, 10, 11),
+            Token::new(TokenKind::Feature(Node(NodeType::Place)), "α", 0, 0, 12, 18),
+            Token::new(TokenKind::RightSquare, "]", 0, 0, 18, 19),
+            Token::new(TokenKind::Eol, "", 0, 0, 19, 20),
         ];
 
-        let result = Lexer::new(&test_input.chars().collect::<Vec<_>>(), 0, 0).get_line().unwrap();        
+        let result = Lexer::new(&test_input.chars().collect::<Vec<_>>(), 0, 0)
+            .get_line()
+            .unwrap();
 
         assert_eq!(result.len(), expected_result.len());
 
         for i in 0..result.len() {
             assert_eq!(result[i], expected_result[i]);
-
         }
     }
 
     #[test]
     fn test_negative_alpha() {
         use FeatType::*;
-        let test_input= String::from("[-αPLACE]");
+        let test_input = String::from("[-αPLACE]");
         let expected_result = vec![
-            Token::new(TokenKind::LeftSquare,                          "[", 0, 0,  0,  1),
-            Token::new(TokenKind::Feature(Node(NodeType::Place)),     "-α", 0, 0,  1,  8),
-            Token::new(TokenKind::RightSquare,                         "]", 0, 0,  8,  9),
-            Token::new(TokenKind::Eol,                                  "", 0, 0,  9, 10),
+            Token::new(TokenKind::LeftSquare, "[", 0, 0, 0, 1),
+            Token::new(TokenKind::Feature(Node(NodeType::Place)), "-α", 0, 0, 1, 8),
+            Token::new(TokenKind::RightSquare, "]", 0, 0, 8, 9),
+            Token::new(TokenKind::Eol, "", 0, 0, 9, 10),
         ];
 
-        let result = Lexer::new(&test_input.chars().collect::<Vec<_>>(), 0, 0).get_line().unwrap();        
+        let result = Lexer::new(&test_input.chars().collect::<Vec<_>>(), 0, 0)
+            .get_line()
+            .unwrap();
 
         assert_eq!(result.len(), expected_result.len());
 
         for i in 0..result.len() {
             assert_eq!(result[i], expected_result[i]);
-
         }
     }
 
     #[test]
     fn test_variables() {
-        
-        let test_input= String::from("C=1 V=2 > 2 1 / _C // _");
+        let test_input = String::from("C=1 V=2 > 2 1 / _C // _");
         let expected_result = vec![
-            Token::new(TokenKind::Group,       "C", 0, 0,  0,  1),
-            Token::new(TokenKind::Equals,      "=", 0, 0,  1,  2),
-            Token::new(TokenKind::Number,      "1", 0, 0,  2,  3),
-            Token::new(TokenKind::Group,       "V", 0, 0,  4,  5),
-            Token::new(TokenKind::Equals,      "=", 0, 0,  5,  6),
-            Token::new(TokenKind::Number,      "2", 0, 0,  6,  7),
-            Token::new(TokenKind::GreaterThan, ">", 0, 0,  8,  9),
-            Token::new(TokenKind::Number,      "2", 0, 0, 10, 11),
-            Token::new(TokenKind::Number,      "1", 0, 0, 12, 13),
-            Token::new(TokenKind::Slash,       "/", 0, 0, 14, 15),
-            Token::new(TokenKind::Underline,   "_", 0, 0, 16, 17),
-            Token::new(TokenKind::Group,       "C", 0, 0, 17, 18),
-            Token::new(TokenKind::DubSlash,   "//", 0, 0, 19, 21),
-            Token::new(TokenKind::Underline,   "_", 0, 0, 22, 23),
-            Token::new(TokenKind::Eol,          "", 0, 0, 23, 24),
+            Token::new(TokenKind::Group, "C", 0, 0, 0, 1),
+            Token::new(TokenKind::Equals, "=", 0, 0, 1, 2),
+            Token::new(TokenKind::Number, "1", 0, 0, 2, 3),
+            Token::new(TokenKind::Group, "V", 0, 0, 4, 5),
+            Token::new(TokenKind::Equals, "=", 0, 0, 5, 6),
+            Token::new(TokenKind::Number, "2", 0, 0, 6, 7),
+            Token::new(TokenKind::GreaterThan, ">", 0, 0, 8, 9),
+            Token::new(TokenKind::Number, "2", 0, 0, 10, 11),
+            Token::new(TokenKind::Number, "1", 0, 0, 12, 13),
+            Token::new(TokenKind::Slash, "/", 0, 0, 14, 15),
+            Token::new(TokenKind::Underline, "_", 0, 0, 16, 17),
+            Token::new(TokenKind::Group, "C", 0, 0, 17, 18),
+            Token::new(TokenKind::DubSlash, "//", 0, 0, 19, 21),
+            Token::new(TokenKind::Underline, "_", 0, 0, 22, 23),
+            Token::new(TokenKind::Eol, "", 0, 0, 23, 24),
         ];
 
-        let result = Lexer::new(&test_input.chars().collect::<Vec<_>>(), 0, 0).get_line().unwrap();        
+        let result = Lexer::new(&test_input.chars().collect::<Vec<_>>(), 0, 0)
+            .get_line()
+            .unwrap();
 
         assert_eq!(result.len(), expected_result.len());
 
@@ -996,5 +1396,4 @@ mod lexer_tests {
             assert_eq!(result[i], expected_result[i]);
         }
     }
-
 }

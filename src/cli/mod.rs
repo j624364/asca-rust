@@ -1,10 +1,10 @@
-pub mod util;
 pub mod args;
-pub mod parse;
 pub mod config;
-pub mod seq;
-pub mod run;
 pub mod convert;
+pub mod parse;
+pub mod run;
+pub mod seq;
+pub mod util;
 
 use asca::RuleGroup;
 

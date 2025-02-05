@@ -1,28 +1,28 @@
-mod lexer;
-mod trie;
-mod parser;
-mod word;
-mod syll;
-mod seg;
-mod rule;
-mod subrule;
-mod error;
 mod alias;
+mod error;
+mod lexer;
+mod parser;
+mod rule;
+mod seg;
+mod subrule;
+mod syll;
+mod trie;
+mod word;
 
 pub use error::*;
 
+use lazy_static::lazy_static;
 use serde::Deserialize;
 use std::collections::HashMap;
-use lazy_static::lazy_static;
 use wasm_bindgen::prelude::*;
 
-use alias ::{lexer::AliasLexer, parser::AliasParser, AliasKind, Transformation};
-use lexer ::*;
+use alias::{lexer::AliasLexer, parser::AliasParser, AliasKind, Transformation};
+use lexer::*;
 use parser::*;
-use trie  ::*;
-use word  ::*;
-use seg   ::*;
-use rule  ::*;
+use rule::*;
+use seg::*;
+use trie::*;
+use word::*;
 
 const CARDINALS_FILE: &str = include_str!("cardinals.json");
 const DIACRITIC_FILE: &str = include_str!("diacritics.json");
@@ -33,16 +33,16 @@ lazy_static! {
         // at least it works
         #[derive(Debug, Copy, Clone, PartialEq, Eq, Deserialize, Hash)]
         pub enum DiaFeatType {
-            Root, Manner, Laryngeal, Place, Labial, Coronal, Dorsal, Pharyngeal, 
-            /*RUT*/ Consonantal, Sonorant, Syllabic,      
-            /*MAN*/ Continuant, Approximant, Lateral, Nasal, DelayedRelease, Strident, Rhotic, Click,          
-            /*LAR*/ Voice, SpreadGlottis, ConstrGlottis,   
-            /*LAB*/ Labiodental, Round,          
-            /*COR*/ Anterior, Distributed,     
-            /*DOR*/ Front, Back, High, Low, Tense, Reduced,        
-            /*PHR*/ AdvancedTongueRoot, RetractedTongueRoot, 
+            Root, Manner, Laryngeal, Place, Labial, Coronal, Dorsal, Pharyngeal,
+            /*RUT*/ Consonantal, Sonorant, Syllabic,
+            /*MAN*/ Continuant, Approximant, Lateral, Nasal, DelayedRelease, Strident, Rhotic, Click,
+            /*LAR*/ Voice, SpreadGlottis, ConstrGlottis,
+            /*LAB*/ Labiodental, Round,
+            /*COR*/ Anterior, Distributed,
+            /*DOR*/ Front, Back, High, Low, Tense, Reduced,
+            /*PHR*/ AdvancedTongueRoot, RetractedTongueRoot,
         }
-        
+
         #[derive(Deserialize)]
         struct DT {
             pub name: String,
@@ -64,7 +64,7 @@ lazy_static! {
                             else { args.nodes[x] = Some(ModKind::Binary(BinMod::Positive)) };
                         },
                         false => {
-                            if x > 7 { args.feats[x - 8] = Some(ModKind::Binary(BinMod::Negative)) } 
+                            if x > 7 { args.feats[x - 8] = Some(ModKind::Binary(BinMod::Negative)) }
                             else { args.nodes[x] = Some(ModKind::Binary(BinMod::Negative)) };
                         }
                     }
@@ -73,10 +73,10 @@ lazy_static! {
             }
 
             pub fn to_diacritic(&self) ->  Diacritic {
-                Diacritic { 
-                    name: self.name.clone(), 
-                    diacrit: self.diacrit, 
-                    prereqs: self.hm_to_mod(&self.prereqs), 
+                Diacritic {
+                    name: self.name.clone(),
+                    diacrit: self.diacrit,
+                    prereqs: self.hm_to_mod(&self.prereqs),
                     payload: self.hm_to_mod(&self.payload)
                 }
             }
@@ -101,28 +101,39 @@ lazy_static! {
         });
 
         m
-    };    
+    };
 }
-
 
 #[derive(Debug, Clone, serde::Deserialize, serde::Serialize)]
 pub struct RuleGroup {
     pub name: String,
     pub rule: Vec<String>,
-    pub description: String, 
+    pub description: String,
 }
 
 impl RuleGroup {
     pub fn new() -> Self {
-        Self { name: String::new(), rule: Vec::new(), description: String::new() }
+        Self {
+            name: String::new(),
+            rule: Vec::new(),
+            description: String::new(),
+        }
     }
 
     pub fn from<T: Into<String>>(name: T, rule: Vec<String>, description: T) -> Self {
-        Self { name: name.into(), rule, description: description.into() }
+        Self {
+            name: name.into(),
+            rule,
+            description: description.into(),
+        }
     }
 
     pub fn from_rules(rule: Vec<String>) -> Self {
-        Self { name: String::new(), rule, description: String::new() }
+        Self {
+            name: String::new(),
+            rule,
+            description: String::new(),
+        }
     }
 
     pub fn is_empty(&self) -> bool {
@@ -136,30 +147,29 @@ impl Default for RuleGroup {
     }
 }
 
-
 // We are only normalising a few characters as most would be invalid anyway.
 pub(crate) fn normalise(s: &str) -> String {
     s.replace('ã', "ã")
-     .replace('ẽ', "ẽ")
-     .replace('ĩ', "ĩ")
-     .replace('õ', "õ")
-     .replace('ũ', "ũ")
-     .replace('ỹ', "ỹ")
-     .replace('ℇ', "ɛ")
-     .replace('ꭤ', "ɑ")
-     .replace('ǝ', "ə")
-     .replace('ɚ', "ə˞")
-     .replace('ɝ', "ɜ˞")
-     // cause why not?
-     .replace('ℎ', "h")
-     .replace('ℏ', "ħ")
-     .replace('ﬁ', "fi")
-     .replace('ﬂ', "fl")
-     .replace('ĳ', "ij")
-     .replace('ǌ', "nj")
-     .replace('ǉ', "lj")
-     // .replace('ǳ', "d͡z")
-     // .replace('ǆ', "d͡ʒ")
+        .replace('ẽ', "ẽ")
+        .replace('ĩ', "ĩ")
+        .replace('õ', "õ")
+        .replace('ũ', "ũ")
+        .replace('ỹ', "ỹ")
+        .replace('ℇ', "ɛ")
+        .replace('ꭤ', "ɑ")
+        .replace('ǝ', "ə")
+        .replace('ɚ', "ə˞")
+        .replace('ɝ', "ɜ˞")
+        // cause why not?
+        .replace('ℎ', "h")
+        .replace('ℏ', "ħ")
+        .replace('ﬁ', "fi")
+        .replace('ﬂ', "fl")
+        .replace('ĳ', "ij")
+        .replace('ǌ', "nj")
+        .replace('ǉ', "lj")
+    // .replace('ǳ', "d͡z")
+    // .replace('ǆ', "d͡ʒ")
 }
 
 fn apply_rule_groups(rules: &[Vec<Rule>], words: &[Word]) -> Result<Vec<Word>, Error> {
@@ -179,7 +189,10 @@ fn apply_rule_groups(rules: &[Vec<Rule>], words: &[Word]) -> Result<Vec<Word>, E
     Ok(transformed_words)
 }
 
-fn words_to_string(words: Vec<Word>, alias_from: Vec<Transformation>) -> Result<Vec<String>, WordRuntimeError> {
+fn words_to_string(
+    words: Vec<Word>,
+    alias_from: Vec<Transformation>,
+) -> Result<Vec<String>, WordRuntimeError> {
     let mut wrds_str: Vec<String> = Vec::with_capacity(words.len());
     for w in words {
         wrds_str.push(w.render(&alias_from));
@@ -187,7 +200,10 @@ fn words_to_string(words: Vec<Word>, alias_from: Vec<Transformation>) -> Result<
     Ok(wrds_str)
 }
 
-fn parse_words(unparsed_words: &[String], alias_into: &[Transformation]) -> Result<Vec<Word>, Error> {
+fn parse_words(
+    unparsed_words: &[String],
+    alias_into: &[Transformation],
+) -> Result<Vec<Word>, Error> {
     let mut words: Vec<Word> = Vec::with_capacity(unparsed_words.len());
     for w in unparsed_words {
         words.push(Word::new(normalise(w), alias_into)?);
@@ -195,13 +211,21 @@ fn parse_words(unparsed_words: &[String], alias_into: &[Transformation]) -> Resu
     Ok(words)
 }
 
-fn parse_rule_groups(unparsed_rule_groups: &[RuleGroup]) -> Result<Vec<Vec<Rule>>, RuleSyntaxError> {
+fn parse_rule_groups(
+    unparsed_rule_groups: &[RuleGroup],
+) -> Result<Vec<Vec<Rule>>, RuleSyntaxError> {
     let mut rule_groups = Vec::with_capacity(unparsed_rule_groups.len());
 
     for (rgi, rg) in unparsed_rule_groups.iter().enumerate() {
         let mut rule_group = Vec::with_capacity(rg.rule.len());
         for (ri, r) in rg.rule.iter().enumerate() {
-            if let Some(asdf) = Parser::new(Lexer::new(&r.chars().collect::<Vec<_>>(), rgi, ri).get_line()?, rgi, ri).parse()? {
+            if let Some(asdf) = Parser::new(
+                Lexer::new(&r.chars().collect::<Vec<_>>(), rgi, ri).get_line()?,
+                rgi,
+                ri,
+            )
+            .parse()?
+            {
                 rule_group.push(asdf);
             }
         }
@@ -211,23 +235,55 @@ fn parse_rule_groups(unparsed_rule_groups: &[RuleGroup]) -> Result<Vec<Vec<Rule>
     Ok(rule_groups)
 }
 
-fn parse_aliases(_into: &[String], _from: &[String]) -> Result<(Vec<Transformation>, Vec<Transformation>), Error> {
+fn parse_aliases(
+    _into: &[String],
+    _from: &[String],
+) -> Result<(Vec<Transformation>, Vec<Transformation>), Error> {
     let mut into_parsed = vec![];
     for (line, alias) in _into.iter().enumerate() {
-        into_parsed.append(&mut AliasParser::new(AliasKind::Deromaniser, AliasLexer::new(AliasKind::Deromaniser, &alias.chars().collect::<Vec<_>>(), line).get_line()?, line).parse()?);
+        into_parsed.append(
+            &mut AliasParser::new(
+                AliasKind::Deromaniser,
+                AliasLexer::new(
+                    AliasKind::Deromaniser,
+                    &alias.chars().collect::<Vec<_>>(),
+                    line,
+                )
+                .get_line()?,
+                line,
+            )
+            .parse()?,
+        );
     }
-    
+
     let mut from_parsed = vec![];
     for (line, alias) in _from.iter().enumerate() {
-        from_parsed.append(&mut AliasParser::new(AliasKind::Romaniser, AliasLexer::new(AliasKind::Romaniser, &alias.chars().collect::<Vec<_>>(), line).get_line()?, line).parse()?);
+        from_parsed.append(
+            &mut AliasParser::new(
+                AliasKind::Romaniser,
+                AliasLexer::new(
+                    AliasKind::Romaniser,
+                    &alias.chars().collect::<Vec<_>>(),
+                    line,
+                )
+                .get_line()?,
+                line,
+            )
+            .parse()?,
+        );
     }
 
     Ok((into_parsed, from_parsed))
 }
 
-pub fn run(unparsed_rules: &[RuleGroup], unparsed_words: &[String], alias_into: &[String], alias_from: &[String]) -> Result<Vec<String>, Error> {
+pub fn run(
+    unparsed_rules: &[RuleGroup],
+    unparsed_words: &[String],
+    alias_into: &[String],
+    alias_from: &[String],
+) -> Result<Vec<String>, Error> {
     let (alias_into, alias_from) = parse_aliases(alias_into, alias_from)?;
-    
+
     let words = parse_words(unparsed_words, &alias_into)?;
     let rules = parse_rule_groups(unparsed_rules)?;
     let res = apply_rule_groups(&rules, &words)?;
@@ -235,22 +291,44 @@ pub fn run(unparsed_rules: &[RuleGroup], unparsed_words: &[String], alias_into: 
     Ok(words_to_string(res, alias_from)?)
 }
 
-
 #[wasm_bindgen]
-pub fn run_wasm(val: JsValue, unparsed_words: Vec<String>, unparsed_into: Vec<String>, unparsed_from: Vec<String>) -> Vec<String> {
-    let unparsed_rules: Vec<RuleGroup> = serde_wasm_bindgen::from_value(val).expect("Rules are in valid JSObject format");
+pub fn run_wasm(
+    val: JsValue,
+    unparsed_words: Vec<String>,
+    unparsed_into: Vec<String>,
+    unparsed_from: Vec<String>,
+) -> Vec<String> {
+    let unparsed_rules: Vec<RuleGroup> =
+        serde_wasm_bindgen::from_value(val).expect("Rules are in valid JSObject format");
 
-    parse_result_web(run(&unparsed_rules, &unparsed_words, &unparsed_into, &unparsed_from), &unparsed_rules, &unparsed_words, &unparsed_into, &unparsed_from)
+    parse_result_web(
+        run(
+            &unparsed_rules,
+            &unparsed_words,
+            &unparsed_into,
+            &unparsed_from,
+        ),
+        &unparsed_rules,
+        &unparsed_words,
+        &unparsed_into,
+        &unparsed_from,
+    )
 }
 
-fn parse_result_web(unparsed_result: Result<Vec<String>, Error>, rules: &[RuleGroup], words: &[String], unparsed_into: &[String], unparsed_from: &[String]) -> Vec<String> {
+fn parse_result_web(
+    unparsed_result: Result<Vec<String>, Error>,
+    rules: &[RuleGroup],
+    words: &[String],
+    unparsed_into: &[String],
+    unparsed_from: &[String],
+) -> Vec<String> {
     let mut res = Vec::new();
     match unparsed_result {
         Ok(output) => {
             for o in output {
                 res.push(o);
             }
-        },
+        }
         Err(err) => match err {
             Error::WordSyn(e) => res.push(e.format_word_error(words)),
             Error::WordRun(e) => res.push(e.format_word_error(words)),
