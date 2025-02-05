@@ -1,4 +1,6 @@
-# ASCA
+# ASCA (fork)
+
+The original project can be found [here](https://github.com/Girv98/asca-rust). This was forked for a personal use case.
 
 [ASCA](https://asca.girv.dev) is a Sound Change Applier written in Rust with WASM.
 
@@ -18,9 +20,13 @@ User guide can be found [here](./doc/doc.md).
 
 [Changelog](./CHANGELOG.md)
 
-## Cli
+## Changes from original.
 
-A cli specific user guide can be found [here](./doc/doc-cli.md).
+The original project can be found [here](https://github.com/Girv98/asca-rust).
+
+- Formatted with `cargo fmt`
+- Some slight performance improvements.
+- (API) ParsedRules struct added so that repeated calls to run() are less expensive.
 
 ### Installation
 
